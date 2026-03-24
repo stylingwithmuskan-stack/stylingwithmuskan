@@ -1,0 +1,306 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+
+  /* Women Theme (default) */
+  :root,
+  .theme-women {
+    --background: 271 40% 95%;
+    --foreground: 271 40% 5%;
+    --card: 271 40% 98%;
+    --card-foreground: 271 40% 5%;
+    --popover: 271 40% 98%;
+    --popover-foreground: 271 40% 5%;
+    --primary: 271 85% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 271 60% 90%;
+    --secondary-foreground: 271 70% 25%;
+    --muted: 271 20% 93%;
+    --muted-foreground: 271 20% 40%;
+    --accent: 271 90% 92%;
+    --accent-foreground: 271 85% 45%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 270 15% 90%;
+    --input: 270 15% 92%;
+    --ring: 271 76% 53%;
+    --radius: 1rem;
+
+    --sidebar-background: 271 50% 15%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 271 76% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 271 40% 25%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 271 40% 20%;
+    --sidebar-ring: 271 76% 53%;
+
+    --gradient-start: 271 76% 53%;
+    --gradient-end: 271 60% 88%;
+    --glow: 271 76% 53%;
+
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Men Theme */
+  .theme-men {
+    --background: 220 20% 10%;
+    --foreground: 220 10% 92%;
+    --card: 220 18% 14%;
+    --card-foreground: 220 10% 92%;
+    --popover: 220 18% 14%;
+    --popover-foreground: 220 10% 92%;
+    --primary: 215 70% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 15% 20%;
+    --secondary-foreground: 220 10% 85%;
+    --muted: 220 15% 18%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 215 40% 25%;
+    --accent-foreground: 215 50% 80%;
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 22%;
+    --input: 220 15% 22%;
+    --ring: 215 70% 50%;
+    --radius: 0.5rem;
+
+    --sidebar-background: 220 18% 12%;
+    --sidebar-foreground: 220 10% 92%;
+    --sidebar-primary: 215 70% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 40% 20%;
+    --sidebar-accent-foreground: 215 50% 80%;
+    --sidebar-border: 220 15% 22%;
+    --sidebar-ring: 215 70% 50%;
+
+    --gradient-start: 215 70% 50%;
+    --gradient-end: 250 50% 40%;
+    --glow: 215 70% 50%;
+
+    font-family: 'Montserrat', sans-serif;
+  }
+
+  /* Beautician Theme - Professional Light Purple/Violet */
+  .theme-beautician {
+    --background: 271 45% 97%;
+    --foreground: 271 40% 5%;
+    --card: 271 40% 99%;
+    --card-foreground: 271 40% 5%;
+    --popover: 271 40% 99%;
+    --popover-foreground: 271 40% 5%;
+    --primary: 271 85% 58%;
+    /* Deep Violet */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 271 60% 92%;
+    /* Light Lavender */
+    --secondary-foreground: 271 70% 20%;
+    --muted: 271 20% 94%;
+    --muted-foreground: 271 20% 40%;
+    --accent: 271 95% 93%;
+    /* Very soft purple highlight */
+    --accent-foreground: 271 90% 48%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 271 30% 88%;
+    --input: 271 30% 90%;
+    --ring: 271 85% 58%;
+    --radius: 0.375rem;
+
+    --sidebar-background: 271 50% 15%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 271 76% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 271 40% 25%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 271 40% 20%;
+    --sidebar-ring: 271 76% 53%;
+
+    --gradient-start: 271 76% 53%;
+    --gradient-end: 271 60% 88%;
+    --glow: 271 76% 53%;
+
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Beautician Dark Mode - Professional Deep Violet/Black */
+  .dark.theme-beautician {
+    --background: 272 50% 3%;
+    --foreground: 270 20% 98%;
+    --card: 272 40% 6%;
+    --card-foreground: 270 15% 95%;
+    --popover: 272 40% 6%;
+    --popover-foreground: 270 15% 95%;
+    --primary: 271 85% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 271 30% 12%;
+    --secondary-foreground: 271 80% 80%;
+    --muted: 271 25% 10%;
+    --muted-foreground: 270 10% 60%;
+    --accent: 271 40% 15%;
+    --accent-foreground: 271 85% 70%;
+    --border: 271 20% 15%;
+    --input: 271 20% 15%;
+    --ring: 271 85% 60%;
+
+    --sidebar-background: 271 60% 4%;
+    --sidebar-foreground: 270 10% 95%;
+    --sidebar-border: 271 30% 10%;
+    --sidebar-accent: 271 40% 12%;
+
+    --gradient-start: 271 85% 60%;
+    --gradient-end: 272 50% 3%;
+  }
+
+  /* Vendor Theme - Professional Dark Green */
+  .theme-vendor {
+    --background: 142 20% 98%;
+    --foreground: 142 25% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 142 25% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 142 25% 10%;
+    --primary: 142 70% 35%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 142 25% 95%;
+    --secondary-foreground: 142 60% 25%;
+    --muted: 142 10% 95%;
+    --muted-foreground: 142 10% 45%;
+    --accent: 142 60% 95%;
+    --accent-foreground: 142 70% 30%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 142 15% 90%;
+    --input: 142 15% 92%;
+    --ring: 142 70% 35%;
+    --radius: 0.75rem;
+
+    --sidebar-background: 142 60% 10%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 142 70% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 142 45% 18%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 142 40% 16%;
+    --sidebar-ring: 142 70% 40%;
+
+    --gradient-start: 142 70% 35%;
+    --gradient-end: 142 50% 25%;
+    --glow: 142 70% 35%;
+
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Admin Theme - Professional Dark Indigo/Slate */
+  .theme-admin {
+    --background: 224 30% 6%;
+    --foreground: 220 15% 95%;
+    --card: 224 25% 9%;
+    --card-foreground: 220 15% 95%;
+    --popover: 224 25% 9%;
+    --popover-foreground: 220 15% 95%;
+    --primary: 230 70% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 224 20% 14%;
+    --secondary-foreground: 220 15% 80%;
+    --muted: 224 20% 12%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 230 40% 18%;
+    --accent-foreground: 230 70% 75%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 224 15% 16%;
+    --input: 224 15% 16%;
+    --ring: 230 70% 55%;
+    --radius: 0.625rem;
+
+    --sidebar-background: 224 35% 5%;
+    --sidebar-foreground: 220 10% 90%;
+    --sidebar-primary: 230 70% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 230 30% 15%;
+    --sidebar-accent-foreground: 230 60% 80%;
+    --sidebar-border: 224 20% 12%;
+    --sidebar-ring: 230 70% 55%;
+
+    --gradient-start: 230 70% 55%;
+    --gradient-end: 260 60% 45%;
+    --glow: 230 70% 55%;
+
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .font-body {
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .font-heading-men {
+    font-family: 'Montserrat', sans-serif;
+  }
+
+  .font-body-men {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .glass {
+    @apply bg-card/70 backdrop-blur-xl border border-border/50;
+  }
+
+  .glass-strong {
+    @apply bg-card/85 backdrop-blur-2xl border border-border/60;
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 30px -5px hsl(var(--primary) / 0.3);
+  }
+
+  .glow-primary-strong {
+    box-shadow: 0 0 40px -5px hsl(var(--primary) / 0.5);
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
+  }
+
+  .bg-gradient-theme {
+    background-image: linear-gradient(135deg, hsl(var(--gradient-start)) 0%, hsl(var(--gradient-start)) 35%, hsl(var(--gradient-end)) 100%);
+  }
+
+  .shadow-soft {
+    box-shadow: 0 4px 20px -4px hsl(var(--foreground) / 0.08);
+  }
+
+  .shadow-elevated {
+    box-shadow: 0 8px 30px -6px hsl(var(--foreground) / 0.12);
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

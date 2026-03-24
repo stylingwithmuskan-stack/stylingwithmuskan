@@ -1,0 +1,17 @@
+export const PORT = process.env.PORT;
+export const MONGO_URI = process.env.MONGO_URI;
+export const MONGO_DB = process.env.MONGO_DB;
+export const REDIS_URL = process.env.REDIS_URL;
+export const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
+export const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+export const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+export const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
+export const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+export const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+export const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || "";
+export const SWAGGER_SERVER_URL = process.env.SWAGGER_SERVER_URL || "";
+export const DEMO_DEFAULT_PHONE = process.env.DEMO_DEFAULT_PHONE || "";
+export const DEMO_DEFAULT_OTP = process.env.DEMO_DEFAULT_OTP || "";
+export const DEMO_DEFAULT_OTP6 = process.env.DEMO_DEFAULT_OTP6 || "";
+export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
+export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";

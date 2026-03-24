@@ -1,0 +1,38 @@
+[31mx[39m Build failed in 490ms
+[31merror during build:
+[31m[vite:esbuild] Transform failed with 2 errors:
+D:/appzeto project/Styling with Muskan/frontend/src/modules/user/contexts/BookingContext.jsx:63:7: ERROR: The symbol "bookings" has already been declared
+D:/appzeto project/Styling with Muskan/frontend/src/modules/user/contexts/BookingContext.jsx:63:17: ERROR: Expected ";" but found ")"[31m
+file: [36mD:/appzeto project/Styling with Muskan/frontend/src/modules/user/contexts/BookingContext.jsx:63:7[31m
+[33m
+[33mThe symbol "bookings" has already been declared[33m
+61 |              setLoading(false);
+62 |          }
+63 |      }, [bookings]);
+   |         ^
+64 |  
+65 |      const addBooking = (newBooking) => {
+
+[33mExpected ";" but found ")"[33m
+61 |              setLoading(false);
+62 |          }
+63 |      }, [bookings]);
+   |                   ^
+64 |  
+65 |      const addBooking = (newBooking) => {
+[31m
+    at failureErrorWithLog (D:\appzeto project\Styling with Muskan\frontend\node_modules\esbuild\lib\main.js:1472:15)
+    at D:\appzeto project\Styling with Muskan\frontend\node_modules\esbuild\lib\main.js:755:50
+    at responseCallbacks.<computed> (D:\appzeto project\Styling with Muskan\frontend\node_modules\esbuild\lib\main.js:622:9)
+    at handleIncomingPacket (D:\appzeto project\Styling with Muskan\frontend\node_modules\esbuild\lib\main.js:677:12)
+    at Socket.readFromStdout (D:\appzeto project\Styling with Muskan\frontend\node_modules\esbuild\lib\main.js:600:7)
+    at Socket.emit (node:events:507:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)[39m
+
+---STDOUT---
+[36mvite v5.4.19 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 5 modules transformed.
