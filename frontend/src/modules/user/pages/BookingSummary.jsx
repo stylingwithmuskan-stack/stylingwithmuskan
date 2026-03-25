@@ -26,19 +26,20 @@ const BookingSummary = () => {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const checkoutType = searchParams.get('type');
+  const bookingParam = searchParams.get('booking');
 
   const { gender } = useGenderTheme();
-  const { cartItems, updateQuantity, clearCart, totalPrice, totalSavings, isCartOpen, setIsCartOpen, selectedSlot, getGroupedItems, bookingType, customAdvance, setCustomAdvance } = useCart();
+  const { cartItems, updateQuantity, clearCart, totalPrice, totalSavings, isCartOpen, setIsCartOpen, selectedSlot, getGroupedItems, bookingType: contextBookingType, customAdvance, setCustomAdvance } = useCart();
   const { user, setIsAddressModalOpen } = useAuth();
   const { addBooking } = useBookings();
 
   const allGroups = getGroupedItems();
   const displayGroups = checkoutType && allGroups[checkoutType] ? { [checkoutType]: allGroups[checkoutType] } : allGroups;
-  const displayItems = Object.values(displayGroups).flatMap(g => g?.items || []);
+  const displayItems = Object.values(displayGroups).flatMap(g => g?.items || []).filter(Boolean);
 
-  const displayTotalPrice = displayItems.reduce((total, item) => total + (item.price * (item.quantity || 1)), 0);
+  const displayTotalPrice = displayItems.reduce((total, item) => total + ((item?.price || 0) * (item?.quantity || 1)), 0);
   const displayTotalSavings = displayItems.reduce((total, item) => {
-    if (item.originalPrice) {
+    if (item?.originalPrice) {
       return total + ((item.originalPrice - item.price) * (item.quantity || 1));
     }
     return total;
@@ -51,6 +52,9 @@ const BookingSummary = () => {
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [isBusyModalOpen, setIsBusyModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Determine effective booking type
+  const effectiveBookingType = bookingParam || contextBookingType || "instant";
 
   useEffect(() => {
     let cancelled = false;
@@ -73,8 +77,8 @@ const BookingSummary = () => {
 
   const handleApplyCoupon = async () => {
     try {
-      const items = displayItems.map(it => ({ name: it.name, price: it.price, quantity: it.quantity || 1, duration: it.duration, category: it.category, serviceType: it.serviceType }));
-      const { total, discount: serverDiscount, couponApplied: appliedCode } = await api.bookings.quote({ items, couponCode: coupon });
+      const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType }));
+      const { total, discount: serverDiscount, couponApplied: appliedCode, advanceAmount: serverAdvance } = await api.bookings.quote({ items, couponCode: coupon, bookingType: effectiveBookingType });
       if (!appliedCode) {
         setCouponError("Invalid or expired coupon");
         setCouponApplied(null);
@@ -114,7 +118,8 @@ const BookingSummary = () => {
   const finalTotal = displayTotalPrice - discount - plusDiscount;
 
   // Calculate advance based on passed data or fallback
-  let advanceAmount = passedBookingData?.advanceAmount || 0;
+  // Instant bookings do not require advance payment
+  let advanceAmount = (effectiveBookingType === 'instant') ? 0 : (passedBookingData?.advanceAmount || 0);
   
   // Safeguard: Advance cannot exceed the final discounted total
   if (advanceAmount > finalTotal) {
@@ -188,7 +193,7 @@ const BookingSummary = () => {
     
     setIsProcessing(true);
     try {
-      const items = displayItems.map(it => ({ name: it.name, price: it.price, quantity: it.quantity || 1, duration: it.duration, category: it.category, serviceType: it.serviceType }));
+      const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType }));
       const address = {
         houseNo: user.addresses[0].houseNo,
         area: user.addresses[0].area,
@@ -200,7 +205,7 @@ const BookingSummary = () => {
         items,
         slot: selectedSlot,
         address,
-        bookingType: bookingType || "instant",
+        bookingType: effectiveBookingType,
         couponCode: couponApplied?.code || undefined,
         preferredProviderId: selectedSlot?.provider?.id || selectedSlot?.provider?._id || undefined,
         allowAutoFallback
@@ -328,48 +333,50 @@ const BookingSummary = () => {
         {/* Grouped Services */}
         <div className="space-y-6">
           {Object.entries(displayGroups).map(([type, group]) => (
-            <div key={type} className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-                  {group.label}
-                </h3>
-                <span className="text-[10px] font-bold text-primary/60">
-                  Section Subtotal: ₹{group.subtotal.toLocaleString()}
-                </span>
-              </div>
+            group && (
+              <div key={type} className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
+                    {group.label || "Services"}
+                  </h3>
+                  <span className="text-[10px] font-bold text-primary/60">
+                    Section Subtotal: ₹{(group.subtotal || 0).toLocaleString()}
+                  </span>
+                </div>
 
-              <div className="space-y-3">
-                {group.items.map((item, idx) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 + idx * 0.05 }}
-                    className="glass-strong rounded-2xl p-4 border border-border/50 shadow-sm"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-accent flex-shrink-0 border border-border/50">
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-sm text-foreground truncate">{item.name}</h3>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
-                          Quantity: {item.quantity} · {item.duration}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-primary text-sm">₹{(item.price * item.quantity).toLocaleString()}</p>
-                        {item.originalPrice && (
-                          <p className="text-[9px] text-muted-foreground line-through opacity-60">
-                            ₹{(item.originalPrice * item.quantity).toLocaleString()}
+                <div className="space-y-3">
+                  {group.items?.filter(Boolean).map((item, idx) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 + idx * 0.05 }}
+                      className="glass-strong rounded-2xl p-4 border border-border/50 shadow-sm"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-accent flex-shrink-0 border border-border/50">
+                          <img src={item.image} alt={item?.name || "Service"} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-sm text-foreground truncate">{item?.name || "Unknown Service"}</h3>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
+                            Quantity: {item.quantity} · {item.duration}
                           </p>
-                        )}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black text-primary text-sm">₹{(item.price * item.quantity).toLocaleString()}</p>
+                          {item.originalPrice && (
+                            <p className="text-[9px] text-muted-foreground line-through opacity-60">
+                              ₹{(item.originalPrice * item.quantity).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )
           ))}
         </div>
 

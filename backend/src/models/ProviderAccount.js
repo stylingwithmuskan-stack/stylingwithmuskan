@@ -8,8 +8,10 @@ const DocumentsSchema = new mongoose.Schema(
     bankName: String,
     accountNumber: String,
     ifscCode: String,
+    upiId: String,
     primaryCategory: [String],
     specializations: [String],
+    certifications: [String],
   },
   { _id: false }
 );
@@ -26,7 +28,9 @@ const ProviderAccountSchema = new mongoose.Schema(
     experience: String,
     profilePhoto: String,
     documents: DocumentsSchema,
-    approvalStatus: { type: String, enum: ["pending", "approved", "rejected", "blocked", null], default: "pending" },
+    vendorApprovalStatus: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    adminApprovalStatus: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    approvalStatus: { type: String, enum: ["pending_vendor", "pending_admin", "approved", "rejected", "blocked", "pending", null], default: "pending_vendor" },
     registrationComplete: { type: Boolean, default: false },
     isOnline: { type: Boolean, default: false },
     rating: { type: Number, default: 0 },

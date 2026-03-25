@@ -150,9 +150,21 @@ export async function listProviders(req, res) {
 
 export async function updateProviderStatus(req, res) {
   const status = String(req.body.status || "").trim().toLowerCase();
+  
+  const updates = {};
+  if (status === "approved") {
+    updates.vendorApprovalStatus = "approved";
+    updates.approvalStatus = "pending_admin";
+  } else if (status === "rejected") {
+    updates.vendorApprovalStatus = "rejected";
+    updates.approvalStatus = "rejected";
+  } else {
+    updates.approvalStatus = status || "pending_vendor";
+  }
+
   const p = await ProviderAccount.findByIdAndUpdate(
     req.params.id,
-    { approvalStatus: status || "pending" },
+    updates,
     { new: true }
   );
   res.json({ provider: p });

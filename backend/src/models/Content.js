@@ -89,6 +89,8 @@ const ProviderSchema = new mongoose.Schema({
 const OfficeSettingsSchema = new mongoose.Schema({
   startTime: String,
   endTime: String,
+  providerStartTime: String,
+  providerEndTime: String,
   autoAssign: Boolean,
   bufferMinutes: { type: Number, default: 30 },
   notificationMessage: String,

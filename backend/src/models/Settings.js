@@ -39,6 +39,16 @@ const BookingSettingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const PerformanceSettingsSchema = new mongoose.Schema(
+  {
+    minWeeklyHours: { type: Number, default: 20 },
+    minRatingThreshold: { type: Number, default: 4.5 },
+    maxCancellationsThreshold: { type: Number, default: 5 },
+  },
+  { timestamps: true }
+);
+
 export const ReferralSettings = mongoose.models.ReferralSettings || mongoose.model("ReferralSettings", ReferralSettingsSchema);
 export const CommissionSettings = mongoose.models.CommissionSettings || mongoose.model("CommissionSettings", CommissionSettingsSchema);
 export const BookingSettings = mongoose.models.BookingSettings || mongoose.model("BookingSettings", BookingSettingsSchema);
+export const PerformanceSettings = mongoose.models.PerformanceSettings || mongoose.model("PerformanceSettings", PerformanceSettingsSchema);

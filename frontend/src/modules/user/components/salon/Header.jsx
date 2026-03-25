@@ -5,9 +5,11 @@ import { useCart } from "@/modules/user/contexts/CartContext";
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import AddressModal from "@/modules/user/components/salon/AddressModal";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
+import { useNotifications } from "@/modules/user/contexts/NotificationContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/modules/user/lib/api";
 import { motion } from "framer-motion";
+import NotificationDropdown from "./NotificationDropdown";
 
 const desktopNavItems = [
   { icon: Home, label: "Home", path: "/home" },
@@ -18,10 +20,12 @@ const desktopNavItems = [
 
 const Header = () => {
   const { gender } = useGenderTheme();
-  const { user, isAddressModalOpen, setIsAddressModalOpen } = useAuth();
+  const { user, isAddressModalOpen, setIsAddressModalOpen, isLoggedIn } = useAuth();
+  const { unreadCount } = useNotifications();
   const { totalItems } = useCart();
   const { wishlistCount } = useWishlist();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -81,6 +85,23 @@ const Header = () => {
         </nav>
 
         <div className="flex items-center gap-2">
+          {isLoggedIn && (
+            <div className="relative">
+              <button
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className={`w-9 h-9 rounded-full flex items-center justify-center relative transition-all active:scale-90 ${isNotifOpen ? 'bg-primary/10 text-primary' : 'bg-accent hover:bg-primary/10 hover:text-primary'}`}
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-background animate-in zoom-in">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
+            </div>
+          )}
+
           <button
             onClick={() => navigate("/wishlist")}
             className="w-9 h-9 rounded-full bg-accent flex items-center justify-center relative hover:bg-primary/10 hover:text-primary transition-all active:scale-90"

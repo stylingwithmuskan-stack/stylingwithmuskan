@@ -7,7 +7,16 @@ const CartContext = createContext(undefined);
 export const useCart = () => {
     const context = useContext(CartContext);
     if (!context) {
-        throw new Error("useCart must be used within a CartProvider");
+        // Return a fallback to prevent crash, though this shouldn't happen if provider is correctly placed
+        return {
+            cart: [],
+            addToCart: () => {},
+            removeItem: () => {},
+            updateQuantity: () => {},
+            clearCart: () => {},
+            total: 0,
+            itemCount: 0
+        };
     }
     return context;
 };
@@ -119,7 +128,7 @@ export const CartProvider = ({ children }) => {
             try {
                 const items = cartItems.map(it => ({ name: it.name, price: it.price, quantity: it.quantity || 1, duration: it.duration, category: it.category, serviceType: it.serviceType }));
                 if (items.length > 0) {
-                    const totals = await api.bookings.quote({ items });
+                    const totals = await api.bookings.quote({ items, bookingType });
                     if (!cancelled) setServerTotals(totals);
                 } else {
                     if (!cancelled) setServerTotals({ total: 0, discount: 0, finalTotal: 0, couponApplied: null });

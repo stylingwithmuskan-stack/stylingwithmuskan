@@ -68,6 +68,7 @@ export default function ProviderRegisterPage() {
         bankName: "",
         accountNumber: "",
         ifscCode: "",
+        upiId: "",
         agreed: false
     });
 
@@ -427,11 +428,19 @@ export default function ProviderRegisterPage() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-black uppercase text-gray-400">Date of Birth</Label>
-                                        <Input type="date" className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold" />
+                                        <Input
+                                            type="date"
+                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
+                                            value={formData.dob}
+                                            onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-black uppercase text-gray-400">Experience (Years)</Label>
-                                        <Select>
+                                        <Select
+                                            value={formData.experience}
+                                            onValueChange={(v) => setFormData({ ...formData, experience: v })}
+                                        >
                                             <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold">
                                                 <SelectValue placeholder="Select experience" />
                                             </SelectTrigger>
@@ -554,6 +563,29 @@ export default function ProviderRegisterPage() {
                                 </div>
 
                                 <div className="space-y-4">
+                                    <Label className="text-xs font-black uppercase text-gray-400">Sub Categories (Specializations)</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {["Bridal", "Hair Styling", "Waxing", "Facial", "Pedicure", "Manicure", "Massage"].map(spec => (
+                                            <button
+                                                key={spec}
+                                                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tight transition-all border ${formData.specializations.includes(spec)
+                                                    ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                                                    : "bg-white text-gray-500 border-gray-100 hover:border-blue-200"
+                                                    }`}
+                                                onClick={() => {
+                                                    const updated = formData.specializations.includes(spec)
+                                                        ? formData.specializations.filter(s => s !== spec)
+                                                        : [...formData.specializations, spec];
+                                                    setFormData({ ...formData, specializations: updated });
+                                                }}
+                                            >
+                                                {spec}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
                                     <Label className="text-xs font-black uppercase text-gray-400">Upload Certifications</Label>
                                     <div className="grid grid-cols-3 gap-3">
                                         {formData.certifications.map((c, idx) => (
@@ -602,20 +634,41 @@ export default function ProviderRegisterPage() {
                                 <div className="grid gap-6">
                                     <div className="space-y-2">
                                         <Label className="text-xs font-black uppercase text-gray-400">Bank Name</Label>
-                                        <Input placeholder="e.g. HDFC Bank" className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold" />
+                                        <Input
+                                            placeholder="e.g. HDFC Bank"
+                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
+                                            value={formData.bankName}
+                                            onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-black uppercase text-gray-400">Account Number</Label>
-                                        <Input type="password" placeholder="•••• •••• •••• 1234" className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold" />
+                                        <Input
+                                            type="password"
+                                            placeholder="•••• •••• •••• 1234"
+                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
+                                            value={formData.accountNumber}
+                                            onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                                        />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label className="text-xs font-black uppercase text-gray-400">IFSC Code</Label>
-                                            <Input placeholder="HDFC0001234" className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold uppercase" />
+                                            <Input
+                                                placeholder="HDFC0001234"
+                                                className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold uppercase"
+                                                value={formData.ifscCode}
+                                                onChange={(e) => setFormData({ ...formData, ifscCode: e.target.value.toUpperCase() })}
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-xs font-black uppercase text-gray-400">UPI ID (Optional)</Label>
-                                            <Input placeholder="username@upi" className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold" />
+                                            <Input
+                                                placeholder="username@upi"
+                                                className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
+                                                value={formData.upiId}
+                                                onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -661,9 +714,23 @@ export default function ProviderRegisterPage() {
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-gray-500">Categories</span>
                                                     <span className="font-bold">
-                                                        {formData.primaryCategory.length > 0 ? formData.primaryCategory.join(", ") : "Salon for Women, Makeup"}
+                                                        {formData.primaryCategory.length > 0 ? formData.primaryCategory.join(", ") : "None"}
                                                     </span>
                                                 </div>
+                                                {formData.specializations.length > 0 && (
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-gray-500">Specializations</span>
+                                                        <span className="font-bold">
+                                                            {formData.specializations.join(", ")}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {formData.certifications.length > 0 && (
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-gray-500">Certificates</span>
+                                                        <span className="font-bold text-green-600">{formData.certifications.length} Files</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

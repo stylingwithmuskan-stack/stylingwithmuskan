@@ -172,6 +172,10 @@ export const AdminAuthProvider = ({ children }) => {
     const getBookingTrend = async (params = {}) => (await api.admin.metricsBookingTrend(params)).series;
     const getMetricsCities = async () => (await api.admin.metricsCities()).cities;
 
+    // ───── PERFORMANCE CRITERIA ─────
+    const getPerformanceCriteria = async () => (await api.admin.getPerformanceCriteria()).settings;
+    const updatePerformanceCriteria = async (settings) => { await api.admin.updatePerformanceCriteria(settings); };
+
     return (
         <AdminAuthContext.Provider value={{
             admin, isLoggedIn, login, logout,
@@ -186,6 +190,7 @@ export const AdminAuthProvider = ({ children }) => {
             getSOSAlerts, resolveSOSAlert,
             getCommissionSettings, updateCommissionSettings,
             getMetricsOverview, getRevenueByMonth, getCustomersByMonth, getProvidersByMonth, getBookingTrend, getMetricsCities,
+            getPerformanceCriteria, updatePerformanceCriteria,
         }}>
             {children}
         </AdminAuthContext.Provider>

@@ -9,13 +9,15 @@ import { upload } from "../middleware/upload.js";
 import { uploadBuffer } from "../startup/cloudinary.js";
 import { issueRoleToken, requireRole } from "../middleware/roles.js";
 import BookingLog from "../models/BookingLog.js";
+import Notification from "../models/Notification.js";
 import { getIO } from "../startup/socket.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
+import { OfficeSettings } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, defaultSlotsMap, isIsoDate, normalizeSlotsPayload, slotLabelToLocalDateTime, slotsMapToAvailableSlots, parseDurationToMinutes } from "../lib/slots.js";
 import { daysBetweenInclusive, isoDateRangeIncludesWeekend, isoDateToLocalEnd, isoDateToLocalStart, toIsoDateFromAny } from "../lib/isoDateTime.js";
 import { computeExpiresAt, getAcceptWindowMs, pickNextProviderForBooking } from "../lib/assignment.js";
-import { BookingSettings, CommissionSettings } from "../models/Settings.js";
+import { BookingSettings, CommissionSettings, PerformanceSettings } from "../models/Settings.js";
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../config.js";
 import { invalidateProviderSlots } from "../lib/availability.js";
@@ -98,8 +100,9 @@ router.get("/availability/:date", requireRole("provider"), param("date").isStrin
     return res.json({ date, slots, onLeave: true, leave });
   }
 
+  const officeSettings = await OfficeSettings.findOne().lean();
   const doc = await ProviderDayAvailability.findOne({ providerId, date }).lean();
-  const base = defaultSlotsMap();
+  const base = defaultSlotsMap(officeSettings?.providerStartTime, officeSettings?.providerEndTime);
   if (doc?.availableSlots?.length) {
     // All slots default false, then enable the selected ones
     const m = {};
@@ -122,9 +125,6 @@ router.put(
     if (!errors.isEmpty()) return res.status(400).json({ error: "Invalid input", details: errors.array() });
     const date = String(req.params.date || "").trim();
     if (!isIsoDate(date)) return res.status(400).json({ error: "Invalid date" });
-
-    const normalized = normalizeSlotsPayload(req.body.slots);
-    if (!normalized.ok) return res.status(400).json({ error: normalized.error });
 
     const providerId = req.auth.sub;
     try {
@@ -154,9 +154,10 @@ router.put(
       return res.status(400).json({ error: "Cannot edit availability while on approved leave for this date" });
     }
 
-    // Slots can be modified until 2 hours before the service time (local server time).
+    // Slots can be modified until 4 hours before the service time (local server time).
     const now = new Date();
-    const cutoff = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const cutoff = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+    const officeSettings = await OfficeSettings.findOne().lean();
     const existingDoc = await ProviderDayAvailability.findOne({ providerId, date }).lean();
     const currentMap = existingDoc?.availableSlots?.length
       ? (() => {
@@ -165,8 +166,12 @@ router.put(
         for (const s of existingDoc.availableSlots) if (DEFAULT_TIME_SLOTS.includes(s)) m[s] = true;
         return m;
       })()
-      : defaultSlotsMap();
-    const nextEffective = { ...defaultSlotsMap(), ...normalized.slots };
+      : defaultSlotsMap(officeSettings?.providerStartTime, officeSettings?.providerEndTime);
+
+    const normalized = normalizeSlotsPayload(req.body.slots);
+    if (!normalized.ok) return res.status(400).json({ error: normalized.error });
+
+    const nextEffective = { ...defaultSlotsMap(officeSettings?.providerStartTime, officeSettings?.providerEndTime), ...normalized.slots };
 
     if (date === todayIso) {
       const locked = [];
@@ -178,11 +183,11 @@ router.put(
         }
       }
       if (locked.length > 0) {
-        return res.status(400).json({ error: "Some slots are locked (within 2 hours)", lockedSlots: locked });
+        return res.status(400).json({ error: "Some slots are locked (within 4 hours)", lockedSlots: locked });
       }
     }
 
-    const availableSlots = slotsMapToAvailableSlots({ ...defaultSlotsMap(), ...normalized.slots });
+    const availableSlots = slotsMapToAvailableSlots(nextEffective);
 
     const doc = await ProviderDayAvailability.findOneAndUpdate(
       { providerId, date },
@@ -275,14 +280,20 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
       bankName: req.body.bankName || "",
       accountNumber: req.body.accountNumber || "",
       ifscCode: req.body.ifscCode || "",
+      upiId: req.body.upiId || "",
       primaryCategory: req.body.primaryCategory || [],
       specializations: req.body.specializations || [],
+      certifications: req.body.certifications || [],
     },
-    approvalStatus: "pending",
+    approvalStatus: "pending_vendor",
+    vendorApprovalStatus: "pending",
+    adminApprovalStatus: "pending",
     registrationComplete: true,
   };
   const acc = await ProviderAccount.findOneAndUpdate({ phone: req.body.phone }, update, { new: true, upsert: true });
-  res.json({ provider: acc });
+  const token = issueRoleToken("provider", acc._id.toString());
+  res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
+  res.json({ provider: acc, providerToken: token });
 });
 
 router.get("/me/:phone", param("phone").matches(/^\d{10}$/), async (req, res) => {
@@ -302,23 +313,27 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
     // hub metrics
     let hub = { jobs30d: 0, repeatCustomers: 0 };
     try {
-      const now = new Date();
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
       const providerId = provider._id?.toString();
-      const recent = await Booking.find({ assignedProvider: providerId, createdAt: { $gte: weekAgo } }).lean();
-      const monthBookings = await Booking.find({ assignedProvider: providerId, createdAt: { $gte: monthAgo } }).lean();
-      // Response/cancellations
-      const total = recent.length;
-      const cancelled = recent.filter(b => (b.status || "").toLowerCase() === "cancelled").length;
-      const completed = recent.filter(b => (b.status || "").toLowerCase() === "completed").length;
-      const responseRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const recentBookings = await Booking.find({ assignedProvider: providerId }).sort({ createdAt: -1 }).limit(50).lean();
+
+      // Rating from last 50 completed bookings with a rating
+      const ratedBookings = recentBookings.filter(b => b.status === 'completed' && b.rating);
+      const totalRating = ratedBookings.reduce((acc, b) => acc + b.rating, 0);
+      const rating = ratedBookings.length > 0 ? (totalRating / ratedBookings.length) : 0;
+
+      // Cancellations from last 50 bookings
+      const cancellations = recentBookings.filter(b => (b.status || "").toLowerCase() === "cancelled").length;
+
+      // Response Rate from last 50 bookings
+      const completed = recentBookings.filter(b => (b.status || "").toLowerCase() === "completed").length;
+      const responseRate = recentBookings.length > 0 ? Math.round((completed / recentBookings.length) * 100) : 0;
       const grade = responseRate >= 95 ? "A+" : responseRate >= 85 ? "A" : responseRate >= 70 ? "B" : responseRate > 0 ? "C" : "N/A";
-      // Weekly trend: per weekday completion percentage
+
+      // Weekly trend from last 50 bookings
       const weekdayIdxToName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       const dayTotals = Array(7).fill(0);
       const dayCompleted = Array(7).fill(0);
-      for (const b of recent) {
+      for (const b of recentBookings) {
         const idx = new Date(b.createdAt).getDay();
         dayTotals[idx] += 1;
         if ((b.status || "").toLowerCase() === "completed") dayCompleted[idx] += 1;
@@ -326,40 +341,25 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
       const weeklyTrend = [1,2,3,4,5,6,0].map((dow) => { // Mon..Sun order
         const totalD = dayTotals[dow] || 0;
         const val = totalD > 0 ? Math.round((dayCompleted[dow] / totalD) * 100) : 0;
-        return { day: weekdayIdxToName[dow], value: val, color: dow === 4 && val > 0 ? "bg-purple-500" : "bg-slate-200" };
+        return { day: weekdayIdxToName[dow], value: val };
       });
-      // Calendar hours: sum durations of services in last 7 days (completed/in_progress)
-      const parseMinutes = (s) => {
-        if (!s || typeof s !== "string") return 60;
-        const m = s.toLowerCase();
-        let minutes = 0;
-        const hMatch = m.match(/(\d+)\s*h/);
-        const mMatch = m.match(/(\d+)\s*m/);
-        if (hMatch) minutes += parseInt(hMatch[1], 10) * 60;
-        if (mMatch) minutes += parseInt(mMatch[1], 10);
-        if (minutes === 0) {
-          const num = m.match(/(\d+)/);
-          minutes = num ? parseInt(num[1], 10) : 60;
-        }
-        return Math.max(15, Math.min(minutes, 8 * 60));
-      };
-      const productive = recent.filter(b => ["completed", "in_progress", "arrived"].includes((b.status || "").toLowerCase()));
-      const minutes = productive.reduce((acc, b) => {
-        const svc = Array.isArray(b.services) ? b.services : [];
-        const total = svc.reduce((s, it) => s + parseMinutes(it?.duration || ""), 0);
-        return acc + (total || 60);
-      }, 0);
-      calendar = { availableHoursWeek: Math.round(minutes / 60) };
-      // Hub: jobs last 30d and repeat customers
-      hub.jobs30d = monthBookings.length;
+
+      // Weekly hours from slots
+      const availability = await ProviderDayAvailability.find({ providerId, date: { $gte: toIsoDateFromAny(weekAgo) } }).lean();
+      const weeklyHours = availability.reduce((acc, day) => acc + day.availableSlots.length * 0.5, 0);
+      calendar = { availableHoursWeek: weeklyHours };
+
+      // Hub metrics from last 50 bookings
+      hub.jobs30d = recentBookings.length;
       const customerCount = new Map();
-      for (const b of monthBookings) {
+      for (const b of recentBookings) {
         const cid = b.customerId || "";
         if (!cid) continue;
         customerCount.set(cid, (customerCount.get(cid) || 0) + 1);
       }
       hub.repeatCustomers = Array.from(customerCount.values()).filter(c => c > 1).length;
-      performance = { responseRate, cancellations: cancelled, grade, weeklyTrend };
+
+      performance = { responseRate, cancellations, grade, weeklyTrend, rating };
     } catch {}
     const insurance = { active: !!provider.insuranceActive };
     const training = { completed: !!provider.trainingCompleted };
@@ -384,6 +384,32 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
       insurance,
       training,
     });
+  } catch {
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.get("/rankings/:city", requireRole("admin"), async (req, res) => {
+  try {
+    const city = req.params.city;
+    const providers = await ProviderAccount.find({ city }).lean();
+    const rankedProviders = await Promise.all(providers.map(async (p) => {
+      const recentBookings = await Booking.find({ assignedProvider: p._id.toString() }).sort({ createdAt: -1 }).limit(50).lean();
+      const ratedBookings = recentBookings.filter(b => b.status === 'completed' && b.rating);
+      const totalRating = ratedBookings.reduce((acc, b) => acc + b.rating, 0);
+      const rating = ratedBookings.length > 0 ? (totalRating / ratedBookings.length) : 0;
+      const completed = recentBookings.filter(b => (b.status || "").toLowerCase() === "completed").length;
+      const responseRate = recentBookings.length > 0 ? Math.round((completed / recentBookings.length) * 100) : 0;
+      return { ...p, rating, responseRate, completedJobs: completed };
+    }));
+
+    rankedProviders.sort((a, b) => {
+      if (a.rating !== b.rating) return b.rating - a.rating;
+      if (a.responseRate !== b.responseRate) return b.responseRate - a.responseRate;
+      return b.completedJobs - a.completedJobs;
+    });
+
+    res.json({ rankings: rankedProviders });
   } catch {
     res.status(500).json({ error: "Internal error" });
   }
@@ -506,6 +532,7 @@ router.post(
     { name: "aadharFront", maxCount: 1 },
     { name: "aadharBack", maxCount: 1 },
     { name: "panCard", maxCount: 1 },
+    { name: "certifications", maxCount: 10 },
   ]),
   body("phone").matches(/^\d{10}$/),
   async (req, res) => {
@@ -532,8 +559,21 @@ router.post(
       const up = await uploadBuffer(files.panCard[0].buffer, folder);
       docs.panCard = up.secure_url;
     }
-    if (Object.keys(docs).length > 0) updates.documents = docs;
-    const acc = await ProviderAccount.findOneAndUpdate({ phone }, updates, { new: true, upsert: true });
+    if (files.certifications?.length) {
+      const certUrls = [];
+      for (const f of files.certifications) {
+        const up = await uploadBuffer(f.buffer, folder);
+        certUrls.push(up.secure_url);
+      }
+      docs.certifications = certUrls;
+    }
+    const finalUpdates = { ...updates };
+    if (Object.keys(docs).length > 0) {
+      Object.entries(docs).forEach(([k, v]) => {
+        finalUpdates[`documents.${k}`] = v;
+      });
+    }
+    const acc = await ProviderAccount.findOneAndUpdate({ phone }, { $set: finalUpdates }, { new: true, upsert: true });
     res.json({ provider: acc });
   }
 );
@@ -750,7 +790,30 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     }
 
     const oldStatus = b.status;
-    b.status = "provider_cancelled";
+
+    // Logic for Cancellation by Provider (Active Booking)
+    const bookingTime = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
+    const now = new Date();
+    const officeSettings = await OfficeSettings.findOne().lean();
+    const bufferMin = Math.max(Number(officeSettings?.bufferMinutes || 30), 0);
+    const criticalThresholdMinutes = 60 + bufferMin; // 1 hour + buffer (e.g., 90 mins)
+
+    const diffMs = bookingTime ? (bookingTime.getTime() - now.getTime()) : -1;
+    const diffMins = diffMs / (1000 * 60);
+
+    const isCritical = diffMins < criticalThresholdMinutes;
+
+    if (isCritical) {
+      // Scenario 1: Inside critical window -> Direct Cancel + User Notification
+      b.status = "cancelled";
+      b.cancelledBy = "provider";
+      b.cancellationReason = req.body.reason || "Provider cancelled within critical window";
+    } else {
+      // Scenario 2: Outside critical window -> Vendor Escalation
+      b.status = "provider_cancelled"; // Special status for Vendor Reassignment
+      b.cancelledBy = "provider";
+      b.cancellationReason = req.body.reason || "Provider requested reassignment";
+    }
     
     // Refund commission if it was charged
     if (b.commissionChargedAt && b.commissionAmount > 0) {
@@ -775,7 +838,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       action: "booking:cancel",
       userId: pId,
       bookingId: b._id.toString(),
-      meta: { oldStatus, by: "provider" }
+      meta: { oldStatus, by: "provider", isCritical, diffMins }
     });
 
     // Notifications
@@ -783,21 +846,41 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       const io = getIO();
       const payload = {
         id: b._id.toString(),
-        status: "provider_cancelled",
+        status: b.status,
         providerName: req.provider?.name || "Professional",
         customerName: b.customerName,
         city: b.address?.city || "",
-        message: "The provider has cancelled the booking. Please reassign to another provider."
+        bookingTime: b.slot?.time,
+        bookingDate: b.slot?.date
       };
 
-      // To Admin and Vendor (User is NOT notified at this stage)
-      io?.of("/admin").emit("booking:cancelled", { ...payload, by: "provider" });
-      io?.of("/vendor").emit("booking:cancelled", { ...payload, by: "provider" });
+      if (isCritical) {
+        // To User (Direct Message)
+        io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "cancelled", message: "Your booking has been cancelled due to professional unavailability." });
+        
+        await Notification.create({
+          recipientId: b.customerId,
+          recipientRole: "user",
+          title: "Booking Cancelled",
+          message: `Your booking #${b._id.toString().slice(-6)} has been cancelled due to professional unavailability.`,
+          type: "booking_cancel",
+          meta: { bookingId: b._id.toString() }
+        });
+      }
+
+      // To Admin and Vendor
+      io?.of("/admin").emit("booking:cancelled", { ...payload, by: "provider", isCritical });
+      io?.of("/vendor").emit("booking:cancelled", { ...payload, by: "provider", isCritical });
     } catch (err) {
       console.error("Socket notification failed:", err);
     }
 
-    return res.json({ booking: b, message: "Booking cancelled successfully. Vendor will be notified for reassignment." });
+    return res.json({ 
+      booking: b, 
+      message: isCritical 
+        ? "Booking cancelled. User has been notified." 
+        : "Cancellation sent to Vendor for reassignment." 
+    });
   } else {
     // For other provider-driven statuses (travelling, arrived, in_progress, completed, etc.)
     // store normalized lower-case.

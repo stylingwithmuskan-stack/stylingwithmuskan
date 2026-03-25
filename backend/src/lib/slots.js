@@ -1,8 +1,8 @@
 export const DEFAULT_TIME_SLOTS = [
-  "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM",
-  "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM",
-  "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM",
-  "07:00 PM", "08:00 PM", "09:00 PM", "10:00 PM",
+  "07:00 AM", "07:30 AM", "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM",
+  "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM",
+  "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM", "06:00 PM", "06:30 PM",
+  "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM", "09:00 PM", "09:30 PM", "10:00 PM", "10:30 PM"
 ];
 
 export function isIsoDate(dateStr) {
@@ -13,13 +13,31 @@ export function isValidSlotLabel(s) {
   return typeof s === "string" && DEFAULT_TIME_SLOTS.includes(s);
 }
 
-export function defaultSlotsMap() {
-  // Default: 9 AM to 5 PM enabled in the UI (indices 2..10)
+export function defaultSlotsMap(startTime = "09:00", endTime = "17:00") {
   const map = {};
-  DEFAULT_TIME_SLOTS.forEach((slot, idx) => {
-    map[slot] = idx >= 2 && idx <= 10;
+  const startMin = parseHHMMToMinutes(startTime) ?? 540; // 9:00 AM
+  const endMin = parseHHMMToMinutes(endTime) ?? 1020;   // 5:00 PM
+
+  DEFAULT_TIME_SLOTS.forEach((slot) => {
+    const hm = parseSlotLabelToHM(slot);
+    if (!hm) {
+      map[slot] = false;
+      return;
+    }
+    const slotMin = hm.hour * 60 + hm.minute;
+    map[slot] = slotMin >= startMin && slotMin <= endMin;
   });
   return map;
+}
+
+function parseHHMMToMinutes(v) {
+  if (!v || typeof v !== "string") return null;
+  const m = v.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  if (Number.isNaN(h) || Number.isNaN(mm)) return null;
+  return h * 60 + mm;
 }
 
 export function normalizeSlotsPayload(slots) {

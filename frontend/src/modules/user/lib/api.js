@@ -80,7 +80,12 @@ async function request(path, options = {}) {
         console.error("[API ERROR]", options.method || "GET", path, { status: res.status, data });
       } catch {}
     }
-    if (res.status === 401) setToken("");
+    if (res.status === 401) {
+      if (isAdminPath) localStorage.removeItem("swm_admin_token");
+      else if (isVendorPath) localStorage.removeItem("swm_vendor_token");
+      else if (isProviderPath) localStorage.removeItem("swm_provider_token");
+      else setToken("");
+    }
     throw e;
   }
   return data;
@@ -224,7 +229,7 @@ export const api = {
       refund: (amount, title) => request("/provider/wallet/refund", { method: "POST", body: { amount, title } }),
     },
     uploadDocs: async (formData) => {
-      const token = getToken();
+      const token = getProviderToken();
       const res = await fetch(`${API_BASE_URL}/provider/upload-docs`, {
         method: "POST",
         headers: {
@@ -272,6 +277,7 @@ export const api = {
     customEnquiryAssignTeam: (id, body) => request(`/vendor/custom-enquiries/${id}/team-assign`, { method: "PATCH", body }),
     sos: () => request("/vendor/sos"),
     resolveSos: (id) => request(`/vendor/sos/${id}/resolve`, { method: "PATCH" }),
+    getProviderRankings: (city) => request(`/provider/rankings/${city}`),
   },
 
   // Admin
@@ -348,6 +354,10 @@ export const api = {
     customEnquiryFinalApprove: (id) => request(`/admin/custom-enquiries/${id}/final-approve`, { method: "PATCH" }),
     updateOfficeSettings: (payload) => request("/admin/settings", { method: "PUT", body: payload }),
 
+    // Performance Criteria
+    getPerformanceCriteria: () => request("/admin/performance-criteria"),
+    updatePerformanceCriteria: (payload) => request("/admin/performance-criteria", { method: "PUT", body: payload }),
+
     // Home content (reels/gallery/testimonials)
     listSpotlights: () => request("/admin/spotlights"),
     uploadSpotlightVideo: (file) => uploadAdminFile("/admin/spotlights/upload-video", "video", file),
@@ -374,6 +384,13 @@ export const api = {
   // SOS (customer/provider)
   sos: {
     create: (payload) => request("/sos", { method: "POST", body: payload }),
+  },
+
+  // Notifications
+  notifications: {
+    list: () => request("/notifications"),
+    markAllAsRead: () => request("/notifications/read-all", { method: "PUT" }),
+    delete: (id) => request(`/notifications/${id}`, { method: "DELETE" }),
   },
 };
 

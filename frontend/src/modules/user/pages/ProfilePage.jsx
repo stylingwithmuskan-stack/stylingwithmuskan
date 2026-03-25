@@ -6,7 +6,8 @@ import { useAuth } from "@/modules/user/contexts/AuthContext";
 
 import { api } from "@/modules/user/lib/api";
 
-import { ArrowLeft, ChevronRight, Wallet, MapPin, Gift, Ticket, HelpCircle, LogOut, User, Calendar, Edit2, ShieldCheck, Zap, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronRight, Wallet, MapPin, Gift, Ticket, HelpCircle, LogOut, User, Calendar, Edit2, ShieldCheck, Zap, Sparkles, Bell } from "lucide-react";
+import NotificationDropdown from "@/modules/user/components/salon/NotificationDropdown";
 
 /**
  * ProfilePage Component
@@ -18,6 +19,7 @@ const ProfilePage = () => {
   const { user, logout, isLoggedIn, loading } = useAuth();
   const [walletBalance, setWalletBalance] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !isLoggedIn) {
@@ -64,6 +66,7 @@ const ProfilePage = () => {
     { icon: MapPin, label: "Addresses", desc: "Manage saved addresses", path: "/addresses" },
     { icon: Gift, label: "Referral", desc: "Invite friends & earn", path: "/referral" },
     { icon: Ticket, label: "Coupons", desc: "Available offers", path: "/coupons" },
+    { icon: Bell, label: "Notifications", desc: "Alerts & updates", path: "/notifications" },
     { icon: HelpCircle, label: "Help & Support", desc: "FAQs, chat, call", path: "/support" },
   ];
 
@@ -212,7 +215,7 @@ const ProfilePage = () => {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 + i * 0.03 }}
-              onClick={() => navigate(item.path)}
+              onClick={item.onClick ? item.onClick : () => navigate(item.path)}
               className="w-full glass-strong rounded-[20px] p-3 flex items-center gap-4 hover:bg-accent/50 transition-all border border-border/40 hover:scale-[1.01] active:scale-[0.99]"
             >
               <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -237,6 +240,12 @@ const ProfilePage = () => {
           </div>
           <span className="text-sm font-bold">Logout</span>
         </button>
+      </div>
+
+      <div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center p-4">
+        <div className="pointer-events-auto">
+          <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
+        </div>
       </div>
     </div>
   );

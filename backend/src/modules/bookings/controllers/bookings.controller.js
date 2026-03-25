@@ -1,5 +1,6 @@
 import { validationResult } from "express-validator";
 import Booking from "../../../models/Booking.js";
+import Notification from "../../../models/Notification.js";
 import mongoose from "mongoose";
 import Coupon from "../../../models/Coupon.js";
 import { OfficeSettings, Category } from "../../../models/Content.js";
@@ -17,7 +18,11 @@ import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../../../config.js";
 import { getIO } from "../../../startup/socket.js";
 
-async function computeAdvanceFromCategories(items = []) {
+async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
+  // Logic: Instant bookings never require advance payment.
+  const bType = String(bookingType || "instant").toLowerCase();
+  if (bType === "instant") return 0;
+
   const catIds = Array.from(new Set(items.map((it) => it.category).filter(Boolean)));
   const cats = await Category.find({ id: { $in: catIds } }).lean();
   const byId = new Map(cats.map((c) => [c.id, c]));
@@ -26,8 +31,9 @@ async function computeAdvanceFromCategories(items = []) {
     const c = byId.get(it.category);
     if (!c) continue;
     const pct = Number(c.advancePercentage || 0);
-    const type = String(c.bookingType || "").toLowerCase();
-    if (pct > 0 && (type === "scheduled" || type === "prebooking" || type === "pre-book" || type === "customize")) {
+    const catType = String(c.bookingType || "").toLowerCase();
+    // Advance applies if category is scheduled/prebook/customize OR if explicitly requested as scheduled/prebook
+    if (pct > 0 && (catType === "scheduled" || catType === "prebooking" || catType === "pre-book" || catType === "customize" || bType === "scheduled" || bType === "pre-book")) {
       sum += Math.ceil((Number(it.price) || 0) * (pct / 100));
     }
   }
@@ -165,7 +171,7 @@ export async function quote(req, res) {
     coupon = await Coupon.findOne({ code: req.body.couponCode, isActive: true }).lean();
   }
   const totals = computeTotals(req.body.items, coupon);
-  const advanceAmount = await computeAdvanceFromCategories(req.body.items || []);
+  const advanceAmount = await computeAdvanceFromCategories(req.body.items || [], req.body.bookingType);
   res.json({ ...totals, couponApplied: coupon ? coupon.code : null, advanceAmount });
 }
 
@@ -187,7 +193,7 @@ export async function create(req, res) {
   let coupon = null;
   if (couponCode) coupon = await Coupon.findOne({ code: couponCode, isActive: true }).lean();
   const totals = computeTotals(items, coupon);
-  const advanceAmount = await computeAdvanceFromCategories(items);
+  const advanceAmount = await computeAdvanceFromCategories(items, bookingType);
 
   // Check for SWM Plus subscription
   const subscription = await UserSubscription.findOne({ userId: req.user._id.toString(), status: 'active' });
@@ -751,6 +757,18 @@ export async function cancel(req, res) {
     // To Admin and Vendor (City based)
     io?.of("/admin").emit("booking:cancelled", payload);
     io?.of("/vendor").emit("booking:cancelled", payload);
+
+    // Create DB Notifications
+    if (booking.assignedProvider) {
+      await Notification.create({
+        recipientId: booking.assignedProvider,
+        recipientRole: "provider",
+        title: "Booking Cancelled",
+        message: `Booking #${booking._id.toString().slice(-6)} has been cancelled by the customer.`,
+        type: "booking_cancel",
+        meta: { bookingId: booking._id.toString() }
+      });
+    }
   } catch (err) {
     console.error("Socket notification failed:", err);
   }

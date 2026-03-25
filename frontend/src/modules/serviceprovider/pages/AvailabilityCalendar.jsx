@@ -28,18 +28,20 @@ import { toast } from "sonner";
 import { format, addHours, isBefore, isWeekend } from "date-fns";
 import { api } from "@/modules/user/lib/api";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
+import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { useNavigate } from "react-router-dom";
 
 const timeSlots = [
-    "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM",
-    "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM",
-    "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM",
-    "07:00 PM", "08:00 PM", "09:00 PM", "10:00 PM"
+    "07:00 AM", "07:30 AM", "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM",
+    "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM",
+    "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM", "06:00 PM", "06:30 PM",
+    "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM", "09:00 PM", "09:30 PM", "10:00 PM", "10:30 PM"
 ];
 
 export default function AvailabilityCalendar() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+    const { officeSettings } = useUserModuleData();
 
     // Day-based availability states
     const [dateSlots, setDateSlots] = useState({});
@@ -108,10 +110,31 @@ export default function AvailabilityCalendar() {
         return days;
     }, [currentMonth]);
 
-    const currentDaySlots = dateSlots[selectedDate] || timeSlots.reduce((acc, slot, i) => {
-        acc[slot] = i >= 2 && i <= 10; // Default: 9am-5pm
-        return acc;
-    }, {});
+    const currentDaySlots = useMemo(() => {
+        const slotsFromApi = dateSlots[selectedDate];
+        if (slotsFromApi && Object.keys(slotsFromApi).length > 0) return slotsFromApi;
+
+        // Dynamic Default Range from Admin Settings
+        const startMin = officeSettings?.providerStartTime ? (parseInt(officeSettings.providerStartTime.split(":")[0]) * 60 + parseInt(officeSettings.providerStartTime.split(":")[1])) : 540; // 9 AM
+        const endMin = officeSettings?.providerEndTime ? (parseInt(officeSettings.providerEndTime.split(":")[0]) * 60 + parseInt(officeSettings.providerEndTime.split(":")[1])) : 1020; // 5 PM
+
+        return timeSlots.reduce((acc, slot) => {
+            const m = String(slot || "").trim().match(/^(\d{2}):(\d{2})\s*(AM|PM)$/i);
+            if (!m) {
+                acc[slot] = false;
+                return acc;
+            }
+            let hh = parseInt(m[1], 10);
+            const mm = parseInt(m[2], 10);
+            const ap = m[3].toUpperCase();
+            if (ap === "AM" && hh === 12) hh = 0;
+            else if (ap === "PM" && hh !== 12) hh += 12;
+            const slotMin = hh * 60 + mm;
+
+            acc[slot] = slotMin >= startMin && slotMin <= endMin;
+            return acc;
+        }, {});
+    }, [dateSlots, selectedDate, officeSettings, timeSlots]);
 
     const parseSlotToDate = (dateKey, slotLabel) => {
         try {

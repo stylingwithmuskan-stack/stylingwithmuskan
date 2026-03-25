@@ -96,20 +96,22 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     if (!Number.isNaN(end.getTime())) busyIntervals.push({ start, end });
   }
 
-  const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
   const windowStartMin = settings?.serviceStartTime ? parseHHMMToMinutes(settings.serviceStartTime) : null;
   const windowEndMin = settings?.serviceEndTime ? parseHHMMToMinutes(settings.serviceEndTime) : null;
   const todayKey = toIsoDateFromAny(new Date());
   const isToday = date === todayKey;
   const now = new Date();
+  const bufferMs = Math.max(Number(settings?.bufferMinutes || 30), 0) * 60 * 1000;
+  const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
+  const effectiveLeadMs = Math.max(bufferMs, leadMs);
 
   const slotMap = {};
   const slots = [];
   for (const s of DEFAULT_TIME_SLOTS) {
     let ok = baseMap[s] === true && !bookedSet.has(s);
     const slotStart = ok ? slotLabelToLocalDateTime(date, s) : null;
-    if (ok && isToday && leadMs > 0 && slotStart) {
-      if (slotStart.getTime() < (now.getTime() + leadMs)) ok = false;
+    if (ok && isToday && slotStart) {
+      if (slotStart.getTime() < (now.getTime() + effectiveLeadMs)) ok = false;
     }
     if (ok && windowStartMin !== null && windowEndMin !== null) {
       const hm = parseSlotLabelToHM(s);

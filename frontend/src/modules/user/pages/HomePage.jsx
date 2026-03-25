@@ -27,7 +27,7 @@ const HomePage = () => {
           >
             <BannerSlider />
             <CategoryGrid />
-            <SpotlightStories />
+            {/* <SpotlightStories /> */}
             <ReelsSection />
             <PopularServices />
             <OurGallery />

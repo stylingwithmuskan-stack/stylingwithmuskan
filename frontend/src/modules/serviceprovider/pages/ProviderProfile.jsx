@@ -22,7 +22,8 @@ import {
     Phone,
     MapPin,
     Crown,
-    Briefcase
+    Briefcase,
+    Bell
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/modules/user/components/ui/avatar";
 import {
@@ -34,8 +35,12 @@ import {
 } from "@/modules/user/components/ui/dialog";
 import { Button } from "@/modules/user/components/ui/button";
 
+import NotificationDropdown from "@/modules/user/components/salon/NotificationDropdown";
+import { useNotifications } from "@/modules/user/contexts/NotificationContext";
+
 const menuItems = [
     { icon: Trophy, label: "Weekly performance", path: "/provider/performance" },
+    { icon: Bell, label: "Notifications", path: "/provider/notifications", isNotificationTab: true },
     { icon: Crown, label: "SWM Pro Partner", path: "/provider/subscription", color: "text-amber-500 font-bold" },
     { icon: Calendar, label: "Calendar", path: "/provider/availability" },
     { icon: Map, label: "My Hub", path: "/provider/hub" },
@@ -51,8 +56,10 @@ const menuItems = [
 
 export default function ProviderProfile() {
     const { provider, logout } = useProviderAuth();
+    const { unreadCount } = useNotifications();
     const navigate = useNavigate();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [summary, setSummary] = useState(null);
     useEffect(() => {
         let cancelled = false;
@@ -226,6 +233,30 @@ export default function ProviderProfile() {
             <div className="flex-1 bg-white">
                 {menuItems.map((item, index) => {
                     const Icon = item.icon;
+                    if (item.isNotificationTab) {
+                        return (
+                            <Link
+                                key={index}
+                                to={item.path}
+                                className="w-full flex items-center justify-between p-5 border-b border-gray-50 active:bg-gray-50 transition-colors"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="relative">
+                                        <Icon className="h-6 w-6 text-gray-700 stroke-[1.5px]" />
+                                        {unreadCount > 0 && (
+                                            <span className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-primary text-[8px] font-bold text-white flex items-center justify-center rounded-full border border-white">
+                                                {unreadCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col text-left">
+                                        <span className="text-[17px] font-semibold tracking-tight text-gray-800">{item.label}</span>
+                                    </div>
+                                </div>
+                                <ChevronRight className="h-5 w-5 text-gray-400" />
+                            </Link>
+                        );
+                    }
                     return (
                         <Link
                             key={index}

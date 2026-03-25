@@ -1,15 +1,19 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, LogOut } from "lucide-react";
+import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, LogOut, Bell } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
+import { useNotifications } from "@/modules/user/contexts/NotificationContext";
+import NotificationDropdown from "@/modules/user/components/salon/NotificationDropdown";
 import { useNavigate } from "react-router-dom";
 
 export default function VenderProfile() {
     const { vendor, logout } = useVenderAuth();
+    const { unreadCount } = useNotifications();
     const navigate = useNavigate();
+    const [isNotifOpen, setIsNotifOpen] = React.useState(false);
 
     const handleLogout = () => {
         logout();
@@ -84,7 +88,21 @@ export default function VenderProfile() {
                 </Card>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="space-y-3">
+                <Button 
+                    variant="outline" 
+                    className="w-full h-12 rounded-xl font-bold text-primary border-primary/20 hover:bg-primary/5 gap-2"
+                    onClick={() => navigate("/vender/notifications")}
+                >
+                    <Bell className="h-4 w-4" />
+                    Notifications
+                    {unreadCount > 0 && (
+                        <Badge className="ml-auto bg-primary text-white text-[10px] h-5 min-w-[20px] flex items-center justify-center">
+                            {unreadCount}
+                        </Badge>
+                    )}
+                </Button>
+                
                 <Button variant="outline" className="w-full h-12 rounded-xl font-bold text-red-600 border-red-200 hover:bg-red-50 gap-2" onClick={handleLogout}>
                     <LogOut className="h-4 w-4" /> Logout
                 </Button>

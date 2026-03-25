@@ -23,6 +23,7 @@ export default function SPManagement() {
     const [activeTab, setActiveTab] = useState("all");
     const [feedback, setFeedback] = useState([]);
     const [allBookings, setAllBookings] = useState([]);
+    const [performanceCriteria, setPerformanceCriteria] = useState(null);
     const loadProviders = async () => {
         try {
             if (!hydrated || !isLoggedIn) return;
@@ -31,6 +32,7 @@ export default function SPManagement() {
         } catch {}
         setFeedback(JSON.parse(localStorage.getItem('muskan-feedback') || '[]'));
         setAllBookings(JSON.parse(localStorage.getItem('muskan-bookings') || '[]'));
+        // Fetch performance criteria from admin settings
     };
     useEffect(() => { loadProviders(); }, [hydrated, isLoggedIn]);
 
@@ -48,7 +50,7 @@ export default function SPManagement() {
     const filtered = providers.filter(sp => {
         const matchSearch = sp.name?.toLowerCase().includes(search.toLowerCase()) || sp.phone?.includes(search);
         if (activeTab === "all") return matchSearch;
-        if (activeTab === "pending") return matchSearch && sp.approvalStatus === "pending";
+        if (activeTab === "pending") return matchSearch && (sp.approvalStatus === "pending" || sp.approvalStatus === "pending_vendor");
         if (activeTab === "approved") return matchSearch && sp.approvalStatus === "approved";
         if (activeTab === "blocked") return matchSearch && (sp.approvalStatus === "blocked" || sp.approvalStatus === "rejected");
         return matchSearch;
@@ -59,14 +61,19 @@ export default function SPManagement() {
             await updateSPStatus(id, status);
             toast.success(`Status updated to ${status}`);
             loadProviders();
-            if (selectedSP?._id === id) setSelectedSP(prev => ({ ...prev, approvalStatus: status }));
+            if (selectedSP?._id === id || selectedSP?.id === id) {
+                const nextStatus = status === "approved" ? "pending_admin" : status;
+                setSelectedSP(prev => ({ ...prev, approvalStatus: nextStatus }));
+            }
         } catch {
             toast.error("Status update failed");
         }
     };
 
     const statusConfig = {
-        pending: { label: "Pending", color: "bg-amber-100 text-amber-700 border-amber-200" },
+        pending: { label: "Pending Vendor", color: "bg-amber-100 text-amber-700 border-amber-200" },
+        pending_vendor: { label: "Pending Vendor", color: "bg-amber-100 text-amber-700 border-amber-200" },
+        pending_admin: { label: "Pending Admin", color: "bg-blue-100 text-blue-700 border-blue-200" },
         approved: { label: "Approved", color: "bg-green-100 text-green-700 border-green-200" },
         rejected: { label: "Rejected", color: "bg-red-100 text-red-700 border-red-200" },
         blocked: { label: "Blocked", color: "bg-red-100 text-red-700 border-red-200" },
@@ -92,9 +99,10 @@ export default function SPManagement() {
                     <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
                         <TabsList className="bg-muted/50 rounded-xl p-1">
                             <TabsTrigger value="all" className="rounded-lg text-xs font-bold">All ({providers.length})</TabsTrigger>
-                            <TabsTrigger value="pending" className="rounded-lg text-xs font-bold">Pending ({providers.filter(s => s.approvalStatus === "pending").length})</TabsTrigger>
+                            <TabsTrigger value="pending" className="rounded-lg text-xs font-bold">Pending ({providers.filter(s => s.approvalStatus === "pending" || s.approvalStatus === "pending_vendor").length})</TabsTrigger>
                             <TabsTrigger value="approved" className="rounded-lg text-xs font-bold">Approved ({providers.filter(s => s.approvalStatus === "approved").length})</TabsTrigger>
                             <TabsTrigger value="blocked" className="rounded-lg text-xs font-bold">Blocked</TabsTrigger>
+                            <TabsTrigger value="rankings" className="rounded-lg text-xs font-bold bg-purple-100 text-purple-700">Rankings</TabsTrigger>
                         </TabsList>
                         <div className="relative flex-1 max-w-sm">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -115,10 +123,15 @@ export default function SPManagement() {
                             <motion.div variants={container} initial="hidden" animate="show" className="grid gap-3">
                                 {filtered.map((sp) => {
                                     const stConfig = statusConfig[sp.approvalStatus] || statusConfig.pending;
+                                    const isUnderperforming = performanceCriteria && (
+                                        (getSPRating(sp) < performanceCriteria.minRatingThreshold) ||
+                                        (sp.cancellations > performanceCriteria.maxCancellationsThreshold) ||
+                                        (sp.weeklyHours < performanceCriteria.minWeeklyHours)
+                                    );
+
                                     return (
                                         <motion.div key={sp._id || sp.id || sp.phone} variants={item}>
-                                            <Card className="shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group" onClick={() => setSelectedSP(sp)}>
-                                                <CardContent className="p-4 md:p-5">
+                                            <Card className={`shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group ${isUnderperforming ? 'border-red-500' : ''}`} onClick={() => setSelectedSP(sp)}>                                                <CardContent className="p-4 md:p-5">
                                                     <div className="flex items-center gap-4">
                                                         {/* Avatar */}
                                                         <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
@@ -140,7 +153,7 @@ export default function SPManagement() {
                                                         </div>
                                                         {/* Actions */}
                                                         <div className="flex items-center gap-2">
-                                                            {sp.approvalStatus === "pending" && (
+                                                            {(sp.approvalStatus === "pending" || sp.approvalStatus === "pending_vendor") && (
                                                                 <>
                                                                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                                                                         <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[11px] font-bold gap-1" onClick={(e) => { e.stopPropagation(); handleAction(sp._id || sp.id, "approved"); }}>
@@ -153,6 +166,11 @@ export default function SPManagement() {
                                                                         </Button>
                                                                     </motion.div>
                                                                 </>
+                                                            )}
+                                                            {sp.approvalStatus === "pending_admin" && (
+                                                                <Badge variant="outline" className="text-[9px] font-bold bg-blue-50 text-blue-600 border-blue-200">
+                                                                    Awaiting Admin
+                                                                </Badge>
                                                             )}
                                                             {sp.approvalStatus === "approved" && (
                                                                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -178,6 +196,10 @@ export default function SPManagement() {
                                 })}
                             </motion.div>
                         )}
+                    </TabsContent>
+
+                    <TabsContent value="rankings" className="mt-0">
+                        <RankingDashboard providers={providers} />
                     </TabsContent>
                 </Tabs>
             </motion.div>
@@ -230,23 +252,99 @@ export default function SPManagement() {
                                     </div>
                                 </div>
 
+                                {/* Professional Details */}
+                                <div>
+                                    <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">Professional Details</h3>
+                                    <div className="space-y-4">
+                                        <div className="bg-muted/30 rounded-xl p-3">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Categories & Specializations</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {selectedSP.documents?.primaryCategory?.length > 0 ? (
+                                                    selectedSP.documents.primaryCategory.map(cat => (
+                                                        <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-none">
+                                                            {cat}
+                                                        </Badge>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground italic">No primary categories</span>
+                                                )}
+                                                {selectedSP.documents?.specializations?.length > 0 && (
+                                                    selectedSP.documents.specializations.map(spec => (
+                                                        <Badge key={spec} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
+                                                            {spec}
+                                                        </Badge>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {selectedSP.documents?.certifications?.length > 0 && (
+                                            <div className="bg-muted/30 rounded-xl p-3">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Professional Certificates</p>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {selectedSP.documents.certifications.map((cert, idx) => (
+                                                        <div key={idx} className="aspect-square rounded-lg bg-muted overflow-hidden border border-border/50 relative group">
+                                                            <img src={cert} alt={`Cert ${idx}`} className="w-full h-full object-cover" />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <Button size="sm" variant="secondary" className="h-6 w-6 p-0 rounded-full" onClick={() => window.open(cert, '_blank')}>
+                                                                    <Eye className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
                                 {/* Documents */}
                                 <div>
                                     <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">Documents Verification</h3>
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        {[
+                                            { label: "Aadhar Front", key: "aadharFront" },
+                                            { label: "Aadhar Back", key: "aadharBack" },
+                                            { label: "PAN Card", key: "panCard" },
+                                            { label: "Profile Photo", key: "profilePhoto", isProfile: true },
+                                        ].map(doc => (
+                                            <div key={doc.key} className="space-y-1">
+                                                <p className="text-[10px] font-bold text-muted-foreground">{doc.label}</p>
+                                                <div className="aspect-video rounded-lg bg-muted overflow-hidden border border-border/50 relative group">
+                                                    {doc.isProfile ? (
+                                                        selectedSP.profilePhoto ? (
+                                                            <img src={selectedSP.profilePhoto} alt={doc.label} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><Users className="h-6 w-6" /></div>
+                                                        )
+                                                    ) : (
+                                                        selectedSP.documents?.[doc.key] ? (
+                                                            <img src={selectedSP.documents[doc.key]} alt={doc.label} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><FileText className="h-6 w-6" /></div>
+                                                        )
+                                                    )}
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <Button size="sm" variant="secondary" className="h-7 text-[10px] font-bold" onClick={() => window.open(doc.isProfile ? selectedSP.profilePhoto : selectedSP.documents?.[doc.key], '_blank')}>View Large</Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                     <div className="space-y-2">
                                         {[
-                                            { label: "Aadhar Card (Front)", key: "aadharFront" },
-                                            { label: "Aadhar Card (Back)", key: "aadharBack" },
-                                            { label: "PAN Card", key: "panCard" },
-                                            { label: "Bank Details", key: "bankName" },
+                                            { label: "Bank Name", key: "bankName" },
+                                            { label: "Account No", key: "accountNumber" },
+                                            { label: "IFSC Code", key: "ifscCode" },
+                                            { label: "UPI ID", key: "upiId" },
                                         ].map(doc => (
                                             <div key={doc.key} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
                                                 <span className="text-[12px] font-semibold flex items-center gap-2">
-                                                    <FileText className="h-3.5 w-3.5 text-muted-foreground" /> {doc.label}
+                                                    <Shield className="h-3.5 w-3.5 text-muted-foreground" /> {doc.label}
                                                 </span>
-                                                <Badge variant="outline" className={`text-[8px] font-black ${selectedSP.documents?.[doc.key] ? "bg-green-50 text-green-600 border-green-200" : "bg-amber-50 text-amber-600 border-amber-200"}`}>
-                                                    {selectedSP.documents?.[doc.key] ? "Submitted" : "Missing"}
-                                                </Badge>
+                                                <span className="text-[12px] font-bold">
+                                                    {selectedSP.documents?.[doc.key] || "N/A"}
+                                                </span>
                                             </div>
                                         ))}
                                     </div>
@@ -254,15 +352,20 @@ export default function SPManagement() {
 
                                 {/* Actions */}
                                 <div className="flex gap-2 pt-2">
-                                    {selectedSP.approvalStatus === "pending" && (
+                                    {(selectedSP.approvalStatus === "pending" || selectedSP.approvalStatus === "pending_vendor") && (
                                         <>
                                             <Button className="flex-1 h-11 bg-green-600 hover:bg-green-700 rounded-xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "approved")}>
-                                                <CheckCircle className="h-4 w-4" /> Approve
+                                                <CheckCircle className="h-4 w-4" /> Approve & Forward
                                             </Button>
                                             <Button variant="outline" className="flex-1 h-11 border-red-200 text-red-600 hover:bg-red-50 rounded-xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "rejected")}>
                                                 <XCircle className="h-4 w-4" /> Reject
                                             </Button>
                                         </>
+                                    )}
+                                    {selectedSP.approvalStatus === "pending_admin" && (
+                                        <div className="flex-1 bg-blue-50 text-blue-600 p-3 rounded-xl text-center text-xs font-bold border border-blue-100">
+                                            Awaiting Final Approval from Admin
+                                        </div>
                                     )}
                                     {selectedSP.approvalStatus === "approved" && (
                                         <Button variant="outline" className="flex-1 h-11 border-red-200 text-red-600 hover:bg-red-50 rounded-xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "blocked")}>
@@ -271,7 +374,7 @@ export default function SPManagement() {
                                     )}
                                     {(selectedSP.approvalStatus === "blocked" || selectedSP.approvalStatus === "rejected") && (
                                         <Button className="flex-1 h-11 bg-primary hover:bg-primary/90 rounded-xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "approved")}>
-                                            <UserCheck className="h-4 w-4" /> Unblock & Approve
+                                            <UserCheck className="h-4 w-4" /> Re-approve (Vendor)
                                         </Button>
                                     )}
                                     <Button variant="outline" className="h-11 rounded-xl font-bold" onClick={() => setSelectedSP(null)}>Close</Button>
@@ -284,3 +387,42 @@ export default function SPManagement() {
         </div>
     );
 }
+
+const RankingDashboard = ({ providers }) => {
+    const { getProviderRankings } = useVenderAuth();
+    const [rankings, setRankings] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (providers.length > 0) {
+            setLoading(true);
+            getProviderRankings(providers[0].city)
+                .then(data => setRankings(data.rankings))
+                .catch(() => toast.error("Failed to load rankings"))
+                .finally(() => setLoading(false));
+        }
+    }, [providers, getProviderRankings]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>City Rankings</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    {rankings.map((p, i) => (
+                        <div key={p._id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                            <div className="flex items-center gap-4">
+                                <div className="font-bold text-lg">#{i + 1}</div>
+                                <div>
+                                    <div className="font-bold">{p.name}</div>
+                                    <div className="text-xs text-muted-foreground">Rating: {p.rating.toFixed(1)} | Response: {p.responseRate}% | Jobs: {p.completedJobs}</div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+    );
+};

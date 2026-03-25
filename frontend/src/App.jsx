@@ -10,6 +10,7 @@ import { AuthProvider } from "@/modules/user/contexts/AuthContext";
 import { BookingProvider } from "@/modules/user/contexts/BookingContext";
 import { WishlistProvider } from "@/modules/user/contexts/WishlistContext";
 import { UserModuleDataProvider } from "@/modules/user/contexts/UserModuleDataContext";
+import { NotificationProvider } from "@/modules/user/contexts/NotificationContext";
 import LoginModal from "@/modules/user/components/salon/LoginModal";
 
 // User Pages
@@ -34,6 +35,7 @@ import WishlistPage from "@/modules/user/pages/WishlistPage";
 import UserLoginPage from "@/modules/user/pages/UserLoginPage";
 import SubscriptionPage from "@/modules/user/pages/SubscriptionPage";
 import SubscriptionPlans from "@/modules/user/pages/SubscriptionPlans";
+import NotificationsPage from "@/modules/user/pages/NotificationsPage";
 import FloatingCart from "@/modules/user/components/salon/FloatingCart";
 import BottomNav from "@/modules/user/components/salon/BottomNav";
 import ExpressCheckout from "@/modules/user/components/salon/ExpressCheckout";
@@ -118,10 +120,11 @@ const App = () => {
                         <ProviderBookingProvider>
                           <VenderAuthProvider>
                             <AdminAuthProvider>
-                              <ErrorBoundary>
-                                <Toaster />
-                                <Sonner />
-                                <Routes>
+                              <NotificationProvider role="any">
+                                <ErrorBoundary>
+                                  <Toaster />
+                                  <Sonner />
+                                  <Routes>
                                 {/* User Routes */}
                                 <Route path="/" element={<SplashScreen />} />
                                 <Route path="/select-gender" element={<GenderSelect />} />
@@ -142,6 +145,7 @@ const App = () => {
                                 <Route path="/coupons" element={<CouponsPage />} />
                                 <Route path="/support" element={<SupportPage />} />
                                 <Route path="/wishlist" element={<WishlistPage />} />
+                                <Route path="/notifications" element={<NotificationsPage />} />
                                 <Route path="/subscription" element={<SubscriptionPage />} />
                                 <Route path="/plus-subscription" element={<SubscriptionPlans />} />
 
@@ -167,6 +171,7 @@ const App = () => {
                                   <Route path="tickets" element={<TicketRaise />} />
                                   <Route path="hub" element={<MyHub />} />
                                   <Route path="shop" element={<SWMShop />} />
+                                  <Route path="notifications" element={<NotificationsPage />} />
                                 </Route>
 
                                 {/* Vendor Module */}
@@ -182,6 +187,7 @@ const App = () => {
                                   <Route path="sos" element={<VenderSOSMonitor />} />
                                   <Route path="feedback" element={<VenderFeedback />} />
                                   <Route path="profile" element={<VenderProfile />} />
+                                  <Route path="notifications" element={<NotificationsPage />} />
                                 </Route>
 
                                 {/* Admin Module */}
@@ -204,6 +210,7 @@ const App = () => {
                                   <Route path="feedback" element={<FeedbackManagement />} />
                                   <Route path="custom-enquiries" element={<CustomEnquiries />} />
                                   <Route path="gallery" element={<GalleryManagement />} />
+                                  <Route path="notifications" element={<NotificationsPage />} />
                                 </Route>
 
                                 {/* Common Typos / Legacy Redirects */}
@@ -218,6 +225,7 @@ const App = () => {
                                 <ExpressCheckout />
                                 <BottomNav />
                               </ErrorBoundary>
+                            </NotificationProvider>
                             </AdminAuthProvider>
                           </VenderAuthProvider>
                         </ProviderBookingProvider>

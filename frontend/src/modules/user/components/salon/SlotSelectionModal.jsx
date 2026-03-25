@@ -23,7 +23,7 @@ const timeToMinutes = (timeStr) => {
 };
 
 const SlotSelectionModal = ({ isOpen, onClose, onSave }) => {
-    const { selectedSlot, setSelectedSlot, cartItems } = useCart();
+    const { selectedSlot, setSelectedSlot, cartItems, setBookingType } = useCart();
     const { gender } = useGenderTheme();
     const { bookingTypeConfig, categories, officeSettings } = useUserModuleData();
 
@@ -172,6 +172,15 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave }) => {
                 next.provider = selectedProvider;
             }
             setSelectedSlot(next);
+            
+            // Set booking type based on date: Today = Instant, Future = Scheduled
+            const todayKey = new Date().toISOString().split("T")[0];
+            if (tempDate === todayKey) {
+                setBookingType("instant");
+            } else {
+                setBookingType("scheduled");
+            }
+
             onSave?.();
             onClose();
         }

@@ -69,6 +69,8 @@ const BookingSchema = new mongoose.Schema(
     assignmentIndex: { type: Number, default: 0 },
     lastAssignedAt: { type: Date, default: null },
     adminEscalated: { type: Boolean, default: false },
+    vendorReminderSent: { type: Boolean, default: false },
+    providerReminderSent: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

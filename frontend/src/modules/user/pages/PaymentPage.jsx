@@ -39,7 +39,11 @@ const PaymentPage = () => {
     const isPayNow = !!passedState?.isPayNow;
     const allGroups = getGroupedItems();
     const displayGroups = checkoutType && allGroups[checkoutType] ? { [checkoutType]: allGroups[checkoutType] } : allGroups;
-    const displayItems = Object.values(displayGroups).flatMap(g => g?.items || []);
+    const displayItems = Object.values(displayGroups).flatMap(g => g?.items || []).filter(Boolean);
+
+    const isCOD = selectedMethod === "cod";
+    const advanceAmt = Number(passedState?.advanceAmount || 0);
+    const currentPayableAmount = isCOD ? 0 : (advanceAmt > 0 ? advanceAmt : finalTotal);
 
     const paymentMethods = [
         { id: "upi", name: "UPI (GPay, PhonePe, Paytm)", icon: Smartphone, color: "text-purple-600", bg: "bg-purple-100" },
@@ -231,8 +235,10 @@ const PaymentPage = () => {
                 {/* Amount Section */}
                 <div className="glass-strong rounded-[2.5rem] p-8 border border-border/50 text-center relative overflow-hidden group">
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-50" />
-                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Final Payable Amount</p>
-                    <h2 className="text-4xl font-black text-primary">₹{finalTotal.toLocaleString()}</h2>
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">
+                        {isCOD ? "Total Payable Later" : (advanceAmt > 0 ? "Advance Payable Now" : "Total Payable Now")}
+                    </p>
+                    <h2 className="text-4xl font-black text-primary">₹{currentPayableAmount.toLocaleString()}</h2>
 
                     {totalSavings > 0 && (
                         <div className="mt-3 inline-flex items-center gap-1.5 bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-[10px] font-bold border border-green-500/20">
@@ -314,10 +320,11 @@ const PaymentPage = () => {
                             </div>
                         ) : (
                             <>
-                                {passedState?.advanceAmount > 0 && selectedMethod !== 'cod'
-                                    ? `PAY ADVANCE ₹${passedState.advanceAmount.toLocaleString()}`
-                                    : `SECURELY PAY ₹${finalTotal.toLocaleString()}`
-                                }
+                                {isCOD 
+                                    ? "CONFIRM BOOKING" 
+                                    : (advanceAmt > 0 
+                                        ? `PAY ADVANCE ₹${advanceAmt.toLocaleString()}` 
+                                        : `SECURELY PAY ₹${finalTotal.toLocaleString()}`)}
                                 <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform">
                                     <ChevronRight className="w-5 h-5 text-white" />
                                 </div>

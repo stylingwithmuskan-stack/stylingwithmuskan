@@ -1,7 +1,9 @@
 import Booking from "../models/Booking.js";
 import { OfficeSettings } from "../models/Content.js";
+import Notification from "../models/Notification.js";
 import { BookingSettings } from "../models/Settings.js";
 import CustomEnquiry from "../models/CustomEnquiry.js";
+import { slotLabelToLocalDateTime } from "../lib/slots.js";
 import { getIO } from "./socket.js";
 import BookingLog from "../models/BookingLog.js";
 
@@ -17,10 +19,138 @@ function withinWindow(now, startTime, endTime) {
   return mins >= start || mins <= end;
 }
 
-export async function startCron() {
+export function startCron() {
+  // Check for auto-cancellations every minute
   setInterval(async () => {
     try {
       const now = new Date();
+      const officeSettings = await OfficeSettings.findOne().lean();
+      const bufferMin = Math.max(Number(officeSettings?.bufferMinutes || 30), 0);
+      const criticalThresholdMinutes = 60 + bufferMin; // e.g., 90 mins
+
+      // Find bookings that are 'provider_cancelled' (waiting for vendor) but have hit the critical threshold
+      const pendingReassignments = await Booking.find({
+        status: "provider_cancelled"
+      });
+
+      for (const b of pendingReassignments) {
+        const bookingTime = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
+        if (!bookingTime) continue;
+
+        const diffMins = (bookingTime.getTime() - now.getTime()) / (1000 * 60);
+
+        if (diffMins < criticalThresholdMinutes) {
+          // Scenario 3: Assignment Deadline Hit -> Auto Cancel + Notify User
+          b.status = "cancelled";
+          b.cancelledBy = "system";
+          b.cancellationReason = "Auto-cancelled: No replacement found within 90-minute window";
+          await b.save();
+
+          await BookingLog.create({
+            action: "booking:auto-cancel",
+            bookingId: b._id.toString(),
+            meta: { reason: "reassignment_deadline_exceeded", diffMins }
+          });
+
+          try {
+            const io = getIO();
+            io?.of("/bookings").emit("status:update", { 
+              id: b._id.toString(), 
+              status: "cancelled", 
+              message: "Your booking has been cancelled as we couldn't find a replacement professional in time." 
+            });
+
+            await Notification.create({
+              recipientId: b.customerId,
+              recipientRole: "user",
+              title: "Booking Cancelled",
+              message: `Your booking #${b._id.toString().slice(-6)} was cancelled as no replacement professional was found.`,
+              type: "booking_cancel",
+              meta: { bookingId: b._id.toString() }
+            });
+          } catch {}
+        }
+      }
+
+      // New Logic: Reminders for Vendor and Provider
+      // 1. Vendor Reminder (3 hours before booking if status is 'provider_cancelled')
+      const vendorReminderThreshold = 180; // 3 hours
+      const unassignedBookings = await Booking.find({
+        status: "provider_cancelled",
+        vendorReminderSent: { $ne: true }
+      });
+
+      for (const b of unassignedBookings) {
+        const bookingTime = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
+        if (!bookingTime) continue;
+        const diffMins = (bookingTime.getTime() - now.getTime()) / (1000 * 60);
+
+        if (diffMins > 0 && diffMins <= vendorReminderThreshold) {
+          b.vendorReminderSent = true;
+          await b.save();
+          try {
+            const io = getIO();
+            io?.of("/vendor").emit("notification:reminder", {
+              id: b._id.toString(),
+              message: `Reminder: Booking #${b._id.toString().slice(-6)} is still unassigned and starts in 3 hours. Please assign a provider.`,
+              city: b.address?.city
+            });
+
+            // Note: RecipientId for vendor notification might need to be specific or handled by city
+            // For now creating a system-type notification that vendors can see
+            await Notification.create({
+              recipientId: "vendor_broadcast", // Or a specific vendor ID if available
+              recipientRole: "vendor",
+              title: "Unassigned Booking Reminder",
+              message: `Booking #${b._id.toString().slice(-6)} starts in 3 hours and is still unassigned.`,
+              type: "reminder",
+              meta: { bookingId: b._id.toString(), city: b.address?.city }
+            });
+          } catch {}
+        }
+      }
+
+      // 2. Provider Reminder (2 hours before booking if status is 'accepted' or 'vendor_reassigned')
+      const providerReminderThreshold = 120; // 2 hours
+      const activeBookings = await Booking.find({
+        status: { $in: ["accepted", "vendor_reassigned"] },
+        providerReminderSent: { $ne: true },
+        assignedProvider: { $exists: true, $ne: null }
+      });
+
+      for (const b of activeBookings) {
+        const bookingTime = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
+        if (!bookingTime) continue;
+        const diffMins = (bookingTime.getTime() - now.getTime()) / (1000 * 60);
+
+        if (diffMins > 0 && diffMins <= providerReminderThreshold) {
+          b.providerReminderSent = true;
+          await b.save();
+          try {
+            const io = getIO();
+            io?.of("/bookings").emit("notification:reminder", {
+              id: b._id.toString(),
+              providerId: b.assignedProvider,
+              message: `Reminder: You have a booking #${b._id.toString().slice(-6)} in 2 hours at ${b.slot?.time}.`
+            });
+
+            await Notification.create({
+              recipientId: b.assignedProvider,
+              recipientRole: "provider",
+              title: "Upcoming Booking Reminder",
+              message: `You have a booking #${b._id.toString().slice(-6)} starting at ${b.slot?.time} (in 2 hours).`,
+              type: "reminder",
+              meta: { bookingId: b._id.toString() }
+            });
+          } catch {}
+        }
+      }
+
+      // Existing release logic for other statuses...
+      const expired = await Booking.find({
+        status: "incoming",
+        expiresAt: { $ne: null, $lt: now },
+      });
 
       // Auto-expire custom enquiry quotes
       try {

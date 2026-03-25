@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/modules/user/lib/utils";
 import { useProviderAuth } from "../contexts/ProviderAuthContext";
+import { useNotifications } from "@/modules/user/contexts/NotificationContext";
+import NotificationDropdown from "@/modules/user/components/salon/NotificationDropdown";
 import { api } from "@/modules/user/lib/api";
 
 // Fallback cn if needed, but normally it's at @/lib/utils in these setups
@@ -19,6 +21,8 @@ import { api } from "@/modules/user/lib/api";
 
 const ProviderLayout = () => {
   const location = useLocation();
+  const { unreadCount } = useNotifications();
+  const [isNotifOpen, setIsNotifOpen] = React.useState(false);
 
   const navLinks = [
     { name: "Dashboard", path: "/provider/dashboard", icon: LayoutDashboard },
@@ -26,7 +30,7 @@ const ProviderLayout = () => {
     { name: "Availability", path: "/provider/availability", icon: CalendarClock },
     { name: "Performance", path: "/provider/performance", icon: BarChart2 },
     { name: "Profile", path: "/provider/profile", icon: User },
-    { name: "Admin", path: "/provider/admin", icon: Settings },
+    // { name: "Admin", path: "/provider/admin", icon: Settings },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -119,10 +123,20 @@ const ProviderLayout = () => {
             <Link to="/provider/credits" className="p-2 bg-purple-50 text-purple-600 rounded-full hover:bg-purple-100 transition-colors">
               <Wallet className="h-5 w-5" />
             </Link>
-            <button className="p-2 bg-gray-50 text-gray-600 rounded-full relative hover:bg-gray-100 transition-colors">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border border-white"></span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className={`p-2 rounded-full relative transition-all active:scale-90 ${isNotifOpen ? 'bg-primary/10 text-primary' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-3.5 w-3.5 bg-red-500 text-[8px] font-bold text-white flex items-center justify-center rounded-full border border-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
+            </div>
           </div>
         </header>
 

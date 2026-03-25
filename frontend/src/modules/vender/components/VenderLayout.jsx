@@ -19,12 +19,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/modules/user/lib/utils";
 import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
+import { useNotifications } from "@/modules/user/contexts/NotificationContext";
+import NotificationDropdown from "@/modules/user/components/salon/NotificationDropdown";
 
 const VenderLayout = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { vendor, logout, hydrated, isLoggedIn } = useVenderAuth();
+    const { unreadCount } = useNotifications();
     const [sidebarOpen, setSidebarOpen] = React.useState(false);
+    const [isNotifOpen, setIsNotifOpen] = React.useState(false);
 
     useEffect(() => {
         document.documentElement.classList.remove("theme-women", "theme-men", "theme-beautician", "theme-admin");
@@ -214,14 +218,25 @@ const VenderLayout = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="relative p-2.5 bg-muted hover:bg-primary/10 rounded-xl transition-colors"
-                        >
-                            <Bell className="h-5 w-5 text-muted-foreground" />
-                            <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-background animate-pulse" />
-                        </motion.button>
+                        <div className="relative">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                                className={cn(
+                                    "relative p-2.5 rounded-xl transition-all active:scale-90",
+                                    isNotifOpen ? "bg-primary/10 text-primary" : "bg-muted hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                                )}
+                            >
+                                <Bell className="h-5 w-5" />
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-primary text-[10px] font-bold text-white flex items-center justify-center rounded-full border-2 border-background animate-in zoom-in">
+                                        {unreadCount}
+                                    </span>
+                                )}
+                            </motion.button>
+                            <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
+                        </div>
                     </div>
                 </header>
 

@@ -135,6 +135,10 @@ export default function BookingManagement() {
         setAdminTeamReviewModal(null);
     };
 
+    useEffect(() => {
+        setTempSettings(officeSettings);
+    }, [officeSettings]);
+
     const handleSaveSettings = async () => {
         setUpdating(true);
         try {
@@ -638,13 +642,13 @@ export default function BookingManagement() {
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSettings(false)} />
                         <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-xl md:w-[540px] bg-card rounded-[40px] border border-border p-8 lg:p-10 space-y-6 shadow-2xl">
-                            <div className="flex items-center justify-between">
+                            className="relative w-full max-w-xl md:w-[540px] bg-card rounded-[40px] border border-border p-8 lg:p-10 shadow-2xl flex flex-col max-h-[90vh]">
+                            <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-black flex items-center gap-3 tracking-tight"><div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Settings2 className="h-5 w-5 text-primary" /></div> Office Hours</h3>
                                 <button onClick={() => setShowSettings(false)} className="w-10 h-10 rounded-full bg-muted/50 hover:bg-muted flex items-center justify-center transition-colors"><X className="h-5 w-5" /></button>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="flex-1 overflow-y-auto pr-2 space-y-6 scrollbar-hide">
                                 <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
                                     <p className="text-xs text-primary font-bold leading-relaxed">
                                         Set your business hours. Bookings outside these hours will queue notifications for providers until the next business day starts.
@@ -670,6 +674,33 @@ export default function BookingManagement() {
                                     </div>
                                 </div>
 
+                                <div className="space-y-6 pt-4 border-t border-border/50">
+                                    <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                                        <p className="text-xs text-purple-700 font-bold leading-relaxed">
+                                            Provider Availability Time: These hours define the default active slots for service providers on their schedule.
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 block">Provider Start At</label>
+                                            <div className="relative group">
+                                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                                <input type="time" value={tempSettings.providerStartTime || "09:00"} onChange={e => setTempSettings({ ...tempSettings, providerStartTime: e.target.value })}
+                                                    className="w-full pl-11 pr-4 py-3 bg-muted/30 border border-border/50 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/20 transition-all" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 block">Provider End At</label>
+                                            <div className="relative group">
+                                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                                <input type="time" value={tempSettings.providerEndTime || "17:00"} onChange={e => setTempSettings({ ...tempSettings, providerEndTime: e.target.value })}
+                                                    className="w-full pl-11 pr-4 py-3 bg-muted/30 border border-border/50 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/20 transition-all" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 block">Buffer Time (Minutes)</label>
                                     <div className="relative group">
@@ -691,7 +722,7 @@ export default function BookingManagement() {
                                     </button>
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="space-y-2 pb-4">
                                     <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 block">Off-Hours Message</label>
                                     <textarea rows={2} value={tempSettings.notificationMessage || ""} onChange={e => setTempSettings({ ...tempSettings, notificationMessage: e.target.value })}
                                         className="w-full px-5 py-4 bg-muted/30 border border-border/50 rounded-2xl text-sm font-medium focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/20 transition-all resize-none"
@@ -699,13 +730,15 @@ export default function BookingManagement() {
                                 </div>
                             </div>
 
-                            <Button 
-                                disabled={updating}
-                                className="w-full h-14 rounded-2xl font-black text-sm tracking-widest uppercase bg-black text-white hover:bg-black/90 shadow-2xl shadow-black/10 transition-all hover:scale-[1.02] active:scale-98" 
-                                onClick={handleSaveSettings}
-                            >
-                                {updating ? "Updating..." : "Update Business Settings"}
-                            </Button>
+                            <div className="pt-6">
+                                <Button 
+                                    disabled={updating}
+                                    className="w-full h-14 rounded-2xl font-black text-sm tracking-widest uppercase bg-black text-white hover:bg-black/90 shadow-2xl shadow-black/10 transition-all hover:scale-[1.02] active:scale-98" 
+                                    onClick={handleSaveSettings}
+                                >
+                                    {updating ? "Updating..." : "Update Business Settings"}
+                                </Button>
+                            </div>
                         </motion.div>
                     </div>,
                     document.body

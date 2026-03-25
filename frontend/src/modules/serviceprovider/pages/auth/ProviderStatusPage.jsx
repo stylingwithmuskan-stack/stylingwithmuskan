@@ -42,6 +42,26 @@ export default function ProviderStatusPage() {
             buttonText: "Join Community",
             onButtonClick: () => { }
         },
+        pending_vendor: {
+            icon: Clock,
+            iconClass: "bg-amber-50 text-amber-600",
+            title: "Hub Verification",
+            description: "Step 1: Your local Hub Manager (Vendor) is currently verifying your documents. This usually takes a few hours.",
+            badge: "Hub Review",
+            badgeClass: "bg-amber-100 text-amber-700",
+            buttonText: "Wait for Hub",
+            onButtonClick: () => { }
+        },
+        pending_admin: {
+            icon: ShieldCheck,
+            iconClass: "bg-blue-50 text-blue-600",
+            title: "Admin Final Review",
+            description: "Step 2: Your Hub Manager has approved you! Now, our Super Admin is performing the final security check.",
+            badge: "Admin Review",
+            badgeClass: "bg-blue-100 text-blue-700",
+            buttonText: "Final Step",
+            onButtonClick: () => { }
+        },
         approved: {
             icon: ShieldCheck,
             iconClass: "bg-green-50 text-green-600",

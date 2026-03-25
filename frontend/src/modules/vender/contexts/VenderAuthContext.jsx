@@ -118,6 +118,8 @@ export const VenderAuthProvider = ({ children }) => {
         await api.vendor.updatePayoutStatus(bookingId, status);
     };
 
+    const getProviderRankings = async (city) => await api.vendor.getProviderRankings(city);
+
     return (
         <VenderAuthContext.Provider value={{
             vendor,
@@ -140,6 +142,7 @@ export const VenderAuthProvider = ({ children }) => {
             getSOSAlerts,
             resolveSOSAlert,
             updatePayoutStatus,
+            getProviderRankings,
         }}>
             {children}
         </VenderAuthContext.Provider>

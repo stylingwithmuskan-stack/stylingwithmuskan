@@ -26,6 +26,8 @@ export default function PerformanceDashboard() {
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [performanceCriteria, setPerformanceCriteria] = useState(null);
+    const [rank, setRank] = useState(null);
     useEffect(() => {
         let cancel = false;
         const run = async () => {
@@ -33,8 +35,17 @@ export default function PerformanceDashboard() {
             setLoading(true);
             setError("");
             try {
-                const s = await api.provider.summary(provider.phone);
-                if (!cancel) setSummary(s);
+                const [s, pc, r] = await Promise.all([
+                    api.provider.summary(provider.phone),
+                    api.admin.getPerformanceCriteria(),
+                    api.vendor.getProviderRankings(provider.city),
+                ]);
+                if (!cancel) {
+                    setSummary(s);
+                    setPerformanceCriteria(pc.settings);
+                    const myRank = r.rankings.findIndex(p => p._id === provider._id) + 1;
+                    setRank(myRank > 0 ? `#${myRank}` : "N/A");
+                }
             } catch {
                 if (!cancel) setError("Failed to load performance");
             } finally {
@@ -43,7 +54,7 @@ export default function PerformanceDashboard() {
         };
         run();
         return () => { cancel = true; };
-    }, [provider?.phone]);
+    }, [provider?.phone, provider?.city, provider?._id]);
     const metrics = useMemo(() => ({
         rating: summary?.provider?.rating ?? 0,
         responseRate: summary?.performance?.responseRate ?? 0,
@@ -131,8 +142,8 @@ export default function PerformanceDashboard() {
                         <div className="absolute -bottom-5 bg-[#334155] backdrop-blur-md text-white rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl border border-white/10">
                             <AwardIcon className="h-5 w-5 text-slate-300" />
                             <div className="flex flex-col items-center">
-                                <Star className={`h-5 w-5 fill-white ${metrics.rating >= 4.7 ? "text-green-400" : "text-red-400"}`} />
-                                <span className="text-[10px] uppercase font-black mt-0.5 tracking-wider">Min: 4.7</span>
+                                <Star className={`h-5 w-5 fill-white ${metrics.rating >= (performanceCriteria?.minRatingThreshold || 4.7) ? "text-green-400" : "text-red-400"}`} />
+                                <span className="text-[10px] uppercase font-black mt-0.5 tracking-wider">Min: {performanceCriteria?.minRatingThreshold || 4.7}</span>
                             </div>
                             <MoreVerticalIcon className="h-5 w-5 text-slate-300" />
                         </div>
@@ -208,7 +219,7 @@ export default function PerformanceDashboard() {
                                 <div className="bg-slate-900 text-white rounded-2xl px-5 py-3 shadow-xl shadow-slate-200 flex items-center gap-4 shrink-0 transition-transform hover:scale-105 duration-300">
                                     <div className="text-right border-r border-white/10 pr-4">
                                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none mb-1">Current Rank</p>
-                                        <span className="text-xl font-black text-white italic tracking-tighter">#Top 5%</span>
+                                        <span className="text-xl font-black text-white italic tracking-tighter">{rank || "…"}</span>
                                     </div>
                                     <Zap className="h-5 w-5 text-amber-400 fill-amber-400 animate-pulse" />
                                 </div>
@@ -219,15 +230,7 @@ export default function PerformanceDashboard() {
                             <div className="h-[280px] w-full mt-6 bg-white relative px-2 sm:px-0">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart 
-                                        data={[
-                                            { day: "Mon", score: 72, quality: 85, jobs: 4 },
-                                            { day: "Tue", score: 85, quality: 90, jobs: 6 },
-                                            { day: "Wed", score: 68, quality: 78, jobs: 3 },
-                                            { day: "Thu", score: 94, quality: 96, jobs: 8 },
-                                            { day: "Fri", score: 88, quality: 92, jobs: 7 },
-                                            { day: "Sat", score: 98, quality: 99, jobs: 12 },
-                                            { day: "Sun", score: 90, quality: 92, jobs: 9 },
-                                        ]}
+                                        data={metrics.weeklyTrend}
                                         margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                                     >
                                         <defs>

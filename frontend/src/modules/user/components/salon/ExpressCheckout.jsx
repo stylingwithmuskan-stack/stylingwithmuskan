@@ -14,7 +14,7 @@ const ExpressCheckout = () => {
     const {
         cartItems, updateQuantity, clearCart, clearGroup, totalPrice, totalSavings,
         isCartOpen, setIsCartOpen, activeCheckoutType, setActiveCheckoutType,
-        selectedSlot, getGroupedItems
+        selectedSlot, getGroupedItems, bookingType
     } = useCart();
     const { isLoggedIn, hasAddress, setIsLoginModalOpen, user } = useAuth();
     const { gender } = useGenderTheme();
@@ -34,10 +34,16 @@ const ExpressCheckout = () => {
 
     // Calculate dynamic advance payment based on category settings
     const calculateAdvancePayment = () => {
+        // Instant bookings do not require advance payment
+        if (bookingType === 'instant') {
+            return { totalAdvance: 0, itemsWithAdvance: [], hasAdvance: false };
+        }
+
         let totalAdvance = 0;
         let itemsWithAdvance = [];
 
         cartItems.forEach(item => {
+            if (!item) return;
             // Check if item belongs to a displayed group
             if (activeCheckoutType && item.serviceType !== activeCheckoutType) return;
 
@@ -49,7 +55,7 @@ const ExpressCheckout = () => {
                 const itemAdvance = Math.round((item.price * item.quantity * advancePercent) / 100);
                 totalAdvance += itemAdvance;
                 itemsWithAdvance.push({
-                    name: item.name,
+                    name: item?.name || "Service",
                     percent: advancePercent,
                     advance: itemAdvance
                 });
@@ -92,9 +98,9 @@ const ExpressCheckout = () => {
         };
 
         if (finalType && typeof finalType === 'string') {
-            navigate(`/booking/summary?type=${finalType}`, { state: bookingData });
+            navigate(`/booking/summary?type=${finalType}&booking=${bookingType}`, { state: bookingData });
         } else {
-            navigate("/booking/summary", { state: bookingData });
+            navigate(`/booking/summary?booking=${bookingType}`, { state: bookingData });
         }
     };
 
@@ -288,14 +294,14 @@ const ExpressCheckout = () => {
 
                                         {/* Items List */}
                                         <div className="p-1 space-y-1 bg-accent/5">
-                                            {group.items.map((item) => (
+                                            {group.items.filter(Boolean).map((item) => (
                                                 <div key={item.id} className="bg-white p-3 rounded-2xl flex gap-3 items-center">
                                                     <div className="w-12 h-12 rounded-xl bg-accent overflow-hidden flex-shrink-0">
                                                         <img src={item.image} alt="" className="w-full h-full object-cover" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <h4 className="text-[13px] font-bold text-foreground leading-tight truncate">{item.name}</h4>
-                                                        <p className="text-[10px] font-bold text-primary mt-0.5">₹{item.price.toLocaleString()}</p>
+                                                        <h4 className="text-[13px] font-bold text-foreground leading-tight truncate">{item?.name || "Service"}</h4>
+                                                        <p className="text-[10px] font-bold text-primary mt-0.5">₹{(item?.price || 0).toLocaleString()}</p>
                                                     </div>
                                                     <div className="flex items-center gap-2 bg-accent/60 rounded-xl p-0.5">
                                                         <button

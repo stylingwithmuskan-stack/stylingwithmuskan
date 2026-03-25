@@ -61,7 +61,7 @@ export const ProviderAuthProvider = ({ children }) => {
 
     const isLoggedIn = !!provider;
     const isApproved = provider?.approvalStatus === "approved";
-    const isPending = provider?.approvalStatus === "pending";
+    const isPending = ["pending", "pending_vendor", "pending_admin"].includes(provider?.approvalStatus);
     const isRejected = provider?.approvalStatus === "rejected";
     const isRegistered = provider?.registrationComplete === true;
 
@@ -83,14 +83,20 @@ export const ProviderAuthProvider = ({ children }) => {
             panCard: typeof payload.panCard === "string" && !payload.panCard?.startsWith("data:") ? payload.panCard : "",
             primaryCategory: payload.primaryCategory,
             specializations: payload.specializations,
+            bankName: payload.bankName,
+            accountNumber: payload.accountNumber,
+            ifscCode: payload.ifscCode,
+            upiId: payload.upiId,
         };
-        const { provider: regProvider } = await api.provider.register(safe);
+        const { provider: regProvider, providerToken } = await api.provider.register(safe);
+        if (providerToken) setProviderToken(providerToken);
         let nextProvider = regProvider;
         const hasFiles =
             payload.profilePhoto instanceof File ||
             payload.aadharFront instanceof File ||
             payload.aadharBack instanceof File ||
             payload.panCard instanceof File ||
+            (Array.isArray(payload.certifications) && payload.certifications.length > 0) ||
             (typeof payload.profilePhoto === "string" && payload.profilePhoto.startsWith("data:")) ||
             (typeof payload.aadharFront === "string" && payload.aadharFront.startsWith("data:")) ||
             (typeof payload.aadharBack === "string" && payload.aadharBack.startsWith("data:")) ||
@@ -120,6 +126,14 @@ export const ProviderAuthProvider = ({ children }) => {
             appendIf("aadharFront", payload.aadharFront);
             appendIf("aadharBack", payload.aadharBack);
             appendIf("panCard", payload.panCard);
+            if (Array.isArray(payload.certifications)) {
+                payload.certifications.forEach((cert, idx) => {
+                    if (cert.data?.startsWith("data:")) {
+                        const blob = toBlob(cert.data);
+                        if (blob) form.append("certifications", blob, cert.name || `cert-${idx}.png`);
+                    }
+                });
+            }
             try {
                 const { provider: upProvider } = await api.provider.uploadDocs(form);
                 nextProvider = upProvider || nextProvider;

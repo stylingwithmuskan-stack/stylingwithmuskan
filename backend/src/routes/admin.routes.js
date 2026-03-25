@@ -5,7 +5,7 @@ import ProviderAccount from "../models/ProviderAccount.js";
 import Booking from "../models/Booking.js";
 import Coupon from "../models/Coupon.js";
 import SOSAlert from "../models/SOSAlert.js";
-import { ReferralSettings, CommissionSettings, BookingSettings } from "../models/Settings.js";
+import { ReferralSettings, CommissionSettings, BookingSettings, PerformanceSettings } from "../models/Settings.js";
 import { upload, uploadMedia } from "../middleware/upload.js";
 import { issueRoleToken, requireRole } from "../middleware/roles.js";
 import * as AdminController from "../modules/admin/controllers/admin.controller.js";
@@ -221,7 +221,18 @@ router.patch("/vendors/:id/status", requireRole("admin"), param("id").isString()
 router.get("/providers", requireRole("admin"), AdminController.listProviders);
 
 router.patch("/providers/:id/status", requireRole("admin"), param("id").isString(), body("status").isIn(["approved", "pending", "rejected", "blocked"]), async (req, res) => {
-  const p = await ProviderAccount.findByIdAndUpdate(req.params.id, { approvalStatus: req.body.status }, { new: true });
+  const status = String(req.body.status || "").trim().toLowerCase();
+  const updates = {};
+  if (status === "approved") {
+    updates.adminApprovalStatus = "approved";
+    updates.approvalStatus = "approved";
+  } else if (status === "rejected") {
+    updates.adminApprovalStatus = "rejected";
+    updates.approvalStatus = "rejected";
+  } else {
+    updates.approvalStatus = status;
+  }
+  const p = await ProviderAccount.findByIdAndUpdate(req.params.id, updates, { new: true });
   res.json({ provider: p });
 });
 
@@ -484,8 +495,17 @@ router.put(
   async (req, res) => {
     const s = await BookingSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
     res.json({ settings: s });
-  }
-);
+});
+
+router.get("/performance-criteria", requireRole("admin"), async (_req, res) => {
+  const s = await PerformanceSettings.findOne().lean();
+  res.json({ settings: s || { minWeeklyHours: 20, minRatingThreshold: 4.5, maxCancellationsThreshold: 5 } });
+});
+
+router.put("/performance-criteria", requireRole("admin"), body("minWeeklyHours").isNumeric(), body("minRatingThreshold").isNumeric(), body("maxCancellationsThreshold").isNumeric(), async (req, res) => {
+  const s = await PerformanceSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
+  res.json({ settings: s });
+});
 
 // Customized Enquiries (Admin)
 router.get("/custom-enquiries", requireRole("admin"), BookingsController.adminListCustomEnquiries);
@@ -507,6 +527,8 @@ router.put(
   requireRole("admin"),
   body("startTime").isString(),
   body("endTime").isString(),
+  body("providerStartTime").optional().isString(),
+  body("providerEndTime").optional().isString(),
   body("autoAssign").isBoolean(),
   body("bufferMinutes").optional().isNumeric(),
   async (req, res) => {

@@ -351,7 +351,9 @@ export default function VenderBookings() {
                         <TabsTrigger value="active" className="rounded-lg text-xs font-bold">Active</TabsTrigger>
                         <TabsTrigger value="completed" className="rounded-lg text-xs font-bold">Done</TabsTrigger>
                         <TabsTrigger value="cancelled" className="rounded-lg text-xs font-bold">Cancelled</TabsTrigger>
-                        <TabsTrigger value="provider_cancelled" className="rounded-lg text-xs font-bold">Provider Cancellations</TabsTrigger>
+                        <TabsTrigger value="provider_cancelled" className="rounded-lg text-xs font-bold data-[state=active]:bg-red-500 data-[state=active]:text-white flex gap-1.5 items-center">
+                            <AlertTriangle className="w-3.5 h-3.5" /> Reassign
+                        </TabsTrigger>
                     </TabsList>
                     <Select value={typeFilter} onValueChange={setTypeFilter}>
                         <SelectTrigger className="w-[160px] h-10 rounded-xl">

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from "@/modules/user/lib/api";
 
 const AuthContext = createContext();
+const STORAGE_KEY = "swm_user_auth_state";
 
 export const AuthProvider = ({ children }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -11,17 +12,48 @@ export const AuthProvider = ({ children }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [hasAddress, setHasAddress] = useState(false);
 
+    // Initial hydration from localStorage
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const data = JSON.parse(raw);
+                if (data.isLoggedIn && data.user) {
+                    setIsLoggedIn(true);
+                    setUser(data.user);
+                    setHasAddress((data.user.addresses || []).length > 0);
+                }
+            }
+        } catch (err) {
+            console.error("[Auth] Hydration failed", err);
+        }
+    }, []);
+
+    // Persist state to localStorage whenever it changes
+    useEffect(() => {
+        try {
+            if (isLoggedIn && user) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ isLoggedIn, user }));
+            } else if (!isLoggedIn && !loading) {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        } catch (err) {
+            console.error("[Auth] Persistence failed", err);
+        }
+    }, [isLoggedIn, user, loading]);
+
     useEffect(() => {
         let cancelled = false;
         (async () => {
             try {
-                const { user } = await api.me();
+                const { user: serverUser } = await api.me();
                 if (cancelled) return;
-                setUser(user);
+                setUser(serverUser);
                 setIsLoggedIn(true);
-                setHasAddress((user.addresses || []).length > 0);
+                setHasAddress((serverUser.addresses || []).length > 0);
             } catch {
-                // not logged in
+                // If api.me fails, only clear if we weren't hydrated or if it's a definite 401
+                // This prevents logging out if the server is temporarily down during refresh
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -58,6 +90,7 @@ export const AuthProvider = ({ children }) => {
             setIsLoggedIn(false);
             setUser(null);
             setHasAddress(false);
+            localStorage.removeItem(STORAGE_KEY);
             window.location.href = "/home";
         });
     };
