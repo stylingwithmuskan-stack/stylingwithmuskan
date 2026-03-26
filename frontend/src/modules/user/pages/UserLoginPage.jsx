@@ -39,6 +39,13 @@ const UserLoginPage = () => {
     const handlePhoneSubmit = async (e) => {
         e.preventDefault();
         if (phone.length !== 10) return;
+
+        // Basic phone validation (starts with 6-9)
+        if (!/^[6-9]\d{9}$/.test(phone)) {
+            setError("Please enter a valid 10-digit mobile number");
+            return;
+        }
+
         try {
             await request();
             setStep(2);

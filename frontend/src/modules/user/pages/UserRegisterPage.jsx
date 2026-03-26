@@ -40,6 +40,13 @@ const UserRegisterPage = () => {
     const handlePhoneSubmit = async (e) => {
         e.preventDefault();
         if (phone.length !== 10) return;
+
+        // Basic phone validation (starts with 6-9)
+        if (!/^[6-9]\d{9}$/.test(phone)) {
+            alert("Please enter a valid 10-digit mobile number");
+            return;
+        }
+
         try {
             const res = await api.requestOtp(phone, "register");
             console.log("[UserRegister] request-otp response", res);

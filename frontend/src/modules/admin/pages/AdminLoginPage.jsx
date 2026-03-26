@@ -27,6 +27,17 @@ export default function AdminLoginPage() {
     const handleLogin = async (e) => {
         e.preventDefault();
         setError("");
+
+        // Basic validation
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+            setError("Please enter a valid email address");
+            return;
+        }
+        if (password.length < 6) {
+            setError("Password must be at least 6 characters long");
+            return;
+        }
+
         const result = await login(email, password);
         if (result.success) navigate("/admin/dashboard");
         else setError(result.error || "Invalid credentials");

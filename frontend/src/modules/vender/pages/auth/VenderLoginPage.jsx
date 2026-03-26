@@ -29,6 +29,13 @@ export default function VenderLoginPage() {
         setError("");
         try {
             if (phone.length !== 10) return;
+
+            // Basic phone validation (starts with 6-9)
+            if (!/^[6-9]\d{9}$/.test(phone)) {
+                setError("Please enter a valid 10-digit mobile number");
+                return;
+            }
+
             await requestOtp(phone);
             setStep(2);
         } catch (err) {

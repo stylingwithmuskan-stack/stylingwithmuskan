@@ -1,12 +1,10 @@
 import {
   SMSINDIAHUB_API_KEY,
   SMSINDIAHUB_SENDER_ID,
-  SMSINDIAHUB_TEMPLATE_ID,
-  SMSINDIAHUB_ENTITY_ID,
   SMSINDIAHUB_MESSAGE_TEMPLATE,
 } from "../config.js";
 
-const SMSINDIAHUB_BASE_URL = "https://www.smsindiahub.in/api/mt/SendSMS";
+const SMSINDIAHUB_PUSH_URL = "http://cloud.smsindiahub.in/vendorsms/pushsms.aspx";
 
 function interpolate(template, vars = {}) {
   // Support both {otp} and ${otp} format
@@ -21,21 +19,48 @@ function buildMessage(otp) {
 
 function buildUrl({ phone, message }) {
   const params = new URLSearchParams();
-  params.set("apikey", SMSINDIAHUB_API_KEY);
-  params.set("senderid", SMSINDIAHUB_SENDER_ID);
-  params.set("number", phone);
-  params.set("message", message);
+  params.set("APIKey", SMSINDIAHUB_API_KEY);
+  params.set("msisdn", String(phone || "").trim());
+  params.set("sid", SMSINDIAHUB_SENDER_ID);
+  params.set("msg", message);
+  params.set("fl", "0");
+  params.set("gwid", "2");
+  return `${SMSINDIAHUB_PUSH_URL}?${params.toString()}`;
+}
 
-  if (SMSINDIAHUB_TEMPLATE_ID) params.set("templateid", SMSINDIAHUB_TEMPLATE_ID);
-  if (SMSINDIAHUB_ENTITY_ID) params.set("entityid", SMSINDIAHUB_ENTITY_ID);
+function parseGatewayResponse(text) {
+  const raw = String(text || "").trim();
+  if (!raw) {
+    return { ok: false, reason: "Empty response from SMS India Hub", parsed: null };
+  }
 
-  return `${SMSINDIAHUB_BASE_URL}?${params.toString()}`;
+  try {
+    const parsed = JSON.parse(raw);
+    const code = String(parsed?.ErrorCode ?? "").trim();
+    const message = String(parsed?.ErrorMessage ?? "").trim().toLowerCase();
+    const delivered = Array.isArray(parsed?.MessageData) && parsed.MessageData.length > 0;
+
+    if (code === "000" && (message === "done" || delivered)) {
+      return { ok: true, parsed };
+    }
+
+    return {
+      ok: false,
+      reason: parsed?.ErrorMessage || parsed?.message || raw,
+      parsed,
+    };
+  } catch {
+    if (/invalid|failed|denied|unauthori[sz]ed/i.test(raw)) {
+      return { ok: false, reason: raw, parsed: null };
+    }
+    return { ok: true, parsed: null };
+  }
 }
 
 export async function sendOtpSms({ phone, otp }) {
-  if (!SMSINDIAHUB_API_KEY) {
-    console.warn("[SMS] Skip sending (API Key missing)");
-    return { success: true, dummy: true };
+  if (!SMSINDIAHUB_API_KEY || !SMSINDIAHUB_SENDER_ID) {
+    console.warn("[SMS] Skip sending (API key or sender id missing)");
+    return { success: false, skipped: true };
   }
 
   try {
@@ -49,12 +74,12 @@ export async function sendOtpSms({ phone, otp }) {
       throw new Error(`SMS India Hub failed (${res.status})`);
     }
 
-    // Some gateways return 200 with an error string
-    if (/error|invalid|failed/i.test(text || "")) {
-      throw new Error(`SMS India Hub error: ${text}`);
+    const parsedResponse = parseGatewayResponse(text);
+    if (!parsedResponse.ok) {
+      throw new Error(`SMS India Hub error: ${parsedResponse.reason}`);
     }
 
-    return { success: true, raw: text };
+    return { success: true, raw: text, parsed: parsedResponse.parsed };
   } catch (error) {
     console.error("[SMS ERROR]", error.message);
     throw error;

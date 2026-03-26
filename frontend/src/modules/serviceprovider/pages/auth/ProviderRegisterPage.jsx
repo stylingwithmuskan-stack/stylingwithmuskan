@@ -261,10 +261,59 @@ export default function ProviderRegisterPage() {
     };
 
     const nextStep = () => {
-        if (currentStep === 1 && !otpVerified) {
-            setOtpError("Please verify your mobile number with OTP");
-            return;
+        if (currentStep === 1) {
+            if (!otpVerified) {
+                setOtpError("Please verify your mobile number with OTP");
+                return;
+            }
+            if (!formData.name.trim()) {
+                setOtpError("Please enter your full name");
+                return;
+            }
+            if (!formData.email.trim() || !/^\S+@\S+\.\S+$/.test(formData.email)) {
+                setOtpError("Please enter a valid email address");
+                return;
+            }
+            if (!formData.dob) {
+                setOtpError("Please enter your date of birth");
+                return;
+            }
+            if (!formData.experience) {
+                setOtpError("Please select your experience");
+                return;
+            }
+            if (!formData.addressLine1.trim() || !formData.area.trim() || !formData.city.trim()) {
+                setOtpError("Please complete your address details");
+                return;
+            }
         }
+
+        if (currentStep === 2) {
+            if (!formData.aadharFront || !formData.aadharBack || !formData.panCard) {
+                setOtpError("Please upload all required KYC documents");
+                return;
+            }
+        }
+
+        if (currentStep === 3) {
+            if (formData.primaryCategory.length === 0) {
+                setOtpError("Please select at least one primary category");
+                return;
+            }
+        }
+
+        if (currentStep === 4) {
+            if (!formData.bankName.trim() || !formData.accountNumber.trim() || !formData.ifscCode.trim()) {
+                setOtpError("Please complete your bank details");
+                return;
+            }
+            if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode)) {
+                setOtpError("Please enter a valid IFSC code");
+                return;
+            }
+        }
+
+        setOtpError("");
         if (currentStep < 5) setCurrentStep(currentStep + 1);
         else handleSubmit();
     };

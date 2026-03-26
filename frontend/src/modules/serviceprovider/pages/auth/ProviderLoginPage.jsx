@@ -47,6 +47,13 @@ export default function ProviderLoginPage() {
 
     const handleContinue = async () => {
         if (phone.length !== 10) return;
+
+        // Basic phone validation (starts with 6-9)
+        if (!/^[6-9]\d{9}$/.test(phone)) {
+            setError("Please enter a valid 10-digit mobile number");
+            return;
+        }
+
         setIsLoading(true);
         try {
             setError("");

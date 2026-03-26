@@ -30,6 +30,25 @@ export default function VenderRegisterPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Basic validation
+        if (!form.name.trim()) {
+            toast.error("Please enter your name");
+            return;
+        }
+        if (!/^\S+@\S+\.\S+$/.test(form.email)) {
+            toast.error("Please enter a valid email address");
+            return;
+        }
+        if (!/^[6-9]\d{9}$/.test(form.phone)) {
+            toast.error("Please enter a valid 10-digit phone number");
+            return;
+        }
+        if (!form.city) {
+            toast.error("Please select a city");
+            return;
+        }
+
         setLoading(true);
         try {
             const res = await registerRequest(form.phone);
