@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Store, User, Mail, Phone, MapPin, Building2, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Store, User, Mail, Phone, MapPin, Building2, ArrowRight, X } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
 import { Label } from "@/modules/user/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/modules/user/components/ui/select";
 import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
 import { useNavigate, Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const CITIES = ["Delhi", "Mumbai", "Bangalore", "Hyderabad", "Chennai", "Pune", "Kolkata", "Jaipur", "Gurgaon", "Noida", "Lucknow", "Chandigarh", "Indore"];
 
 export default function VenderRegisterPage() {
-    const { register, isLoggedIn } = useVenderAuth();
+    const { registerRequest, verifyRegistrationOtp, isLoggedIn } = useVenderAuth();
     const navigate = useNavigate();
-    const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", businessName: "" });
+    const [form, setForm] = useState({ name: "", email: "", phone: "", city: "" });
+    const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+    const [otp, setOtp] = useState("");
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         document.documentElement.classList.remove("theme-women", "theme-men", "theme-beautician", "theme-admin");
@@ -26,11 +30,36 @@ export default function VenderRegisterPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
         try {
-            const res = await register(form);
-            if (res?.success) navigate("/vender/dashboard", { replace: true });
+            const res = await registerRequest(form.phone);
+            if (res?.success) {
+                setIsOtpModalOpen(true);
+                toast.success("OTP sent to your mobile number");
+            }
         } catch (err) {
-            // keep UI unchanged; vendor can retry
+            toast.error(err.message || "Failed to send OTP");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (otp.length !== 6) {
+            toast.error("Please enter a valid 6-digit OTP");
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await verifyRegistrationOtp({ ...form, otp });
+            if (res?.success) {
+                toast.success("Registration request submitted! Please wait for admin approval.");
+                navigate("/vender/login");
+            }
+        } catch (err) {
+            toast.error(err.message || "OTP verification failed");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -73,7 +102,7 @@ export default function VenderRegisterPage() {
                                     <Input type="tel" placeholder="9876543210" value={form.phone} onChange={e => update("phone", e.target.value)} className="pl-10 h-11 rounded-xl" required />
                                 </div>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-2 col-span-2">
                                 <Label className="text-xs font-bold text-gray-600">City</Label>
                                 <Select value={form.city} onValueChange={val => update("city", val)}>
                                     <SelectTrigger className="h-11 rounded-xl">
@@ -84,16 +113,9 @@ export default function VenderRegisterPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-bold text-gray-600">Business Name</Label>
-                                <div className="relative">
-                                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input placeholder="My Salon" value={form.businessName} onChange={e => update("businessName", e.target.value)} className="pl-10 h-11 rounded-xl" />
-                                </div>
-                            </div>
                         </div>
-                        <Button type="submit" className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white gap-2 shadow-lg shadow-emerald-200 mt-2">
-                            Register <ArrowRight className="h-4 w-4" />
+                        <Button type="submit" disabled={loading} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white gap-2 shadow-lg shadow-emerald-200 mt-2">
+                            {loading ? "Sending OTP..." : "Register"} <ArrowRight className="h-4 w-4" />
                         </Button>
                     </form>
                     <div className="text-center pt-4 mt-4 border-t border-gray-100">
@@ -103,6 +125,34 @@ export default function VenderRegisterPage() {
                     </div>
                 </motion.div>
             </motion.div>
+
+            <AnimatePresence>
+                {isOtpModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
+                            <button onClick={() => setIsOtpModalOpen(false)} className="absolute right-4 top-4 p-1 hover:bg-gray-100 rounded-full">
+                                <X className="h-4 w-4 text-gray-400" />
+                            </button>
+                            <div className="text-center mb-6">
+                                <div className="h-12 w-12 rounded-xl bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+                                    <Phone className="h-6 w-6 text-emerald-600" />
+                                </div>
+                                <h3 className="text-lg font-black text-gray-900">Verify Mobile</h3>
+                                <p className="text-xs text-gray-500 mt-1">Enter the 6-digit OTP sent to {form.phone}</p>
+                            </div>
+                            <div className="space-y-4">
+                                <Input type="text" maxLength={6} placeholder="Enter 6-digit OTP" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ""))}
+                                    className="text-center text-2xl font-black tracking-[0.5em] h-14 rounded-xl border-2 focus:border-emerald-500" />
+                                <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6}
+                                    className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white shadow-lg shadow-emerald-200">
+                                    {loading ? "Verifying..." : "Verify & Submit"}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

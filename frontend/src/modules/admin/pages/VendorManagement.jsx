@@ -72,17 +72,31 @@ export default function VendorManagement() {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <h3 className="text-sm font-bold truncate">{v.name}</h3>
-                                                <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 ${v.status === "approved" ? "bg-green-500/15 text-green-400 border-green-500/30" : "bg-red-500/15 text-red-400 border-red-500/30"}`}>
-                                                    {v.status || "Pending"}
+                                                <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 ${
+                                                    v.status === "approved" ? "bg-green-500/15 text-green-400 border-green-500/30" : 
+                                                    v.status === "pending" ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                                                    "bg-red-500/15 text-red-400 border-red-500/30"
+                                                }`}>
+                                                    {(v.status || "Pending").toUpperCase()}
                                                 </Badge>
                                             </div>
                                             <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-muted-foreground font-medium">
                                                 <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{v.city || "N/A"}</span>
                                                 <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{v.email}</span>
+                                                <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{v.phone || "N/A"}</span>
                                             </div>
                                         </div>
                                         <div className="flex gap-1.5">
-                                            {v.status !== "blocked" ? (
+                                            {v.status === "pending" ? (
+                                                <>
+                                                    <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-green-500/30 text-green-400 hover:bg-green-500/10 rounded-lg" onClick={() => handleAction(v._id || v.id, "approved")}>
+                                                        <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-lg" onClick={() => handleAction(v._id || v.id, "rejected")}>
+                                                        <Ban className="h-3 w-3 mr-1" /> Reject
+                                                    </Button>
+                                                </>
+                                            ) : v.status === "approved" ? (
                                                 <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-lg" onClick={() => handleAction(v._id || v.id, "blocked")}>
                                                     <Ban className="h-3 w-3 mr-1" /> Block
                                                 </Button>

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from "@/modules/user/lib/api";
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 const STORAGE_KEY = "swm_user_auth_state";
 
 export const AuthProvider = ({ children }) => {

@@ -1,6 +1,5 @@
 import { validationResult } from "express-validator";
 import Booking from "../../../models/Booking.js";
-import Notification from "../../../models/Notification.js";
 import mongoose from "mongoose";
 import Coupon from "../../../models/Coupon.js";
 import { OfficeSettings, Category } from "../../../models/Content.js";
@@ -17,6 +16,8 @@ import { computeAvailableSlots } from "../../../lib/availability.js";
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../../../config.js";
 import { getIO } from "../../../startup/socket.js";
+import { notify } from "../../../lib/notify.js";
+import Vendor from "../../../models/Vendor.js";
 
 async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
   // Logic: Instant bookings never require advance payment.
@@ -415,7 +416,7 @@ export async function create(req, res) {
     notificationStatus,
     assignedProvider,
     maintainProvider: preferredProviderId || "",
-    otp: (Math.floor(1000 + Math.random() * 9000)).toString(),
+    otp: (Math.floor(100000 + Math.random() * 900000)).toString(),
     beforeImages: [],
     afterImages: [],
     productImages: [],
@@ -472,6 +473,68 @@ export async function create(req, res) {
     bookingId: booking._id.toString(),
     meta: { totals, advanceAmount }
   });
+
+  const bookingId = booking._id.toString();
+  // Notify user: booking created
+  try {
+    await notify({
+      recipientId: req.user._id.toString(),
+      recipientRole: "user",
+      title: "Booking Created",
+      message: `Your booking #${bookingId.slice(-6)} has been created successfully.`,
+      type: "booking_created",
+      meta: { bookingId },
+    });
+  } catch {}
+
+  // Create notification for the assigned provider
+  if (assignedProvider) {
+    try {
+      await notify({
+        recipientId: assignedProvider,
+        recipientRole: "provider",
+        title: "New Booking Assigned",
+        message: `You have a new booking #${bookingId.slice(-6)} from ${req.user.name}.`,
+        type: "booking_assigned",
+        meta: { bookingId },
+        respectProviderQuietHours: true,
+      });
+      await notify({
+        recipientId: req.user._id.toString(),
+        recipientRole: "user",
+        title: "Professional Assigned",
+        message: `A professional has been assigned to booking #${bookingId.slice(-6)}.`,
+        type: "booking_assigned",
+        meta: { bookingId },
+      });
+    } catch {}
+  } else {
+    // Escalated / unassigned booking - notify admin and city vendor (if any)
+    try {
+      await notify({
+        recipientId: "ADMIN001",
+        recipientRole: "admin",
+        title: "Booking Escalated",
+        message: `Booking #${bookingId.slice(-6)} could not be auto-assigned.`,
+        type: "booking_escalated",
+        meta: { bookingId },
+      });
+      const city = booking.address?.city || booking.address?.area || "";
+      if (city) {
+        const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+        if (vendor) {
+          await notify({
+            recipientId: vendor._id?.toString(),
+            recipientRole: "vendor",
+            title: "Booking Escalated",
+            message: `Booking #${bookingId.slice(-6)} in ${city} needs manual assignment.`,
+            type: "booking_escalated",
+            meta: { bookingId, city },
+          });
+        }
+      }
+    } catch {}
+  }
 }
 
 export async function getById(req, res) {
@@ -552,6 +615,30 @@ export async function createCustomEnquiry(req, res) {
     paymentStatus: "pending",
     timeline: [{ action: "enquiry_created" }],
   });
+  try {
+    await notify({
+      recipientId: "ADMIN001",
+      recipientRole: "admin",
+      title: "New Custom Enquiry",
+      message: `A new custom enquiry #${doc._id.toString().slice(-6)} was submitted.`,
+      type: "custom_quote_submitted",
+      meta: { enquiryId: doc._id.toString() },
+    });
+    const city = doc.address?.city || doc.address?.area || "";
+    if (city) {
+      const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+      if (vendor) {
+        await notify({
+          recipientId: vendor._id?.toString(),
+          recipientRole: "vendor",
+          title: "New Custom Enquiry",
+          message: `A new custom enquiry #${doc._id.toString().slice(-6)} is waiting for quote.`,
+          type: "custom_quote_submitted",
+          meta: { enquiryId: doc._id.toString(), city },
+        });
+      }
+    }
+  } catch {}
   res.status(201).json({ enquiry: doc });
 }
 
@@ -692,10 +779,35 @@ export async function adminFinalApprove(req, res) {
       teamMembers: Array.isArray(enq.teamMembers) ? enq.teamMembers : [],
     });
     enq.bookingId = booking._id.toString();
+
+    // Create notification for the assigned provider
+    if (booking.assignedProvider) {
+      try {
+        await notify({
+          recipientId: booking.assignedProvider,
+          recipientRole: "provider",
+          title: "New Custom Booking Assigned",
+          message: `You have a new custom booking #${booking._id.toString().slice(-6)} from ${enq.name}.`,
+          type: "booking_assigned",
+          meta: { bookingId: booking._id.toString() },
+          respectProviderQuietHours: true,
+        });
+      } catch {}
+    }
   }
   enq.status = "final_approved";
   enq.timeline.push({ action: "final_approved", meta: { bookingId: booking?._id?.toString?.() || "" } });
   await enq.save();
+  try {
+    await notify({
+      recipientId: enq.userId,
+      recipientRole: "user",
+      title: "Custom Enquiry Approved",
+      message: `Your custom enquiry has been approved. Booking #${(booking?._id?.toString?.() || "").slice(-6)} is now active.`,
+      type: "custom_approved",
+      meta: { enquiryId: enq._id?.toString?.(), bookingId: booking?._id?.toString?.() || "" },
+    });
+  } catch {}
   res.json({ enquiry: enq, booking });
 }
 
@@ -760,15 +872,40 @@ export async function cancel(req, res) {
 
     // Create DB Notifications
     if (booking.assignedProvider) {
-      await Notification.create({
+      await notify({
         recipientId: booking.assignedProvider,
         recipientRole: "provider",
         title: "Booking Cancelled",
         message: `Booking #${booking._id.toString().slice(-6)} has been cancelled by the customer.`,
-        type: "booking_cancel",
-        meta: { bookingId: booking._id.toString() }
+        type: "booking_cancelled",
+        meta: { bookingId: booking._id.toString() },
+        respectProviderQuietHours: true,
       });
     }
+    try {
+      await notify({
+        recipientId: "ADMIN001",
+        recipientRole: "admin",
+        title: "Booking Cancelled",
+        message: `Booking #${booking._id.toString().slice(-6)} was cancelled by the customer.`,
+        type: "booking_cancelled",
+        meta: { bookingId: booking._id.toString(), city: booking.address?.city || "" },
+      });
+      const city = booking.address?.city || "";
+      if (city) {
+        const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+        if (vendor) {
+          await notify({
+            recipientId: vendor._id?.toString(),
+            recipientRole: "vendor",
+            title: "Booking Cancelled",
+            message: `Booking #${booking._id.toString().slice(-6)} in ${city} was cancelled by the customer.`,
+            type: "booking_cancelled",
+            meta: { bookingId: booking._id.toString(), city },
+          });
+        }
+      }
+    } catch {}
   } catch (err) {
     console.error("Socket notification failed:", err);
   }

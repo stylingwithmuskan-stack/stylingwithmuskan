@@ -3,6 +3,8 @@ import { body, validationResult } from "express-validator";
 import User from "../models/User.js";
 import { redis } from "../startup/redis.js";
 import { issueToken } from "../middleware/auth.js";
+import { sendOtpSms } from "../lib/smsIndiaHub.js";
+import { getDefaultOtpByRole, isDefaultUserOtp } from "../lib/otpPolicy.js";
 
 const router = Router();
 
@@ -24,11 +26,19 @@ router.post(
       return res.status(404).json({ error: "No account found. Please register." });
     }
     const isDev = (process.env.NODE_ENV !== "production");
-    // Generate 4-digit OTP for user auth
-    const otp = (Math.floor(1000 + Math.random() * 9000)).toString();
+    // Generate 6-digit OTP for user auth
+    const isDefaultPhone = isDefaultUserOtp(phone);
+    const otp = isDefaultPhone ? getDefaultOtpByRole("user") : (Math.floor(100000 + Math.random() * 900000)).toString();
 
     await redis.set(`otp:${phone}`, otp, { EX: 300 });
-    // In production, send via SMS here
+    if (!isDefaultPhone) {
+      try {
+        await sendOtpSms({ phone, otp });
+      } catch (err) {
+        await redis.del(`otp:${phone}`);
+        return res.status(502).json({ error: "Failed to send OTP" });
+      }
+    }
     const mask = "****";
     console.log("[OTP] user login", phone, isDev ? otp : mask);
     res.json({
@@ -44,7 +54,7 @@ router.post(
 router.post(
   "/verify-otp",
   body("phone").isString().matches(/^\d{10}$/),
-  body("otp").isString().isLength({ min: 4, max: 4 }),
+  body("otp").isString().isLength({ min: 6, max: 6 }),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -52,10 +62,8 @@ router.post(
     }
     const { phone, otp } = req.body;
     const intent = (req.body.intent || "auto").toLowerCase();
-    const isDev = (process.env.NODE_ENV !== "production");
-    const defaultOtp = process.env.DEMO_DEFAULT_OTP || (isDev ? "1234" : "");
     let valid = false;
-    if (isDev && otp === defaultOtp) {
+    if (isDefaultUserOtp(phone) && otp === getDefaultOtpByRole("user")) {
       valid = true;
     } else {
       const stored = await redis.get(`otp:${phone}`);

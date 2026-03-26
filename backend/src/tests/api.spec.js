@@ -21,8 +21,8 @@ describe("SWM API", () => {
   });
 
   it("auth request-otp and verify", async () => {
-    const phone = process.env.DEMO_DEFAULT_PHONE || "1234567890";
-    const otp = process.env.DEMO_DEFAULT_OTP || "1234";
+    const phone = process.env.DEFAULT_USER_OTP_PHONE || process.env.DEMO_DEFAULT_PHONE || "9990000001";
+    const otp = process.env.DEFAULT_USER_OTP || "1234";
     let res = await request(app).post("/auth/request-otp").send({ phone });
     expect(res.status).toBe(200);
     res = await request(app).post("/auth/verify-otp").send({ phone, otp });
@@ -33,8 +33,8 @@ describe("SWM API", () => {
   });
 
   it("bookings quote and create", async () => {
-    const phone = process.env.DEMO_DEFAULT_PHONE || "1234567890";
-    const otp = process.env.DEMO_DEFAULT_OTP || "1234";
+    const phone = process.env.DEFAULT_USER_OTP_PHONE || process.env.DEMO_DEFAULT_PHONE || "9990000001";
+    const otp = process.env.DEFAULT_USER_OTP || "1234";
     let res = await request(app).post("/auth/verify-otp").send({ phone, otp });
     const token = res.body.token;
     const agent = request.agent(app);
@@ -57,12 +57,12 @@ describe("SWM API", () => {
 
   it("provider scope enforcement", async () => {
     // Create two providers
-    const p1 = await ProviderAccount.create({ phone: "9000000001", name: "P1", approvalStatus: "approved", registrationComplete: true });
-    const p2 = await ProviderAccount.create({ phone: "9000000002", name: "P2", approvalStatus: "approved", registrationComplete: true });
+    const p1 = await ProviderAccount.create({ phone: "9100000001", name: "P1", approvalStatus: "approved", registrationComplete: true });
+    const p2 = await ProviderAccount.create({ phone: "9100000002", name: "P2", approvalStatus: "approved", registrationComplete: true });
 
     // Login as p1 (dev default otp)
     const agent = request.agent(app);
-    let res = await agent.post("/provider/verify-otp").send({ phone: p1.phone, otp: process.env.DEMO_DEFAULT_OTP6 || "123456" });
+    let res = await agent.post("/provider/verify-otp").send({ phone: p1.phone, otp: process.env.DEFAULT_PROVIDER_OTP || "123456" });
     expect(res.status).toBe(200);
 
     // Create a booking assigned to p2
@@ -90,9 +90,9 @@ describe("SWM API", () => {
   });
 
   it("provider availability get/set", async () => {
-    const p = await ProviderAccount.create({ phone: "9000000010", name: "P10", approvalStatus: "approved", registrationComplete: true });
+    const p = await ProviderAccount.create({ phone: "9100000003", name: "P10", approvalStatus: "approved", registrationComplete: true });
     const agent = request.agent(app);
-    let res = await agent.post("/provider/verify-otp").send({ phone: p.phone, otp: process.env.DEMO_DEFAULT_OTP6 || "123456" });
+    let res = await agent.post("/provider/verify-otp").send({ phone: p.phone, otp: process.env.DEFAULT_PROVIDER_OTP || "123456" });
     expect(res.status).toBe(200);
 
     res = await agent.get("/provider/availability/2026-03-07");

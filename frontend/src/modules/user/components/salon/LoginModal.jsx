@@ -13,7 +13,7 @@ const LoginModal = () => {
     const [phone, setPhone] = useState("");
     const [name, setName] = useState("");
     const [referralCode, setReferralCode] = useState("");
-    const [otp, setOtp] = useState(["", "", "", ""]);
+    const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(30);
 
     useEffect(() => {
@@ -29,7 +29,7 @@ const LoginModal = () => {
         if (!isLoginModalOpen) {
             setStep(1);
             setPhone("");
-            setOtp(["", "", "", ""]);
+            setOtp(["", "", "", "", "", ""]);
         }
     }, [isLoginModalOpen]);
 
@@ -62,12 +62,12 @@ const LoginModal = () => {
         const newOtp = [...otp];
         newOtp[index] = value.slice(-1);
         setOtp(newOtp);
-
-        // Auto focus next
-        if (value && index < 3) {
-            const nextInput = document.getElementById(`otp-${index + 1}`);
-            nextInput?.focus();
-        }
+  
+          // Auto focus next
+          if (value && index < 5) {
+              const nextInput = document.getElementById(`otp-${index + 1}`);
+              nextInput?.focus();
+          }
 
         if (newOtp.every(v => v !== "")) {
             setTimeout(() => {

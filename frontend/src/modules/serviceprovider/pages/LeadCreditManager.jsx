@@ -20,6 +20,7 @@ export default function LeadCreditManager() {
     const [balance, setBalance] = useState(0);
     const [transactions, setTransactions] = useState([]);
     const [rechargeBusy, setRechargeBusy] = useState(false);
+    const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
     const normalizeTxn = (t) => {
         const amount = Number(t.amount || 0);
         const type = String(t.type || t.txnType || "").trim();
@@ -237,7 +238,7 @@ export default function LeadCreditManager() {
                         <p className="text-xs text-muted-foreground mt-2">1 CR = ₹1.00</p>
                     </CardContent>
                     <CardFooter className="flex flex-col gap-2">
-                        <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white" onClick={handleRecharge} disabled={rechargeBusy}>
+                        <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setIsRechargeModalOpen(true)} disabled={rechargeBusy}>
                             <Plus className="mr-2 h-4 w-4" /> Recharge Credits
                         </Button>
 
@@ -278,6 +279,89 @@ export default function LeadCreditManager() {
                     </CardContent>
                 </Card>
             </div>
+
+            <RechargeModal isOpen={isRechargeModalOpen} onClose={() => setIsRechargeModalOpen(false)} onRechargeSuccess={refresh} />
         </div>
     );
 }
+
+const RechargeModal = ({ isOpen, onClose, onRechargeSuccess }) => {
+    const [amount, setAmount] = useState("500");
+    const [loading, setLoading] = useState(false);
+
+    const loadRazorpay = () =>
+        new Promise((resolve, reject) => {
+            if (window.Razorpay) return resolve(true);
+            const script = document.createElement("script");
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => reject(new Error("Razorpay SDK failed to load"));
+            document.body.appendChild(script);
+        });
+
+    const handlePayment = async () => {
+        const numAmount = Number(amount);
+        if (!Number.isFinite(numAmount) || numAmount < 100) {
+            toast.error("Minimum recharge amount is ₹100");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await loadRazorpay();
+            const orderRes = await api.provider.wallet.createOrder(numAmount);
+            const order = orderRes.order;
+
+            const rzp = new window.Razorpay({
+                key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+                amount: order.amount,
+                currency: order.currency,
+                name: "SWM Wallet Recharge",
+                description: `Recharge for ₹${numAmount}`,
+                order_id: order.id,
+                handler: async (response) => {
+                    try {
+                        await api.provider.wallet.verifyPayment(response);
+                        toast.success(`Recharge of ₹${numAmount} successful!`);
+                        onRechargeSuccess();
+                        onClose();
+                    } catch (err) {
+                        toast.error(err.message || "Payment verification failed");
+                    }
+                },
+                modal: {
+                    ondismiss: () => setLoading(false),
+                },
+            });
+            rzp.open();
+        } catch (err) {
+            toast.error(err.message || "Failed to create payment order");
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center" onClick={onClose}>
+            <div className="bg-card rounded-2xl shadow-2xl border border-border w-[400px]" onClick={(e) => e.stopPropagation()}>
+                <div className="p-6 border-b border-border">
+                    <h2 className="text-lg font-bold flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> Recharge Wallet</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Add credits to your wallet to accept bookings.</p>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="text-sm font-bold">Amount (INR)</label>
+                        <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 w-full p-2 border rounded-lg" />
+                    </div>
+                </div>
+                <div className="p-4 bg-muted/50 border-t border-border flex justify-end gap-2">
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button onClick={handlePayment} disabled={loading} className="bg-primary">
+                        {loading ? "Processing..." : `Proceed to Pay ₹${amount}`}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+};

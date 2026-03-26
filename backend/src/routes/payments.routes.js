@@ -10,6 +10,7 @@ import CustomEnquiry from "../models/CustomEnquiry.js";
 import Booking from "../models/Booking.js";
 import BookingLog from "../models/BookingLog.js";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, JWT_SECRET } from "../config.js";
+import { notify } from "../lib/notify.js";
 
 const router = Router();
 
@@ -169,6 +170,17 @@ router.post(
         balanceAfter: req.provider.credits,
         meta: { title: "Razorpay Recharge", source: "razorpay", order_id, payment_id },
       });
+      try {
+        await notify({
+          recipientId: req.provider._id.toString(),
+          recipientRole: "provider",
+          title: "Wallet Topup Successful",
+          message: `₹${amount} has been added to your wallet.`,
+          type: "wallet_topup",
+          meta: { amount, order_id, payment_id },
+          respectProviderQuietHours: true,
+        });
+      } catch {}
       return res.json({ success: true });
     }
 
@@ -180,6 +192,16 @@ router.post(
       req.user.wallet.balance = (req.user.wallet.balance || 0) + amount;
       req.user.wallet.transactions.unshift({ title: "Wallet Topup", amount, type: "credit", at: new Date() });
       await req.user.save();
+      try {
+        await notify({
+          recipientId: req.user._id.toString(),
+          recipientRole: "user",
+          title: "Wallet Topup Successful",
+          message: `₹${amount} has been added to your wallet.`,
+          type: "wallet_topup",
+          meta: { amount, order_id, payment_id },
+        });
+      } catch {}
       return res.json({ success: true });
     }
 
@@ -194,6 +216,16 @@ router.post(
         await b.save();
         await BookingLog.create({ action: "booking:payment-update", userId: req.user._id.toString(), bookingId: b._id.toString(), meta: { amount } });
       }
+      try {
+        await notify({
+          recipientId: req.user._id.toString(),
+          recipientRole: "user",
+          title: "Payment Successful",
+          message: `Your payment for booking #${bookingId.slice(-6)} was successful.`,
+          type: "payment_success",
+          meta: { bookingId, amount },
+        });
+      } catch {}
       return res.json({ success: true });
     }
 
@@ -208,6 +240,16 @@ router.post(
         enq.timeline.push({ action: "advance_paid", meta: { amount, source: "razorpay" } });
         await enq.save();
       }
+      try {
+        await notify({
+          recipientId: req.user._id.toString(),
+          recipientRole: "user",
+          title: "Advance Payment Successful",
+          message: `Your advance payment for enquiry #${enquiryId.slice(-6)} was successful.`,
+          type: "custom_advance_paid",
+          meta: { enquiryId, amount },
+        });
+      } catch {}
       return res.json({ success: true });
     }
 

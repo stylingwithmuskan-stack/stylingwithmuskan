@@ -20,6 +20,15 @@ const ProfilePage = () => {
   const [walletBalance, setWalletBalance] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [menEnabled, setMenEnabled] = useState(false);
+
+  useEffect(() => {
+    api.admin.getSystemSettings()
+        .then(data => {
+            setMenEnabled(data.settings?.menSectionEnabled || false);
+        })
+        .catch(() => setMenEnabled(false));
+  }, []);
 
   useEffect(() => {
     if (!loading && !isLoggedIn) {
@@ -43,13 +52,10 @@ const ProfilePage = () => {
   }, [loading, isLoggedIn]);
 
   const handleGenderSwitch = (g) => {
-    if (g === "men") {
-        const isMenEnabled = JSON.parse(localStorage.getItem('swm_men_enabled') ?? 'false');
-        if (!isMenEnabled) {
-            setShowPopup(true);
-            setTimeout(() => setShowPopup(false), 2500);
-            return;
-        }
+    if (g === "men" && !menEnabled) {
+        setShowPopup(true);
+        setTimeout(() => setShowPopup(false), 2500);
+        return;
     }
     setGender(g);
   };

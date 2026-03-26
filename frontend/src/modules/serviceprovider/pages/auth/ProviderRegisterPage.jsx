@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     ChevronLeft,
@@ -42,7 +42,7 @@ const steps = [
 
 export default function ProviderRegisterPage() {
     const navigate = useNavigate();
-    const { register, provider } = useProviderAuth();
+    const { register, provider, requestRegisterOtp, verifyRegisterOtp } = useProviderAuth();
     const [currentStep, setCurrentStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -71,6 +71,12 @@ export default function ProviderRegisterPage() {
         upiId: "",
         agreed: false
     });
+
+    const [otp, setOtp] = useState("");
+    const [otpSent, setOtpSent] = useState(false);
+    const [otpVerified, setOtpVerified] = useState(false);
+    const [otpError, setOtpError] = useState("");
+    const [otpLoading, setOtpLoading] = useState(false);
 
     // Refs for hidden inputs
     const profileInputRef = useRef(null);
@@ -210,7 +216,55 @@ export default function ProviderRegisterPage() {
         });
     };
 
+    useEffect(() => {
+        setOtp("");
+        setOtpSent(false);
+        setOtpVerified(false);
+        setOtpError("");
+    }, [formData.phone]);
+
+    const handleSendOtp = async () => {
+        const phone = (formData.phone || "").trim();
+        if (!/^\d{10}$/.test(phone)) {
+            setOtpError("Enter a valid 10-digit mobile number");
+            return;
+        }
+        setOtpLoading(true);
+        setOtpError("");
+        try {
+            await requestRegisterOtp(phone);
+            setOtpSent(true);
+        } catch (e) {
+            setOtpError(e?.message || "Failed to send OTP");
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        const phone = (formData.phone || "").trim();
+        if (otp.length !== 6) {
+            setOtpError("Enter a valid 6-digit OTP");
+            return;
+        }
+        setOtpLoading(true);
+        setOtpError("");
+        try {
+            await verifyRegisterOtp(phone, otp);
+            setOtpVerified(true);
+        } catch (e) {
+            setOtpVerified(false);
+            setOtpError(e?.message || "OTP verification failed");
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
     const nextStep = () => {
+        if (currentStep === 1 && !otpVerified) {
+            setOtpError("Please verify your mobile number with OTP");
+            return;
+        }
         if (currentStep < 5) setCurrentStep(currentStep + 1);
         else handleSubmit();
     };
@@ -220,6 +274,10 @@ export default function ProviderRegisterPage() {
     };
 
     const handleSubmit = () => {
+        if (!otpVerified) {
+            setOtpError("Please verify your mobile number with OTP");
+            return;
+        }
         setIsLoading(true);
         setTimeout(() => {
             register(formData);
@@ -359,6 +417,41 @@ export default function ProviderRegisterPage() {
                                             value={formData.phone}
                                             onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                                         />
+                                        <div className="mt-2 space-y-2">
+                                            <div className="flex flex-wrap gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="h-10 rounded-xl text-xs font-black uppercase tracking-widest"
+                                                    onClick={handleSendOtp}
+                                                    disabled={otpLoading || !/^\d{10}$/.test(formData.phone)}
+                                                >
+                                                    {otpSent ? "Resend OTP" : "Send OTP"}
+                                                </Button>
+                                                <Input
+                                                    type="text"
+                                                    placeholder="Enter 6-digit OTP"
+                                                    className="h-10 rounded-xl bg-gray-50 border-gray-100 font-bold text-center tracking-widest w-40"
+                                                    value={otp}
+                                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                                    disabled={!otpSent || otpVerified}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    className="h-10 rounded-xl text-xs font-black uppercase tracking-widest bg-violet-600 hover:bg-violet-700"
+                                                    onClick={handleVerifyOtp}
+                                                    disabled={otpLoading || otp.length !== 6 || otpVerified}
+                                                >
+                                                    {otpVerified ? "Verified" : "Verify OTP"}
+                                                </Button>
+                                            </div>
+                                            {otpVerified && (
+                                                <p className="text-xs font-bold text-green-600">Mobile number verified</p>
+                                            )}
+                                            {otpError && (
+                                                <p className="text-xs font-bold text-red-600">{otpError}</p>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-black uppercase text-gray-400">Full Name</Label>

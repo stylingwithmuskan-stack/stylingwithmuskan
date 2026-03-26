@@ -9,7 +9,6 @@ import { upload } from "../middleware/upload.js";
 import { uploadBuffer } from "../startup/cloudinary.js";
 import { issueRoleToken, requireRole } from "../middleware/roles.js";
 import BookingLog from "../models/BookingLog.js";
-import Notification from "../models/Notification.js";
 import { getIO } from "../startup/socket.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
@@ -21,6 +20,11 @@ import { BookingSettings, CommissionSettings, PerformanceSettings } from "../mod
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../config.js";
 import { invalidateProviderSlots } from "../lib/availability.js";
+import crypto from "crypto";
+import { notify } from "../lib/notify.js";
+import Vendor from "../models/Vendor.js";
+import { sendOtpSms } from "../lib/smsIndiaHub.js";
+import { getDefaultOtpByRole, isDefaultProviderOtp } from "../lib/otpPolicy.js";
 
 const router = Router();
 
@@ -42,19 +46,66 @@ router.post("/request-otp", body("phone").matches(/^\d{10}$/), async (req, res) 
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const acc = await ProviderAccount.findOne({ phone: req.body.phone }).lean();
   if (!acc) return res.status(404).json({ error: "user with this mobile number not found" });
-  const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
+  const isDefaultPhone = isDefaultProviderOtp(req.body.phone);
+  const otp = isDefaultPhone ? getDefaultOtpByRole("provider") : (Math.floor(100000 + Math.random() * 900000)).toString();
   await redis.set(`sp:otp:${req.body.phone}`, otp, { EX: 300 });
   const isDev = (process.env.NODE_ENV !== "production");
+  if (!isDefaultPhone) {
+    try {
+      await sendOtpSms({ phone: req.body.phone, otp });
+    } catch {
+      await redis.del(`sp:otp:${req.body.phone}`);
+      return res.status(502).json({ error: "Failed to send OTP" });
+    }
+  }
   console.log("[OTP] provider login", req.body.phone, isDev ? otp : "****");
   res.json({ success: true, otpPreview: isDev ? otp : "****" });
 });
 
+router.post("/register-request", body("phone").matches(/^\d{10}$/), async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  const phone = req.body.phone;
+  const existing = await ProviderAccount.findOne({ phone }).lean();
+  if (existing?.registrationComplete) {
+    return res.status(409).json({ error: "Account already exists. Please login." });
+  }
+  const isDefaultPhone = isDefaultProviderOtp(phone);
+  const otp = isDefaultPhone ? getDefaultOtpByRole("provider") : (Math.floor(100000 + Math.random() * 900000)).toString();
+  await redis.set(`sp:reg:otp:${phone}`, otp, { EX: 300 });
+  const isDev = (process.env.NODE_ENV !== "production");
+  if (!isDefaultPhone) {
+    try {
+      await sendOtpSms({ phone, otp });
+    } catch {
+      await redis.del(`sp:reg:otp:${phone}`);
+      return res.status(502).json({ error: "Failed to send OTP" });
+    }
+  }
+  res.json({ success: true, otpPreview: isDev ? otp : "****" });
+});
+
+router.post("/verify-registration-otp", body("phone").matches(/^\d{10}$/), body("otp").isLength({ min: 6, max: 6 }), async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  const { phone, otp } = req.body;
+  let valid = false;
+  if (isDefaultProviderOtp(phone) && otp === getDefaultOtpByRole("provider")) {
+    valid = true;
+  } else {
+    const stored = await redis.get(`sp:reg:otp:${phone}`);
+    valid = !!stored && stored === otp;
+    if (valid) await redis.del(`sp:reg:otp:${phone}`);
+  }
+  if (!valid) return res.status(400).json({ error: "Invalid OTP" });
+  await redis.set(`sp:reg:verified:${phone}`, "1", { EX: 600 });
+  res.json({ success: true });
+});
+
 router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLength({ min: 6, max: 6 }), async (req, res) => {
   const { phone, otp } = req.body;
-  const isDev = (process.env.NODE_ENV !== "production");
-  const defaultOtp6 = process.env.DEMO_DEFAULT_OTP6 || (isDev ? "123456" : "");
   let valid = false;
-  if (isDev && otp === defaultOtp6) {
+  if (isDefaultProviderOtp(phone) && otp === getDefaultOtpByRole("provider")) {
     valid = true;
   } else {
     const stored = await redis.get(`sp:otp:${phone}`);
@@ -257,6 +308,16 @@ router.post(
       reason: req.body.reason || "",
       status,
     });
+    try {
+      await notify({
+        recipientId: "ADMIN001",
+        recipientRole: "admin",
+        title: "Leave Request",
+        message: `Provider ${prov.name || prov.phone} requested leave (${status}).`,
+        type: "leave_requested",
+        meta: { leaveId: item._id?.toString?.(), providerId: pId, status },
+      });
+    } catch {}
     res.status(201).json({ leave: item, requiresApproval });
   }
 );
@@ -264,6 +325,11 @@ router.post(
 router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isString(), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  const verified = await redis.get(`sp:reg:verified:${req.body.phone}`);
+  if (!verified) {
+    return res.status(403).json({ error: "OTP verification required before registration" });
+  }
+  await redis.del(`sp:reg:verified:${req.body.phone}`);
   const update = {
     name: req.body.name,
     email: req.body.email || "",
@@ -436,29 +502,67 @@ router.get("/credits/:phone", param("phone").matches(/^\d{10}$/), async (req, re
   res.json({ credits, transactions });
 });
 
-router.post(
-  "/wallet/recharge",
-  requireRole("provider"),
-  body("amount").isNumeric(),
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-    const amount = Math.max(Number(req.body.amount) || 0, 0);
-    if (amount <= 0) return res.status(400).json({ error: "Invalid amount" });
-    const acc = await ProviderAccount.findById(req.auth.sub);
-    if (!acc) return res.status(404).json({ error: "Not found" });
-    acc.credits = Number(acc.credits || 0) + amount;
+router.post("/wallet/create-order", requireRole("provider"), body("amount").isNumeric(), async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const amount = Math.max(Number(req.body.amount) || 0, 0);
+  if (amount < 100) return res.status(400).json({ error: "Minimum recharge amount is ₹100" });
+
+  try {
+    const rzp = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
+    const order = await rzp.orders.create({
+      amount: amount * 100,
+      currency: "INR",
+      receipt: `SWM_RECHARGE_${req.auth.sub}_${Date.now()}`,
+      notes: { providerId: req.auth.sub, type: "wallet_recharge" },
+    });
+    res.json({ order });
+  } catch (err) {
+    console.error("[Razorpay] Create order failed:", err);
+    res.status(502).json({ error: "Payment gateway unavailable" });
+  }
+});
+
+router.post("/wallet/verify-payment", requireRole("provider"), body("razorpay_payment_id").isString(), body("razorpay_order_id").isString(), body("razorpay_signature").isString(), async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
+  const providerId = req.auth.sub;
+
+  try {
+    const generated_signature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(razorpay_order_id + "|" + razorpay_payment_id).digest('hex');
+    if (generated_signature !== razorpay_signature) {
+      return res.status(400).json({ error: "Invalid payment signature" });
+    }
+
+    const rzp = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
+    const order = await rzp.orders.fetch(razorpay_order_id);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    const amount = order.amount / 100;
+
+    const acc = await ProviderAccount.findById(providerId);
+    if (!acc) return res.status(404).json({ error: "Provider not found" });
+
+    acc.credits = (acc.credits || 0) + amount;
     await acc.save();
+
     await ProviderWalletTxn.create({
-      providerId: acc._id.toString(),
+      providerId,
       type: "recharge",
       amount,
       balanceAfter: acc.credits,
-      meta: { title: "Recharge Credits", source: "mock" },
+      meta: { title: "Wallet Recharge", source: "razorpay", paymentId: razorpay_payment_id },
     });
+
     res.json({ success: true, credits: acc.credits });
+  } catch (err) {
+    console.error("[Razorpay] Verify payment failed:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-);
+});
 
 router.post(
   "/wallet/expense",
@@ -633,6 +737,18 @@ router.post("/bookings/:id/request-payment", requireRole("provider"), param("id"
       const io = getIO();
       io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "payment_pending" });
     } catch {}
+    try {
+      if (b.customerId) {
+        await notify({
+          recipientId: b.customerId,
+          recipientRole: "user",
+          title: "Payment Required",
+          message: `Please complete the payment for booking #${b._id.toString().slice(-6)} to proceed.`,
+          type: "payment_required",
+          meta: { bookingId: b._id.toString() },
+        });
+      }
+    } catch {}
     res.json({ booking: { ...b.toObject(), id: b._id.toString() }, order });
   } catch (err) {
     console.error("Payment request error:", err);
@@ -701,6 +817,42 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
 
     await b.save();
     await BookingLog.create({ action: "booking:accept-expired", userId: pId, bookingId: req.params.id, meta: { attempted: "accepted" } });
+    try {
+      if (picked?.providerId) {
+        await notify({
+          recipientId: picked.providerId,
+          recipientRole: "provider",
+          title: "Booking Reassigned",
+          message: `A booking #${b._id.toString().slice(-6)} has been reassigned to you.`,
+          type: "booking_reassigned",
+          meta: { bookingId: b._id.toString(), reason: "accept_expired" },
+          respectProviderQuietHours: true,
+        });
+      } else {
+        await notify({
+          recipientId: "ADMIN001",
+          recipientRole: "admin",
+          title: "Booking Escalated",
+          message: `Booking #${b._id.toString().slice(-6)} could not be reassigned after acceptance expiry.`,
+          type: "booking_escalated",
+          meta: { bookingId: b._id.toString() },
+        });
+        const city = b.address?.city || "";
+        if (city) {
+          const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+          if (vendor) {
+            await notify({
+              recipientId: vendor._id?.toString(),
+              recipientRole: "vendor",
+              title: "Booking Escalated",
+              message: `Booking #${b._id.toString().slice(-6)} in ${city} needs manual assignment.`,
+              type: "booking_escalated",
+              meta: { bookingId: b._id.toString(), city },
+            });
+          }
+        }
+      }
+    } catch {}
     return res.status(409).json({
       error: "This booking request has expired for you and was reassigned to another provider.",
       code: "ACCEPT_WINDOW_EXPIRED",
@@ -730,11 +882,46 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         const io = getIO();
         io?.of("/bookings").emit("assignment:changed", { id: b._id.toString(), fromProvider: current, toProvider: picked.providerId, reason: "rejected" });
       } catch {}
+      try {
+        await notify({
+          recipientId: picked.providerId,
+          recipientRole: "provider",
+          title: "Booking Reassigned",
+          message: `A booking #${b._id.toString().slice(-6)} has been reassigned to you.`,
+          type: "booking_reassigned",
+          meta: { bookingId: b._id.toString(), reason: "rejected" },
+          respectProviderQuietHours: true,
+        });
+      } catch {}
     } else {
       b.assignedProvider = "";
       b.adminEscalated = true;
       b.status = "pending";
       b.expiresAt = null;
+      try {
+        await notify({
+          recipientId: "ADMIN001",
+          recipientRole: "admin",
+          title: "Booking Escalated",
+          message: `Booking #${b._id.toString().slice(-6)} could not be reassigned after provider rejection.`,
+          type: "booking_escalated",
+          meta: { bookingId: b._id.toString() },
+        });
+        const city = b.address?.city || "";
+        if (city) {
+          const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+          if (vendor) {
+            await notify({
+              recipientId: vendor._id?.toString(),
+              recipientRole: "vendor",
+              title: "Booking Escalated",
+              message: `Booking #${b._id.toString().slice(-6)} in ${city} needs manual assignment.`,
+              type: "booking_escalated",
+              meta: { bookingId: b._id.toString(), city },
+            });
+          }
+        }
+      } catch {}
     }
   } else if (next === "accepted") {
     // Wallet commission check before accepting
@@ -766,6 +953,17 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         balanceAfter: acc.credits,
         meta: { rate, totalAmount },
       });
+      try {
+        await notify({
+          recipientId: pId,
+          recipientRole: "provider",
+          title: "Commission Hold",
+          message: `A commission hold of ₹${required} has been applied for booking #${b._id.toString().slice(-6)}.`,
+          type: "commission_hold",
+          meta: { bookingId: b._id.toString(), amount: required },
+          respectProviderQuietHours: true,
+        });
+      } catch {}
     }
     try {
       const settings = await BookingSettings.findOne().lean();
@@ -830,6 +1028,17 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           balanceAfter: acc.credits,
           meta: { title: "Commission Refund (Provider Cancelled)", reason: "cancelled_by_provider" },
         });
+        try {
+          await notify({
+            recipientId: pId,
+            recipientRole: "provider",
+            title: "Commission Refunded",
+            message: `Commission refund of ₹${b.commissionAmount} issued for booking #${b._id.toString().slice(-6)}.`,
+            type: "commission_refund",
+            meta: { bookingId: b._id.toString(), amount: b.commissionAmount },
+            respectProviderQuietHours: true,
+          });
+        } catch {}
       }
     }
 
@@ -857,20 +1066,45 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       if (isCritical) {
         // To User (Direct Message)
         io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "cancelled", message: "Your booking has been cancelled due to professional unavailability." });
-        
-        await Notification.create({
-          recipientId: b.customerId,
-          recipientRole: "user",
-          title: "Booking Cancelled",
-          message: `Your booking #${b._id.toString().slice(-6)} has been cancelled due to professional unavailability.`,
-          type: "booking_cancel",
-          meta: { bookingId: b._id.toString() }
-        });
+        try {
+          await notify({
+            recipientId: b.customerId,
+            recipientRole: "user",
+            title: "Booking Cancelled",
+            message: `Your booking #${b._id.toString().slice(-6)} has been cancelled due to professional unavailability.`,
+            type: "booking_cancelled",
+            meta: { bookingId: b._id.toString() },
+          });
+        } catch {}
       }
 
       // To Admin and Vendor
       io?.of("/admin").emit("booking:cancelled", { ...payload, by: "provider", isCritical });
       io?.of("/vendor").emit("booking:cancelled", { ...payload, by: "provider", isCritical });
+      try {
+        await notify({
+          recipientId: "ADMIN001",
+          recipientRole: "admin",
+          title: "Provider Cancelled Booking",
+          message: `Booking #${b._id.toString().slice(-6)} was cancelled by the provider.`,
+          type: "booking_cancelled",
+          meta: { bookingId: b._id.toString(), city: b.address?.city || "", isCritical },
+        });
+        const city = b.address?.city || "";
+        if (city) {
+          const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+          if (vendor) {
+            await notify({
+              recipientId: vendor._id?.toString(),
+              recipientRole: "vendor",
+              title: "Provider Cancelled Booking",
+              message: `Booking #${b._id.toString().slice(-6)} in ${city} was cancelled by the provider.`,
+              type: "booking_cancelled",
+              meta: { bookingId: b._id.toString(), city, isCritical },
+            });
+          }
+        }
+      } catch {}
     } catch (err) {
       console.error("Socket notification failed:", err);
     }
@@ -903,6 +1137,17 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         balanceAfter: acc.credits,
         meta: { reason: next },
       });
+      try {
+        await notify({
+          recipientId: pId,
+          recipientRole: "provider",
+          title: "Commission Refunded",
+          message: `Commission refund of ₹${Number(b.commissionAmount || 0)} issued for booking #${b._id.toString().slice(-6)}.`,
+          type: "commission_refund",
+          meta: { bookingId: b._id.toString(), amount: Number(b.commissionAmount || 0) },
+          respectProviderQuietHours: true,
+        });
+      } catch {}
     }
   }
 
@@ -914,6 +1159,19 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
   try {
     const io = getIO();
     io?.of("/bookings").emit("status:update", { id: req.params.id, status: next });
+  } catch {}
+  try {
+    const notifyStatuses = new Set(["accepted", "travelling", "arrived", "in_progress", "completed", "payment_pending"]);
+    if (b.customerId && notifyStatuses.has(next)) {
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        title: "Booking Update",
+        message: `Your booking #${b._id.toString().slice(-6)} is now ${String(next).replace("_", " ")}.`,
+        type: "booking_status",
+        meta: { bookingId: b._id.toString(), status: next },
+      });
+    }
   } catch {}
   res.json({ booking: b });
 });

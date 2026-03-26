@@ -36,7 +36,7 @@ async function run() {
 
   // User auth (dev OTP)
   const phone = process.env.DEMO_DEFAULT_PHONE || "1234567890";
-  const otp = process.env.DEMO_DEFAULT_OTP || "1234";
+  const otp = process.env.DEFAULT_USER_OTP || process.env.DEMO_DEFAULT_OTP || "1234";
   res = await request(app).post("/auth/verify-otp").send({ phone, otp });
   assert(res.status === 200, "user verify-otp failed");
   const token = res.body.token;
@@ -58,7 +58,7 @@ async function run() {
   const tomorrow = iso(new Date(Date.now() + 24 * 60 * 60 * 1000));
 
   const agent = request.agent(app);
-  res = await agent.post("/provider/verify-otp").send({ phone: p1.phone, otp: process.env.DEMO_DEFAULT_OTP6 || "123456" });
+  res = await agent.post("/provider/verify-otp").send({ phone: p1.phone, otp: process.env.DEFAULT_PROVIDER_OTP || process.env.DEMO_DEFAULT_OTP6 || "123456" });
   assert(res.status === 200, "provider verify-otp failed");
 
   res = await agent.get(`/provider/availability/${tomorrow}`);
@@ -103,4 +103,3 @@ run()
   .finally(async () => {
     try { await mongoose.disconnect(); } catch {}
   });
-

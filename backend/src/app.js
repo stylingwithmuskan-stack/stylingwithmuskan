@@ -26,14 +26,14 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(helmet());
 app.use(morgan("dev"));
-const allowedOrigins = (ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
+const allowedOrigins = (ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:4173").split(",").map(s => s.trim()).filter(Boolean);
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     if (allowedOrigins.includes("*")) return cb(null, true);
     if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return cb(null, true);
-    if (origin.endsWith(".vercel.app")) return cb(null, true); // Automatically allow vercel previews
-    console.warn(`[CORS] Rejected origin: ${origin}`);
+    if (origin.endsWith(".vercel.app")) return cb(null, true);
+    console.warn(`[Express CORS] Rejected origin: ${origin}`);
     return cb(new Error("Not allowed by CORS"));
   },
   credentials: true,

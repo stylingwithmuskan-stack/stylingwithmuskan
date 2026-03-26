@@ -3,45 +3,59 @@ import { requireRole } from "../middleware/roles.js";
 import { requireAuth } from "../middleware/auth.js";
 import Notification from "../models/Notification.js";
 
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "../config.js";
+
 const router = express.Router();
 
 // Helper to check for ANY role or standard user auth
 const requireAnyAuth = async (req, res, next) => {
-  // First try standard user auth
   try {
-    return await requireAuth(req, res, (err) => {
-      if (!err && req.user) {
-        req.auth = { sub: req.user._id.toString(), role: "user" };
-        return next();
-      }
-      throw new Error("Not a user");
-    });
-  } catch (e) {
-    // If not user, try roles (admin, provider, vendor)
-    const roles = ["admin", "provider", "vendor"];
-    for (const role of roles) {
-      const middleware = requireRole(role);
-      let success = false;
-      middleware(req, res, (err) => {
-        if (!err && req.auth) {
-          success = true;
-        }
-      });
-      if (success) return next();
+    const cookies = req.cookies || {};
+    const headerToken = req.headers.authorization?.startsWith("Bearer ")
+      ? req.headers.authorization.split(" ")[1]
+      : null;
+
+    const candidates = [
+      headerToken,
+      cookies.token,
+      cookies.providerToken,
+      cookies.adminToken,
+      cookies.vendorToken,
+    ].filter(Boolean);
+
+    let decoded = null;
+    for (const t of candidates) {
+      try {
+        decoded = jwt.verify(t, JWT_SECRET);
+        if (decoded) break;
+      } catch {}
     }
+
+    if (!decoded) return res.status(401).json({ error: "Unauthorized" });
+    
+    req.auth = decoded;
+    // Back-compat for some middlewares that expect req.user
+    if (decoded.role === "user") {
+      req.user = { _id: decoded.sub };
+    }
+    
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
-  return res.status(401).json({ error: "Unauthorized" });
 };
 
 // Get notifications for current user/role
 router.get("/", requireAnyAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
-    const notifications = await Notification.find({ recipientId })
+    const recipientRole = req.auth.role || "user";
+    const notifications = await Notification.find({ recipientId, recipientRole })
       .sort({ createdAt: -1 })
       .limit(50);
     
-    const unreadCount = await Notification.countDocuments({ recipientId, isRead: false });
+    const unreadCount = await Notification.countDocuments({ recipientId, recipientRole, isRead: false });
     
     res.json({ notifications, unreadCount });
   } catch (err) {
@@ -53,7 +67,8 @@ router.get("/", requireAnyAuth, async (req, res) => {
 router.put("/read-all", requireAnyAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
-    await Notification.updateMany({ recipientId, isRead: false }, { isRead: true });
+    const recipientRole = req.auth.role || "user";
+    await Notification.updateMany({ recipientId, recipientRole, isRead: false }, { isRead: true });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -64,7 +79,8 @@ router.put("/read-all", requireAnyAuth, async (req, res) => {
 router.delete("/:id", requireAnyAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
-    await Notification.findOneAndDelete({ _id: req.params.id, recipientId });
+    const recipientRole = req.auth.role || "user";
+    await Notification.findOneAndDelete({ _id: req.params.id, recipientId, recipientRole });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

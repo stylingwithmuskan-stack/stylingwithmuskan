@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/modules/user/lib/api";
 
-const VenderAuthContext = createContext(undefined);
+export const VenderAuthContext = createContext(undefined);
 
 export const useVenderAuth = () => {
     const context = useContext(VenderAuthContext);
@@ -55,6 +55,14 @@ export const VenderAuthProvider = ({ children }) => {
         setVendor(vendor);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(vendor)); } catch {}
         return { success: true };
+    };
+
+    const registerRequest = async (phone) => {
+        return await api.vendor.registerRequest(phone);
+    };
+
+    const verifyRegistrationOtp = async (payload) => {
+        return await api.vendor.verifyRegistrationOtp(payload);
     };
 
     const logout = () => {
@@ -130,6 +138,8 @@ export const VenderAuthProvider = ({ children }) => {
             requestOtp,
             verifyOtp,
             register,
+            registerRequest,
+            verifyRegistrationOtp,
             logout,
             getServiceProviders,
             updateSPStatus,

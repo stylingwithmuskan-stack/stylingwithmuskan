@@ -5,7 +5,7 @@ import ProviderAccount from "../models/ProviderAccount.js";
 import Booking from "../models/Booking.js";
 import Coupon from "../models/Coupon.js";
 import SOSAlert from "../models/SOSAlert.js";
-import { ReferralSettings, CommissionSettings, BookingSettings, PerformanceSettings } from "../models/Settings.js";
+import { ReferralSettings, CommissionSettings, BookingSettings, PerformanceSettings, SystemSettings } from "../models/Settings.js";
 import { upload, uploadMedia } from "../middleware/upload.js";
 import { issueRoleToken, requireRole } from "../middleware/roles.js";
 import * as AdminController from "../modules/admin/controllers/admin.controller.js";
@@ -16,6 +16,7 @@ import { Spotlight, GalleryItem, Testimonial } from "../models/SiteContent.js";
 import * as BookingsController from "../modules/bookings/controllers/bookings.controller.js";
 import { computeExpiresAt } from "../lib/assignment.js";
 import { bumpContentVersion } from "../lib/contentCache.js";
+import { notify } from "../lib/notify.js";
 
 const router = Router();
 
@@ -197,6 +198,19 @@ router.get("/leaves", requireRole("admin"), async (_req, res) => {
 router.patch("/leaves/:id/approve", requireRole("admin"), async (req, res) => {
   const item = await LeaveRequest.findByIdAndUpdate(req.params.id, { status: "approved" }, { new: true });
   if (!item) return res.status(404).json({ error: "Not found" });
+  try {
+    if (item.providerId) {
+      await notify({
+        recipientId: item.providerId,
+        recipientRole: "provider",
+        title: "Leave Approved",
+        message: "Your leave request has been approved.",
+        type: "leave_approved",
+        meta: { leaveId: item._id?.toString?.() },
+        respectProviderQuietHours: true,
+      });
+    }
+  } catch {}
   res.json({ leave: item });
 });
 
@@ -208,6 +222,19 @@ router.patch("/custom-enquiries/:id/final-approve", requireRole("admin"), AdminC
 router.patch("/leaves/:id/reject", requireRole("admin"), async (req, res) => {
   const item = await LeaveRequest.findByIdAndUpdate(req.params.id, { status: "rejected" }, { new: true });
   if (!item) return res.status(404).json({ error: "Not found" });
+  try {
+    if (item.providerId) {
+      await notify({
+        recipientId: item.providerId,
+        recipientRole: "provider",
+        title: "Leave Rejected",
+        message: "Your leave request has been rejected.",
+        type: "leave_rejected",
+        meta: { leaveId: item._id?.toString?.() },
+        respectProviderQuietHours: true,
+      });
+    }
+  } catch {}
   res.json({ leave: item });
 });
 
@@ -215,6 +242,23 @@ router.patch("/vendors/:id/status", requireRole("admin"), param("id").isString()
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const v = await Vendor.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+  try {
+    if (v?._id) {
+      const st = String(req.body.status || "").toLowerCase();
+      await notify({
+        recipientId: v._id.toString(),
+        recipientRole: "vendor",
+        title: st === "approved" ? "Vendor Approved" : st === "rejected" ? "Vendor Rejected" : "Status Updated",
+        message: st === "approved"
+          ? "Your vendor account has been approved by admin."
+          : st === "rejected"
+          ? "Your vendor account was rejected by admin."
+          : `Your vendor status was updated to ${st}.`,
+        type: st === "approved" ? "vendor_approved" : "vendor_rejected",
+        meta: { vendorId: v._id.toString(), status: st },
+      });
+    }
+  } catch {}
   res.json({ vendor: v });
 });
 
@@ -233,6 +277,23 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
     updates.approvalStatus = status;
   }
   const p = await ProviderAccount.findByIdAndUpdate(req.params.id, updates, { new: true });
+  try {
+    if (p?._id) {
+      await notify({
+        recipientId: p._id.toString(),
+        recipientRole: "provider",
+        title: status === "approved" ? "Admin Approved" : status === "rejected" ? "Admin Rejected" : "Status Updated",
+        message: status === "approved"
+          ? "Your profile has been approved by admin."
+          : status === "rejected"
+          ? "Your profile was rejected by admin."
+          : `Your status was updated to ${status}.`,
+        type: status === "approved" ? "provider_admin_approved" : "provider_rejected",
+        meta: { providerId: p._id.toString(), status },
+        respectProviderQuietHours: true,
+      });
+    }
+  } catch {}
   res.json({ provider: p });
 });
 
@@ -251,6 +312,29 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
     },
     { new: true }
   );
+  try {
+    if (b?.assignedProvider) {
+      await notify({
+        recipientId: b.assignedProvider,
+        recipientRole: "provider",
+        title: "New Booking Assigned",
+        message: `A booking #${b._id.toString().slice(-6)} has been assigned to you.`,
+        type: "booking_assigned",
+        meta: { bookingId: b._id.toString() },
+        respectProviderQuietHours: true,
+      });
+    }
+    if (b?.customerId) {
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        title: "Professional Assigned",
+        message: `A professional has been assigned to booking #${b._id.toString().slice(-6)}.`,
+        type: "booking_assigned",
+        meta: { bookingId: b._id.toString() },
+      });
+    }
+  } catch {}
   res.json({ booking: b });
 });
 
@@ -547,6 +631,17 @@ router.get("/sos", requireRole("admin"), async (_req, res) => {
 router.patch("/sos/:id/resolve", requireRole("admin"), param("id").isString(), async (req, res) => {
   const a = await SOSAlert.findByIdAndUpdate(req.params.id, { status: "resolved" }, { new: true });
   res.json({ alert: a });
+});
+
+// System Settings
+router.get("/system-settings", async (_req, res) => {
+  const s = await SystemSettings.findOne().lean();
+  res.json({ settings: s || { menSectionEnabled: false } });
+});
+
+router.put("/system-settings", requireRole("admin"), body("menSectionEnabled").isBoolean(), async (req, res) => {
+  const s = await SystemSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
+  res.json({ settings: s });
 });
 
 export default router;

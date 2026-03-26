@@ -1,11 +1,11 @@
 import Booking from "../models/Booking.js";
 import { OfficeSettings } from "../models/Content.js";
-import Notification from "../models/Notification.js";
 import { BookingSettings } from "../models/Settings.js";
 import CustomEnquiry from "../models/CustomEnquiry.js";
 import { slotLabelToLocalDateTime } from "../lib/slots.js";
 import { getIO } from "./socket.js";
 import BookingLog from "../models/BookingLog.js";
+import { notify } from "../lib/notify.js";
 
 function withinWindow(now, startTime, endTime) {
   const [startH, startM] = String(startTime || "07:00").split(":").map(Number);
@@ -60,13 +60,11 @@ export function startCron() {
               message: "Your booking has been cancelled as we couldn't find a replacement professional in time." 
             });
 
-            await Notification.create({
+            await notify({
               recipientId: b.customerId,
               recipientRole: "user",
-              title: "Booking Cancelled",
-              message: `Your booking #${b._id.toString().slice(-6)} was cancelled as no replacement professional was found.`,
               type: "booking_cancel",
-              meta: { bookingId: b._id.toString() }
+              meta: { bookingId: b._id.toString(), reason: "reassignment_deadline_exceeded" },
             });
           } catch {}
         }
@@ -98,13 +96,11 @@ export function startCron() {
 
             // Note: RecipientId for vendor notification might need to be specific or handled by city
             // For now creating a system-type notification that vendors can see
-            await Notification.create({
+            await notify({
               recipientId: "vendor_broadcast", // Or a specific vendor ID if available
               recipientRole: "vendor",
-              title: "Unassigned Booking Reminder",
-              message: `Booking #${b._id.toString().slice(-6)} starts in 3 hours and is still unassigned.`,
               type: "reminder",
-              meta: { bookingId: b._id.toString(), city: b.address?.city }
+              meta: { bookingId: b._id.toString(), city: b.address?.city, time: b.slot?.time },
             });
           } catch {}
         }
@@ -134,13 +130,11 @@ export function startCron() {
               message: `Reminder: You have a booking #${b._id.toString().slice(-6)} in 2 hours at ${b.slot?.time}.`
             });
 
-            await Notification.create({
+            await notify({
               recipientId: b.assignedProvider,
               recipientRole: "provider",
-              title: "Upcoming Booking Reminder",
-              message: `You have a booking #${b._id.toString().slice(-6)} starting at ${b.slot?.time} (in 2 hours).`,
               type: "reminder",
-              meta: { bookingId: b._id.toString() }
+              meta: { bookingId: b._id.toString(), time: b.slot?.time },
             });
           } catch {}
         }

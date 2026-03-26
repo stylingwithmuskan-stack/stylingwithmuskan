@@ -10,6 +10,9 @@ import { CommissionSettings, BookingSettings } from "../../../models/Settings.js
 import { issueRoleToken } from "../../../middleware/roles.js";
 import { redis } from "../../../startup/redis.js";
 import UserSubscription from "../../../models/UserSubscription.js";
+import { notify } from "../../../lib/notify.js";
+import { sendOtpSms } from "../../../lib/smsIndiaHub.js";
+import { getDefaultOtpByRole, isDefaultVendorOtp } from "../../../lib/otpPolicy.js";
 
 function escapeRegex(s) {
   return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -39,18 +42,72 @@ export async function register(req, res) {
     email: req.body.email,
     phone: req.body.phone || "",
     city: normCity(req.body.city) || "",
-    businessName: req.body.businessName || "",
-    status: "approved",
+    status: "pending",
   });
-  const token = issueRoleToken("vendor", v._id?.toString() || v.email);
-  const isProd = process.env.NODE_ENV === "production";
-  res.cookie("vendorToken", token, {
-    httpOnly: true,
-    sameSite: isProd ? "none" : "lax",
-    secure: isProd,
-    maxAge: 30 * 24 * 3600 * 1000,
-  });
-  res.status(201).json({ vendor: v, vendorToken: token });
+  res.status(201).json({ vendor: v, message: "Registration submitted for admin approval" });
+}
+
+export async function registerRequest(req, res) {
+  const { phone } = req.body;
+  const isDev = (process.env.NODE_ENV !== "production");
+  
+  // Check if vendor already exists
+  const exists = await Vendor.findOne({ phone }).lean();
+  if (exists) return res.status(400).json({ error: "Vendor already registered with this phone number" });
+
+  const isDefaultPhone = isDefaultVendorOtp(phone);
+  const otp = isDefaultPhone ? getDefaultOtpByRole("vendor") : (Math.floor(100000 + Math.random() * 900000)).toString();
+  await redis.set(`v:reg:otp:${phone}`, otp, { EX: 300 });
+  
+  if (!isDefaultPhone) {
+    try {
+      await sendOtpSms({ phone, otp });
+    } catch {
+      await redis.del(`v:reg:otp:${phone}`);
+      return res.status(502).json({ error: "Failed to send OTP" });
+    }
+  }
+  console.log("[OTP] vendor registration", phone, isDev ? otp : "****");
+  res.json({ success: true, otpPreview: isDev ? otp : "****" });
+}
+
+export async function verifyRegistrationOtp(req, res) {
+  const { phone, otp, name, email, city } = req.body;
+  let valid = false;
+  if (isDefaultVendorOtp(phone) && otp === getDefaultOtpByRole("vendor")) valid = true;
+  else {
+    const stored = await redis.get(`v:reg:otp:${phone}`);
+    valid = !!stored && stored === otp;
+    if (valid) await redis.del(`v:reg:otp:${phone}`);
+  }
+
+  if (!valid) return res.status(400).json({ error: "Invalid OTP" });
+
+  try {
+    const v = await Vendor.create({
+      name,
+      email,
+      phone,
+      city: normCity(city),
+      status: "pending",
+    });
+
+    // Notify admin
+    try {
+      await notify({
+        recipientId: "ADMIN001",
+        recipientRole: "admin",
+        title: "New Vendor Request",
+        message: `New vendor ${name} has requested registration for ${city}.`,
+        type: "system",
+        meta: { vendorId: v._id.toString() },
+      });
+    } catch {}
+
+    res.status(201).json({ success: true, message: "Registration submitted for admin approval" });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Registration failed" });
+  }
 }
 
 export async function login(req, res) {
@@ -58,6 +115,7 @@ export async function login(req, res) {
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const v = await Vendor.findOne({ email: req.body.email }).lean();
   if (!v) return res.status(400).json({ error: "Vendor not found" });
+  if (v.status !== "approved") return res.status(403).json({ error: "Your account is pending admin approval" });
   const token = issueRoleToken("vendor", v._id?.toString() || v.email);
   const isProd = process.env.NODE_ENV === "production";
   res.cookie("vendorToken", token, {
@@ -79,8 +137,17 @@ export async function requestOtp(req, res) {
   const isDev = (process.env.NODE_ENV !== "production");
   const exists = await Vendor.findOne({ phone }).lean();
   if (!exists) return res.status(404).json({ error: "vendor with this mobile number not found" });
-  const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
+  const isDefaultPhone = isDefaultVendorOtp(phone);
+  const otp = isDefaultPhone ? getDefaultOtpByRole("vendor") : (Math.floor(100000 + Math.random() * 900000)).toString();
   await redis.set(`v:otp:${phone}`, otp, { EX: 300 });
+  if (!isDefaultPhone) {
+    try {
+      await sendOtpSms({ phone, otp });
+    } catch {
+      await redis.del(`v:otp:${phone}`);
+      return res.status(502).json({ error: "Failed to send OTP" });
+    }
+  }
   res.json({ success: true, otpPreview: isDev ? otp : "****" });
 }
 
@@ -88,10 +155,8 @@ export async function verifyOtp(req, res) {
   const phone = (req.body.phone || "").trim();
   const otp = (req.body.otp || "").trim();
   if (!/^\d{10}$/.test(phone) || otp.length !== 6) return res.status(400).json({ error: "Invalid input" });
-  const isDev = (process.env.NODE_ENV !== "production");
-  const defaultOtp = process.env.DEMO_DEFAULT_OTP6 || (isDev ? "123456" : "");
   let valid = false;
-  if (isDev && otp === defaultOtp) valid = true;
+  if (isDefaultVendorOtp(phone) && otp === getDefaultOtpByRole("vendor")) valid = true;
   else {
     const stored = await redis.get(`v:otp:${phone}`);
     valid = !!stored && stored === otp;
@@ -100,6 +165,7 @@ export async function verifyOtp(req, res) {
   if (!valid) return res.status(400).json({ error: "Invalid OTP" });
   const v = await Vendor.findOne({ phone }).lean();
   if (!v) return res.status(404).json({ error: "vendor with this mobile number not found" });
+  if (v.status !== "approved") return res.status(403).json({ error: "Your account is pending admin approval" });
   const token = issueRoleToken("vendor", v._id?.toString() || v.email);
   const isProd = process.env.NODE_ENV === "production";
   res.cookie("vendorToken", token, {
@@ -167,6 +233,34 @@ export async function updateProviderStatus(req, res) {
     updates,
     { new: true }
   );
+  try {
+    if (p?._id) {
+      const t = status === "approved"
+        ? "provider_vendor_approved"
+        : status === "rejected"
+        ? "provider_rejected"
+        : "provider_vendor_approved";
+      const title = status === "approved"
+        ? "Vendor Approved"
+        : status === "rejected"
+        ? "Vendor Rejected"
+        : "Status Updated";
+      const msg = status === "approved"
+        ? "Your profile is approved by vendor and sent for admin review."
+        : status === "rejected"
+        ? "Your profile was rejected by vendor."
+        : `Your status was updated to ${status}.`;
+      await notify({
+        recipientId: p._id.toString(),
+        recipientRole: "provider",
+        title,
+        message: msg,
+        type: t,
+        meta: { providerId: p._id.toString(), status },
+        respectProviderQuietHours: true,
+      });
+    }
+  } catch {}
   res.json({ provider: p });
 }
 
@@ -247,6 +341,29 @@ export async function assignBooking(req, res) {
     },
     { new: true }
   );
+  try {
+    if (b?.assignedProvider) {
+      await notify({
+        recipientId: b.assignedProvider,
+        recipientRole: "provider",
+        title: "New Booking Assigned",
+        message: `A booking #${b._id.toString().slice(-6)} has been assigned to you.`,
+        type: "booking_assigned",
+        meta: { bookingId: b._id.toString() },
+        respectProviderQuietHours: true,
+      });
+    }
+    if (b?.customerId) {
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        title: "Professional Assigned",
+        message: `A professional has been assigned to booking #${b._id.toString().slice(-6)}.`,
+        type: "booking_assigned",
+        meta: { bookingId: b._id.toString() },
+      });
+    }
+  } catch {}
   res.json({ booking: b });
 }
 
@@ -263,6 +380,29 @@ export async function reassignBooking(req, res) {
     },
     { new: true }
   );
+  try {
+    if (b?.assignedProvider) {
+      await notify({
+        recipientId: b.assignedProvider,
+        recipientRole: "provider",
+        title: "Booking Reassigned",
+        message: `A booking #${b._id.toString().slice(-6)} has been reassigned to you.`,
+        type: "booking_reassigned",
+        meta: { bookingId: b._id.toString() },
+        respectProviderQuietHours: true,
+      });
+    }
+    if (b?.customerId) {
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        title: "Provider Reassigned",
+        message: `Your booking #${b._id.toString().slice(-6)} has been reassigned to another provider.`,
+        type: "booking_reassigned",
+        meta: { bookingId: b._id.toString() },
+      });
+    }
+  } catch {}
   res.json({ booking: b });
 }
 
@@ -285,6 +425,18 @@ export async function expireBooking(req, res) {
   } catch (err) {
     console.error("Socket notification failed:", err);
   }
+  try {
+    if (b?.customerId) {
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        title: "Booking Cancelled",
+        message: `Your booking #${b._id.toString().slice(-6)} was cancelled. Please rebook.`,
+        type: "booking_cancelled",
+        meta: { bookingId: b._id.toString() },
+      });
+    }
+  } catch {}
 
   res.json({ booking: b });
 }
@@ -337,6 +489,16 @@ export async function priceQuoteCustomEnquiry(req, res) {
   enq.timeline = Array.isArray(enq.timeline) ? enq.timeline : [];
   enq.timeline.push({ action: "quote_submitted", meta: { totalAmount: enq.quote.totalAmount, discountPrice: enq.quote.discountPrice } });
   await enq.save();
+  try {
+    await notify({
+      recipientId: enq.userId,
+      recipientRole: "user",
+      title: "Custom Quote Ready",
+      message: `Your custom enquiry quote is ready. Please review and confirm.`,
+      type: "custom_quote_submitted",
+      meta: { enquiryId: enq._id?.toString?.() },
+    });
+  } catch {}
   res.json({ enquiry: enq });
 }
 
@@ -449,6 +611,27 @@ export async function assignTeamCustomEnquiry(req, res) {
   enq.timeline.push({ action: "service_confirmed", meta: { bookingId: enq.bookingId || "" } });
   enq.providerAssignedAt = new Date();
   await enq.save();
+  try {
+    if (enq.maintainerProvider) {
+      await notify({
+        recipientId: enq.maintainerProvider,
+        recipientRole: "provider",
+        title: "Custom Booking Assigned",
+        message: `A custom booking #${(enq.bookingId || "").slice(-6)} has been assigned to you.`,
+        type: "booking_assigned",
+        meta: { bookingId: enq.bookingId || "", enquiryId: enq._id?.toString?.() },
+        respectProviderQuietHours: true,
+      });
+    }
+    await notify({
+      recipientId: enq.userId,
+      recipientRole: "user",
+      title: "Custom Booking Confirmed",
+      message: `Your custom booking has been confirmed and a provider is assigned.`,
+      type: "custom_approved",
+      meta: { bookingId: enq.bookingId || "", enquiryId: enq._id?.toString?.() },
+    });
+  } catch {}
   res.json({ enquiry: enq, booking });
 }
 

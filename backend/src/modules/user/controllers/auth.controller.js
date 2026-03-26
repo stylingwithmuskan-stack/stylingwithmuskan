@@ -2,12 +2,24 @@ import { validationResult } from "express-validator";
 import User from "../../../models/User.js";
 import { redis } from "../../../startup/redis.js";
 import { issueToken } from "../../../middleware/auth.js";
+import { sendOtpSms } from "../../../lib/smsIndiaHub.js";
+import { getDefaultOtpByRole, isDefaultUserOtp } from "../../../lib/otpPolicy.js";
 
 export async function requestOtp(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  const otp = (Math.floor(1000 + Math.random() * 9000)).toString();
+  const phone = req.body.phone;
+  const isDefaultPhone = isDefaultUserOtp(phone);
+  const otp = isDefaultPhone ? getDefaultOtpByRole("user") : (Math.floor(100000 + Math.random() * 900000)).toString();
   await redis.set(`otp:${req.body.phone}`, otp, { EX: 300 });
+  if (!isDefaultPhone) {
+    try {
+      await sendOtpSms({ phone, otp });
+    } catch {
+      await redis.del(`otp:${phone}`);
+      return res.status(502).json({ error: "Failed to send OTP" });
+    }
+  }
   res.json({ success: true });
 }
 
@@ -15,10 +27,8 @@ export async function verifyOtp(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { phone, otp, name, referralCode } = req.body;
-  const defaultPhone = process.env.DEMO_DEFAULT_PHONE || "";
-  const allowedDefaultOtps = new Set([process.env.DEMO_DEFAULT_OTP, process.env.DEMO_DEFAULT_OTP6].filter(Boolean));
   let valid = false;
-  if (phone === defaultPhone && allowedDefaultOtps.has(otp)) valid = true;
+  if (isDefaultUserOtp(phone) && otp === getDefaultOtpByRole("user")) valid = true;
   else {
     const stored = await redis.get(`otp:${phone}`);
     if (stored && stored === otp) {

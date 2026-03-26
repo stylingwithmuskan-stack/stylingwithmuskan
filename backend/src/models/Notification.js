@@ -13,7 +13,7 @@ const NotificationSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ["booking_cancel", "reassignment", "reminder", "system", "new_booking"],
+      // Common types for all modules
     },
     meta: { type: Object, default: {} },
     isRead: { type: Boolean, default: false },

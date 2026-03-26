@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { useNotifications } from "@/modules/user/contexts/NotificationContext";
-import { Bell, Trash2, CheckCircle2, Clock, X, AlertTriangle, Info } from "lucide-react";
+import { Bell, Trash2, CheckCircle2, Clock, X, AlertTriangle, Info, RefreshCw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/modules/user/components/ui/button";
@@ -8,7 +8,7 @@ import { Badge } from "@/modules/user/components/ui/badge";
 import { ScrollArea } from "@/modules/user/components/ui/scroll-area";
 
 const NotificationDropdown = ({ isOpen, onClose }) => {
-    const { notifications, unreadCount, markAllAsRead, deleteNotification } = useNotifications();
+    const { notifications, unreadCount, markAllAsRead, deleteNotification, fetchNotifications } = useNotifications();
     const wasOpen = useRef(false);
 
     // Filter only unread notifications for the dropdown
@@ -44,6 +44,9 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                     </h3>
                 </div>
                 <div className="flex gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => fetchNotifications()} className="h-8 w-8 rounded-full">
+                        <RefreshCw className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
                         <X className="h-4 w-4" />
                     </Button>

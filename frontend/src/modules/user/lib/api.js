@@ -32,11 +32,62 @@ function getVendorToken() {
   }
 }
 
+function getTokenByRole(role) {
+  if (role === "provider") return getProviderToken();
+  if (role === "vendor") return getVendorToken();
+  if (role === "admin") return getAdminToken();
+  return getToken();
+}
+
+function clearTokenByRole(role) {
+  try {
+    if (role === "provider") localStorage.removeItem("swm_provider_token");
+    else if (role === "vendor") localStorage.removeItem("swm_vendor_token");
+    else if (role === "admin") localStorage.removeItem("swm_admin_token");
+    else setToken("");
+  } catch {}
+}
+
 function setToken(token) {
   try {
     if (token) localStorage.setItem("swm_token", token);
     else localStorage.removeItem("swm_token");
   } catch {}
+}
+
+async function requestWithToken(path, options = {}, token, role) {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: options.method || "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (import.meta?.env?.DEV) {
+    try {
+      console.log("[API]", options.method || "GET", path, { status: res.status, ok: res.ok, data });
+    } catch {}
+  }
+  if (!res.ok) {
+    const err = data?.error || "Request failed";
+    const e = new Error(err);
+    e.status = res.status;
+    e.data = data;
+    if (import.meta?.env?.DEV) {
+      try {
+        console.error("[API ERROR]", options.method || "GET", path, { status: res.status, data });
+      } catch {}
+    }
+    if (res.status === 401) {
+      clearTokenByRole(role);
+    }
+    throw e;
+  }
+  return data;
 }
 
 async function request(path, options = {}) {
@@ -48,11 +99,16 @@ async function request(path, options = {}) {
   const isProviderPath = typeof path === "string" && path.startsWith("/provider");
   const isAdminPath = typeof path === "string" && path.startsWith("/admin");
   const isVendorPath = typeof path === "string" && path.startsWith("/vendor");
+  const isNotificationPath = typeof path === "string" && path.startsWith("/notifications");
 
   let authToken = token;
   if (isAdminPath) authToken = adminToken;
   else if (isVendorPath) authToken = vendorToken;
   else if (isProviderPath) authToken = providerToken;
+  else if (isNotificationPath) {
+    // For notifications, use the first available role-based token, or fallback to user token
+    authToken = providerToken || vendorToken || adminToken || token;
+  }
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || "GET",
@@ -204,6 +260,8 @@ export const api = {
   provider: {
     requestOtp: (phone) => request("/provider/request-otp", { method: "POST", body: { phone } }),
     verifyOtp: (phone, otp) => request("/provider/verify-otp", { method: "POST", body: { phone, otp } }),
+    registerRequest: (phone) => request("/provider/register-request", { method: "POST", body: { phone } }),
+    verifyRegistrationOtp: (phone, otp) => request("/provider/verify-registration-otp", { method: "POST", body: { phone, otp } }),
     register: (payload) => request("/provider/register", { method: "POST", body: payload }),
     logout: () => request("/provider/logout", { method: "POST" }),
     me: (phone) => request(`/provider/me/${phone}`),
@@ -227,6 +285,8 @@ export const api = {
       recharge: (amount) => request("/provider/wallet/recharge", { method: "POST", body: { amount } }),
       expense: (amount, title) => request("/provider/wallet/expense", { method: "POST", body: { amount, title } }),
       refund: (amount, title) => request("/provider/wallet/refund", { method: "POST", body: { amount, title } }),
+      createOrder: (amount) => request("/provider/wallet/create-order", { method: "POST", body: { amount } }),
+      verifyPayment: (payload) => request("/provider/wallet/verify-payment", { method: "POST", body: payload }),
     },
     uploadDocs: async (formData) => {
       const token = getProviderToken();
@@ -261,6 +321,8 @@ export const api = {
   // Vendor
   vendor: {
     register: (payload) => request("/vendor/register", { method: "POST", body: payload }),
+    registerRequest: (phone) => request("/vendor/register-request", { method: "POST", body: { phone } }),
+    verifyRegistrationOtp: (payload) => request("/vendor/verify-registration-otp", { method: "POST", body: payload }),
     login: (email, password) => request("/vendor/login", { method: "POST", body: { email, password } }),
     requestOtp: (phone) => request("/vendor/request-otp", { method: "POST", body: { phone } }),
     verifyOtp: (phone, otp) => request("/vendor/verify-otp", { method: "POST", body: { phone, otp } }),
@@ -354,6 +416,10 @@ export const api = {
     customEnquiryFinalApprove: (id) => request(`/admin/custom-enquiries/${id}/final-approve`, { method: "PATCH" }),
     updateOfficeSettings: (payload) => request("/admin/settings", { method: "PUT", body: payload }),
 
+    // System Settings
+    getSystemSettings: () => request("/admin/system-settings"),
+    updateSystemSettings: (payload) => request("/admin/system-settings", { method: "PUT", body: payload }),
+
     // Performance Criteria
     getPerformanceCriteria: () => request("/admin/performance-criteria"),
     updatePerformanceCriteria: (payload) => request("/admin/performance-criteria", { method: "PUT", body: payload }),
@@ -388,9 +454,33 @@ export const api = {
 
   // Notifications
   notifications: {
-    list: () => request("/notifications"),
-    markAllAsRead: () => request("/notifications/read-all", { method: "PUT" }),
-    delete: (id) => request(`/notifications/${id}`, { method: "DELETE" }),
+    list: (opts = {}) => {
+      const options = typeof opts === "string" ? { role: opts } : (opts || {});
+      const role = options.role;
+      const token = options.token || (role ? getTokenByRole(role) : "");
+      if (role || token) {
+        return requestWithToken("/notifications", {}, token, role);
+      }
+      return request("/notifications");
+    },
+    markAllAsRead: (opts = {}) => {
+      const options = typeof opts === "string" ? { role: opts } : (opts || {});
+      const role = options.role;
+      const token = options.token || (role ? getTokenByRole(role) : "");
+      if (role || token) {
+        return requestWithToken("/notifications/read-all", { method: "PUT" }, token, role);
+      }
+      return request("/notifications/read-all", { method: "PUT" });
+    },
+    delete: (id, opts = {}) => {
+      const options = typeof opts === "string" ? { role: opts } : (opts || {});
+      const role = options.role;
+      const token = options.token || (role ? getTokenByRole(role) : "");
+      if (role || token) {
+        return requestWithToken(`/notifications/${id}`, { method: "DELETE" }, token, role);
+      }
+      return request(`/notifications/${id}`, { method: "DELETE" });
+    },
   },
 };
 

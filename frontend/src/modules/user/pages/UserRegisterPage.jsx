@@ -18,7 +18,7 @@ const UserRegisterPage = () => {
     const [phone, setPhone] = useState("");
     const [name, setName] = useState("");
     const [referralCode, setReferralCode] = useState("");
-    const [otp, setOtp] = useState(["", "", "", ""]);
+    const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(30);
 
     useEffect(() => {
@@ -59,11 +59,11 @@ const UserRegisterPage = () => {
         const newOtp = [...otp];
         newOtp[index] = value.slice(-1);
         setOtp(newOtp);
-
-        if (value && index < 3) {
-            const nextInput = document.getElementById(`otp-${index + 1}`);
-            nextInput?.focus();
-        }
+  
+          if (value && index < 5) {
+              const nextInput = document.getElementById(`otp-${index + 1}`);
+              nextInput?.focus();
+          }
 
         if (newOtp.every(v => v !== "")) {
             setTimeout(() => setStep(3), 500);
@@ -183,7 +183,7 @@ const UserRegisterPage = () => {
                             <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                                 <div className="mb-8 text-center pt-4">
                                     <h2 className="text-2xl font-black text-foreground">Verify OTP</h2>
-                                    <p className="text-sm text-muted-foreground mt-2 font-medium">Enter the 4-digit code sent to +91 {phone}</p>
+                                    <p className="text-sm text-muted-foreground mt-2 font-medium">Enter the 6-digit code sent to +91 {phone}</p>
                                 </div>
 
                                 <div className="flex justify-center gap-4 mb-8">

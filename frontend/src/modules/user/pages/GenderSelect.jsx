@@ -1,22 +1,32 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { Scissors, Sparkles, User, UserCheck } from "lucide-react";
+import { api } from "@/modules/user/lib/api";
 
 const GenderSelect = () => {
   const { setGender } = useGenderTheme();
   const navigate = useNavigate();
   const [showPopup, setShowPopup] = useState(false);
+  const [menEnabled, setMenEnabled] = useState(false);
+
+  useEffect(() => {
+    api.admin.getSystemSettings()
+        .then(data => {
+            setMenEnabled(data.settings?.menSectionEnabled || false);
+        })
+        .catch(() => {
+            // Fallback to false if API fails
+            setMenEnabled(false);
+        });
+  }, []);
 
   const handleSelect = (g) => {
-    if (g === "men") {
-        const isMenEnabled = JSON.parse(localStorage.getItem('swm_men_enabled') ?? 'false');
-        if (!isMenEnabled) {
-            setShowPopup(true);
-            setTimeout(() => setShowPopup(false), 2500);
-            return;
-        }
+    if (g === "men" && !menEnabled) {
+        setShowPopup(true);
+        setTimeout(() => setShowPopup(false), 2500);
+        return;
     }
     setGender(g);
     navigate("/home");

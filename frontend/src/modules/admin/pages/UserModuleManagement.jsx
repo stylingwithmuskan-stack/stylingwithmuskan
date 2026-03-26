@@ -188,16 +188,30 @@ const BookingRulesConfig = ({ config, onUpdate }) => {
 };
 
 const SystemSettingsConfig = () => {
-    const [menEnabled, setMenEnabled] = useState(() => {
-        return JSON.parse(localStorage.getItem('swm_men_enabled') ?? 'false');
-    });
+    const [menEnabled, setMenEnabled] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-    const handleToggle = () => {
+    useEffect(() => {
+        api.admin.getSystemSettings()
+            .then(data => {
+                setMenEnabled(data.settings?.menSectionEnabled || false);
+            })
+            .catch(() => toast.error("Failed to load system settings"))
+            .finally(() => setLoading(false));
+    }, []);
+
+    const handleToggle = async () => {
         const newValue = !menEnabled;
-        setMenEnabled(newValue);
-        localStorage.setItem('swm_men_enabled', JSON.stringify(newValue));
-        alert(newValue ? "Men Category is now Enabled!" : "Men Category has been Disabled.");
+        try {
+            await api.admin.updateSystemSettings({ menSectionEnabled: newValue });
+            setMenEnabled(newValue);
+            toast.success(newValue ? "Men Category is now Enabled!" : "Men Category has been Disabled.");
+        } catch {
+            toast.error("Failed to update system settings");
+        }
     };
+
+    if (loading) return null;
 
     return (
         <div className="bg-background rounded-2xl border border-border shadow-sm overflow-hidden p-6 space-y-6">

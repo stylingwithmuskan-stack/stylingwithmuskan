@@ -6,6 +6,8 @@ import * as VendorController from "../controllers/vendor.controller.js";
 const router = Router();
 
 router.post("/register", body("name").isString(), body("email").isString(), VendorController.register);
+router.post("/register-request", body("phone").matches(/^\d{10}$/), VendorController.registerRequest);
+router.post("/verify-registration-otp", body("phone").matches(/^\d{10}$/), body("otp").isLength({ min: 6, max: 6 }), VendorController.verifyRegistrationOtp);
 router.post("/login", body("email").isString(), body("password").isString(), VendorController.login);
 router.post("/logout", VendorController.logout);
 router.post("/request-otp", body("phone").matches(/^\d{10}$/), VendorController.requestOtp);

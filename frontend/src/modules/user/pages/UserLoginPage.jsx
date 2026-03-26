@@ -12,7 +12,7 @@ const UserLoginPage = () => {
     const { isLoggedIn, loginWithOtp } = useAuth();
     const [step, setStep] = useState(1); // 1: Phone, 2: OTP
     const [phone, setPhone] = useState("");
-    const [otp, setOtp] = useState(["", "", "", ""]);
+    const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(30);
     const [error, setError] = useState("");
 
@@ -62,7 +62,7 @@ const UserLoginPage = () => {
         const n = [...otp];
         n[i] = v.slice(-1);
         setOtp(n);
-        if (v && i < 3) document.getElementById(`login-otp-${i + 1}`)?.focus();
+        if (v && i < 5) document.getElementById(`login-otp-${i + 1}`)?.focus();
     };
 
     const handleVerify = async (e) => {

@@ -3,6 +3,9 @@ import ProviderAccount from "../../../models/ProviderAccount.js";
 import BookingLog from "../../../models/BookingLog.js";
 import UserSubscription from "../../../models/UserSubscription.js";
 import SubscriptionPlan from "../../../models/SubscriptionPlan.js";
+import Vendor from "../../../models/Vendor.js";
+import { slotLabelToLocalDateTime } from "../../../lib/slots.js";
+import { notify } from "../../../lib/notify.js";
 
 export async function listAssignedBookings(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
@@ -16,29 +19,142 @@ export async function listAssignedBookings(req, res) {
 export async function updateBookingStatus(req, res) {
   const next = (req.body.status || "").toLowerCase();
   const pId = req.auth?.sub;
+  const bookingId = req.params.id;
+
   if (next === "accepted") {
     const acc = await ProviderAccount.findById(pId);
     if (!acc || acc.approvalStatus !== "approved") return res.status(403).json({ error: "Forbidden" });
   }
+
+  let b = await Booking.findById(bookingId);
+  if (!b) return res.status(404).json({ error: "Booking not found" });
+
   if (next === "rejected") {
     const acc = await ProviderAccount.findById(pId);
-    const now = Date.now();
-    const window = acc?.rejectWindowStart || 0;
-    let count = acc?.rejectCount || 0;
-    if (!window || now - window > 24 * 3600 * 1000) {
-      count = 0;
-      acc.rejectWindowStart = now;
+    if (acc) {
+      const now = Date.now();
+      const window = acc.rejectWindowStart || 0;
+      let count = acc.rejectCount || 0;
+      if (!window || now - window > 24 * 3600 * 1000) {
+        count = 0;
+        acc.rejectWindowStart = now;
+      }
+      count += 1;
+      acc.rejectCount = count;
+      if (count >= 3) {
+        acc.blockedUntil = new Date(now + 24 * 3600 * 1000);
+        acc.approvalStatus = "blocked";
+        acc.rating = Math.max(0, (acc.rating || 0) - 0.5);
+      }
+      await acc.save();
     }
-    count += 1;
-    acc.rejectCount = count;
-    if (count >= 3) {
-      acc.blockedUntil = new Date(now + 24 * 3600 * 1000);
-      acc.approvalStatus = "blocked";
-      acc.rating = Math.max(0, (acc.rating || 0) - 0.5);
+
+    const isPreferred = b.maintainProvider && b.maintainProvider === pId;
+    const city = b.address?.city || "";
+
+    const notifyAdminAndVendor = async (reason, cityName) => {
+      try {
+        const meta = { bookingId, city: cityName || "", reason };
+        await notify({
+          recipientId: "ADMIN001",
+          recipientRole: "admin",
+          type: "booking_escalated",
+          meta,
+        });
+
+        if (cityName) {
+          console.log(`[Notification] Searching vendor for city: ${cityName}`);
+          const vendor = await Vendor.findOne({ 
+            city: { $regex: new RegExp(`^${cityName}$`, "i") }, 
+            status: "approved" 
+          }).lean();
+          
+          if (vendor) {
+            console.log(`[Notification] Creating vendor notification for: ${vendor._id}`);
+            await notify({
+              recipientId: vendor._id.toString(),
+              recipientRole: "vendor",
+              type: "booking_escalated",
+              meta,
+            });
+          } else {
+            console.log(`[Notification] No approved vendor found for city: ${cityName}`);
+          }
+        }
+      } catch (err) {
+        console.error("[Notification] notifyAdminAndVendor failed:", err);
+      }
+    };
+
+    if (isPreferred) {
+      b.status = "unassigned";
+      b.assignedProvider = "";
+      await b.save();
+
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        type: "provider_unavailable",
+        meta: { bookingId, reason: "preferred_provider_unavailable" },
+      });
+
+      await notifyAdminAndVendor("preferred_provider_rejected", city);
+      await BookingLog.create({ action: "booking:status", userId: pId, bookingId, meta: { status: "rejected", subType: "preferred" } });
+      return res.json({ booking: b });
+    } else {
+      const slotDateTime = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
+      const diffMins = slotDateTime ? (slotDateTime.getTime() - Date.now()) / (1000 * 60) : 60;
+
+      if (diffMins < 30) {
+        b.status = "expired";
+        await b.save();
+
+        await notify({
+          recipientId: b.customerId,
+          recipientRole: "user",
+          type: "booking_expired",
+          meta: { bookingId, reason: "no_provider_in_time" },
+        });
+
+        await notifyAdminAndVendor("booking_expired", city);
+        await BookingLog.create({ action: "booking:status", userId: pId, bookingId, meta: { status: "rejected", subType: "expired" } });
+        return res.json({ booking: b });
+      } else {
+        b.rejectedProviders = b.rejectedProviders || [];
+        if (!b.rejectedProviders.includes(pId)) b.rejectedProviders.push(pId);
+
+        const candidates = b.candidateProviders || [];
+        const nextProviderId = candidates.find(id => !b.rejectedProviders.includes(id));
+
+        if (nextProviderId) {
+          b.assignedProvider = nextProviderId;
+          b.status = "pending";
+          await b.save();
+
+          await notify({
+            recipientId: nextProviderId,
+            recipientRole: "provider",
+            type: "new_booking",
+            meta: { bookingId },
+          });
+
+          await BookingLog.create({ action: "booking:status", userId: pId, bookingId, meta: { status: "rejected", subType: "reassigned", nextProviderId } });
+          return res.json({ booking: b });
+        } else {
+          b.status = "unassigned";
+          b.assignedProvider = "";
+          await b.save();
+
+          await notifyAdminAndVendor("auto_assignment_failed", city);
+          await BookingLog.create({ action: "booking:status", userId: pId, bookingId, meta: { status: "rejected", subType: "no_more_candidates" } });
+          return res.json({ booking: b });
+        }
+      }
     }
-    await acc.save();
   }
-  const b = await Booking.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+
+  b.status = next;
+  await b.save();
 
   // SWM Pro Partner commission logic
   if (next === "completed") {
@@ -47,12 +163,22 @@ export async function updateBookingStatus(req, res) {
       const plan = await SubscriptionPlan.findOne({ planId: subscription.planId });
       if (plan && plan.meta.commissionRate !== null) {
         const commission = b.totalAmount * (plan.meta.commissionRate / 100);
-        // Here you would deduct the commission from the provider's earnings
         console.log(`Deducting ${commission} commission for SWM Pro Partner.`);
       }
     }
   }
 
   await BookingLog.create({ action: "booking:status", userId: pId, bookingId: req.params.id, meta: { status: req.body.status } });
+
+  // Notify customer about the status update
+  if (b && b.customerId) {
+    await notify({
+      recipientId: b.customerId,
+      recipientRole: "user",
+      type: `booking_${next}`,
+      meta: { bookingId: b._id.toString(), status: next },
+    });
+  }
+
   res.json({ booking: b });
 }

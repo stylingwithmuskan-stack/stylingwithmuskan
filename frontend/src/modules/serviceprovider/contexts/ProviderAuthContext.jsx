@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
 
-const ProviderAuthContext = createContext(undefined);
+export const ProviderAuthContext = createContext(undefined);
 
 export const useProviderAuth = () => {
     const context = useContext(ProviderAuthContext);
@@ -142,6 +142,14 @@ export const ProviderAuthProvider = ({ children }) => {
         setProvider(nextProvider);
     };
 
+    const requestRegisterOtp = async (phone) => {
+        await api.provider.registerRequest(phone);
+    };
+
+    const verifyRegisterOtp = async (phone, otp) => {
+        return await api.provider.verifyRegistrationOtp(phone, otp);
+    };
+
     const requestOtp = async (phone) => { await api.provider.requestOtp(phone); };
     const verifyOtp = async (phone, otp) => {
         const { provider, providerToken } = await api.provider.verifyOtp(phone, otp);
@@ -183,6 +191,8 @@ export const ProviderAuthProvider = ({ children }) => {
             isRejected,
             isRegistered,
             register,
+            requestRegisterOtp,
+            verifyRegisterOtp,
             requestOtp,
             verifyOtp,
             logout,
