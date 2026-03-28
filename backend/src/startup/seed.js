@@ -4,6 +4,7 @@ import { BookingSettings } from "../models/Settings.js";
 import User from "../models/User.js";
 import Booking from "../models/Booking.js";
 import ProviderAccount from "../models/ProviderAccount.js";
+import { ensureSubscriptionDefaults } from "../lib/subscriptions.js";
 
 export async function seedContentIfNeeded() {
   try {
@@ -11,6 +12,7 @@ export async function seedContentIfNeeded() {
       return;
     }
   } catch {}
+  await ensureSubscriptionDefaults();
   const count = await ServiceType.countDocuments();
   if (count > 0) {
     // Even if initial content exists, ensure essential categories/services are present

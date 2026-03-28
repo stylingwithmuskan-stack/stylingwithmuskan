@@ -1,10 +1,13 @@
 import {
   SMSINDIAHUB_API_KEY,
   SMSINDIAHUB_SENDER_ID,
+  SMSINDIAHUB_TEMPLATE_ID,
+  SMSINDIAHUB_ENTITY_ID,
   SMSINDIAHUB_MESSAGE_TEMPLATE,
 } from "../config.js";
 
 const SMSINDIAHUB_PUSH_URL = "http://cloud.smsindiahub.in/vendorsms/pushsms.aspx";
+let hasLoggedConfigWarning = false;
 
 function interpolate(template, vars = {}) {
   // Support both {otp} and ${otp} format
@@ -14,7 +17,9 @@ function interpolate(template, vars = {}) {
 }
 
 function buildMessage(otp) {
-  return interpolate(SMSINDIAHUB_MESSAGE_TEMPLATE || "Your OTP is {otp}.", { otp });
+  return interpolate(SMSINDIAHUB_MESSAGE_TEMPLATE || "Your OTP is {otp}.", { otp })
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function buildUrl({ phone, message }) {
@@ -25,6 +30,8 @@ function buildUrl({ phone, message }) {
   params.set("msg", message);
   params.set("fl", "0");
   params.set("gwid", "2");
+  if (SMSINDIAHUB_TEMPLATE_ID) params.set("templateid", SMSINDIAHUB_TEMPLATE_ID);
+  if (SMSINDIAHUB_ENTITY_ID) params.set("entityid", SMSINDIAHUB_ENTITY_ID);
   return `${SMSINDIAHUB_PUSH_URL}?${params.toString()}`;
 }
 
@@ -57,12 +64,23 @@ function parseGatewayResponse(text) {
   }
 }
 
-export async function sendOtpSms({ phone, otp }) {
-  if (!SMSINDIAHUB_API_KEY || !SMSINDIAHUB_SENDER_ID) {
-    console.warn("[SMS] Skip sending (API key or sender id missing)");
-    return { success: false, skipped: true };
+export function validateSmsIndiaHubConfig() {
+  const missing = [];
+  if (!SMSINDIAHUB_API_KEY) missing.push("SMSINDIAHUB_API_KEY");
+  if (!SMSINDIAHUB_SENDER_ID) missing.push("SMSINDIAHUB_SENDER_ID");
+  if (!SMSINDIAHUB_MESSAGE_TEMPLATE) missing.push("SMSINDIAHUB_MESSAGE_TEMPLATE");
+  if (missing.length > 0) {
+    const message = `SMS India Hub config missing: ${missing.join(", ")}`;
+    if (!hasLoggedConfigWarning) {
+      console.warn("[SMS CONFIG]", message);
+      hasLoggedConfigWarning = true;
+    }
+    throw new Error(message);
   }
+}
 
+export async function sendOtpSms({ phone, otp, role = "unknown", intent = "auto" }) {
+  validateSmsIndiaHubConfig();
   try {
     const message = buildMessage(otp);
     const url = buildUrl({ phone, message });
@@ -78,6 +96,13 @@ export async function sendOtpSms({ phone, otp }) {
     if (!parsedResponse.ok) {
       throw new Error(`SMS India Hub error: ${parsedResponse.reason}`);
     }
+
+    console.info("[SMS]", JSON.stringify({
+      role,
+      intent,
+      phone: String(phone || "").replace(/^(\d{2})\d+(\d{2})$/, "$1******$2"),
+      status: "accepted",
+    }));
 
     return { success: true, raw: text, parsed: parsedResponse.parsed };
   } catch (error) {

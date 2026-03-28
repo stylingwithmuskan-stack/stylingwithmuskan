@@ -95,6 +95,9 @@ export default function VenderDashboard() {
                     <h1 className="text-2xl md:text-3xl font-black tracking-tight">Dashboard</h1>
                     <p className="text-sm text-muted-foreground font-medium">
                         Overview for <span className="text-primary font-bold">{vendor?.city || "Your City"}</span>
+                        {vendor?.zone && (
+                            <> • <span className="text-emerald-600 font-bold">{vendor.zone} Zone</span></>
+                        )}
                     </p>
                 </div>
                 <Button variant="outline" className="gap-2 rounded-xl font-bold" onClick={() => { load(); toast.success("Refreshed"); }}>

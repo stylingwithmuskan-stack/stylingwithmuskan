@@ -172,12 +172,16 @@ router.get(
   query("date").isString().notEmpty(),
   query("providerId").optional().isString(),
   query("serviceTypes").optional().isString(),
+  query("city").optional().isString(),
+  query("zone").optional().isString(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ error: "Invalid input", details: errors.array() });
 
     const date = String(req.query.date || "").trim();
     const providerId = String(req.query.providerId || "").trim();
+    const city = String(req.query.city || "").trim();
+    const zone = String(req.query.zone || "").trim();
     const serviceTypes = String(req.query.serviceTypes || "").split(",").map(s => s.trim()).filter(Boolean);
 
     if (!isIsoDate(date)) return res.status(400).json({ error: "Invalid date" });
@@ -202,19 +206,30 @@ router.get(
 
     // Case 2: Any Professional Requested (Merged Slots)
     const addr0 = (req.user?.addresses || [])[0] || {};
-    const cityGuess = String(req.query.city || addr0.city || addr0.area || "").trim();
+    const cityGuess = city || String(addr0.city || addr0.area || "").trim();
+    const zoneGuess = zone || String(addr0.zone || "").trim();
+    
     const allowPending = process.env.NODE_ENV !== "production";
     const baseQ = {
       approvalStatus: allowPending ? { $in: ["approved", "pending"] } : "approved",
       registrationComplete: true
     };
 
-    // Filter by city if possible
-    let providers = cityGuess
-      ? await ProviderAccount.find({ ...baseQ, city: new RegExp(escapeRegex(cityGuess), "i") }).lean()
-      : await ProviderAccount.find(baseQ).lean();
+    // Filter by city and zone
+    let q = { ...baseQ };
+    if (cityGuess) {
+      q.city = new RegExp(`^${escapeRegex(cityGuess)}$`, "i");
+    }
+    if (zoneGuess) {
+      q.$or = [
+        { zone: new RegExp(`^${escapeRegex(zoneGuess)}$`, "i") },
+        { address: new RegExp(escapeRegex(zoneGuess), "i") }
+      ];
+    }
 
-    if (cityGuess && providers.length === 0) {
+    let providers = await ProviderAccount.find(q).lean();
+
+    if (cityGuess && providers.length === 0 && !zoneGuess) {
       providers = await ProviderAccount.find(baseQ).lean();
     }
 

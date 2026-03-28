@@ -7,8 +7,6 @@ import { BookingSettings } from "../../../models/Settings.js";
 import ProviderAccount from "../../../models/ProviderAccount.js";
 import BookingLog from "../../../models/BookingLog.js";
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
-import UserSubscription from "../../../models/UserSubscription.js";
-import SubscriptionPlan from "../../../models/SubscriptionPlan.js";
 import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM } from "../../../lib/slots.js";
 import { isIsoDate } from "../../../lib/isoDateTime.js";
 import { computeExpiresAt } from "../../../lib/assignment.js";
@@ -18,6 +16,11 @@ import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../../../config.js";
 import { getIO } from "../../../startup/socket.js";
 import { notify } from "../../../lib/notify.js";
 import Vendor from "../../../models/Vendor.js";
+import {
+  calculateCustomerSubscriptionBenefits,
+  createLedgerEntry,
+  getSubscriptionSnapshot,
+} from "../../../lib/subscriptions.js";
 
 async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
   // Logic: Instant bookings never require advance payment.
@@ -172,8 +175,22 @@ export async function quote(req, res) {
     coupon = await Coupon.findOne({ code: req.body.couponCode, isActive: true }).lean();
   }
   const totals = computeTotals(req.body.items, coupon);
+  const subBenefits = await calculateCustomerSubscriptionBenefits({
+    userId: req.user._id.toString(),
+    total: totals.total,
+    subtotalAfterCoupon: totals.finalTotal,
+  });
+  totals.discount += subBenefits.subscriptionDiscount;
+  totals.finalTotal = Math.max(totals.total - totals.discount, 0);
   const advanceAmount = await computeAdvanceFromCategories(req.body.items || [], req.body.bookingType);
-  res.json({ ...totals, couponApplied: coupon ? coupon.code : null, advanceAmount });
+  res.json({
+    ...totals,
+    couponApplied: coupon ? coupon.code : null,
+    advanceAmount,
+    subscription: subBenefits.snapshot,
+    subscriptionDiscount: subBenefits.subscriptionDiscount,
+    discountFundedBy: subBenefits.discountFundedBy,
+  });
 }
 
 export async function create(req, res) {
@@ -194,17 +211,14 @@ export async function create(req, res) {
   let coupon = null;
   if (couponCode) coupon = await Coupon.findOne({ code: couponCode, isActive: true }).lean();
   const totals = computeTotals(items, coupon);
+  const customerSubscription = await calculateCustomerSubscriptionBenefits({
+    userId: req.user._id.toString(),
+    total: totals.total,
+    subtotalAfterCoupon: totals.finalTotal,
+  });
   const advanceAmount = await computeAdvanceFromCategories(items, bookingType);
-
-  // Check for SWM Plus subscription
-  const subscription = await UserSubscription.findOne({ userId: req.user._id.toString(), status: 'active' });
-  if (subscription) {
-    const plan = await SubscriptionPlan.findOne({ planId: subscription.planId });
-    if (plan && plan.meta.discountPercentage > 0 && totals.finalTotal >= plan.meta.minCartValueForDiscount) {
-      totals.discount += Math.round(totals.finalTotal * (plan.meta.discountPercentage / 100));
-      totals.finalTotal = Math.max(totals.total - totals.discount, 0);
-    }
-  }
+  totals.discount += customerSubscription.subscriptionDiscount;
+  totals.finalTotal = Math.max(totals.total - totals.discount, 0);
 
   const settings = await loadBookingSettings();
   if (settings?.minBookingAmount && totals.finalTotal < Number(settings.minBookingAmount)) {
@@ -244,9 +258,20 @@ export async function create(req, res) {
   const wantsKnownDate = isIsoDate(requestedDate);
   const wantsKnownSlot = DEFAULT_TIME_SLOTS.includes(requestedTime);
   let candidateProviders = [];
+  const eliteMinRating = Number(customerSubscription.snapshot.eliteMinRating || 0);
+  const eliteMinJobs = Number(customerSubscription.snapshot.eliteMinJobs || 0);
+  const qualifiesAsElite = (provider) =>
+    customerSubscription.snapshot.isPlusMember
+    && customerSubscription.snapshot.eliteAccessEnabled
+    && proPartnerIds.includes(provider._id.toString())
+    && Number(provider.rating || 0) >= eliteMinRating
+    && Number(provider.totalJobs || 0) >= eliteMinJobs;
 
-  // SWM Pro Partner lead assignment logic
-  const proPartnerIds = (await UserSubscription.find({ userType: 'provider', status: 'active' })).map(s => s.userId);
+  const activeProviderSubs = await (await import("../../../models/UserSubscription.js")).default.find({
+    userType: "provider",
+    status: "active",
+  }).lean();
+  const proPartnerIds = activeProviderSubs.map((s) => s.userId);
 
   // Enforce booking window + lead time if slot is valid
   if (isIsoDate(requestedDate) && DEFAULT_TIME_SLOTS.includes(requestedTime)) {
@@ -298,16 +323,18 @@ export async function create(req, res) {
       return R * c;
     };
     const maxKm = Math.max(Number(settings?.maxServiceRadiusKm || 5), 1);
-    const sorted = providers
+    const sorted = await Promise.all(providers
       .filter(p => matchesSpecialty(p))
-      .map(p => ({
+      .map(async (p) => ({
         id: p._id.toString(),
         d: distKm({ lat: userLat, lng: userLng }, { lat: p.currentLocation.lat, lng: p.currentLocation.lng }),
         online: p.isOnline ? 1 : 0,
         isPro: proPartnerIds.includes(p._id.toString()) ? 1 : 0,
-      }))
+        isElite: qualifiesAsElite(p) ? 1 : 0,
+        rating: Number(p.rating || 0),
+      })))
       .filter(x => x.d <= maxKm)
-      .sort((a, b) => (b.isPro - a.isPro) || (b.online - a.online) || (a.d - b.d));
+      .sort((a, b) => (b.isElite - a.isElite) || (b.isPro - a.isPro) || (b.online - a.online) || (b.rating - a.rating) || (a.d - b.d));
 
     for (const s of sorted) {
       if (await isProviderAvailableAtSlot(s.id)) candidateProviders.push(s.id);
@@ -320,21 +347,27 @@ export async function create(req, res) {
       registrationComplete: true,
     }).lean();
 
-    const sorted = providers
+    const sorted = await Promise.all(providers
       .filter(p => matchesSpecialty(p))
-      .map((p) => ({
+      .map(async (p) => ({
         id: p._id.toString(),
         rating: Number(p.rating || 0),
         jobs: Number(p.totalJobs || 0),
         online: p.isOnline ? 1 : 0,
-      }))
-      .sort((a, b) => {
-        const o = b.online - a.online;
-        if (o !== 0) return o;
-        const r = b.rating - a.rating;
-        if (r !== 0) return r;
-        return b.jobs - a.jobs;
-      });
+        isPro: proPartnerIds.includes(p._id.toString()) ? 1 : 0,
+        isElite: qualifiesAsElite(p) ? 1 : 0,
+      })));
+    sorted.sort((a, b) => {
+      const elite = b.isElite - a.isElite;
+      if (elite !== 0) return elite;
+      const pro = b.isPro - a.isPro;
+      if (pro !== 0) return pro;
+      const o = b.online - a.online;
+      if (o !== 0) return o;
+      const r = b.rating - a.rating;
+      if (r !== 0) return r;
+      return b.jobs - a.jobs;
+    });
 
     for (const s of sorted) {
       if (await isProviderAvailableAtSlot(s.id)) candidateProviders.push(s.id);
@@ -406,6 +439,7 @@ export async function create(req, res) {
     })),
     totalAmount: totals.finalTotal,
     discount: totals.discount,
+    convenienceFee: customerSubscription.convenienceFee,
     prepaidAmount: 0,
     balanceAmount: totals.finalTotal,
     paymentStatus: "Pending",
@@ -471,10 +505,52 @@ export async function create(req, res) {
     action: "booking:create",
     userId: req.user._id.toString(),
     bookingId: booking._id.toString(),
-    meta: { totals, advanceAmount }
+    meta: {
+      totals,
+      advanceAmount,
+      subscriptionDiscount: customerSubscription.subscriptionDiscount,
+      discountFundedBy: customerSubscription.discountFundedBy,
+      subscriptionPlanId: customerSubscription.snapshot.planId,
+    }
   });
-
   const bookingId = booking._id.toString();
+
+  if (customerSubscription.subscriptionDiscount > 0) {
+    let fundedUserId = "";
+    if (customerSubscription.discountFundedBy === "provider" && assignedProvider) {
+      fundedUserId = assignedProvider;
+    } else if (customerSubscription.discountFundedBy === "vendor") {
+      const cityVendor = await Vendor.findOne({
+        city: { $regex: new RegExp(`^${safeAddress.city || ""}$`, "i") },
+        status: "approved",
+      }).lean();
+      fundedUserId = cityVendor?._id?.toString?.() || "";
+    }
+    await createLedgerEntry({
+      userId: fundedUserId || "platform",
+      userType:
+        customerSubscription.discountFundedBy === "provider"
+          ? "provider"
+          : customerSubscription.discountFundedBy === "vendor"
+          ? "vendor"
+          : "customer",
+      subscriptionId: customerSubscription.snapshot.planId || "",
+      planId: customerSubscription.snapshot.planId || "",
+      entryType:
+        customerSubscription.discountFundedBy === "provider"
+          ? "provider_settlement_adjustment"
+          : customerSubscription.discountFundedBy === "vendor"
+          ? "vendor_billing_adjustment"
+          : "discount_adjustment",
+      direction: "debit",
+      amount: Number(customerSubscription.subscriptionDiscount || 0),
+      meta: {
+        bookingId,
+        fundedBy: customerSubscription.discountFundedBy,
+        customerId: req.user._id.toString(),
+      },
+    });
+  }
   // Notify user: booking created
   try {
     await notify({
@@ -816,19 +892,15 @@ export async function cancel(req, res) {
   const booking = await Booking.findOne({ _id: id, customerId: req.user._id.toString() });
   if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-  // Check for SWM Plus subscription for free cancellation
-  const subscription = await UserSubscription.findOne({ userId: req.user._id.toString(), status: 'active' });
-  if (subscription) {
-    const plan = await SubscriptionPlan.findOne({ planId: subscription.planId });
-    if (plan && plan.benefits.includes("FREE_CANCELLATION")) {
-      const bookingTime = new Date(booking.slot.date + 'T' + booking.slot.time);
-      const now = new Date();
-      const diffHours = (bookingTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-      if (diffHours > 2) { // Free cancellation up to 2 hours before
-        booking.status = "cancelled";
-        await booking.save();
-        return res.json({ booking, message: "Booking cancelled successfully with SWM Plus benefits." });
-      }
+  const subscription = await getSubscriptionSnapshot(req.user._id.toString(), "customer");
+  if (subscription.isPlusMember && Number(subscription.freeCancellationWindowHours || 0) > 0) {
+    const bookingTime = new Date(`${booking.slot.date}T${booking.slot.time}`);
+    const now = new Date();
+    const diffHours = (bookingTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    if (diffHours > Number(subscription.freeCancellationWindowHours || 0)) {
+      booking.status = "cancelled";
+      await booking.save();
+      return res.json({ booking, message: "Booking cancelled successfully with SWM Plus benefits." });
     }
   }
 

@@ -98,15 +98,26 @@ async function request(path, options = {}) {
 
   const isProviderPath = typeof path === "string" && path.startsWith("/provider");
   const isAdminPath = typeof path === "string" && path.startsWith("/admin");
-  const isVendorPath = typeof path === "string" && path.startsWith("/vendor");
+  const isVendorPath = typeof path === "string" && path.startsWith("/vendor") || path.startsWith("/vender");
   const isNotificationPath = typeof path === "string" && path.startsWith("/notifications");
 
   let authToken = token;
-  if (isAdminPath) authToken = adminToken;
-  else if (isVendorPath) authToken = vendorToken;
-  else if (isProviderPath) authToken = providerToken;
+  if (isAdminPath) {
+    // For login, don't use a token even if it exists
+    if (path === "/admin/login") authToken = "";
+    else authToken = adminToken;
+  }
+  else if (isVendorPath) {
+    // For login, don't use a token
+    if (path === "/vendor/login" || path === "/vender/login") authToken = "";
+    else authToken = vendorToken;
+  }
+  else if (isProviderPath) {
+    // For login, don't use a token
+    if (path === "/provider/verify-otp" || path === "/provider/login") authToken = "";
+    else authToken = providerToken;
+  }
   else if (isNotificationPath) {
-    // For notifications, use the first available role-based token, or fallback to user token
     authToken = providerToken || vendorToken || adminToken || token;
   }
 
@@ -141,6 +152,11 @@ async function request(path, options = {}) {
       else if (isVendorPath) localStorage.removeItem("swm_vendor_token");
       else if (isProviderPath) localStorage.removeItem("swm_provider_token");
       else setToken("");
+      
+      // Dispatch global 401 event
+      window.dispatchEvent(new CustomEvent("swm-api-401", { 
+        detail: { status: 401, isAdminPath, isVendorPath, isProviderPath } 
+      }));
     }
     throw e;
   }
@@ -232,6 +248,11 @@ export const api = {
     testimonials: () => request("/content/testimonials"),
     providers: () => request("/content/providers"),
     officeSettings: () => request("/content/office-settings"),
+    cities: () => request("/content/cities"),
+    zones: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/content/zones${q ? `?${q}` : ""}`);
+    },
   },
 
   // Customer bookings + enquiries
@@ -340,6 +361,9 @@ export const api = {
     sos: () => request("/vendor/sos"),
     resolveSos: (id) => request(`/vendor/sos/${id}/resolve`, { method: "PATCH" }),
     getProviderRankings: (city) => request(`/provider/rankings/${city}`),
+    subAccounts: () => request("/vendor/subaccounts"),
+    createSubAccount: (body) => request("/vendor/subaccounts", { method: "POST", body }),
+    deleteSubAccount: (id) => request(`/vendor/subaccounts/${id}`, { method: "DELETE" }),
   },
 
   // Admin
@@ -440,11 +464,30 @@ export const api = {
     addTestimonial: (payload) => request("/admin/testimonials", { method: "POST", body: payload }),
     updateTestimonial: (id, payload) => request(`/admin/testimonials/${id}`, { method: "PUT", body: payload }),
     deleteTestimonial: (id) => request(`/admin/testimonials/${id}`, { method: "DELETE" }),
+
+    // Cities & Zones
+    listCities: () => request("/admin/cities"),
+    createCity: (body) => request("/admin/cities", { method: "POST", body }),
+    updateCity: (id, body) => request(`/admin/cities/${id}`, { method: "PUT", body }),
+    deleteCity: (id) => request(`/admin/cities/${id}`, { method: "DELETE" }),
+    listZones: (cityId) => request(`/admin/cities/${cityId}/zones`),
+    createZone: (cityId, body) => request(`/admin/cities/${cityId}/zones`, { method: "POST", body }),
+    updateZone: (id, body) => request(`/admin/zones/${id}`, { method: "PUT", body }),
+    deleteZone: (id) => request(`/admin/zones/${id}`, { method: "DELETE" }),
+    getZoneStats: (zoneId) => request(`/admin/zones/${zoneId}/stats`),
+    getSubscriptionSettings: () => request("/admin/subscription-settings"),
+    updateSubscriptionSettings: (body) => request("/admin/subscription-settings", { method: "PUT", body }),
+    listSubscriptionPlans: () => request("/admin/subscription-plans"),
+    createSubscriptionPlan: (body) => request("/admin/subscription-plans", { method: "POST", body }),
+    updateSubscriptionPlan: (planId, body) => request(`/admin/subscription-plans/${planId}`, { method: "PUT", body }),
+    getSubscriptionReport: () => request("/admin/subscription-report"),
   },
 
   subscriptions: {
-    getPlans: () => request("/subscriptions/plans"),
-    subscribe: (payload) => request("/subscriptions/subscribe", { method: "POST", body: payload }),
+    getPlans: (userType) => request(`/subscriptions/plans${userType ? `?userType=${encodeURIComponent(userType)}` : ""}`),
+    getCurrent: (role = "user") => requestWithToken("/subscriptions/me", {}, getTokenByRole(role), role),
+    createOrder: (payload, role = "user") => requestWithToken("/subscriptions/order", { method: "POST", body: payload }, getTokenByRole(role), role),
+    verify: (payload, role = "user") => requestWithToken("/subscriptions/verify", { method: "POST", body: payload }, getTokenByRole(role), role),
   },
 
   // SOS (customer/provider)

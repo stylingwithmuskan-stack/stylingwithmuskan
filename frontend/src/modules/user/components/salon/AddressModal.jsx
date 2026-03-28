@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, MapPin, Navigation, Home, Briefcase, Plus } from "lucide-react";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { Button } from "@/modules/user/components/ui/button";
+import { api } from "@/modules/user/lib/api";
 
 const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
     const { updateAddress, updateExistingAddress } = useAuth();
@@ -11,12 +12,36 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
         houseNo: "",
         landmark: "",
         area: "",
+        city: "",
+        zone: "",
         type: "home",
         _id: undefined
     });
     const [isLocating, setIsLocating] = useState(false);
     const [mapsReady, setMapsReady] = useState(false);
+    const [cities, setCities] = useState([]);
+    const [zones, setZones] = useState([]);
+    const [zonesLoading, setZonesLoading] = useState(false);
     const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+
+    useEffect(() => {
+        api.content.cities().then(res => setCities(res.cities || [])).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (address.city) {
+            setZonesLoading(true);
+            api.content.zones({ cityName: address.city }).then(res => {
+                setZones(res.zones || []);
+            }).catch(() => {
+                setZones([]);
+            }).finally(() => {
+                setZonesLoading(false);
+            });
+        } else {
+            setZones([]);
+        }
+    }, [address.city]);
 
     React.useEffect(() => {
         if (initialAddress) {
@@ -24,11 +49,13 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                 houseNo: initialAddress.houseNo || "",
                 landmark: initialAddress.landmark || "",
                 area: initialAddress.area || "",
+                city: initialAddress.city || "",
+                zone: initialAddress.zone || "",
                 type: initialAddress.type || "home",
                 _id: initialAddress._id || initialAddress.id
             });
         } else {
-            setAddress({ houseNo: "", landmark: "", area: "", type: "home", _id: undefined });
+            setAddress({ houseNo: "", landmark: "", area: "", city: "", zone: "", type: "home", _id: undefined });
         }
     }, [initialAddress, isOpen]);
 
@@ -123,12 +150,14 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
 
     const handleSave = (e) => {
         e.preventDefault();
-        if (address.houseNo && address.area) {
+        if (address.houseNo && address.area && address.city && address.zone) {
             if (address._id) {
                 updateExistingAddress(address._id, {
                     houseNo: address.houseNo,
                     area: address.area,
                     landmark: address.landmark,
+                    city: address.city,
+                    zone: address.zone,
                     type: address.type,
                     lat: address.lat,
                     lng: address.lng
@@ -138,6 +167,8 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                     houseNo: address.houseNo,
                     area: address.area,
                     landmark: address.landmark,
+                    city: address.city,
+                    zone: address.zone,
                     type: address.type,
                     lat: address.lat,
                     lng: address.lng
@@ -228,22 +259,32 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">City / Zone*</label>
-                                    <select
-                                        required
-                                        value={address.city || ""}
-                                        onChange={e => setAddress({ ...address, city: e.target.value })}
-                                        className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
-                                    >
-                                        <option value="" disabled>Select your city</option>
-                                        <option value="Indore">Indore</option>
-                                        <option value="Bhopal">Bhopal</option>
-                                        <option value="Mumbai">Mumbai</option>
-                                        <option value="Delhi">Delhi</option>
-                                        <option value="Pune">Pune</option>
-                                        <option value="Bangalore">Bangalore</option>
-                                    </select>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">City*</label>
+                                        <select
+                                            required
+                                            value={address.city || ""}
+                                            onChange={e => setAddress({ ...address, city: e.target.value, zone: "" })}
+                                            className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
+                                        >
+                                            <option value="" disabled>Select City</option>
+                                            {cities.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Zone / Hub*</label>
+                                        <select
+                                            required
+                                            disabled={!address.city || zonesLoading}
+                                            value={address.zone || ""}
+                                            onChange={e => setAddress({ ...address, zone: e.target.value })}
+                                            className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none disabled:opacity-50"
+                                        >
+                                            <option value="" disabled>{zonesLoading ? "Loading..." : "Select Zone"}</option>
+                                            {zones.map(z => <option key={z._id} value={z.name}>{z.name}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-3 pt-2">

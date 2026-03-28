@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Users, Store, CalendarRange, IndianRupee, TrendingUp, TrendingDown, UserPlus, ShieldAlert, ArrowUpRight, Percent, MapPin, Map } from "lucide-react";
+import { LayoutDashboard, Users, Store, CalendarRange, IndianRupee, TrendingUp, TrendingDown, UserPlus, ShieldAlert, ArrowUpRight, Percent, MapPin, Map as MapIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -443,7 +443,7 @@ export default function AdminDashboard() {
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="lg:col-span-2">
                     <Card className="border-border/50 shadow-none">
                         <CardHeader className="pb-3 border-b border-border/50">
-                            <CardTitle className="text-base font-bold flex items-center gap-2"><Map className="h-4 w-4 text-primary" /> Zone-wise Analysis</CardTitle>
+                            <CardTitle className="text-base font-bold flex items-center gap-2"><MapIcon className="h-4 w-4 text-primary" /> Zone-wise Analysis</CardTitle>
                             <CardDescription className="text-xs">Geographic performance mapping</CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">

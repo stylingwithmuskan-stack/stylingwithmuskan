@@ -10,9 +10,10 @@ import { CommissionSettings, BookingSettings } from "../../../models/Settings.js
 import { issueRoleToken } from "../../../middleware/roles.js";
 import { redis } from "../../../startup/redis.js";
 import UserSubscription from "../../../models/UserSubscription.js";
+import VendorSubAccount from "../../../models/VendorSubAccount.js";
 import { notify } from "../../../lib/notify.js";
-import { sendOtpSms } from "../../../lib/smsIndiaHub.js";
-import { getDefaultOtpByRole, isDefaultVendorOtp } from "../../../lib/otpPolicy.js";
+import { issueOtp, OTP_LENGTH, verifyOtpValue } from "../../../lib/otpService.js";
+import { getMarketingCreditsBalance, getSubscriptionSnapshot } from "../../../lib/subscriptions.js";
 
 function escapeRegex(s) {
   return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -53,33 +54,37 @@ export async function registerRequest(req, res) {
   
   // Check if vendor already exists
   const exists = await Vendor.findOne({ phone }).lean();
-  if (exists) return res.status(400).json({ error: "Vendor already registered with this phone number" });
+  if (exists) return res.status(409).json({ error: "Account already exists. Please login." });
 
-  const isDefaultPhone = isDefaultVendorOtp(phone);
-  const otp = isDefaultPhone ? getDefaultOtpByRole("vendor") : (Math.floor(100000 + Math.random() * 900000)).toString();
-  await redis.set(`v:reg:otp:${phone}`, otp, { EX: 300 });
-  
-  if (!isDefaultPhone) {
-    try {
-      await sendOtpSms({ phone, otp });
-    } catch {
-      await redis.del(`v:reg:otp:${phone}`);
-      return res.status(502).json({ error: "Failed to send OTP" });
-    }
+  let issued;
+  try {
+    issued = await issueOtp({
+      redis,
+      key: `v:reg:otp:${phone}`,
+      phone,
+      role: "vendor",
+      intent: "register",
+    });
+  } catch {
+    return res.status(502).json({ error: "Failed to send OTP" });
   }
-  console.log("[OTP] vendor registration", phone, isDev ? otp : "****");
-  res.json({ success: true, otpPreview: isDev ? otp : "****" });
+  res.json({
+    success: true,
+    message: issued.message,
+    deliveryMode: issued.deliveryMode,
+    otpPreview: isDev ? issued.otp : "******",
+  });
 }
 
 export async function verifyRegistrationOtp(req, res) {
-  const { phone, otp, name, email, city } = req.body;
-  let valid = false;
-  if (isDefaultVendorOtp(phone) && otp === getDefaultOtpByRole("vendor")) valid = true;
-  else {
-    const stored = await redis.get(`v:reg:otp:${phone}`);
-    valid = !!stored && stored === otp;
-    if (valid) await redis.del(`v:reg:otp:${phone}`);
-  }
+  const { phone, otp, name, email, city, zone } = req.body;
+  const valid = await verifyOtpValue({
+    redis,
+    key: `v:reg:otp:${phone}`,
+    phone,
+    role: "vendor",
+    otp,
+  });
 
   if (!valid) return res.status(400).json({ error: "Invalid OTP" });
 
@@ -89,6 +94,7 @@ export async function verifyRegistrationOtp(req, res) {
       email,
       phone,
       city: normCity(city),
+      zone,
       status: "pending",
     });
 
@@ -98,7 +104,7 @@ export async function verifyRegistrationOtp(req, res) {
         recipientId: "ADMIN001",
         recipientRole: "admin",
         title: "New Vendor Request",
-        message: `New vendor ${name} has requested registration for ${city}.`,
+        message: `New vendor ${name} has requested registration for ${city} (${zone}).`,
         type: "system",
         meta: { vendorId: v._id.toString() },
       });
@@ -117,6 +123,7 @@ export async function login(req, res) {
   if (!v) return res.status(400).json({ error: "Vendor not found" });
   if (v.status !== "approved") return res.status(403).json({ error: "Your account is pending admin approval" });
   const token = issueRoleToken("vendor", v._id?.toString() || v.email);
+  const subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");
   const isProd = process.env.NODE_ENV === "production";
   res.cookie("vendorToken", token, {
     httpOnly: true,
@@ -124,7 +131,7 @@ export async function login(req, res) {
     secure: isProd,
     maxAge: 30 * 24 * 3600 * 1000,
   });
-  res.json({ vendor: v, vendorToken: token });
+  res.json({ vendor: { ...v, subscription }, vendorToken: token });
 }
 
 export async function logout(_req, res) {
@@ -136,37 +143,44 @@ export async function requestOtp(req, res) {
   if (!/^\d{10}$/.test(phone)) return res.status(400).json({ error: "Invalid phone" });
   const isDev = (process.env.NODE_ENV !== "production");
   const exists = await Vendor.findOne({ phone }).lean();
-  if (!exists) return res.status(404).json({ error: "vendor with this mobile number not found" });
-  const isDefaultPhone = isDefaultVendorOtp(phone);
-  const otp = isDefaultPhone ? getDefaultOtpByRole("vendor") : (Math.floor(100000 + Math.random() * 900000)).toString();
-  await redis.set(`v:otp:${phone}`, otp, { EX: 300 });
-  if (!isDefaultPhone) {
-    try {
-      await sendOtpSms({ phone, otp });
-    } catch {
-      await redis.del(`v:otp:${phone}`);
-      return res.status(502).json({ error: "Failed to send OTP" });
-    }
+  if (!exists) return res.status(404).json({ error: "No account found. Please register first." });
+  let issued;
+  try {
+    issued = await issueOtp({
+      redis,
+      key: `v:otp:${phone}`,
+      phone,
+      role: "vendor",
+      intent: "login",
+    });
+  } catch {
+    return res.status(502).json({ error: "Failed to send OTP" });
   }
-  res.json({ success: true, otpPreview: isDev ? otp : "****" });
+  res.json({
+    success: true,
+    message: issued.message,
+    deliveryMode: issued.deliveryMode,
+    otpPreview: isDev ? issued.otp : "******",
+  });
 }
 
 export async function verifyOtp(req, res) {
   const phone = (req.body.phone || "").trim();
   const otp = (req.body.otp || "").trim();
-  if (!/^\d{10}$/.test(phone) || otp.length !== 6) return res.status(400).json({ error: "Invalid input" });
-  let valid = false;
-  if (isDefaultVendorOtp(phone) && otp === getDefaultOtpByRole("vendor")) valid = true;
-  else {
-    const stored = await redis.get(`v:otp:${phone}`);
-    valid = !!stored && stored === otp;
-    if (valid) await redis.del(`v:otp:${phone}`);
-  }
+  if (!/^\d{10}$/.test(phone) || otp.length !== OTP_LENGTH) return res.status(400).json({ error: "Invalid input" });
+  const valid = await verifyOtpValue({
+    redis,
+    key: `v:otp:${phone}`,
+    phone,
+    role: "vendor",
+    otp,
+  });
   if (!valid) return res.status(400).json({ error: "Invalid OTP" });
   const v = await Vendor.findOne({ phone }).lean();
-  if (!v) return res.status(404).json({ error: "vendor with this mobile number not found" });
+  if (!v) return res.status(404).json({ error: "No account found. Please register first." });
   if (v.status !== "approved") return res.status(403).json({ error: "Your account is pending admin approval" });
   const token = issueRoleToken("vendor", v._id?.toString() || v.email);
+  const subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");
   const isProd = process.env.NODE_ENV === "production";
   res.cookie("vendorToken", token, {
     httpOnly: true,
@@ -174,15 +188,32 @@ export async function verifyOtp(req, res) {
     secure: isProd,
     maxAge: 30 * 24 * 3600 * 1000,
   });
-  res.json({ vendor: v, vendorToken: token });
+  res.json({ vendor: { ...v, subscription }, vendorToken: token });
 }
 
 export async function listProviders(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
   const city = normCity(vendor?.city) || "";
-  // City match should be forgiving (case/whitespace), otherwise vendor panels look "empty".
-  const q = city ? { city: new RegExp(`^${escapeRegex(city)}$`, "i") } : {};
+  const zone = vendor?.zone || "";
+  
+  let q = {};
+  if (zone) {
+    q = { 
+      $and: [
+        { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
+        { 
+          $or: [
+            { zone: new RegExp(`^${escapeRegex(zone)}$`, "i") },
+            { address: new RegExp(escapeRegex(zone), "i") }
+          ]
+        }
+      ]
+    };
+  } else if (city) {
+    q = { city: new RegExp(`^${escapeRegex(city)}$`, "i") };
+  }
+
   let items = await ProviderAccount.find(q).sort({ createdAt: -1 }).lean();
 
   // Seed fake providers if empty for smoother demo/dev experience
@@ -190,27 +221,25 @@ export async function listProviders(req, res) {
     if (items.length === 0 && city) {
       const mkPhone = (base, idx) => String(base + idx).padStart(10, "9").slice(0, 10);
       const docs = [];
+      const areaName = zone || city;
       for (let i = 0; i < 3; i++) {
         docs.push({
           phone: mkPhone(9200000000, i + 1),
-          name: `Demo ${city} Provider ${i + 1}`,
-          email: `demo${i + 1}.${city.toLowerCase()}@swm.com`,
+          name: `Demo ${areaName} Provider ${i + 1}`,
+          email: `demo${i + 1}.${areaName.toLowerCase().replace(/\s+/g, '')}@swm.com`,
           city,
+          zone: zone || "",
+          address: zone ? `123 Main St, ${zone}` : `123 Main St, ${city}`,
           gender: i % 2 === 0 ? "women" : "men",
           experience: i % 2 === 0 ? "1-3" : "3-5",
-          approvalStatus: i === 0 ? "approved" : "pending",
-          registrationComplete: true,
-          rating: 4.2 + (i % 2) * 0.3,
-          totalJobs: 10 + i * 7,
-          profilePhoto: "",
+          approvalStatus: "approved",
+          registrationComplete: true
         });
       }
       await ProviderAccount.insertMany(docs);
-      console.log(`[Vendor] Seeded providers for city: ${city} count=${docs.length}`);
       items = await ProviderAccount.find(q).sort({ createdAt: -1 }).lean();
     }
   } catch {}
-
   res.json({ providers: items });
 }
 
@@ -268,31 +297,55 @@ export async function listBookings(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
   const city = normCity(vendor?.city) || "";
-  if (!city) {
-    // Backstop: if vendor city isn't configured, don't return an empty panel.
+  const zone = vendor?.zone || "";
+
+  if (!city && !zone) {
     const bookings = await Booking.find().sort({ createdAt: -1 }).limit(200).lean();
     return res.json({ bookings });
   }
-  let providers = [];
-  providers = await ProviderAccount.find({ city: new RegExp(`^${escapeRegex(city)}$`, "i") }).select("_id").lean();
+
+  // Find providers in vendor's area
+  let pQuery = {};
+  if (zone) {
+    pQuery = { 
+      $and: [
+        { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
+        { address: new RegExp(escapeRegex(zone), "i") }
+      ]
+    };
+  } else {
+    pQuery = { city: new RegExp(`^${escapeRegex(city)}$`, "i") };
+  }
+
+  const providers = await ProviderAccount.find(pQuery).select("_id").lean();
   const providerIds = providers.map((p) => p._id?.toString());
+
+  // Bookings assigned to these providers
   let byProvider = providerIds.length
     ? await Booking.find({ assignedProvider: { $in: providerIds } }).sort({ createdAt: -1 }).lean()
     : [];
-  // Fallback by address.area/city contains city
-  let byAddress = [];
-  if (city) {
-    byAddress = await Booking.find({
+
+  // Bookings in vendor's area (by address)
+  let bQuery = {};
+  if (zone) {
+    bQuery = { "address.area": new RegExp(escapeRegex(zone), "i") };
+  } else {
+    bQuery = {
       $or: [
-        { "address.area": new RegExp(city, "i") },
-        { "address.city": new RegExp(city, "i") },
+        { "address.area": new RegExp(escapeRegex(city), "i") },
+        { "address.city": new RegExp(escapeRegex(city), "i") },
       ],
-    }).sort({ createdAt: -1 }).lean();
+    };
   }
+
+  const byAddress = await Booking.find(bQuery).sort({ createdAt: -1 }).lean();
+  
   let combined = [...byProvider, ...byAddress];
-  // Seed demo bookings if none exist for vendor's city to improve first-run UX
+  
+  // Seed demo bookings if none exist for vendor's area
   try {
-    if (combined.length === 0 && providerIds.length > 0) {
+    if (combined.length === 0 && (zone || city)) {
+      const areaName = zone || city;
       const mkBooking = (status, customerName, time, amt) => ({
         customerId: "DEMO-" + Math.random().toString(36).slice(2, 7),
         customerName,
@@ -302,12 +355,12 @@ export async function listBookings(req, res) {
         totalAmount: amt,
         prepaidAmount: 0,
         balanceAmount: amt,
-        address: { houseNo: "101", area: city, landmark: "City Center", city },
+        address: { houseNo: "101", area: areaName, landmark: "Area Center", city: city || areaName },
         slot: { date: new Date().toISOString().slice(0, 10), time },
         bookingType: "instant",
         status,
         otp: "1234",
-        assignedProvider: providerIds[0],
+        assignedProvider: providerIds[0] || null,
       });
       await Booking.insertMany([
         mkBooking("incoming", "Demo Cust 1", "09:00", 499),
@@ -317,10 +370,11 @@ export async function listBookings(req, res) {
         mkBooking("completed", "Demo Cust 5", "17:00", 1599),
         mkBooking("cancelled", "Demo Cust 6", "19:00", 799),
       ]);
-      byProvider = await Booking.find({ assignedProvider: { $in: providerIds } }).sort({ createdAt: -1 }).lean();
-      combined = [...byProvider];
+      const byAddressSeed = await Booking.find(bQuery).sort({ createdAt: -1 }).lean();
+      combined = [...byAddressSeed];
     }
   } catch {}
+
   const map = new Map();
   combined.forEach((b) => map.set(b._id.toString(), b));
   const bookings = Array.from(map.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -654,13 +708,44 @@ export async function stats(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
   const city = normCity(vendor?.city) || "";
-  const providers = city
-    ? await ProviderAccount.find({ city: new RegExp(`^${escapeRegex(city)}$`, "i") }).lean()
-    : await ProviderAccount.find().lean();
+  const zone = vendor?.zone || "";
+
+  let pQuery = {};
+  if (zone) {
+    pQuery = { 
+      $and: [
+        { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
+        { address: new RegExp(escapeRegex(zone), "i") }
+      ]
+    };
+  } else if (city) {
+    pQuery = { city: new RegExp(`^${escapeRegex(city)}$`, "i") };
+  }
+
+  const providers = await ProviderAccount.find(pQuery).lean();
   const providerIds = providers.map((p) => p._id?.toString());
-  const bookings = providerIds.length
-    ? await Booking.find({ assignedProvider: { $in: providerIds } }).lean()
+
+  let bQuery = {};
+  if (zone) {
+    bQuery = { "address.area": new RegExp(escapeRegex(zone), "i") };
+  } else if (city) {
+    bQuery = {
+      $or: [
+        { "address.area": new RegExp(escapeRegex(city), "i") },
+        { "address.city": new RegExp(escapeRegex(city), "i") },
+      ],
+    };
+  }
+
+  const bookings = (zone || city)
+    ? await Booking.find({ 
+        $or: [
+          { assignedProvider: { $in: providerIds } },
+          bQuery
+        ]
+      }).lean()
     : await Booking.find().lean();
+
   const revenue = bookings
     .filter((b) => b.status === "completed")
     .reduce((s, b) => s + (b.totalAmount || 0), 0);
@@ -670,16 +755,26 @@ export async function stats(req, res) {
   const cancellations = bookings.filter((b) =>
     ["cancelled", "rejected"].includes(b.status)
   ).length;
-  const sos = await SOSAlert.countDocuments({ status: { $ne: "resolved" } });
+  
+  // SOS alerts for vendor's area
+  const sos = await SOSAlert.countDocuments({ 
+    status: { $ne: "resolved" },
+    $or: [
+      { providerId: { $in: providerIds } },
+      { bookingId: { $in: bookings.map(b => b._id.toString()) } }
+    ]
+  });
 
   // Check for SWM City Manager Enterprise subscription
   const subscription = await UserSubscription.findOne({ userId: vendorId, status: 'active' });
+  const subscriptionSnapshot = await getSubscriptionSnapshot(vendorId, "vendor");
   let advancedAnalytics = null;
-  if (subscription) {
-    // Provide advanced analytics data
+  if (subscriptionSnapshot.isEnterprise) {
     advancedAnalytics = {
-      demandInsights: "High demand for Hair Spa in your area.",
-      marketingCredits: 1000, // This would ideally come from the plan meta
+      demandInsights: `High demand for services in ${zone || city}.`,
+      marketingCredits: await getMarketingCreditsBalance(vendorId),
+      prioritySupport: subscriptionSnapshot.prioritySupport,
+      nextBillingAt: subscriptionSnapshot.currentPeriodEnd,
     };
   }
 
@@ -690,6 +785,43 @@ export async function stats(req, res) {
       revenue,
       sosActive: sos,
       advancedAnalytics,
+      subscription: subscriptionSnapshot,
     },
   });
+}
+
+export async function listSubAccounts(req, res) {
+  const vendorId = req.auth?.sub;
+  const subscription = await getSubscriptionSnapshot(vendorId, "vendor");
+  if (!subscription.isEnterprise || !subscription.subAccountsEnabled) {
+    return res.status(403).json({ error: "Enterprise subscription required." });
+  }
+  const subAccounts = await VendorSubAccount.find({ vendorId }).sort({ createdAt: -1 }).lean();
+  res.json({ subAccounts, subscription });
+}
+
+export async function createSubAccount(req, res) {
+  const vendorId = req.auth?.sub;
+  const subscription = await getSubscriptionSnapshot(vendorId, "vendor");
+  if (!subscription.isEnterprise || !subscription.subAccountsEnabled) {
+    return res.status(403).json({ error: "Enterprise subscription required." });
+  }
+  const subAccount = await VendorSubAccount.create({
+    vendorId,
+    name: req.body.name,
+    email: req.body.email || "",
+    phone: req.body.phone || "",
+    role: req.body.role || "operations",
+  });
+  res.status(201).json({ subAccount });
+}
+
+export async function deleteSubAccount(req, res) {
+  const vendorId = req.auth?.sub;
+  const subscription = await getSubscriptionSnapshot(vendorId, "vendor");
+  if (!subscription.isEnterprise || !subscription.subAccountsEnabled) {
+    return res.status(403).json({ error: "Enterprise subscription required." });
+  }
+  await VendorSubAccount.findOneAndDelete({ _id: req.params.id, vendorId });
+  res.json({ success: true });
 }

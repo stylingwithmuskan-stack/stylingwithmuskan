@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { useProviderAuth } from "./ProviderAuthContext";
+import { ProviderAuthContext } from "./ProviderAuthContext";
 import { api } from "@/modules/user/lib/api";
 
 const ProviderBookingContext = createContext(undefined);
@@ -15,7 +15,10 @@ const STORAGE_KEY = null;
 export const ProviderBookingProvider = ({ children }) => {
     const [bookings, setBookings] = useState([]);
 
-    const { provider } = useProviderAuth();
+    // Fast Refresh can briefly remount this provider before the auth provider rebinds.
+    // Fall back to an empty auth state instead of crashing the entire app tree.
+    const providerAuth = useContext(ProviderAuthContext);
+    const provider = providerAuth?.provider || null;
 
     const providerId = provider?._id || provider?.id;
     const normalizeBooking = useCallback((b) => ({ ...b, id: b?.id || b?._id }), []);

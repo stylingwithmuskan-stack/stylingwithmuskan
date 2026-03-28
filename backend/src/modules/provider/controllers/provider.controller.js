@@ -1,11 +1,10 @@
 import Booking from "../../../models/Booking.js";
 import ProviderAccount from "../../../models/ProviderAccount.js";
 import BookingLog from "../../../models/BookingLog.js";
-import UserSubscription from "../../../models/UserSubscription.js";
-import SubscriptionPlan from "../../../models/SubscriptionPlan.js";
 import Vendor from "../../../models/Vendor.js";
 import { slotLabelToLocalDateTime } from "../../../lib/slots.js";
 import { notify } from "../../../lib/notify.js";
+import { createLedgerEntry, getProviderCommissionRate } from "../../../lib/subscriptions.js";
 
 export async function listAssignedBookings(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
@@ -158,14 +157,23 @@ export async function updateBookingStatus(req, res) {
 
   // SWM Pro Partner commission logic
   if (next === "completed") {
-    const subscription = await UserSubscription.findOne({ userId: pId, status: 'active' });
-    if (subscription) {
-      const plan = await SubscriptionPlan.findOne({ planId: subscription.planId });
-      if (plan && plan.meta.commissionRate !== null) {
-        const commission = b.totalAmount * (plan.meta.commissionRate / 100);
-        console.log(`Deducting ${commission} commission for SWM Pro Partner.`);
-      }
-    }
+    const commissionRate = await getProviderCommissionRate(pId);
+    const commission = Math.round(Number(b.totalAmount || 0) * (Number(commissionRate || 0) / 100));
+    b.commissionAmount = commission;
+    await createLedgerEntry({
+      userId: String(pId),
+      userType: "provider",
+      subscriptionId: "",
+      planId: "",
+      entryType: "provider_settlement_adjustment",
+      direction: "debit",
+      amount: commission,
+      meta: {
+        bookingId: b._id.toString(),
+        status: next,
+        commissionRate,
+      },
+    });
   }
 
   await BookingLog.create({ action: "booking:status", userId: pId, bookingId: req.params.id, meta: { status: req.body.status } });

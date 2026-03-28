@@ -23,8 +23,14 @@ import { invalidateProviderSlots } from "../lib/availability.js";
 import crypto from "crypto";
 import { notify } from "../lib/notify.js";
 import Vendor from "../models/Vendor.js";
-import { sendOtpSms } from "../lib/smsIndiaHub.js";
-import { getDefaultOtpByRole, isDefaultProviderOtp } from "../lib/otpPolicy.js";
+import { issueOtp, OTP_LENGTH, verifyOtpValue } from "../lib/otpService.js";
+import {
+  createLedgerEntry,
+  getActiveSubscription,
+  getProviderCommissionRate,
+  getSubscriptionSnapshot,
+  recordVendorPerformanceCommission,
+} from "../lib/subscriptions.js";
 
 const router = Router();
 
@@ -44,22 +50,28 @@ function ensureFourHourLeadTime(req, res, next) {
 router.post("/request-otp", body("phone").matches(/^\d{10}$/), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  const acc = await ProviderAccount.findOne({ phone: req.body.phone }).lean();
-  if (!acc) return res.status(404).json({ error: "user with this mobile number not found" });
-  const isDefaultPhone = isDefaultProviderOtp(req.body.phone);
-  const otp = isDefaultPhone ? getDefaultOtpByRole("provider") : (Math.floor(100000 + Math.random() * 900000)).toString();
-  await redis.set(`sp:otp:${req.body.phone}`, otp, { EX: 300 });
+  const phone = String(req.body.phone || "").trim();
+  const acc = await ProviderAccount.findOne({ phone }).lean();
+  if (!acc) return res.status(404).json({ error: "No account found. Please register first." });
   const isDev = (process.env.NODE_ENV !== "production");
-  if (!isDefaultPhone) {
-    try {
-      await sendOtpSms({ phone: req.body.phone, otp });
-    } catch {
-      await redis.del(`sp:otp:${req.body.phone}`);
-      return res.status(502).json({ error: "Failed to send OTP" });
-    }
+  let issued;
+  try {
+    issued = await issueOtp({
+      redis,
+      key: `sp:otp:${phone}`,
+      phone,
+      role: "provider",
+      intent: "login",
+    });
+  } catch {
+    return res.status(502).json({ error: "Failed to send OTP" });
   }
-  console.log("[OTP] provider login", req.body.phone, isDev ? otp : "****");
-  res.json({ success: true, otpPreview: isDev ? otp : "****" });
+  res.json({
+    success: true,
+    message: issued.message,
+    deliveryMode: issued.deliveryMode,
+    otpPreview: isDev ? issued.otp : "******",
+  });
 });
 
 router.post("/register-request", body("phone").matches(/^\d{10}$/), async (req, res) => {
@@ -70,59 +82,73 @@ router.post("/register-request", body("phone").matches(/^\d{10}$/), async (req, 
   if (existing?.registrationComplete) {
     return res.status(409).json({ error: "Account already exists. Please login." });
   }
-  const isDefaultPhone = isDefaultProviderOtp(phone);
-  const otp = isDefaultPhone ? getDefaultOtpByRole("provider") : (Math.floor(100000 + Math.random() * 900000)).toString();
-  await redis.set(`sp:reg:otp:${phone}`, otp, { EX: 300 });
   const isDev = (process.env.NODE_ENV !== "production");
-  if (!isDefaultPhone) {
-    try {
-      await sendOtpSms({ phone, otp });
-    } catch {
-      await redis.del(`sp:reg:otp:${phone}`);
-      return res.status(502).json({ error: "Failed to send OTP" });
-    }
+  let issued;
+  try {
+    issued = await issueOtp({
+      redis,
+      key: `sp:reg:otp:${phone}`,
+      phone,
+      role: "provider",
+      intent: "register",
+    });
+  } catch {
+    return res.status(502).json({ error: "Failed to send OTP" });
   }
-  res.json({ success: true, otpPreview: isDev ? otp : "****" });
+  res.json({
+    success: true,
+    message: issued.message,
+    deliveryMode: issued.deliveryMode,
+    otpPreview: isDev ? issued.otp : "******",
+  });
 });
 
-router.post("/verify-registration-otp", body("phone").matches(/^\d{10}$/), body("otp").isLength({ min: 6, max: 6 }), async (req, res) => {
+router.post("/verify-registration-otp", body("phone").matches(/^\d{10}$/), body("otp").isLength({ min: OTP_LENGTH, max: OTP_LENGTH }), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { phone, otp } = req.body;
-  let valid = false;
-  if (isDefaultProviderOtp(phone) && otp === getDefaultOtpByRole("provider")) {
-    valid = true;
-  } else {
-    const stored = await redis.get(`sp:reg:otp:${phone}`);
-    valid = !!stored && stored === otp;
-    if (valid) await redis.del(`sp:reg:otp:${phone}`);
-  }
+  const valid = await verifyOtpValue({
+    redis,
+    key: `sp:reg:otp:${phone}`,
+    phone,
+    role: "provider",
+    otp,
+  });
   if (!valid) return res.status(400).json({ error: "Invalid OTP" });
   await redis.set(`sp:reg:verified:${phone}`, "1", { EX: 600 });
   res.json({ success: true });
 });
 
-router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLength({ min: 6, max: 6 }), async (req, res) => {
+router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLength({ min: OTP_LENGTH, max: OTP_LENGTH }), async (req, res) => {
   const { phone, otp } = req.body;
-  let valid = false;
-  if (isDefaultProviderOtp(phone) && otp === getDefaultOtpByRole("provider")) {
-    valid = true;
-  } else {
-    const stored = await redis.get(`sp:otp:${phone}`);
-    valid = !!stored && stored === otp;
-    if (valid) await redis.del(`sp:otp:${phone}`);
-  }
+  const valid = await verifyOtpValue({
+    redis,
+    key: `sp:otp:${phone}`,
+    phone,
+    role: "provider",
+    otp,
+  });
   if (!valid) return res.status(400).json({ error: "Invalid OTP" });
   const acc = await ProviderAccount.findOne({ phone });
-  if (!acc) return res.status(404).json({ error: "user with this mobile number not found" });
+  if (!acc) return res.status(404).json({ error: "No account found. Please register first." });
   // Mark provider online on successful login (required for assignment pool).
   try {
     acc.isOnline = true;
     await acc.save();
   } catch {}
   const token = issueRoleToken("provider", acc._id.toString());
+  const subscription = await getSubscriptionSnapshot(acc._id.toString(), "provider");
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
-  res.json({ provider: acc, providerToken: token });
+  res.json({
+    provider: {
+      ...acc.toObject(),
+      subscription,
+      isPro: subscription.isPro,
+      proExpiry: subscription.currentPeriodEnd,
+      proPlan: subscription.planId,
+    },
+    providerToken: token,
+  });
 });
 
 router.get("/availability/:date", requireRole("provider"), param("date").isString(), async (req, res) => {
@@ -335,6 +361,7 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
     email: req.body.email || "",
     address: req.body.address || "",
     city: String(req.body.city || "").trim(),
+    zone: req.body.zone || "",
     gender: req.body.gender || "",
     dob: req.body.dob || "",
     experience: req.body.experience || "0-1",
@@ -357,14 +384,60 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
     registrationComplete: true,
   };
   const acc = await ProviderAccount.findOneAndUpdate({ phone: req.body.phone }, update, { new: true, upsert: true });
+
+  // Notify relevant vendor if zone is specified
+  if (req.body.zone) {
+    try {
+      const { Vendor } = await import("../models/Vendor.js");
+      const vendor = await Vendor.findOne({ 
+        city: new RegExp(`^${req.body.city}$`, "i"),
+        zone: new RegExp(`^${req.body.zone}$`, "i"),
+        status: "approved"
+      }).lean();
+
+      if (vendor) {
+        await notify({
+          recipientId: vendor._id.toString(),
+          recipientRole: "vendor",
+          title: "New Provider Request",
+          message: `New provider ${req.body.name} has requested registration for your zone (${req.body.zone}).`,
+          type: "system",
+          meta: { providerId: acc._id.toString() },
+        });
+      }
+    } catch (err) {
+      console.error("Failed to notify vendor of new provider:", err);
+    }
+  }
+
   const token = issueRoleToken("provider", acc._id.toString());
+  const subscription = await getSubscriptionSnapshot(acc._id.toString(), "provider");
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
-  res.json({ provider: acc, providerToken: token });
+  res.json({
+    provider: {
+      ...acc.toObject(),
+      subscription,
+      isPro: subscription.isPro,
+      proExpiry: subscription.currentPeriodEnd,
+      proPlan: subscription.planId,
+    },
+    providerToken: token,
+  });
 });
 
 router.get("/me/:phone", param("phone").matches(/^\d{10}$/), async (req, res) => {
   const acc = await ProviderAccount.findOne({ phone: req.params.phone }).lean();
-  res.json({ provider: acc });
+  if (!acc) return res.json({ provider: null });
+  const subscription = await getSubscriptionSnapshot(acc._id.toString(), "provider");
+  res.json({
+    provider: {
+      ...acc,
+      subscription,
+      isPro: subscription.isPro,
+      proExpiry: subscription.currentPeriodEnd,
+      proPlan: subscription.planId,
+    },
+  });
 });
 
 router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, res) => {
@@ -928,8 +1001,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
     const acc = await ProviderAccount.findById(pId);
     if (!acc) return res.status(403).json({ error: "Forbidden" });
-    const commissionSettings = await CommissionSettings.findOne().lean();
-    const rate = Number(commissionSettings?.rate || 20);
+    const rate = await getProviderCommissionRate(pId);
     const totalAmount = Number(b.totalAmount || 0);
     const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
     if (!b.commissionChargedAt && required > 0 && Number(acc.credits || 0) < required) {
@@ -1120,6 +1192,48 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     // store normalized lower-case.
     b.status = next;
     if (next !== "pending") b.expiresAt = null;
+    if (next === "completed") {
+      const activeSub = await getActiveSubscription(pId, "provider");
+      await createLedgerEntry({
+        userId: String(pId),
+        userType: "provider",
+        subscriptionId: activeSub?.subscription?.subscriptionId || "",
+        planId: activeSub?.plan?.planId || "",
+        entryType: "provider_settlement_adjustment",
+        direction: "debit",
+        amount: Number(b.commissionAmount || 0),
+        meta: {
+          bookingId: b._id.toString(),
+          commissionRate: await getProviderCommissionRate(pId),
+          completedAt: new Date(),
+        },
+      });
+      const city = b.address?.city || "";
+      if (city) {
+        const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+        if (vendor) {
+          const vendorSub = await getActiveSubscription(vendor._id.toString(), "vendor");
+          const mode = vendorSub?.plan?.meta?.vendorPerformanceCommissionType || "percentage";
+          const value = Number(vendorSub?.plan?.meta?.vendorPerformanceCommissionValue || 0);
+          const vendorCommission =
+            mode === "fixed"
+              ? value
+              : Math.round(Number(b.totalAmount || 0) * (value / 100));
+          await recordVendorPerformanceCommission({
+            vendorId: vendor._id.toString(),
+            bookingId: b._id.toString(),
+            amount: vendorCommission,
+            meta: {
+              planId: vendorSub?.plan?.planId || "",
+              subscriptionId: vendorSub?.subscription?.subscriptionId || "",
+              city,
+              mode,
+              value,
+            },
+          });
+        }
+      }
+    }
   }
 
   if ((next === "cancelled" || next === "rejected") && b.commissionChargedAt && !b.commissionRefundedAt) {

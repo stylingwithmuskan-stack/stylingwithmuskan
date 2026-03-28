@@ -78,6 +78,17 @@ router.patch(
 router.get("/sos", requireRole("vendor"), VendorController.listSOS);
 router.patch("/sos/:id/resolve", requireRole("vendor"), param("id").isString(), VendorController.resolveSOS);
 router.get("/stats", requireRole("vendor"), VendorController.stats);
+router.get("/subaccounts", requireRole("vendor"), VendorController.listSubAccounts);
+router.post(
+  "/subaccounts",
+  requireRole("vendor"),
+  body("name").isString().notEmpty(),
+  body("email").optional().isString(),
+  body("phone").optional().isString(),
+  body("role").optional().isIn(["operations", "support", "finance"]),
+  VendorController.createSubAccount
+);
+router.delete("/subaccounts/:id", requireRole("vendor"), param("id").isString(), VendorController.deleteSubAccount);
 
 export default router;
 

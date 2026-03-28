@@ -14,6 +14,13 @@ const STORAGE_KEY = "swm_vendor";
 export const VenderAuthProvider = ({ children }) => {
     const [vendor, setVendor] = useState(null);
     const [hydrated, setHydrated] = useState(false);
+    const syncVendor = (nextVendor) => {
+        setVendor(nextVendor);
+        try {
+            if (nextVendor) localStorage.setItem(STORAGE_KEY, JSON.stringify(nextVendor));
+            else localStorage.removeItem(STORAGE_KEY);
+        } catch {}
+    };
 
     useEffect(() => {
         try {
@@ -21,6 +28,16 @@ export const VenderAuthProvider = ({ children }) => {
             if (raw) setVendor(JSON.parse(raw));
         } catch {}
         setHydrated(true);
+    }, []);
+
+    useEffect(() => {
+        const handle401 = (e) => {
+            if (e.detail?.status === 401 && e.detail?.isVendorPath) {
+                logout();
+            }
+        };
+        window.addEventListener("swm-api-401", handle401);
+        return () => window.removeEventListener("swm-api-401", handle401);
     }, []);
 
     const isLoggedIn = !!vendor;
@@ -31,20 +48,28 @@ export const VenderAuthProvider = ({ children }) => {
         if (vendorToken) {
             try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
         }
-        setVendor(vendor);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(vendor)); } catch {}
-        return { success: true };
+        syncVendor(vendor);
+        
+        if (vendor?.status !== "approved") {
+            return { success: true, redirect: "/vender/status" };
+        }
+        return { success: true, redirect: "/vender/dashboard" };
     };
 
-    const requestOtp = async (phone) => { await api.vendor.requestOtp(phone); return { success: true }; };
+    const requestOtp = async (phone) => {
+        return await api.vendor.requestOtp(phone);
+    };
     const verifyOtp = async (phone, otp) => {
         const { vendor, vendorToken } = await api.vendor.verifyOtp(phone, otp);
         if (vendorToken) {
             try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
         }
-        setVendor(vendor);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(vendor)); } catch {}
-        return { success: true };
+        syncVendor(vendor);
+        
+        if (vendor?.status !== "approved") {
+            return { success: true, redirect: "/vender/status" };
+        }
+        return { success: true, redirect: "/vender/dashboard" };
     };
 
     const register = async (data) => {
@@ -52,8 +77,7 @@ export const VenderAuthProvider = ({ children }) => {
         if (vendorToken) {
             try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
         }
-        setVendor(vendor);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(vendor)); } catch {}
+        syncVendor(vendor);
         return { success: true };
     };
 
@@ -131,6 +155,7 @@ export const VenderAuthProvider = ({ children }) => {
     return (
         <VenderAuthContext.Provider value={{
             vendor,
+            setVendor: syncVendor,
             hydrated,
             isLoggedIn,
             isApproved,

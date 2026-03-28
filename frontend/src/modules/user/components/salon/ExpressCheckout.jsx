@@ -384,6 +384,7 @@ const ExpressCheckout = () => {
             <SlotSelectionModal
                 isOpen={isSlotModalOpen}
                 onClose={() => setIsSlotModalOpen(false)}
+                address={primaryAddress}
             />
         </>
     );

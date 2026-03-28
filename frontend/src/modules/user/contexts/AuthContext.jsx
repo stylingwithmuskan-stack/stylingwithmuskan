@@ -124,15 +124,17 @@ export const AuthProvider = ({ children }) => {
         setUser(updated);
     };
 
-    const joinPlus = () => {
-        if (!user) return;
-        const updatedUser = { 
-            ...user, 
-            isPlusMember: true,
-            plusExpiry: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString()
-        };
-        setUser(updatedUser);
-        localStorage.setItem('smd_user', JSON.stringify(updatedUser));
+    const joinPlus = async () => {
+        if (!user) return null;
+        try {
+            const { user: freshUser } = await api.me();
+            if (freshUser) {
+                setUser(freshUser);
+                localStorage.setItem('smd_user', JSON.stringify(freshUser));
+                return freshUser;
+            }
+        } catch {}
+        return user;
     };
 
     return (

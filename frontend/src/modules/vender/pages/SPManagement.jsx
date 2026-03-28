@@ -247,6 +247,10 @@ export default function SPManagement() {
                                         <p className="text-sm font-bold mt-1">{selectedSP.experience || "N/A"}</p>
                                     </div>
                                     <div className="bg-muted/50 rounded-xl p-3">
+                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Hub Location</p>
+                                        <p className="text-sm font-bold mt-1">{selectedSP.city || "N/A"} {selectedSP.zone ? `(${selectedSP.zone})` : ""}</p>
+                                    </div>
+                                    <div className="bg-muted/50 rounded-xl p-3">
                                         <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Joined</p>
                                         <p className="text-sm font-bold mt-1">{selectedSP.createdAt ? new Date(selectedSP.createdAt).toLocaleDateString() : "N/A"}</p>
                                     </div>

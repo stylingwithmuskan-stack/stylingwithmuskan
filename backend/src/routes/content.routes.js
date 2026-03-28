@@ -5,6 +5,7 @@ import { BookingSettings } from "../models/Settings.js";
 import { Spotlight, GalleryItem, Testimonial } from "../models/SiteContent.js";
 import { ensureCategoriesAndServices } from "../startup/seed.js";
 import { versionedKey } from "../lib/contentCache.js";
+import { City, Zone } from "../models/CityZone.js";
 
 const router = Router();
 
@@ -229,6 +230,24 @@ router.get("/office-settings", async (_req, res) => {
     data = { startTime: "09:00", endTime: "21:00", autoAssign: true, bufferMinutes: 30, notificationMessage: "Our pros are sleeping. Service starts at 9:00 AM" };
   }
   res.json({ data });
+});
+
+router.get("/cities", async (_req, res) => {
+  const cities = await City.find({ status: "active" }).sort({ name: 1 }).lean();
+  res.json({ cities });
+});
+
+router.get("/zones", async (req, res) => {
+  const { cityId, cityName } = req.query;
+  let q = { status: "active" };
+  if (cityId) q.city = cityId;
+  else if (cityName) {
+    const city = await City.findOne({ name: new RegExp(`^${cityName}$`, "i") });
+    if (city) q.city = city._id;
+    else return res.json({ zones: [] });
+  }
+  const zones = await Zone.find(q).sort({ name: 1 }).lean();
+  res.json({ zones });
 });
 
 router.get("/booking-settings", async (_req, res) => {

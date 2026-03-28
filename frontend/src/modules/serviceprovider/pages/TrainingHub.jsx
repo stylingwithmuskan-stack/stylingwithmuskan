@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { Button } from "@/modules/user/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 
 const DEFAULT_VIDEOS = [
     {
@@ -72,6 +73,7 @@ const DEFAULT_VIDEOS = [
 
 export default function TrainingHub() {
     const navigate = useNavigate();
+    const { provider } = useProviderAuth();
     const [videos, setVideos] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
@@ -95,13 +97,16 @@ export default function TrainingHub() {
     }, [videos]);
 
     const filteredVideos = useMemo(() => {
-        return videos.filter(v => {
+        const visibleVideos = (provider?.subscription?.premiumTrainingAccess || provider?.isPro)
+            ? videos
+            : videos.filter((v) => v.status === "Mandatory");
+        return visibleVideos.filter(v => {
             const matchesCategory = selectedCategory === "All" || v.category === selectedCategory;
             const matchesSearch = v.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                 v.provider.toLowerCase().includes(searchQuery.toLowerCase());
             return matchesCategory && matchesSearch;
         });
-    }, [videos, selectedCategory, searchQuery]);
+    }, [videos, selectedCategory, searchQuery, provider?.subscription?.premiumTrainingAccess, provider?.isPro]);
 
     const stats = [
         { label: "Completed", count: videos.filter(v => v.status === "Completed").length, icon: CheckCircle2, color: "text-green-500" },
@@ -171,6 +176,14 @@ export default function TrainingHub() {
 
             {/* Courses Grid */}
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {!(provider?.subscription?.premiumTrainingAccess || provider?.isPro) && (
+                    <div className="md:col-span-2 lg:col-span-3 rounded-3xl border border-amber-200 bg-amber-50 p-5">
+                        <p className="text-xs font-black uppercase tracking-widest text-amber-600">SWM Pro Unlock</p>
+                        <p className="text-sm text-slate-700 mt-2">
+                            Premium training is available for active SWM Pro Partner subscriptions. Mandatory compliance content remains visible for everyone.
+                        </p>
+                    </div>
+                )}
                 <AnimatePresence mode="popLayout">
                     {filteredVideos.length > 0 ? (
                         filteredVideos.map((video, idx) => (

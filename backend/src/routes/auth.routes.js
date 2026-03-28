@@ -3,8 +3,8 @@ import { body, validationResult } from "express-validator";
 import User from "../models/User.js";
 import { redis } from "../startup/redis.js";
 import { issueToken } from "../middleware/auth.js";
-import { sendOtpSms } from "../lib/smsIndiaHub.js";
-import { getDefaultOtpByRole, isDefaultUserOtp } from "../lib/otpPolicy.js";
+import { issueOtp, OTP_LENGTH, verifyOtpValue } from "../lib/otpService.js";
+import { getSubscriptionSnapshot } from "../lib/subscriptions.js";
 
 const router = Router();
 
@@ -23,28 +23,27 @@ router.post(
       return res.status(409).json({ error: "Account already exists. Please login." });
     }
     if (intent === "login" && !existing) {
-      return res.status(404).json({ error: "No account found. Please register." });
+      return res.status(404).json({ error: "No account found. Please register first." });
     }
     const isDev = (process.env.NODE_ENV !== "production");
-    // Generate 6-digit OTP for user auth
-    const isDefaultPhone = isDefaultUserOtp(phone);
-    const otp = isDefaultPhone ? getDefaultOtpByRole("user") : (Math.floor(100000 + Math.random() * 900000)).toString();
-
-    await redis.set(`otp:${phone}`, otp, { EX: 300 });
-    if (!isDefaultPhone) {
-      try {
-        await sendOtpSms({ phone, otp });
-      } catch (err) {
-        await redis.del(`otp:${phone}`);
-        return res.status(502).json({ error: "Failed to send OTP" });
-      }
+    let issued;
+    try {
+      issued = await issueOtp({
+        redis,
+        key: `otp:${phone}`,
+        phone,
+        role: "user",
+        intent,
+      });
+    } catch {
+      return res.status(502).json({ error: "Failed to send OTP" });
     }
-    const mask = "****";
-    console.log("[OTP] user login", phone, isDev ? otp : mask);
+    const mask = "******";
     res.json({
       success: true,
-      message: "OTP sent",
-      otpPreview: isDev ? otp : mask,
+      message: issued.message,
+      deliveryMode: issued.deliveryMode,
+      otpPreview: isDev ? issued.otp : mask,
       exists: !!existing,
       intent,
     });
@@ -54,7 +53,7 @@ router.post(
 router.post(
   "/verify-otp",
   body("phone").isString().matches(/^\d{10}$/),
-  body("otp").isString().isLength({ min: 6, max: 6 }),
+  body("otp").isString().isLength({ min: OTP_LENGTH, max: OTP_LENGTH }),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -62,14 +61,13 @@ router.post(
     }
     const { phone, otp } = req.body;
     const intent = (req.body.intent || "auto").toLowerCase();
-    let valid = false;
-    if (isDefaultUserOtp(phone) && otp === getDefaultOtpByRole("user")) {
-      valid = true;
-    } else {
-      const stored = await redis.get(`otp:${phone}`);
-      valid = !!stored && stored === otp;
-      if (valid) await redis.del(`otp:${phone}`);
-    }
+    const valid = await verifyOtpValue({
+      redis,
+      key: `otp:${phone}`,
+      phone,
+      role: "user",
+      otp,
+    });
     if (!valid) {
       return res.status(400).json({ error: "Invalid OTP" });
     }
@@ -77,7 +75,7 @@ router.post(
     let user = await User.findOne({ phone });
     const exists = !!user;
     if (intent === "login" && !exists) {
-      return res.status(404).json({ error: "No account found. Please register." });
+      return res.status(404).json({ error: "No account found. Please register first." });
     }
     if (intent === "register" && exists) {
       return res.status(409).json({ error: "Account already exists. Please login." });
@@ -87,6 +85,7 @@ router.post(
     }
     const isNew = !exists;
     const token = issueToken(user._id);
+    const subscription = await getSubscriptionSnapshot(user._id.toString(), "customer");
     res
       .cookie("token", token, {
         httpOnly: true,
@@ -103,6 +102,10 @@ router.post(
           referralCode: user.referralCode,
           isVerified: user.isVerified,
           addresses: user.addresses,
+          subscription,
+          isPlusMember: subscription.isPlusMember,
+          plusExpiry: subscription.currentPeriodEnd,
+          plusPlan: subscription.planId,
           isNew,
         },
         intent,
@@ -131,6 +134,7 @@ router.get("/me", async (req, res) => {
       payload.sub
     );
     if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const subscription = await getSubscriptionSnapshot(user._id.toString(), "customer");
     res.json({
       user: {
         id: user._id,
@@ -139,6 +143,10 @@ router.get("/me", async (req, res) => {
         referralCode: user.referralCode,
         isVerified: user.isVerified,
         addresses: user.addresses,
+        subscription,
+        isPlusMember: subscription.isPlusMember,
+        plusExpiry: subscription.currentPeriodEnd,
+        plusPlan: subscription.planId,
       },
     });
   } catch {

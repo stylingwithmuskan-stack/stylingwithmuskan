@@ -21,6 +21,9 @@ const ProfilePage = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [menEnabled, setMenEnabled] = useState(false);
+  const subscription = user?.subscription || null;
+  const plusDiscount = Number(subscription?.discountPercentage || 0);
+  const plusExpiry = user?.plusExpiry || subscription?.currentPeriodEnd || null;
 
   useEffect(() => {
     api.admin.getSystemSettings()
@@ -152,11 +155,11 @@ const ProfilePage = () => {
                 </div>
                 {user?.isPlusMember ? (
                     <p className="text-xs font-medium text-slate-400 mt-1 max-w-[200px]">
-                        Enjoying 10% off and zero convenience fees.
+                        Enjoying {plusDiscount || 10}% off with backend-managed SWM Plus benefits.
                     </p>
                 ) : (
                     <p className="text-xs font-bold text-indigo-700/80 mt-1">
-                        Get flat 10% off on all bookings
+                        Get 10% to 15% off on eligible bookings
                     </p>
                 )}
             </div>
@@ -165,7 +168,7 @@ const ProfilePage = () => {
                 {user?.isPlusMember ? (
                     <div className="flex flex-col items-end">
                         <span className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Valid Till</span>
-                        <span className="text-sm font-black text-white">{new Date(user.plusExpiry).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
+                        <span className="text-sm font-black text-white">{plusExpiry ? new Date(plusExpiry).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : "N/A"}</span>
                     </div>
                 ) : (
                     <div className="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg shadow-indigo-500/30 flex items-center gap-1.5">

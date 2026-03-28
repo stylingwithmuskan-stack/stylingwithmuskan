@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate, Navigate } from "react-router-d
 import { motion, AnimatePresence } from "framer-motion";
 import {
     LayoutDashboard, Users, Store, CalendarRange, Wallet, ShieldAlert,
-    Image, Ticket, Gift, LogOut, Bell, Menu, X, ChevronRight, Shield, Layers, User, MessageSquare, LayoutGrid, Clapperboard, Images
+    Image, Ticket, Gift, LogOut, Bell, Menu, X, ChevronRight, Shield, Layers, User, MessageSquare, LayoutGrid, Clapperboard, Images, MapPin, Crown
 } from "lucide-react";
 import { cn } from "@/modules/user/lib/utils";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
@@ -38,6 +38,7 @@ const AdminLayout = () => {
         {
             label: "Management",
             links: [
+                { name: "Cities & Zones", path: "/admin/cities", icon: MapPin },
                 { name: "Vendors", path: "/admin/vendors", icon: Store },
                 { name: "Service Providers", path: "/admin/service-providers", icon: Users },
                 { name: "Customers", path: "/admin/customers", icon: User },
@@ -52,6 +53,7 @@ const AdminLayout = () => {
             label: "Finance",
             links: [
                 { name: "Commission & Payouts", path: "/admin/finance", icon: Wallet },
+                { name: "Subscriptions", path: "/admin/subscriptions", icon: Crown },
             ],
         },
         {
@@ -234,6 +236,7 @@ const AdminLayout = () => {
                         { name: "Home", path: "/admin/dashboard", icon: LayoutDashboard },
                         { name: "Vendors", path: "/admin/vendors", icon: Store },
                         { name: "Bookings", path: "/admin/bookings", icon: CalendarRange },
+                        { name: "Subs", path: "/admin/subscriptions", icon: Crown },
                         { name: "Coupons", path: "/admin/coupons", icon: Ticket },
                         { name: "SOS", path: "/admin/sos", icon: ShieldAlert },
                     ].map((link) => {

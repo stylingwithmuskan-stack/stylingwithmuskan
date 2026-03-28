@@ -31,6 +31,7 @@ import { Badge } from "@/modules/user/components/ui/badge";
 import { Checkbox } from "@/modules/user/components/ui/checkbox";
 import { Label } from "@/modules/user/components/ui/label";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
+import { api } from "@/modules/user/lib/api";
 
 const steps = [
     { title: "Personal", icon: CheckCircle2 },
@@ -47,6 +48,10 @@ export default function ProviderRegisterPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
+    const [cities, setCities] = useState([]);
+    const [zones, setZones] = useState([]);
+    const [zonesLoading, setZonesLoading] = useState(false);
+
     // Form States
     const [formData, setFormData] = useState({
         phone: provider?.phone || "",
@@ -58,6 +63,8 @@ export default function ProviderRegisterPage() {
         addressLine1: "",
         area: "",
         city: "",
+        zone: "",
+        customZone: "",
         profilePhoto: null,
         aadharFront: null,
         aadharBack: null,
@@ -72,11 +79,32 @@ export default function ProviderRegisterPage() {
         agreed: false
     });
 
+    useEffect(() => {
+        api.content.cities().then(res => setCities(res.cities || [])).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (formData.city) {
+            setZonesLoading(true);
+            api.content.zones({ cityName: formData.city }).then(res => {
+                setZones(res.zones || []);
+                setFormData(prev => ({ ...prev, zone: "" }));
+            }).catch(() => {
+                setZones([]);
+            }).finally(() => {
+                setZonesLoading(false);
+            });
+        } else {
+            setZones([]);
+        }
+    }, [formData.city]);
+
     const [otp, setOtp] = useState("");
     const [otpSent, setOtpSent] = useState(false);
     const [otpVerified, setOtpVerified] = useState(false);
     const [otpError, setOtpError] = useState("");
     const [otpLoading, setOtpLoading] = useState(false);
+    const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     // Refs for hidden inputs
     const profileInputRef = useRef(null);
@@ -232,7 +260,8 @@ export default function ProviderRegisterPage() {
         setOtpLoading(true);
         setOtpError("");
         try {
-            await requestRegisterOtp(phone);
+            const res = await requestRegisterOtp(phone);
+            setOtpDeliveryMode(res?.deliveryMode || "sms");
             setOtpSent(true);
         } catch (e) {
             setOtpError(e?.message || "Failed to send OTP");
@@ -282,7 +311,19 @@ export default function ProviderRegisterPage() {
                 setOtpError("Please select your experience");
                 return;
             }
-            if (!formData.addressLine1.trim() || !formData.area.trim() || !formData.city.trim()) {
+            if (!formData.city) {
+                setOtpError("Please select your city");
+                return;
+            }
+            if (!formData.zone) {
+                setOtpError("Please select your hub zone");
+                return;
+            }
+            if (formData.zone === "other" && !formData.customZone.trim()) {
+                setOtpError("Please enter your custom zone name");
+                return;
+            }
+            if (!formData.addressLine1.trim() || !formData.area.trim()) {
                 setOtpError("Please complete your address details");
                 return;
             }
@@ -322,17 +363,21 @@ export default function ProviderRegisterPage() {
         if (currentStep > 1) setCurrentStep(currentStep - 1);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!otpVerified) {
             setOtpError("Please verify your mobile number with OTP");
             return;
         }
         setIsLoading(true);
-        setTimeout(() => {
-            register(formData);
+        try {
+            const finalZone = formData.zone === "other" ? formData.customZone : formData.zone;
+            await register({ ...formData, zone: finalZone });
             setIsLoading(false);
             setIsSuccess(true);
-        }, 2000);
+        } catch (err) {
+            setOtpError(err.message || "Registration failed");
+            setIsLoading(false);
+        }
     };
 
     if (isSuccess) {
@@ -497,6 +542,13 @@ export default function ProviderRegisterPage() {
                                             {otpVerified && (
                                                 <p className="text-xs font-bold text-green-600">Mobile number verified</p>
                                             )}
+                                            {otpSent && !otpVerified && !otpError && (
+                                                <p className="text-xs font-medium text-gray-500">
+                                                    {otpDeliveryMode === "allowlist"
+                                                        ? `Enter the 6-digit OTP for +91 ${formData.phone}`
+                                                        : `Enter the 6-digit code sent to +91 ${formData.phone}`}
+                                                </p>
+                                            )}
                                             {otpError && (
                                                 <p className="text-xs font-bold text-red-600">{otpError}</p>
                                             )}
@@ -512,8 +564,46 @@ export default function ProviderRegisterPage() {
                                         />
                                     </div>
                                     <div className="space-y-2 sm:col-span-2">
-                                        <Label className="text-xs font-black uppercase text-gray-400">Address</Label>
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                        <Label className="text-xs font-black uppercase text-gray-400">Address & Hub Location</Label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-bold text-gray-500">CITY</Label>
+                                                <Select value={formData.city} onValueChange={v => setFormData({ ...formData, city: v })}>
+                                                    <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600">
+                                                        <SelectValue placeholder="Select City" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {cities.map(c => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-bold text-gray-500">HUB ZONE</Label>
+                                                <Select value={formData.zone} onValueChange={v => setFormData({ ...formData, zone: v })} disabled={!formData.city || zonesLoading}>
+                                                    <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600">
+                                                        <SelectValue placeholder={zonesLoading ? "Loading..." : "Select Hub"} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {zones.map(z => <SelectItem key={z._id} value={z.name}>{z.name}</SelectItem>)}
+                                                        <SelectItem value="other" className="text-violet-600 font-bold">Other / Custom Zone</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        {formData.zone === "other" && (
+                                            <div className="mb-4 space-y-2">
+                                                <Label className="text-[10px] font-bold text-gray-500">CUSTOM ZONE NAME</Label>
+                                                <Input
+                                                    placeholder="Enter your area/zone name"
+                                                    className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
+                                                    value={formData.customZone}
+                                                    onChange={(e) => setFormData({ ...formData, customZone: e.target.value })}
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             <Input
                                                 placeholder="Flat/Building/Landmark"
                                                 className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
@@ -525,12 +615,6 @@ export default function ProviderRegisterPage() {
                                                 className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
                                                 value={formData.area}
                                                 onChange={(e) => setFormData({ ...formData, area: e.target.value })}
-                                            />
-                                            <Input
-                                                placeholder="City"
-                                                className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                                value={formData.city}
-                                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                                             />
                                         </div>
                                         <Button

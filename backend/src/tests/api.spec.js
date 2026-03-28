@@ -22,7 +22,7 @@ describe("SWM API", () => {
 
   it("auth request-otp and verify", async () => {
     const phone = process.env.DEFAULT_USER_OTP_PHONE || process.env.DEMO_DEFAULT_PHONE || "9990000001";
-    const otp = process.env.DEFAULT_USER_OTP || "1234";
+    const otp = process.env.DEFAULT_USER_OTP || "123456";
     let res = await request(app).post("/auth/request-otp").send({ phone });
     expect(res.status).toBe(200);
     res = await request(app).post("/auth/verify-otp").send({ phone, otp });
@@ -34,7 +34,7 @@ describe("SWM API", () => {
 
   it("bookings quote and create", async () => {
     const phone = process.env.DEFAULT_USER_OTP_PHONE || process.env.DEMO_DEFAULT_PHONE || "9990000001";
-    const otp = process.env.DEFAULT_USER_OTP || "1234";
+    const otp = process.env.DEFAULT_USER_OTP || "123456";
     let res = await request(app).post("/auth/verify-otp").send({ phone, otp });
     const token = res.body.token;
     const agent = request.agent(app);

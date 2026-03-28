@@ -14,6 +14,7 @@ export default function VenderLoginPage() {
     const [phone, setPhone] = useState("");
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [error, setError] = useState("");
+    const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
         document.documentElement.classList.remove("theme-women", "theme-men", "theme-beautician", "theme-admin");
@@ -36,7 +37,8 @@ export default function VenderLoginPage() {
                 return;
             }
 
-            await requestOtp(phone);
+            const res = await requestOtp(phone);
+            setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
         } catch (err) {
             setError(err?.message || "Failed to request OTP");
@@ -47,8 +49,12 @@ export default function VenderLoginPage() {
         setError("");
         try {
             const code = otp.join("");
-            await verifyOtp(phone, code);
-            navigate("/vender/dashboard", { replace: true });
+            const res = await verifyOtp(phone, code);
+            if (res?.redirect) {
+                navigate(res.redirect, { replace: true });
+            } else {
+                navigate("/vender/dashboard", { replace: true });
+            }
         } catch (err) {
             setError(err?.message || "Failed to verify OTP");
         }
@@ -103,6 +109,11 @@ export default function VenderLoginPage() {
                         <form onSubmit={handleVerify} className="space-y-4">
                             <div className="space-y-2">
                                 <Label className="text-xs font-bold text-gray-600">Enter OTP</Label>
+                                <p className="text-xs text-gray-500">
+                                    {otpDeliveryMode === "allowlist"
+                                        ? `Enter the 6-digit OTP for ${phone}`
+                                        : `Enter the 6-digit code sent to ${phone}`}
+                                </p>
                                 <div className="grid grid-cols-6 gap-2">
                                     {otp.map((d, i) => (
                                         <Input key={i} id={`otp-${i}`} value={d} onChange={e => {

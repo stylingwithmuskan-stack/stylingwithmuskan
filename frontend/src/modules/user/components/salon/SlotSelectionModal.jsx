@@ -22,7 +22,7 @@ const timeToMinutes = (timeStr) => {
     return hours * 60 + (minutes || 0);
 };
 
-const SlotSelectionModal = ({ isOpen, onClose, onSave }) => {
+const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     const { selectedSlot, setSelectedSlot, cartItems, setBookingType } = useCart();
     const { gender } = useGenderTheme();
     const { bookingTypeConfig, categories, officeSettings } = useUserModuleData();
@@ -57,6 +57,8 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave }) => {
             api.users.providerSuggestions({
                 serviceTypes: serviceTypes.join(","),
                 limit: "10",
+                city: address?.city || "",
+                zone: address?.zone || ""
             }).then((res) => {
                 if (cancelled) return;
                 const recent = Array.isArray(res?.recentProviders) ? res.recentProviders : [];
@@ -84,7 +86,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave }) => {
             });
         }
         return () => { cancelled = true; };
-    }, [isOpen, selectedSlot?.date, selectedSlot?.time, selectedSlot?.provider?.id, serviceTypes]);
+    }, [isOpen, selectedSlot?.date, selectedSlot?.time, selectedSlot?.provider?.id, serviceTypes, address]);
 
     const fetchSlots = async () => {
         if (!tempDate) return;
@@ -96,6 +98,8 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave }) => {
             const params = {
                 date: tempDate,
                 serviceTypes: serviceTypes.join(","),
+                city: address?.city || "",
+                zone: address?.zone || ""
             };
             if (pId) params.providerId = pId;
 

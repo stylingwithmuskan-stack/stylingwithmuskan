@@ -22,6 +22,7 @@ const ProviderAccountSchema = new mongoose.Schema(
     name: String,
     email: String,
     city: { type: String, default: "" },
+    zone: { type: String, default: "" },
     address: { type: String, default: "" },
     gender: String,
     dob: String,

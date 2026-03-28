@@ -5,6 +5,8 @@ const AddressSchema = new mongoose.Schema(
     houseNo: String,
     landmark: String,
     area: String,
+    city: { type: String, default: "" },
+    zone: { type: String, default: "" },
     lat: { type: Number, default: null },
     lng: { type: Number, default: null },
     type: { type: String, enum: ["home", "work", "other"], default: "home" },

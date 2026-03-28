@@ -17,6 +17,7 @@ import * as BookingsController from "../modules/bookings/controllers/bookings.co
 import { computeExpiresAt } from "../lib/assignment.js";
 import { bumpContentVersion } from "../lib/contentCache.js";
 import { notify } from "../lib/notify.js";
+import * as AdminSubscriptionController from "../modules/subscriptions/controllers/adminSubscription.controller.js";
 
 const router = Router();
 
@@ -643,5 +644,23 @@ router.put("/system-settings", requireRole("admin"), body("menSectionEnabled").i
   const s = await SystemSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
   res.json({ settings: s });
 });
+
+// ───── CITIES & ZONES ─────
+router.get("/cities", requireRole("admin"), AdminController.listCities);
+router.post("/cities", requireRole("admin"), AdminController.createCity);
+router.put("/cities/:cityId", requireRole("admin"), AdminController.updateCity);
+router.delete("/cities/:cityId", requireRole("admin"), AdminController.deleteCity);
+router.get("/cities/:cityId/zones", requireRole("admin"), AdminController.listZones);
+router.post("/cities/:cityId/zones", requireRole("admin"), AdminController.createZone);
+router.put("/zones/:zoneId", requireRole("admin"), AdminController.updateZone);
+router.delete("/zones/:zoneId", requireRole("admin"), AdminController.deleteZone);
+router.get("/zones/:zoneId/stats", requireRole("admin"), AdminController.getZoneStats);
+
+router.get("/subscription-settings", requireRole("admin"), AdminSubscriptionController.getSettings);
+router.put("/subscription-settings", requireRole("admin"), AdminSubscriptionController.updateSettings);
+router.get("/subscription-plans", requireRole("admin"), AdminSubscriptionController.listPlans);
+router.post("/subscription-plans", requireRole("admin"), AdminSubscriptionController.createPlan);
+router.put("/subscription-plans/:planId", requireRole("admin"), AdminSubscriptionController.updatePlan);
+router.get("/subscription-report", requireRole("admin"), AdminSubscriptionController.report);
 
 export default router;

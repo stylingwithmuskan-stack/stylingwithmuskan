@@ -7,6 +7,7 @@ import Coupon from "../models/Coupon.js";
 import Booking from "../models/Booking.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import { ReferralSettings } from "../models/Settings.js";
+import { getSubscriptionSnapshot, isEliteProvider } from "../lib/subscriptions.js";
 
 const router = Router();
 
@@ -20,11 +21,18 @@ function providerCard(p) {
     totalJobs: Number(p.totalJobs || 0),
     city: p.city || "",
     specialties: Array.isArray(p?.documents?.specializations) ? p.documents.specializations : [],
+    isPro: !!p.isPro,
+    isElite: !!p.isElite,
   };
+}
+
+function escapeRegex(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 router.get("/me", requireAuth, async (req, res) => {
   const u = req.user;
+  const subscription = await getSubscriptionSnapshot(u._id.toString(), "customer");
   res.json({
     user: {
       id: u._id,
@@ -33,6 +41,10 @@ router.get("/me", requireAuth, async (req, res) => {
       referralCode: u.referralCode,
       isVerified: u.isVerified,
       addresses: u.addresses,
+      subscription,
+      isPlusMember: subscription.isPlusMember,
+      plusExpiry: subscription.currentPeriodEnd,
+      plusPlan: subscription.planId,
     },
   });
 });
@@ -49,7 +61,17 @@ router.patch(
     if (name !== undefined) req.user.name = name;
     if (referralCode !== undefined) req.user.referralCode = referralCode;
     await req.user.save();
-    res.json({ success: true, user: req.user });
+    const subscription = await getSubscriptionSnapshot(req.user._id.toString(), "customer");
+    res.json({
+      success: true,
+      user: {
+        ...req.user.toObject(),
+        subscription,
+        isPlusMember: subscription.isPlusMember,
+        plusExpiry: subscription.currentPeriodEnd,
+        plusPlan: subscription.planId,
+      },
+    });
   }
 );
 
@@ -160,9 +182,11 @@ router.get("/me/coupons", requireAuth, async (req, res) => {
 router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   const customerId = req.user._id.toString();
   const limit = Math.max(1, Math.min(parseInt(String(req.query.limit || "10"), 10) || 10, 20));
+  const subscription = await getSubscriptionSnapshot(customerId, "customer");
 
   const addr0 = (req.user.addresses || [])[0] || {};
   const cityGuess = String(req.query.city || addr0.city || addr0.area || "").trim();
+  const zoneGuess = String(req.query.zone || addr0.zone || "").trim();
 
   const recentBookings = await Booking.find({
     customerId,
@@ -180,15 +204,42 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
     if (recentIds.length >= limit) break;
   }
 
+  // Find providers that match the city/zone criteria
+  let q = {
+    approvalStatus: "approved",
+    registrationComplete: true,
+  };
+  if (cityGuess) {
+    q.city = new RegExp(`^${escapeRegex(cityGuess)}$`, "i");
+  }
+  if (zoneGuess) {
+    q.$or = [
+      { zone: new RegExp(`^${escapeRegex(zoneGuess)}$`, "i") },
+      { address: new RegExp(escapeRegex(zoneGuess), "i") }
+    ];
+  }
+
   const recentDocs = recentIds.length
     ? await ProviderAccount.find({
       _id: { $in: recentIds },
-      approvalStatus: "approved",
-      registrationComplete: true,
+      ...q
     }).lean()
     : [];
-  const byId = new Map(recentDocs.map((p) => [p._id.toString(), p]));
-  const recentProviders = recentIds.map((id) => byId.get(id)).filter(Boolean).map(providerCard);
+  const decoratedRecent = await Promise.all(recentDocs.map(async (p) => ({
+    ...p,
+    isPro: !!(await getSubscriptionSnapshot(p._id.toString(), "provider")).isPro,
+    isElite: await isEliteProvider(p),
+  })));
+  const byId = new Map(decoratedRecent.map((p) => [p._id.toString(), p]));
+  let recentProviders = recentIds.map((id) => byId.get(id)).filter(Boolean);
+
+  if (subscription.isPlusMember && subscription.eliteAccessEnabled) {
+    recentProviders = recentProviders.filter((p) => p.isElite || p.isPro);
+  }
+
+  recentProviders = recentProviders
+    .sort((a, b) => (Number(b.isElite) - Number(a.isElite)) || (Number(b.isPro) - Number(a.isPro)) || (Number(b.rating || 0) - Number(a.rating || 0)))
+    .map(providerCard);
 
   const isFirstBooking = recentIds.length === 0;
   res.json({
@@ -196,6 +247,7 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
     isFirstBooking,
     recentProviders: isFirstBooking ? [] : recentProviders.slice(0, limit),
     city: cityGuess,
+    subscription,
   });
 });
 

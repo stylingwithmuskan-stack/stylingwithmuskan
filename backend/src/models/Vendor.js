@@ -6,6 +6,7 @@ const VendorSchema = new mongoose.Schema(
     email: { type: String, index: true },
     phone: String,
     city: String,
+    zone: String,
     status: { type: String, enum: ["approved", "pending", "rejected", "blocked"], default: "approved" },
     businessName: String,
   },

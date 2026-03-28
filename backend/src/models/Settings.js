@@ -55,8 +55,39 @@ const SystemSettingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const SubscriptionSettingsSchema = new mongoose.Schema(
+  {
+    userQuarterlyDiscountDefault: { type: Number, default: 10 },
+    userAnnualDiscountDefault: { type: Number, default: 15 },
+    defaultDiscountFundedBy: {
+      type: String,
+      enum: ["platform", "provider", "vendor"],
+      default: "platform",
+    },
+    eliteAccessRule: {
+      type: String,
+      enum: ["Pro + High Rated"],
+      default: "Pro + High Rated",
+    },
+    eliteMinRating: { type: Number, default: 4.7 },
+    eliteMinJobs: { type: Number, default: 25 },
+    providerDefaultCommissionRate: { type: Number, default: 15 },
+    providerLeadPriorityWindowMinutes: { type: Number, default: 5 },
+    vendorMonthlyFee: { type: Number, default: 4999 },
+    vendorPerformanceCommissionType: {
+      type: String,
+      enum: ["fixed", "percentage"],
+      default: "percentage",
+    },
+    vendorPerformanceCommissionValue: { type: Number, default: 2 },
+    vendorMarketingCreditsMonthly: { type: Number, default: 1000 },
+  },
+  { timestamps: true }
+);
+
 export const ReferralSettings = mongoose.models.ReferralSettings || mongoose.model("ReferralSettings", ReferralSettingsSchema);
 export const CommissionSettings = mongoose.models.CommissionSettings || mongoose.model("CommissionSettings", CommissionSettingsSchema);
 export const BookingSettings = mongoose.models.BookingSettings || mongoose.model("BookingSettings", BookingSettingsSchema);
 export const PerformanceSettings = mongoose.models.PerformanceSettings || mongoose.model("PerformanceSettings", PerformanceSettingsSchema);
 export const SystemSettings = mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema);
+export const SubscriptionSettings = mongoose.models.SubscriptionSettings || mongoose.model("SubscriptionSettings", SubscriptionSettingsSchema);

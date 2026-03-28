@@ -8,21 +8,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
-
-const CITIES = ["Delhi", "Mumbai", "Bangalore", "Hyderabad", "Chennai", "Pune", "Kolkata", "Jaipur", "Gurgaon", "Noida", "Lucknow", "Chandigarh", "Indore"];
+import { api } from "@/modules/user/lib/api";
 
 export default function VenderRegisterPage() {
     const { registerRequest, verifyRegistrationOtp, isLoggedIn } = useVenderAuth();
     const navigate = useNavigate();
-    const [form, setForm] = useState({ name: "", email: "", phone: "", city: "" });
+    const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", zone: "", customZone: "" });
     const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
+    const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
+    
+    const [cities, setCities] = useState([]);
+    const [zones, setZones] = useState([]);
+    const [zonesLoading, setZonesLoading] = useState(false);
 
     useEffect(() => {
         document.documentElement.classList.remove("theme-women", "theme-men", "theme-beautician", "theme-admin");
         document.documentElement.classList.add("theme-vendor");
+        
+        // Fetch cities on mount
+        api.content.cities().then(res => {
+            setCities(res.cities || []);
+        }).catch(() => {});
     }, []);
+
+    useEffect(() => {
+        if (form.city) {
+            setZonesLoading(true);
+            api.content.zones({ cityName: form.city }).then(res => {
+                setZones(res.zones || []);
+                setForm(prev => ({ ...prev, zone: "" }));
+            }).catch(() => {
+                setZones([]);
+            }).finally(() => {
+                setZonesLoading(false);
+            });
+        } else {
+            setZones([]);
+        }
+    }, [form.city]);
 
     useEffect(() => {
         if (isLoggedIn) navigate("/vender/dashboard", { replace: true });
@@ -48,13 +73,22 @@ export default function VenderRegisterPage() {
             toast.error("Please select a city");
             return;
         }
+        if (!form.zone) {
+            toast.error("Please select a zone");
+            return;
+        }
+        if (form.zone === "other" && !form.customZone.trim()) {
+            toast.error("Please enter your custom zone name");
+            return;
+        }
 
         setLoading(true);
         try {
             const res = await registerRequest(form.phone);
             if (res?.success) {
+                setOtpDeliveryMode(res?.deliveryMode || "sms");
                 setIsOtpModalOpen(true);
-                toast.success("OTP sent to your mobile number");
+                toast.success(res?.message || "OTP sent to your mobile number");
             }
         } catch (err) {
             toast.error(err.message || "Failed to send OTP");
@@ -70,10 +104,12 @@ export default function VenderRegisterPage() {
         }
         setLoading(true);
         try {
-            const res = await verifyRegistrationOtp({ ...form, otp });
+            const finalZone = form.zone === "other" ? form.customZone : form.zone;
+            const res = await verifyRegistrationOtp({ ...form, zone: finalZone, otp });
             if (res?.success) {
                 toast.success("Registration request submitted! Please wait for admin approval.");
-                navigate("/vender/login");
+                // Use res.redirect if context provides it, or manual redirect
+                navigate("/vender/status");
             }
         } catch (err) {
             toast.error(err.message || "OTP verification failed");
@@ -121,17 +157,40 @@ export default function VenderRegisterPage() {
                                     <Input type="tel" placeholder="9876543210" value={form.phone} onChange={e => update("phone", e.target.value)} className="pl-10 h-11 rounded-xl" required />
                                 </div>
                             </div>
-                            <div className="space-y-2 col-span-2">
+                            <div className="space-y-2">
                                 <Label className="text-xs font-bold text-gray-600">City</Label>
                                 <Select value={form.city} onValueChange={val => update("city", val)}>
                                     <SelectTrigger className="h-11 rounded-xl">
                                         <SelectValue placeholder="Select city" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                        {cities.map(c => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
+                                        {cities.length === 0 && <SelectItem value="indore" disabled>Loading cities...</SelectItem>}
                                     </SelectContent>
                                 </Select>
                             </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold text-gray-600">City Zone</Label>
+                                <Select value={form.zone} onValueChange={val => update("zone", val)} disabled={!form.city || zonesLoading}>
+                                    <SelectTrigger className="h-11 rounded-xl">
+                                        <SelectValue placeholder={zonesLoading ? "Loading zones..." : "Select zone"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {zones.map(z => <SelectItem key={z._id} value={z.name}>{z.name}</SelectItem>)}
+                                        <SelectItem value="other" className="text-emerald-600 font-bold">Other / Custom Zone</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {form.zone === "other" && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-2 col-span-2">
+                                    <Label className="text-xs font-bold text-gray-600">Custom Zone Name</Label>
+                                    <div className="relative">
+                                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <Input placeholder="Enter your area/zone name" value={form.customZone} onChange={e => update("customZone", e.target.value)} className="pl-10 h-11 rounded-xl" required />
+                                    </div>
+                                </motion.div>
+                            )}
                         </div>
                         <Button type="submit" disabled={loading} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white gap-2 shadow-lg shadow-emerald-200 mt-2">
                             {loading ? "Sending OTP..." : "Register"} <ArrowRight className="h-4 w-4" />
@@ -158,7 +217,11 @@ export default function VenderRegisterPage() {
                                     <Phone className="h-6 w-6 text-emerald-600" />
                                 </div>
                                 <h3 className="text-lg font-black text-gray-900">Verify Mobile</h3>
-                                <p className="text-xs text-gray-500 mt-1">Enter the 6-digit OTP sent to {form.phone}</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {otpDeliveryMode === "allowlist"
+                                        ? `Enter the 6-digit OTP for ${form.phone}`
+                                        : `Enter the 6-digit OTP sent to ${form.phone}`}
+                                </p>
                             </div>
                             <div className="space-y-4">
                                 <Input type="text" maxLength={6} placeholder="Enter 6-digit OTP" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ""))}

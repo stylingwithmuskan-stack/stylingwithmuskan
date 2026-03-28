@@ -29,6 +29,7 @@ export default function ProviderLoginPage() {
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(30);
     const [error, setError] = useState("");
+    const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
         // Intentionally do not auto-redirect from login page based on stale local state.
@@ -57,7 +58,8 @@ export default function ProviderLoginPage() {
         setIsLoading(true);
         try {
             setError("");
-            await requestOtp(phone);
+            const res = await requestOtp(phone);
+            setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
             setTimer(30);
         } catch (e) {
@@ -136,7 +138,9 @@ export default function ProviderLoginPage() {
                         <p className="text-gray-500 text-sm mt-1">
                             {step === 1
                                 ? "Access your professional dashboard"
-                                : `Enter the 6-digit code sent to +91 ${phone}`}
+                                : otpDeliveryMode === "allowlist"
+                                    ? `Enter the 6-digit OTP for +91 ${phone}`
+                                    : `Enter the 6-digit code sent to +91 ${phone}`}
                         </p>
                     </div>
 

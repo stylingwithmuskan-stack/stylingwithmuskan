@@ -59,6 +59,16 @@ export const ProviderAuthProvider = ({ children }) => {
         return () => { cancelled = true; };
     }, [provider?.phone, provider?.approvalStatus]);
 
+    useEffect(() => {
+        const handle401 = (e) => {
+            if (e.detail?.status === 401 && e.detail?.isProviderPath) {
+                logout();
+            }
+        };
+        window.addEventListener("swm-api-401", handle401);
+        return () => window.removeEventListener("swm-api-401", handle401);
+    }, []);
+
     const isLoggedIn = !!provider;
     const isApproved = provider?.approvalStatus === "approved";
     const isPending = ["pending", "pending_vendor", "pending_admin"].includes(provider?.approvalStatus);
@@ -143,14 +153,16 @@ export const ProviderAuthProvider = ({ children }) => {
     };
 
     const requestRegisterOtp = async (phone) => {
-        await api.provider.registerRequest(phone);
+        return await api.provider.registerRequest(phone);
     };
 
     const verifyRegisterOtp = async (phone, otp) => {
         return await api.provider.verifyRegistrationOtp(phone, otp);
     };
 
-    const requestOtp = async (phone) => { await api.provider.requestOtp(phone); };
+    const requestOtp = async (phone) => {
+        return await api.provider.requestOtp(phone);
+    };
     const verifyOtp = async (phone, otp) => {
         const { provider, providerToken } = await api.provider.verifyOtp(phone, otp);
         setProvider(provider);
@@ -169,21 +181,21 @@ export const ProviderAuthProvider = ({ children }) => {
     };
 
     const upgradeToPro = () => {
-        const expiresAt = new Date();
-        expiresAt.setMonth(expiresAt.getMonth() + 1); // 1 Month duration for Pro
+        return provider;
+    };
 
-        const updatedProvider = { 
-            ...provider, 
-            isPro: true,
-            proExpiry: expiresAt.toISOString(),
-            proPlan: "monthly"
-        };
-        setProvider(updatedProvider);
+    const refreshProvider = async () => {
+        const phone = provider?.phone || "";
+        if (!phone) return null;
+        const { provider: latest } = await api.provider.me(phone);
+        if (latest) setProvider(latest);
+        return latest || null;
     };
 
     return (
         <ProviderAuthContext.Provider value={{
             provider,
+            setProvider,
             hydrated,
             isLoggedIn,
             isApproved,
@@ -198,7 +210,8 @@ export const ProviderAuthProvider = ({ children }) => {
             logout,
             adminApprove,
             adminReject,
-            upgradeToPro
+            upgradeToPro,
+            refreshProvider,
         }}>
             {children}
         </ProviderAuthContext.Provider>

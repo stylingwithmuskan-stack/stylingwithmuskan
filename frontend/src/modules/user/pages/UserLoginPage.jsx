@@ -15,6 +15,7 @@ const UserLoginPage = () => {
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(30);
     const [error, setError] = useState("");
+    const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
         if (isLoggedIn) {
@@ -47,7 +48,8 @@ const UserLoginPage = () => {
         }
 
         try {
-            await request();
+            const res = await request();
+            setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
             setTimer(30);
         } catch (e) {
@@ -57,7 +59,8 @@ const UserLoginPage = () => {
 
     const handleResend = async () => {
         try {
-            await request();
+            const res = await request();
+            setOtpDeliveryMode(res?.deliveryMode || "sms");
             setTimer(30);
         } catch (e) {
             setError(e.message || "Failed to resend OTP");
@@ -123,6 +126,11 @@ const UserLoginPage = () => {
                         </motion.form>
                     ) : (
                         <motion.form key="login-step-otp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handleVerify} className="space-y-6">
+                            <p className="text-xs text-center text-muted-foreground font-medium">
+                                {otpDeliveryMode === "allowlist"
+                                    ? `Enter the 6-digit OTP for +91 ${phone}`
+                                    : `Enter the 6-digit code sent to +91 ${phone}`}
+                            </p>
                             <div className="flex justify-center gap-3">
                                 {otp.map((d, i) => (
                                     <input key={i} id={`login-otp-${i}`} type="text" maxLength={1} value={d} onChange={(e) => handleOtpChange(i, e.target.value)} className="w-12 h-14 text-center text-xl font-bold bg-accent rounded-xl border-2 border-transparent focus:border-primary" />

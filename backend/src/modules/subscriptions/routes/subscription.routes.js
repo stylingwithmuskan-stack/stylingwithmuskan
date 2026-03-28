@@ -5,7 +5,9 @@ import * as SubscriptionController from "../controllers/subscription.controller.
 const router = Router();
 
 router.get("/plans", SubscriptionController.getSubscriptionPlans);
-router.post("/subscribe", SubscriptionController.subscribeToPlan);
+router.get("/me", SubscriptionController.getMySubscription);
+router.post("/order", SubscriptionController.createSubscriptionOrder);
+router.post("/verify", SubscriptionController.verifySubscriptionPayment);
 router.post("/webhook", SubscriptionController.handlePaymentWebhook);
 
 export default router;

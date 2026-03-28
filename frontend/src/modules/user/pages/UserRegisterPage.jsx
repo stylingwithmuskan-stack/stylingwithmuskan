@@ -20,6 +20,7 @@ const UserRegisterPage = () => {
     const [referralCode, setReferralCode] = useState("");
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(30);
+    const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
         if (isLoggedIn) {
@@ -50,6 +51,7 @@ const UserRegisterPage = () => {
         try {
             const res = await api.requestOtp(phone, "register");
             console.log("[UserRegister] request-otp response", res);
+            setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
             setTimer(30);
         } catch (err) {
@@ -74,6 +76,16 @@ const UserRegisterPage = () => {
 
         if (newOtp.every(v => v !== "")) {
             setTimeout(() => setStep(3), 500);
+        }
+    };
+
+    const handleResend = async () => {
+        try {
+            const res = await api.requestOtp(phone, "register");
+            setOtpDeliveryMode(res?.deliveryMode || "sms");
+            setTimer(30);
+        } catch (err) {
+            alert(err.message || "Failed to resend OTP");
         }
     };
 
@@ -190,7 +202,11 @@ const UserRegisterPage = () => {
                             <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                                 <div className="mb-8 text-center pt-4">
                                     <h2 className="text-2xl font-black text-foreground">Verify OTP</h2>
-                                    <p className="text-sm text-muted-foreground mt-2 font-medium">Enter the 6-digit code sent to +91 {phone}</p>
+                                    <p className="text-sm text-muted-foreground mt-2 font-medium">
+                                        {otpDeliveryMode === "allowlist"
+                                            ? `Enter the 6-digit OTP for +91 ${phone}`
+                                            : `Enter the 6-digit code sent to +91 ${phone}`}
+                                    </p>
                                 </div>
 
                                 <div className="flex justify-center gap-4 mb-8">
@@ -212,7 +228,7 @@ const UserRegisterPage = () => {
                                     {timer > 0 ? (
                                         <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest">Resend OTP in <span className="text-primary">{timer}s</span></p>
                                     ) : (
-                                        <button onClick={() => setTimer(30)} className="text-[11px] font-black text-primary uppercase tracking-widest hover:underline decoration-2 underline-offset-4">
+                                        <button type="button" onClick={handleResend} className="text-[11px] font-black text-primary uppercase tracking-widest hover:underline decoration-2 underline-offset-4">
                                             RESEND OTP NOW
                                         </button>
                                     )}

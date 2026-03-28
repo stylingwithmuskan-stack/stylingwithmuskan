@@ -1,10 +1,44 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ChevronRight, Briefcase, RefreshCw, HelpCircle, MapPin, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/modules/user/components/ui/card";
+import { useProviderAuth } from "../contexts/ProviderAuthContext";
+import { api } from "@/modules/user/lib/api";
+import LiveMap from "@/components/LiveMap";
 
 export default function MyHub() {
     const navigate = useNavigate();
+    const { provider } = useProviderAuth();
+    const [summary, setSummary] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (provider?.phone) {
+            api.provider.summary(provider.phone)
+                .then((s) => {
+                    if (!cancelled) {
+                        setSummary(s);
+                        setLoading(false);
+                    }
+                })
+                .catch(() => {
+                    if (!cancelled) setLoading(false);
+                });
+        } else {
+            setLoading(false);
+        }
+        return () => { cancelled = true; };
+    }, [provider?.phone]);
+
+    const providerCity = summary?.provider?.city || provider?.city || "Your City";
+    const hubName = `${providerCity} Hub`;
+    
+    // Default location if provider location is not available
+    const providerLocation = (provider?.location?.lat || summary?.provider?.location?.lat || provider?.latitude || summary?.provider?.latitude) ? {
+        lat: parseFloat(provider?.location?.lat || summary?.provider?.location?.lat || provider?.latitude || summary?.provider?.latitude),
+        lng: parseFloat(provider?.location?.lng || summary?.provider?.location?.lng || provider?.longitude || summary?.provider?.longitude)
+    } : null;
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50 -m-4 md:m-0">
@@ -20,10 +54,7 @@ export default function MyHub() {
 
                 <div className="flex border-b border-slate-100">
                     <div className="px-6 py-3 border-b-4 border-slate-900 font-black text-sm text-slate-900 tracking-tight">
-                        Palasia Hub
-                    </div>
-                    <div className="px-6 py-3 font-bold text-sm text-slate-400 tracking-tight">
-                        All Indore
+                        {hubName}
                     </div>
                 </div>
             </div>
@@ -31,16 +62,21 @@ export default function MyHub() {
             {/* Map Section */}
             <div className="p-4">
                 <Card className="overflow-hidden rounded-3xl border-none shadow-xl bg-white ring-1 ring-slate-100">
-                    <div className="relative aspect-[4/3] w-full">
-                        <img
-                            src="/indore_hub_map.png"
-                            alt="Indore Palasia Hub Map"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                                e.target.src = "https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=800&q=80"; // Fallback map-like image
-                            }}
-                        />
-                        <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-slate-100 flex items-center gap-2">
+                    <div className="relative aspect-[4/3] w-full bg-slate-100">
+                        {providerLocation ? (
+                            <LiveMap 
+                                providerLocation={providerLocation} 
+                                className="w-full h-full"
+                                height="100%" 
+                            />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
+                                <MapPin className="h-12 w-12 text-slate-300 mb-3" />
+                                <p className="text-sm font-bold text-slate-500">Location not registered yet</p>
+                                <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Please update your profile</p>
+                            </div>
+                        )}
+                        <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-slate-100 flex items-center gap-2 z-10">
                             <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
                             <span className="text-[10px] font-black tracking-widest uppercase text-slate-700">Live Zone Active</span>
                         </div>
@@ -53,7 +89,7 @@ export default function MyHub() {
                             </div>
                             <div className="flex-1">
                                 <p className="text-[15px] font-bold text-slate-900 leading-snug">
-                                    <span className="text-xl font-black mr-1">15</span> jobs delivered within hub in last 30 days
+                                    <span className="text-xl font-black mr-1">{summary?.metrics?.jobsLast30Days || 0}</span> jobs delivered within hub in last 30 days
                                 </p>
                                 <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Performance Metric</p>
                             </div>
@@ -65,7 +101,7 @@ export default function MyHub() {
                             </div>
                             <div className="flex-1">
                                 <p className="text-[15px] font-bold text-slate-900 leading-snug">
-                                    <span className="text-xl font-black mr-1 text-purple-600">3 of 15</span> jobs were of repeat customers
+                                    <span className="text-xl font-black mr-1 text-purple-600">{summary?.metrics?.repeatCustomers || 0} of {summary?.metrics?.jobsLast30Days || 0}</span> jobs were of repeat customers
                                 </p>
                                 <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Loyalty Score</p>
                             </div>

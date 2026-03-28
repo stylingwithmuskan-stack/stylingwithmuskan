@@ -48,7 +48,6 @@ import AvailabilityCalendar from "@/modules/serviceprovider/pages/AvailabilityCa
 import PerformanceDashboard from "@/modules/serviceprovider/pages/PerformanceDashboard";
 import ProviderProfile from "@/modules/serviceprovider/pages/ProviderProfile";
 import ProviderSubscriptionPage from "@/modules/serviceprovider/pages/ProviderSubscriptionPage";
-import ProviderSubscription from "@/modules/serviceprovider/pages/ProviderSubscription";
 import AdminFinanceSuite from "@/modules/serviceprovider/pages/AdminFinanceSuite";
 import JobHistory from "@/modules/serviceprovider/pages/JobHistory";
 import TrainingHub from "@/modules/serviceprovider/pages/TrainingHub";
@@ -72,6 +71,7 @@ import { VenderAuthProvider } from "@/modules/vender/contexts/VenderAuthContext"
 import VenderLayout from "@/modules/vender/components/VenderLayout";
 import VenderLoginPage from "@/modules/vender/pages/auth/VenderLoginPage";
 import VenderRegisterPage from "@/modules/vender/pages/auth/VenderRegisterPage";
+import VenderStatusPage from "@/modules/vender/pages/auth/VenderStatusPage";
 import VenderDashboard from "@/modules/vender/pages/VenderDashboard";
 import SPManagement from "@/modules/vender/pages/SPManagement";
 import VenderBookings from "@/modules/vender/pages/VenderBookings";
@@ -80,7 +80,6 @@ import VenderSOSMonitor from "@/modules/vender/pages/VenderSOSMonitor";
 import VenderFeedback from "@/modules/vender/pages/VenderFeedback";
 import VenderProfile from "@/modules/vender/pages/VenderProfile";
 import VendorSubscriptionPage from "@/modules/vender/pages/VendorSubscriptionPage";
-import VenderSubscription from "@/modules/vender/pages/VenderSubscription";
 
 // Admin Module
 import { AdminAuthProvider } from "@/modules/admin/contexts/AdminAuthContext";
@@ -98,10 +97,12 @@ import CouponSystem from "@/modules/admin/pages/CouponSystem";
 import ReferralSystem from "@/modules/admin/pages/ReferralSystem";
 import SOSMonitor from "@/modules/admin/pages/SOSMonitor";
 import UserModuleManagement from "@/modules/admin/pages/UserModuleManagement";
+import CityZoneManagement from "@/modules/admin/pages/CityZoneManagement";
 import FeedbackManagement from "@/modules/admin/pages/FeedbackManagement";
 import CustomEnquiries from "@/modules/admin/pages/CustomEnquiries";
 import TrainingManagement from "@/modules/admin/pages/TrainingManagement";
 import GalleryManagement from "@/modules/admin/pages/GalleryManagement";
+import SubscriptionManagement from "@/modules/admin/pages/SubscriptionManagement";
 
 const queryClient = new QueryClient();
 
@@ -177,6 +178,7 @@ const App = () => {
                                 {/* Vendor Module */}
                                 <Route path="/vender/login" element={<VenderLoginPage />} />
                                 <Route path="/vender/register" element={<VenderRegisterPage />} />
+                                <Route path="/vender/status" element={<VenderStatusPage />} />
                                 <Route path="/vender" element={<VenderLayout />}>
                                   <Route index element={<Navigate to="/vender/dashboard" replace />} />
                                   <Route path="dashboard" element={<VenderDashboard />} />
@@ -195,6 +197,7 @@ const App = () => {
                                 <Route path="/admin" element={<AdminLayout />}>
                                   <Route index element={<Navigate to="/admin/dashboard" replace />} />
                                   <Route path="dashboard" element={<AdminDashboard />} />
+                                  <Route path="cities" element={<CityZoneManagement />} />
                                   <Route path="vendors" element={<VendorManagement />} />
                                   <Route path="service-providers" element={<SPOversight />} />
                                   <Route path="customers" element={<CustomerOversight />} />
@@ -210,6 +213,7 @@ const App = () => {
                                   <Route path="feedback" element={<FeedbackManagement />} />
                                   <Route path="custom-enquiries" element={<CustomEnquiries />} />
                                   <Route path="gallery" element={<GalleryManagement />} />
+                                  <Route path="subscriptions" element={<SubscriptionManagement />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
                                 </Route>
 

@@ -15,6 +15,7 @@ const LoginModal = () => {
     const [referralCode, setReferralCode] = useState("");
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(30);
+    const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
         let interval;
@@ -46,6 +47,7 @@ const LoginModal = () => {
         try {
             const res = await api.requestOtp(phone, "login");
             console.log("[User] request-otp response", res);
+            setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
             setTimer(30);
         } catch (err) {
@@ -57,6 +59,7 @@ const LoginModal = () => {
         try {
             const res = await api.requestOtp(phone, "login");
             console.log("[User] resend-otp response", res);
+            setOtpDeliveryMode(res?.deliveryMode || "sms");
             setTimer(30);
         } catch (err) {
             console.error("[User] resend-otp error", err);
@@ -184,7 +187,11 @@ const LoginModal = () => {
                                 >
                                     <div className="text-center mb-6">
                                         <h3 className="text-xl font-bold font-display">Verify Mobile</h3>
-                                        <p className="text-xs text-muted-foreground mt-1">We have sent OTP to {phone}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {otpDeliveryMode === "allowlist"
+                                                ? `Enter the 6-digit OTP for ${phone}`
+                                                : `We have sent OTP to ${phone}`}
+                                        </p>
                                     </div>
 
                                     <div className="flex justify-center gap-3 mb-8">

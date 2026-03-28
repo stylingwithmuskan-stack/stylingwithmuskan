@@ -6,6 +6,7 @@ import Coupon from "../../../models/Coupon.js";
 import { uploadBuffer } from "../../../startup/cloudinary.js";
 import SOSAlert from "../../../models/SOSAlert.js";
 import { CommissionSettings } from "../../../models/Settings.js";
+import { City, Zone } from "../../../models/CityZone.js";
 
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 
@@ -39,6 +40,7 @@ function getZonedYearMonth(date, tz) {
 function parsePeriod(period, tz) {
   if (typeof period === "string" && period.trim()) {
     const raw = period.trim();
+    if (raw === "overall") return "overall";
     const m = raw.match(/^(\d{4})-(\d{1,2})$/);
     if (m) {
       const y = Number(m[1]);
@@ -171,7 +173,13 @@ export async function metricsOverview(req, res) {
   const tz = normalizeTz(req.query.tz);
   const city = normalizeCity(req.query.city);
   const period = parsePeriod(req.query.period, tz);
-  const { start, end } = monthRangeUtc(period, tz);
+  const isOverall = period === "overall";
+  const { start, end } = isOverall ? { start: null, end: null } : monthRangeUtc(period, tz);
+
+  const bookingMatch = { ...cityPredicate(city) };
+  if (!isOverall) {
+    bookingMatch.createdAt = { $gte: start, $lt: end };
+  }
 
   const [vendorCount, totalSPs, activeSPs, pendingSPs, commissionSettings, bookingAgg, sosCount] = await Promise.all([
     Vendor.countDocuments(city ? { city } : {}),
@@ -180,7 +188,7 @@ export async function metricsOverview(req, res) {
     ProviderAccount.countDocuments({ registrationComplete: true, approvalStatus: "pending", ...(city ? { city } : {}) }),
     CommissionSettings.findOne().lean(),
     Booking.aggregate([
-      { $match: { createdAt: { $gte: start, $lt: end }, ...cityPredicate(city) } },
+      { $match: bookingMatch },
       {
         $facet: {
           totals: [{ $count: "count" }],
@@ -257,7 +265,8 @@ export async function metricsOverview(req, res) {
 export async function metricsRevenueByMonth(req, res) {
   const tz = normalizeTz(req.query.tz);
   const city = normalizeCity(req.query.city);
-  const period = parsePeriod(req.query.period, tz);
+  let period = parsePeriod(req.query.period, tz);
+  if (period === "overall") period = getZonedYearMonth(new Date(), tz);
   const months = Math.max(1, Math.min(parseInt(req.query.months) || 6, 24));
 
   const endRange = monthRangeUtc(period, tz).end; // exclusive
@@ -306,7 +315,8 @@ export async function metricsRevenueByMonth(req, res) {
 export async function metricsCustomersByMonth(req, res) {
   const tz = normalizeTz(req.query.tz);
   const city = normalizeCity(req.query.city);
-  const period = parsePeriod(req.query.period, tz);
+  let period = parsePeriod(req.query.period, tz);
+  if (period === "overall") period = getZonedYearMonth(new Date(), tz);
   const months = Math.max(1, Math.min(parseInt(req.query.months) || 6, 24));
 
   const endRange = monthRangeUtc(period, tz).end; // exclusive
@@ -350,7 +360,8 @@ export async function metricsCustomersByMonth(req, res) {
 export async function metricsProvidersByMonth(req, res) {
   const tz = normalizeTz(req.query.tz);
   const city = normalizeCity(req.query.city);
-  const period = parsePeriod(req.query.period, tz);
+  let period = parsePeriod(req.query.period, tz);
+  if (period === "overall") period = getZonedYearMonth(new Date(), tz);
   const months = Math.max(1, Math.min(parseInt(req.query.months) || 6, 24));
 
   const endRange = monthRangeUtc(period, tz).end; // exclusive
@@ -395,7 +406,8 @@ export async function metricsProvidersByMonth(req, res) {
 export async function metricsBookingTrend(req, res) {
   const tz = normalizeTz(req.query.tz);
   const city = normalizeCity(req.query.city);
-  const period = parsePeriod(req.query.period, tz);
+  let period = parsePeriod(req.query.period, tz);
+  if (period === "overall") period = getZonedYearMonth(new Date(), tz);
   const days = Math.max(1, Math.min(parseInt(req.query.days) || 7, 31));
 
   const now = new Date();
@@ -433,11 +445,12 @@ export async function metricsBookingTrend(req, res) {
 }
 
 export async function metricsCities(_req, res) {
-  const [vCities, pCities, bCities, bAreas] = await Promise.all([
+  const [vCities, pCities, bCities, bAreas, cityDocs] = await Promise.all([
     Vendor.distinct("city", { city: { $nin: [null, ""] } }),
     ProviderAccount.distinct("city", { city: { $nin: [null, ""] } }),
     Booking.distinct("address.city", { "address.city": { $nin: [null, ""] } }),
     Booking.distinct("address.area", { "address.area": { $nin: [null, ""] } }),
+    City.find().sort({ name: 1 }).lean(),
   ]);
   const set = new Set();
   for (const arr of [vCities, pCities, bCities, bAreas]) {
@@ -445,6 +458,9 @@ export async function metricsCities(_req, res) {
       const s = String(c || "").trim();
       if (s) set.add(s);
     }
+  }
+  for (const cDoc of cityDocs || []) {
+    if (cDoc.name) set.add(cDoc.name.trim());
   }
   const cities = ["All Cities", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   res.json({ cities });
@@ -482,3 +498,94 @@ export async function customEnquiryFinalApprove(req, res) {
   if (!item) return res.status(404).json({ error: "Not found" });
   res.json({ enquiry: item });
 }
+
+// ───── CITIES & ZONES ─────
+
+export async function listCities(_req, res) {
+  const cities = await City.find().sort({ name: 1 }).lean();
+  res.json({ cities });
+}
+
+export async function createCity(req, res) {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: "Name is required" });
+  const city = await City.create({ name });
+  res.json({ city });
+}
+
+export async function listZones(req, res) {
+  const { cityId } = req.params;
+  const zones = await Zone.find({ city: cityId }).sort({ name: 1 }).lean();
+  res.json({ zones });
+}
+
+export async function createZone(req, res) {
+  const { cityId } = req.params;
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: "Name is required" });
+  const zone = await Zone.create({ name, city: cityId });
+  res.json({ zone });
+}
+
+export async function updateCity(req, res) {
+  const { cityId } = req.params;
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: "Name is required" });
+  const city = await City.findByIdAndUpdate(cityId, { name }, { new: true });
+  if (!city) return res.status(404).json({ error: "City not found" });
+  res.json({ city });
+}
+
+export async function deleteCity(req, res) {
+  const { cityId } = req.params;
+  // Also delete associated zones
+  await Zone.deleteMany({ city: cityId });
+  const city = await City.findByIdAndDelete(cityId);
+  if (!city) return res.status(404).json({ error: "City not found" });
+  res.json({ success: true });
+}
+
+export async function updateZone(req, res) {
+  const { zoneId } = req.params;
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: "Name is required" });
+  const zone = await Zone.findByIdAndUpdate(zoneId, { name }, { new: true });
+  if (!zone) return res.status(404).json({ error: "Zone not found" });
+  res.json({ zone });
+}
+
+export async function deleteZone(req, res) {
+  const { zoneId } = req.params;
+  const zone = await Zone.findByIdAndDelete(zoneId);
+  if (!zone) return res.status(404).json({ error: "Zone not found" });
+  res.json({ success: true });
+}
+
+export async function getZoneStats(req, res) {
+  const { zoneId } = req.params;
+  const zone = await Zone.findById(zoneId).populate("city").lean();
+  if (!zone) return res.status(404).json({ error: "Zone not found" });
+
+  // For now, we match by zone name in Vendor/Provider/Booking models
+  // In a real scenario, we should migrate these models to use zoneId
+  const [vendors, providers, bookings] = await Promise.all([
+    Vendor.find({ area: zone.name }).lean(),
+    ProviderAccount.find({ area: zone.name }).lean(),
+    Booking.find({ "address.area": zone.name }).lean(),
+  ]);
+
+  const totalRevenue = bookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+  const repeatCustomers = bookings.filter(b => b.isRepeatCustomer).length; // Assuming field exists or can be calculated
+
+  res.json({
+    zone,
+    vendors,
+    providers,
+    metrics: {
+      totalRevenue,
+      repeatCustomers,
+      totalBookings: bookings.length
+    }
+  });
+}
+

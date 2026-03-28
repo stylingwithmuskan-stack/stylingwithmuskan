@@ -43,6 +43,10 @@ const VenderLayout = () => {
         navigate("/vender/login", { replace: true });
         return null;
     }
+    if (vendor?.status !== "approved") {
+        navigate("/vender/status", { replace: true });
+        return null;
+    }
 
     const navLinks = [
         { name: "Dashboard", path: "/vender/dashboard", icon: LayoutDashboard },

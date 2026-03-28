@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
 
-export const AdminAuthContext = createContext(undefined);
+export const AdminAuthContext = createContext(null);
 
 export const useAdminAuth = () => {
     const context = useContext(AdminAuthContext);
-    if (!context) throw new Error("useAdminAuth must be used within AdminAuthProvider");
+    if (context === null) {
+        // Return a dummy object if context is missing to avoid immediate crash,
+        // but this shouldn't happen if structure is correct.
+        console.warn("useAdminAuth must be used within AdminAuthProvider");
+        return { admin: null, isLoggedIn: false, login: () => {}, logout: () => {} };
+    }
     return context;
 };
 
@@ -24,6 +29,16 @@ export const AdminAuthProvider = ({ children }) => {
                 if (saved && typeof saved === "object") setAdmin(saved);
             }
         } catch {}
+    }, []);
+
+    useEffect(() => {
+        const handle401 = (e) => {
+            if (e.detail?.status === 401 && e.detail?.isAdminPath) {
+                logout();
+            }
+        };
+        window.addEventListener("swm-api-401", handle401);
+        return () => window.removeEventListener("swm-api-401", handle401);
     }, []);
 
     const login = async (email, password) => {
@@ -175,6 +190,12 @@ export const AdminAuthProvider = ({ children }) => {
     // ───── PERFORMANCE CRITERIA ─────
     const getPerformanceCriteria = async () => (await api.admin.getPerformanceCriteria()).settings;
     const updatePerformanceCriteria = async (settings) => { await api.admin.updatePerformanceCriteria(settings); };
+    const getSubscriptionSettings = async () => (await api.admin.getSubscriptionSettings()).settings;
+    const updateSubscriptionSettings = async (settings) => (await api.admin.updateSubscriptionSettings(settings)).settings;
+    const getSubscriptionPlans = async () => (await api.admin.listSubscriptionPlans()).plans;
+    const createSubscriptionPlan = async (body) => (await api.admin.createSubscriptionPlan(body)).plan;
+    const updateSubscriptionPlan = async (planId, body) => (await api.admin.updateSubscriptionPlan(planId, body)).plan;
+    const getSubscriptionReport = async () => (await api.admin.getSubscriptionReport()).report;
 
     return (
         <AdminAuthContext.Provider value={{
@@ -191,6 +212,7 @@ export const AdminAuthProvider = ({ children }) => {
             getCommissionSettings, updateCommissionSettings,
             getMetricsOverview, getRevenueByMonth, getCustomersByMonth, getProvidersByMonth, getBookingTrend, getMetricsCities,
             getPerformanceCriteria, updatePerformanceCriteria,
+            getSubscriptionSettings, updateSubscriptionSettings, getSubscriptionPlans, createSubscriptionPlan, updateSubscriptionPlan, getSubscriptionReport,
         }}>
             {children}
         </AdminAuthContext.Provider>

@@ -36,6 +36,14 @@ const BookingSummary = () => {
   const allGroups = getGroupedItems();
   const displayGroups = checkoutType && allGroups[checkoutType] ? { [checkoutType]: allGroups[checkoutType] } : allGroups;
   const displayItems = Object.values(displayGroups).flatMap(g => g?.items || []).filter(Boolean);
+  const displayItemsKey = JSON.stringify(displayItems.map((it) => ({
+    name: it?.name || "",
+    price: it?.price || 0,
+    quantity: it?.quantity || 1,
+    duration: it?.duration || "",
+    category: it?.category || "",
+    serviceType: it?.serviceType || "",
+  })));
 
   const displayTotalPrice = displayItems.reduce((total, item) => total + ((item?.price || 0) * (item?.quantity || 1)), 0);
   const displayTotalSavings = displayItems.reduce((total, item) => {
@@ -52,6 +60,7 @@ const BookingSummary = () => {
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [isBusyModalOpen, setIsBusyModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [quotePreview, setQuotePreview] = useState(null);
 
   // Determine effective booking type
   const effectiveBookingType = bookingParam || contextBookingType || "instant";
@@ -78,48 +87,57 @@ const BookingSummary = () => {
   const handleApplyCoupon = async () => {
     try {
       const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType }));
-      const { total, discount: serverDiscount, couponApplied: appliedCode, advanceAmount: serverAdvance } = await api.bookings.quote({ items, couponCode: coupon, bookingType: effectiveBookingType });
+      const quote = await api.bookings.quote({ items, couponCode: coupon, bookingType: effectiveBookingType });
+      const { discount: serverDiscount, couponApplied: appliedCode } = quote;
       if (!appliedCode) {
         setCouponError("Invalid or expired coupon");
         setCouponApplied(null);
+        setQuotePreview(null);
         return;
       }
       setCouponError("");
       const safeDiscount = Number(serverDiscount) || 0;
       setCouponApplied({ code: appliedCode, discountType: "flat", discountValue: safeDiscount, maxDiscount: safeDiscount });
+      setQuotePreview(quote);
     } catch (e) {
       setCouponError(e.message || "Coupon apply failed");
     }
   };
 
-  // SWM Plus member auto-discount (10% off on orders >= ₹499)
-  const isPlusMember = user?.isPlusMember;
-  let plusDiscount = 0;
-  if (isPlusMember && displayTotalPrice >= 499) {
-    plusDiscount = Math.round(displayTotalPrice * 0.10);
-  }
-
-  let discount = 0;
-  if (couponApplied) {
-    if (couponApplied.discountType === "flat") {
-      discount = Number(couponApplied.discountValue) || 0;
-    } else if (couponApplied.discountType) {
-      discount = Math.round(displayTotalPrice * ((Number(couponApplied.discountValue) || 0) / 100));
-      if (couponApplied.maxDiscount && couponApplied.maxDiscount > 0) {
-        discount = Math.min(discount, couponApplied.maxDiscount);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType }));
+        if (!items.length) return;
+        const quote = await api.bookings.quote({
+          items,
+          couponCode: couponApplied?.code || undefined,
+          bookingType: effectiveBookingType,
+        });
+        if (!cancelled) setQuotePreview(quote);
+      } catch {
+        if (!cancelled) setQuotePreview(null);
       }
-    } else if (typeof couponApplied.value === "number") {
-      discount = couponApplied.value;
-    }
-  }
+    })();
+    return () => { cancelled = true; };
+  }, [displayItemsKey, effectiveBookingType, couponApplied?.code, user?.subscription?.planId]);
+
+  const isPlusMember = !!(user?.subscription?.isPlusMember || user?.isPlusMember);
+  const subscriptionPreview = quotePreview?.subscription || user?.subscription || null;
+  const plusDiscountPercentage = Number(subscriptionPreview?.discountPercentage || user?.subscription?.discountPercentage || 10);
+  const plusDiscount = Number(quotePreview?.subscriptionDiscount || 0);
+  const combinedDiscount = Number(quotePreview?.discount || 0);
+  const discount = Math.max(combinedDiscount - plusDiscount, 0);
+  const convenienceFee = Number(quotePreview?.convenienceFee || 0);
 
   const passedBookingData = location.state;
   const customAdvanceData = passedBookingData?.customAdvance || customAdvance;
-  const finalTotal = displayTotalPrice - discount - plusDiscount;
+  const finalTotal = Number(quotePreview?.finalTotal ?? Math.max(displayTotalPrice - combinedDiscount, 0));
 
   // Calculate advance based on passed data or fallback
   // Instant bookings do not require advance payment
-  let advanceAmount = (effectiveBookingType === 'instant') ? 0 : (passedBookingData?.advanceAmount || 0);
+  let advanceAmount = (effectiveBookingType === 'instant') ? 0 : (passedBookingData?.advanceAmount || quotePreview?.advanceAmount || 0);
   
   // Safeguard: Advance cannot exceed the final discounted total
   if (advanceAmount > finalTotal) {
@@ -449,8 +467,8 @@ const BookingSummary = () => {
               <Zap className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-amber-600 dark:text-amber-400">SWM Plus Members save 10% on this order!</p>
-              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Join from ₹299/quarter → Save ₹{Math.round(displayTotalPrice * 0.10)} now</p>
+              <p className="text-xs font-black text-amber-600 dark:text-amber-400">SWM Plus members unlock up to 15% savings on eligible bookings.</p>
+              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Join from ₹299/quarter → Save from ₹{Math.round(displayTotalPrice * 0.10)} now</p>
             </div>
             <ChevronRight className="w-4 h-4 text-amber-500 shrink-0" />
           </motion.div>
@@ -477,19 +495,21 @@ const BookingSummary = () => {
           {plusDiscount > 0 && (
             <div className="flex justify-between text-sm items-center">
               <span className="text-amber-600 font-medium flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5" /> SWM Plus Discount (10%)
+                <Zap className="w-3.5 h-3.5" /> SWM Plus Discount ({plusDiscountPercentage}%)
               </span>
               <span className="text-amber-600 font-bold">-₹{plusDiscount.toLocaleString()}</span>
             </div>
           )}
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground font-medium">Convenience Fee</span>
-            {isPlusMember ? (
+            {isPlusMember && subscriptionPreview?.zeroConvenienceFee ? (
               <span className="font-bold text-emerald-600 flex items-center gap-1">
-                <span className="line-through text-muted-foreground/50 text-xs">₹49</span> FREE
+                {convenienceFee > 0 && (
+                  <span className="line-through text-muted-foreground/50 text-xs">₹{convenienceFee}</span>
+                )} FREE
               </span>
             ) : (
-              <span className="font-bold">₹0</span>
+              <span className="font-bold">₹{convenienceFee.toLocaleString()}</span>
             )}
           </div>
           <div className="flex justify-between text-sm">
