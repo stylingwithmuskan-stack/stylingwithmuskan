@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
+import { revokePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const AdminAuthContext = createContext(null);
 
@@ -57,6 +58,7 @@ export const AdminAuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        revokePushRegistration("admin").catch(() => {});
         setAdmin(null);
         try { 
             localStorage.removeItem(ADMIN_KEY);
@@ -187,6 +189,10 @@ export const AdminAuthProvider = ({ children }) => {
     const getBookingTrend = async (params = {}) => (await api.admin.metricsBookingTrend(params)).series;
     const getMetricsCities = async () => (await api.admin.metricsCities()).cities;
 
+    // ───── PAYOUTS ─────
+    const getPayouts = async (params = {}) => (await api.admin.getPayouts(params)).payouts;
+    const updatePayoutStatus = async (id, status) => { await api.admin.updatePayoutStatus(id, status); };
+
     // ───── PERFORMANCE CRITERIA ─────
     const getPerformanceCriteria = async () => (await api.admin.getPerformanceCriteria()).settings;
     const updatePerformanceCriteria = async (settings) => { await api.admin.updatePerformanceCriteria(settings); };
@@ -196,6 +202,9 @@ export const AdminAuthProvider = ({ children }) => {
     const createSubscriptionPlan = async (body) => (await api.admin.createSubscriptionPlan(body)).plan;
     const updateSubscriptionPlan = async (planId, body) => (await api.admin.updateSubscriptionPlan(planId, body)).plan;
     const getSubscriptionReport = async () => (await api.admin.getSubscriptionReport()).report;
+    const pushBroadcast = async (payload) => (await api.admin.pushBroadcast(payload)).broadcast;
+    const getPushBroadcastHistory = async () => (await api.admin.pushBroadcastHistory()).broadcasts || [];
+    const sendPushTest = async (payload = {}) => (await api.admin.pushTest(payload));
 
     return (
         <AdminAuthContext.Provider value={{
@@ -211,8 +220,10 @@ export const AdminAuthProvider = ({ children }) => {
             getSOSAlerts, resolveSOSAlert,
             getCommissionSettings, updateCommissionSettings,
             getMetricsOverview, getRevenueByMonth, getCustomersByMonth, getProvidersByMonth, getBookingTrend, getMetricsCities,
+            getPayouts, updatePayoutStatus,
             getPerformanceCriteria, updatePerformanceCriteria,
             getSubscriptionSettings, updateSubscriptionSettings, getSubscriptionPlans, createSubscriptionPlan, updateSubscriptionPlan, getSubscriptionReport,
+            pushBroadcast, getPushBroadcastHistory, sendPushTest,
         }}>
             {children}
         </AdminAuthContext.Provider>

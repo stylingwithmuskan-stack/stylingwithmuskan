@@ -129,7 +129,7 @@ export default function AdminDashboard() {
         let cancelled = false;
         (async () => {
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
-            const period = `${selectedPeriod.year}-${String(selectedPeriod.month).padStart(2, "0")}`;
+            const period = selectedPeriod === "OVERALL" ? "overall" : `${selectedPeriod.year}-${String(selectedPeriod.month).padStart(2, "0")}`;
             const params = { tz, period };
             if (selectedCity) params.city = selectedCity;
 
@@ -139,6 +139,7 @@ export default function AdminDashboard() {
                 return String(c) === String(selectedCity);
             };
             const inSelectedMonth = (b) => {
+                if (selectedPeriod === "OVERALL") return true;
                 try {
                     const d = new Date(b?.createdAt || 0);
                     if (isNaN(d.getTime())) return false;
@@ -298,11 +299,22 @@ export default function AdminDashboard() {
                             ))}
                         </SelectContent>
                     </Select>
-                    <Select value={`${selectedPeriod.year}-${selectedPeriod.month}`} onValueChange={(v) => { const [y, m] = v.split("-").map(Number); setSelectedPeriod({ year: y, month: m }); }}>
+                    <Select 
+                        value={selectedPeriod === "OVERALL" ? "OVERALL" : `${selectedPeriod.year}-${selectedPeriod.month}`} 
+                        onValueChange={(v) => { 
+                            if (v === "OVERALL") {
+                                setSelectedPeriod("OVERALL");
+                            } else {
+                                const [y, m] = v.split("-").map(Number); 
+                                setSelectedPeriod({ year: y, month: m }); 
+                            }
+                        }}
+                    >
                         <SelectTrigger className="w-[160px] h-10 rounded-xl">
                             <SelectValue placeholder="Month & Year" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="OVERALL">Overall (Lifetime)</SelectItem>
                             {(() => {
                                 const opts = [];
                                 const now = new Date();
@@ -312,7 +324,7 @@ export default function AdminDashboard() {
                                     const label = d.toLocaleString("en-US", { month: "short", year: "numeric" });
                                     opts.push({ value: `${y}-${m}`, label });
                                 }
-                                return opts.map(o => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>));
+                                return opts.reverse().map(o => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>));
                             })()}
                         </SelectContent>
                     </Select>

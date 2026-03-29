@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ClipboardList, CheckCircle, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/modules/user/components/ui/card";
@@ -11,7 +11,7 @@ export default function CustomEnquiries() {
   const { getEnquiries, priceQuoteEnquiry, finalApproveEnquiry } = useAdminAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [quote, setQuote] = useState({ totalAmount: 0, discountPrice: 0, notes: "", prebookAmount: 0, totalServiceTime: "", quoteExpiryHours: 12 });
+  const [quote, setQuote] = useState({ totalAmount: "", discountPrice: "", notes: "", prebookAmount: "", totalServiceTime: "", quoteExpiryHours: 12 });
   const [activeId, setActiveId] = useState("");
 
   const load = async () => {
@@ -25,9 +25,21 @@ export default function CustomEnquiries() {
       setLoading(false);
     }
   };
+
   useEffect(() => { load(); }, []);
 
-  const beginQuote = (id) => { setActiveId(id); setQuote({ totalAmount: 0, discountPrice: 0, notes: "", prebookAmount: 0, totalServiceTime: "", quoteExpiryHours: 12 }); };
+  const beginQuote = (id) => { 
+    setActiveId(id); 
+    setQuote({ 
+      totalAmount: "", 
+      discountPrice: "", 
+      notes: "", 
+      prebookAmount: "", 
+      totalServiceTime: "", 
+      quoteExpiryHours: 12 
+    }); 
+  };
+
   const submitQuote = async () => {
     if (!activeId) return;
     try {

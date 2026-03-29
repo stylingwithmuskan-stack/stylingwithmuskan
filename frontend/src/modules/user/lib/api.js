@@ -440,6 +440,13 @@ export const api = {
     customEnquiryFinalApprove: (id) => request(`/admin/custom-enquiries/${id}/final-approve`, { method: "PATCH" }),
     updateOfficeSettings: (payload) => request("/admin/settings", { method: "PUT", body: payload }),
 
+    // Payouts
+    getPayouts: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/admin/payouts${q ? `?${q}` : ""}`);
+    },
+    updatePayoutStatus: (id, status) => request(`/admin/payouts/${id}/status`, { method: "PATCH", body: { status } }),
+
     // System Settings
     getSystemSettings: () => request("/admin/system-settings"),
     updateSystemSettings: (payload) => request("/admin/system-settings", { method: "PUT", body: payload }),
@@ -481,6 +488,9 @@ export const api = {
     createSubscriptionPlan: (body) => request("/admin/subscription-plans", { method: "POST", body }),
     updateSubscriptionPlan: (planId, body) => request(`/admin/subscription-plans/${planId}`, { method: "PUT", body }),
     getSubscriptionReport: () => request("/admin/subscription-report"),
+    pushBroadcast: (body) => request("/admin/push/broadcast", { method: "POST", body }),
+    pushBroadcastHistory: () => request("/admin/push/broadcast/history"),
+    pushTest: (body) => request("/admin/push/test", { method: "POST", body }),
   },
 
   subscriptions: {
@@ -523,6 +533,32 @@ export const api = {
         return requestWithToken(`/notifications/${id}`, { method: "DELETE" }, token, role);
       }
       return request(`/notifications/${id}`, { method: "DELETE" });
+    },
+    push: {
+      register: (body, opts = {}) => {
+        const options = typeof opts === "string" ? { role: opts } : (opts || {});
+        const role = options.role || "user";
+        const token = options.token || getTokenByRole(role);
+        return requestWithToken("/notifications/push/register", { method: "POST", body }, token, role);
+      },
+      unregister: (body, opts = {}) => {
+        const options = typeof opts === "string" ? { role: opts } : (opts || {});
+        const role = options.role || "user";
+        const token = options.token || getTokenByRole(role);
+        return requestWithToken("/notifications/push/register", { method: "DELETE", body }, token, role);
+      },
+      status: (deviceKey, opts = {}) => {
+        const options = typeof opts === "string" ? { role: opts } : (opts || {});
+        const role = options.role || "user";
+        const token = options.token || getTokenByRole(role);
+        return requestWithToken(`/notifications/push/status?deviceKey=${encodeURIComponent(deviceKey)}`, {}, token, role);
+      },
+      preferences: (body, opts = {}) => {
+        const options = typeof opts === "string" ? { role: opts } : (opts || {});
+        const role = options.role || "user";
+        const token = options.token || getTokenByRole(role);
+        return requestWithToken("/notifications/push/preferences", { method: "PATCH", body }, token, role);
+      },
     },
   },
 };

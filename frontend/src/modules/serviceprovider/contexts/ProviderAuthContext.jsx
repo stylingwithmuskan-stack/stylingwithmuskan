@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
+import { revokePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const ProviderAuthContext = createContext(undefined);
 
@@ -170,7 +171,12 @@ export const ProviderAuthProvider = ({ children }) => {
         return { success: true, registered: provider.registrationComplete };
     };
 
-    const logout = () => { setProvider(null); setProviderToken(""); api.provider.logout(); };
+    const logout = () => {
+        revokePushRegistration("provider").catch(() => {});
+        setProvider(null);
+        setProviderToken("");
+        api.provider.logout();
+    };
 
     const adminApprove = () => {
         setProvider(prev => ({ ...prev, approvalStatus: "approved" }));

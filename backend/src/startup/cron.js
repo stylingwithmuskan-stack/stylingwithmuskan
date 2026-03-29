@@ -6,6 +6,7 @@ import { slotLabelToLocalDateTime } from "../lib/slots.js";
 import { getIO } from "./socket.js";
 import BookingLog from "../models/BookingLog.js";
 import { notify } from "../lib/notify.js";
+import { processQueuedPushNotifications } from "../lib/push.js";
 
 function withinWindow(now, startTime, endTime) {
   const [startH, startM] = String(startTime || "07:00").split(":").map(Number);
@@ -170,27 +171,32 @@ export function startCron() {
         bookingSettings?.providerNotificationStartTime || office?.startTime || "07:00",
         bookingSettings?.providerNotificationEndTime || office?.endTime || "22:00"
       );
-      if (!windowOpen) return;
-      const queued = await Booking.find({ notificationStatus: "queued" }).limit(50);
-      if (queued.length === 0) return;
-      for (const b of queued) {
-        b.notificationStatus = "immediate";
-        if (!b.assignedProvider && office?.autoAssign) {
-          // leave assignment for manual or provider polling
-        }
-        await b.save();
-        try {
-          await BookingLog.create({
-            action: "booking:queue-release",
-            bookingId: b._id.toString(),
-            meta: { tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "local" },
-          });
-        } catch {}
-        try {
-          const io = getIO();
-          io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: b.status, notificationStatus: b.notificationStatus });
-        } catch {}
+      if (!windowOpen) {
+        await processQueuedPushNotifications();
+        return;
       }
+      const queued = await Booking.find({ notificationStatus: "queued" }).limit(50);
+      if (queued.length > 0) {
+        for (const b of queued) {
+          b.notificationStatus = "immediate";
+          if (!b.assignedProvider && office?.autoAssign) {
+            // leave assignment for manual or provider polling
+          }
+          await b.save();
+          try {
+            await BookingLog.create({
+              action: "booking:queue-release",
+              bookingId: b._id.toString(),
+              meta: { tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "local" },
+            });
+          } catch {}
+          try {
+            const io = getIO();
+            io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: b.status, notificationStatus: b.notificationStatus });
+          } catch {}
+        }
+      }
+      await processQueuedPushNotifications();
     } catch (e) {
       // swallow
     }

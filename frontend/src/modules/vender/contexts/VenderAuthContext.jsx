@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/modules/user/lib/api";
+import { revokePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const VenderAuthContext = createContext(undefined);
 
@@ -90,6 +91,7 @@ export const VenderAuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        revokePushRegistration("vendor").catch(() => {});
         setVendor(null);
         try { 
             localStorage.removeItem(STORAGE_KEY);

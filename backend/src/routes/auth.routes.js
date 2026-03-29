@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import { redis } from "../startup/redis.js";
 import { issueToken } from "../middleware/auth.js";
@@ -55,12 +56,21 @@ router.post(
   body("phone").isString().matches(/^\d{10}$/),
   body("otp").isString().isLength({ min: OTP_LENGTH, max: OTP_LENGTH }),
   async (req, res) => {
+    console.log('[Auth] 🔐 OTP verification request:', {
+      phone: req.body.phone,
+      intent: req.body.intent || 'auto'
+    });
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.error('[Auth] ❌ Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
+    
     const { phone, otp } = req.body;
     const intent = (req.body.intent || "auto").toLowerCase();
+    
+    console.log('[Auth] Verifying OTP for phone:', phone);
     const valid = await verifyOtpValue({
       redis,
       key: `otp:${phone}`,
@@ -68,24 +78,60 @@ router.post(
       role: "user",
       otp,
     });
+    
     if (!valid) {
+      console.error('[Auth] ❌ Invalid OTP provided');
       return res.status(400).json({ error: "Invalid OTP" });
     }
+    
+    console.log('[Auth] ✅ OTP verified successfully');
 
     let user = await User.findOne({ phone });
     const exists = !!user;
+    
+    console.log('[Auth] User exists:', exists);
+    
     if (intent === "login" && !exists) {
+      console.error('[Auth] ❌ Login attempt for non-existent user');
       return res.status(404).json({ error: "No account found. Please register first." });
     }
     if (intent === "register" && exists) {
+      console.error('[Auth] ❌ Registration attempt for existing user');
       return res.status(409).json({ error: "Account already exists. Please login." });
     }
     if (!exists) {
-      user = await User.create({ phone, isVerified: true });
+      console.log('[Auth] 📝 Creating new user with phone:', phone);
+      try {
+        user = await User.create({ phone, isVerified: true });
+        console.log('[Auth] ✅ User created successfully:', {
+          id: user._id,
+          phone: user.phone,
+          isVerified: user.isVerified
+        });
+        
+        // Verify user was saved to database
+        const savedUser = await User.findById(user._id);
+        if (savedUser) {
+          console.log('[Auth] ✅ User verified in database');
+        } else {
+          console.error('[Auth] ❌ User NOT found in database after creation!');
+        }
+      } catch (createError) {
+        console.error('[Auth] ❌ Error creating user:', createError);
+        throw createError;
+      }
+    } else {
+      console.log('[Auth] 👤 Existing user found:', {
+        id: user._id,
+        phone: user.phone
+      });
     }
     const isNew = !exists;
     const token = issueToken(user._id);
     const subscription = await getSubscriptionSnapshot(user._id.toString(), "customer");
+    
+    console.log('[Auth] ✅ Sending response with token and user data');
+    
     res
       .cookie("token", token, {
         httpOnly: true,
@@ -115,6 +161,68 @@ router.post(
 
 router.post("/logout", (req, res) => {
   res.clearCookie("token").json({ success: true });
+});
+
+// DEBUG ENDPOINT - Test database write
+router.post("/debug/test-db-write", async (req, res) => {
+  try {
+    console.log('[Debug] 🧪 Testing database write...');
+    console.log('[Debug] Mongoose connection state:', mongoose.connection.readyState);
+    console.log('[Debug] Database name:', mongoose.connection.name);
+    console.log('[Debug] Database host:', mongoose.connection.host);
+    
+    const testPhone = `TEST${Date.now()}`;
+    console.log('[Debug] Creating test user with phone:', testPhone);
+    
+    const testUser = await User.create({
+      phone: testPhone,
+      name: "Test User",
+      isVerified: true
+    });
+    
+    console.log('[Debug] ✅ Test user created:', {
+      id: testUser._id,
+      phone: testUser.phone,
+      name: testUser.name
+    });
+    
+    // Verify it was saved
+    const found = await User.findById(testUser._id);
+    console.log('[Debug] Verification - User found in DB:', !!found);
+    
+    // Count total users
+    const totalUsers = await User.countDocuments();
+    console.log('[Debug] Total users in database:', totalUsers);
+    
+    // List recent users
+    const recentUsers = await User.find().sort({ createdAt: -1 }).limit(5).select('phone name createdAt');
+    console.log('[Debug] Recent users:', recentUsers);
+    
+    res.json({
+      success: true,
+      testUser: {
+        id: testUser._id,
+        phone: testUser.phone,
+        name: testUser.name
+      },
+      verification: {
+        foundInDb: !!found,
+        totalUsers,
+        recentUsers
+      },
+      connection: {
+        state: mongoose.connection.readyState,
+        dbName: mongoose.connection.name,
+        host: mongoose.connection.host
+      }
+    });
+  } catch (error) {
+    console.error('[Debug] ❌ Test failed:', error);
+    res.status(500).json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
 });
 
 router.get("/me", async (req, res) => {

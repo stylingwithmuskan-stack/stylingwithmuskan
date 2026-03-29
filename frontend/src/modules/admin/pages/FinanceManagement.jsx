@@ -18,23 +18,13 @@ import {
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 
-// Mock robust payouts data for Admin
-const initialPayouts = [
-    { id: "PAY-1001", spName: "Priya K.", city: "Mumbai", amount: 3200, status: "completed", date: "2026-03-01", vendorId: "V001" },
-    { id: "PAY-1002", spName: "Anita S.", city: "Delhi", amount: 1500, status: "pending", date: "2026-03-05", vendorId: "V002" },
-    { id: "PAY-1003", spName: "Ritu M.", city: "Mumbai", amount: 4800, status: "on_hold", date: "2026-02-28", vendorId: "V001" },
-    { id: "PAY-1004", spName: "Meena D.", city: "Pune", amount: 2100, status: "completed", date: "2026-03-02", vendorId: "V003" },
-    { id: "PAY-1005", spName: "Rahul Sharma", city: "Delhi", amount: 5600, status: "pending", date: "2026-03-06", vendorId: "V002" },
-    { id: "PAY-1006", spName: "Kavita R.", city: "Bangalore", amount: 2500, status: "pending", date: "2026-03-03", vendorId: "V004" },
-    { id: "PAY-1007", spName: "Simran T.", city: "Pune", amount: 4100, status: "completed", date: "2026-02-25", vendorId: "V003" },
-    { id: "PAY-1008", spName: "Akash V.", city: "Mumbai", amount: 1250, status: "completed", date: "2026-03-04", vendorId: "V001" },
-];
-
 export default function FinanceManagement() {
-    const { getCommissionSettings, updateCommissionSettings } = useAdminAuth();
-    const [settings, setSettings] = useState(getCommissionSettings());
+    const { getCommissionSettings, updateCommissionSettings, getMetricsCities, getPayouts, updatePayoutStatus } = useAdminAuth();
+    const [settings, setSettings] = useState(getCommissionSettings() || { rate: 15, minPayout: 500 });
     const [saved, setSaved] = useState(false);
-    const [payouts, setPayouts] = useState(initialPayouts);
+    const [payouts, setPayouts] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [cities, setCities] = useState(["All Cities"]);
 
     // Filters
     const [searchCity, setSearchCity] = useState("All Cities");
@@ -43,17 +33,60 @@ export default function FinanceManagement() {
     const [endDate, setEndDate] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
 
+    const fetchPayouts = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            const params = {};
+            if (searchCity !== "All Cities") params.city = searchCity;
+            if (statusFilter !== "All") params.status = statusFilter;
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+            if (searchQuery) params.query = searchQuery;
+
+            const data = await getPayouts(params);
+            setPayouts(Array.isArray(data) ? data : []);
+        } catch (e) {
+            console.error("Failed to fetch payouts", e);
+        } finally {
+            setLoading(false);
+        }
+    }, [getPayouts, searchCity, statusFilter, startDate, endDate, searchQuery]);
+
+    React.useEffect(() => {
+        (async () => {
+            try {
+                const list = await getMetricsCities?.();
+                if (Array.isArray(list) && list.length) {
+                    setCities(list);
+                }
+            } catch (e) {
+                console.error("Failed to fetch cities", e);
+            }
+        })();
+    }, [getMetricsCities]);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchPayouts();
+        }, 500); // Debounce search
+        return () => clearTimeout(timer);
+    }, [fetchPayouts]);
+
     const handleSave = () => {
         updateCommissionSettings(settings);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     };
 
-    const handleExecutePayout = (id) => {
-        setPayouts(prev => prev.map(p => p.id === id ? { ...p, status: "completed" } : p));
+    const handleExecutePayout = async (id, newStatus = "completed") => {
+        try {
+            await updatePayoutStatus(id, newStatus);
+            fetchPayouts(); // Refresh list
+        } catch (e) {
+            console.error("Failed to update payout status", e);
+        }
     };
 
-    const cities = ["All Cities", ...new Set(payouts.map(p => p.city))];
     const statuses = ["All", "pending", "completed", "on_hold"];
 
     const statusConfig = {
@@ -62,26 +95,8 @@ export default function FinanceManagement() {
         on_hold: { label: "On Hold", icon: Ban, color: "bg-red-100 text-red-700 border-red-200" },
     };
 
-    const filteredPayouts = useMemo(() => {
-        return payouts.filter(p => {
-            const matchCity = searchCity === "All Cities" || p.city === searchCity;
-            const matchStatus = statusFilter === "All" || p.status === statusFilter;
-            const matchSearch = p.spName.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase());
-
-            let matchDate = true;
-            if (startDate) {
-                matchDate = matchDate && p.date >= startDate;
-            }
-            if (endDate) {
-                matchDate = matchDate && p.date <= endDate;
-            }
-
-            return matchCity && matchStatus && matchSearch && matchDate;
-        }).sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [payouts, searchCity, statusFilter, searchQuery, startDate, endDate]);
-
-    const totalFilteredAmount = filteredPayouts.reduce((sum, p) => sum + p.amount, 0);
-    const pendingFilteredAmount = filteredPayouts.filter(p => p.status === "pending").reduce((sum, p) => sum + p.amount, 0);
+    const totalAmount = payouts.reduce((sum, p) => sum + p.amount, 0);
+    const pendingAmount = payouts.filter(p => p.status === "pending").reduce((sum, p) => sum + p.amount, 0);
 
     return (
         <div className="space-y-6 max-w-7xl">
@@ -116,7 +131,15 @@ export default function FinanceManagement() {
                                 <Label className="text-sm font-bold">Minimum Payout Amount</Label>
                                 <div className="relative">
                                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input type="number" value={settings.minPayout} onChange={e => setSettings(prev => ({ ...prev, minPayout: parseInt(e.target.value) || 0 }))} className="pl-9 h-11 rounded-xl bg-muted/30 border-border/50" />
+                                    <Input 
+                                        type="number" 
+                                        value={settings.minPayout === 0 ? "" : settings.minPayout} 
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            setSettings(prev => ({ ...prev, minPayout: val === "" ? 0 : parseInt(val) || 0 }));
+                                        }} 
+                                        className="pl-9 h-11 rounded-xl bg-muted/30 border-border/50" 
+                                    />
                                 </div>
                                 <p className="text-[10px] text-muted-foreground">Minimum amount required for SP withdrawal</p>
                             </div>
@@ -136,12 +159,12 @@ export default function FinanceManagement() {
                             <div className="space-y-4">
                                 <div>
                                     <p className="text-xs text-muted-foreground font-bold">Total Processed/Pending</p>
-                                    <p className="text-3xl font-black mt-1">₹{totalFilteredAmount.toLocaleString()}</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase">{filteredPayouts.length} Transactions</p>
+                                    <p className="text-3xl font-black mt-1">₹{totalAmount.toLocaleString()}</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase">{payouts.length} Transactions</p>
                                 </div>
                                 <div className="pt-3 border-t border-primary/10">
                                     <p className="text-xs text-amber-600 font-bold">Total Pending Payouts</p>
-                                    <p className="text-xl font-black text-amber-600 mt-1">₹{pendingFilteredAmount.toLocaleString()}</p>
+                                    <p className="text-xl font-black text-amber-600 mt-1">₹{pendingAmount.toLocaleString()}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -238,8 +261,13 @@ export default function FinanceManagement() {
                         <CardContent className="p-0">
                             <div className="max-h-[500px] overflow-y-auto p-4 pt-0 space-y-3 custom-scrollbar">
                                 <AnimatePresence mode="popLayout">
-                                    {filteredPayouts.length > 0 ? (
-                                        filteredPayouts.map((payout) => {
+                                    {loading ? (
+                                        <div className="py-20 text-center">
+                                            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
+                                            <p className="mt-2 text-sm text-muted-foreground font-bold">Loading payouts...</p>
+                                        </div>
+                                    ) : payouts.length > 0 ? (
+                                        payouts.map((payout) => {
                                             const sc = statusConfig[payout.status];
                                             const SIcon = sc.icon;
                                             return (
@@ -293,7 +321,7 @@ export default function FinanceManagement() {
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
-                                                                onClick={() => handleExecutePayout(payout.id)}
+                                                                onClick={() => handleExecutePayout(payout.id, "pending")}
                                                                 className="h-9 px-4 rounded-xl font-bold border-primary text-primary hover:bg-primary/10 whitespace-nowrap"
                                                             >
                                                                 Release Hold

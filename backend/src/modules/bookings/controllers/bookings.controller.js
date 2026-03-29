@@ -323,7 +323,7 @@ export async function create(req, res) {
       return R * c;
     };
     const maxKm = Math.max(Number(settings?.maxServiceRadiusKm || 5), 1);
-    const sorted = await Promise.all(providers
+    const mappedProviders = await Promise.all(providers
       .filter(p => matchesSpecialty(p))
       .map(async (p) => ({
         id: p._id.toString(),
@@ -332,7 +332,9 @@ export async function create(req, res) {
         isPro: proPartnerIds.includes(p._id.toString()) ? 1 : 0,
         isElite: qualifiesAsElite(p) ? 1 : 0,
         rating: Number(p.rating || 0),
-      })))
+      })));
+    
+    const sorted = mappedProviders
       .filter(x => x.d <= maxKm)
       .sort((a, b) => (b.isElite - a.isElite) || (b.isPro - a.isPro) || (b.online - a.online) || (b.rating - a.rating) || (a.d - b.d));
 

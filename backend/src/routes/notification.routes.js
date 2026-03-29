@@ -2,6 +2,7 @@ import express from "express";
 import { requireRole } from "../middleware/roles.js";
 import { requireAuth } from "../middleware/auth.js";
 import Notification from "../models/Notification.js";
+import PushDevice from "../models/PushDevice.js";
 
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../config.js";
@@ -70,6 +71,138 @@ router.put("/read-all", requireAnyAuth, async (req, res) => {
     const recipientRole = req.auth.role || "user";
     await Notification.updateMany({ recipientId, recipientRole, isRead: false }, { isRead: true });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/push/register", requireAnyAuth, async (req, res) => {
+  try {
+    const recipientId = String(req.auth.sub);
+    const recipientRole = req.auth.role || "user";
+    const {
+      fcmToken = "",
+      platform = "web",
+      deviceKey = "",
+      permission = "granted",
+      enabled = true,
+    } = req.body || {};
+
+    if (!fcmToken || !deviceKey) {
+      return res.status(400).json({ error: "fcmToken and deviceKey are required" });
+    }
+
+    const device = await PushDevice.findOneAndUpdate(
+      { recipientId, recipientRole, deviceKey },
+      {
+        recipientId,
+        recipientRole,
+        fcmToken,
+        platform,
+        deviceKey,
+        permission,
+        isActive: true,
+        lastSeenAt: new Date(),
+        preferences: { enabled: enabled !== false },
+        lastError: "",
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({
+      success: true,
+      device: {
+        deviceKey: device.deviceKey,
+        isActive: device.isActive,
+        permission: device.permission,
+        enabled: device.preferences?.enabled !== false,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/push/register", requireAnyAuth, async (req, res) => {
+  try {
+    const recipientId = String(req.auth.sub);
+    const recipientRole = req.auth.role || "user";
+    const { deviceKey = "", fcmToken = "" } = req.body || {};
+    if (!deviceKey && !fcmToken) {
+      return res.status(400).json({ error: "deviceKey or fcmToken is required" });
+    }
+    await PushDevice.updateMany(
+      {
+        recipientId,
+        recipientRole,
+        ...(deviceKey ? { deviceKey } : {}),
+        ...(fcmToken ? { fcmToken } : {}),
+      },
+      {
+        $set: {
+          isActive: false,
+          lastError: "Unregistered by client logout",
+        },
+      }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/push/status", requireAnyAuth, async (req, res) => {
+  try {
+    const recipientId = String(req.auth.sub);
+    const recipientRole = req.auth.role || "user";
+    const deviceKey = String(req.query.deviceKey || "").trim();
+    if (!deviceKey) {
+      return res.status(400).json({ error: "deviceKey is required" });
+    }
+    const device = await PushDevice.findOne({ recipientId, recipientRole, deviceKey }).lean();
+    res.json({
+      supported: true,
+      registered: !!(device?.isActive),
+      permission: device?.permission || "default",
+      enabled: device?.preferences?.enabled !== false,
+      device: device
+        ? {
+            deviceKey: device.deviceKey,
+            lastSeenAt: device.lastSeenAt,
+            lastSuccessAt: device.lastSuccessAt,
+            lastError: device.lastError,
+          }
+        : null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch("/push/preferences", requireAnyAuth, async (req, res) => {
+  try {
+    const recipientId = String(req.auth.sub);
+    const recipientRole = req.auth.role || "user";
+    const { deviceKey = "", enabled = true, permission = "default" } = req.body || {};
+    if (!deviceKey) return res.status(400).json({ error: "deviceKey is required" });
+
+    const device = await PushDevice.findOneAndUpdate(
+      { recipientId, recipientRole, deviceKey },
+      {
+        $set: {
+          permission,
+          "preferences.enabled": enabled !== false,
+          isActive: enabled !== false,
+          lastSeenAt: new Date(),
+        },
+      },
+      { new: true }
+    ).lean();
+
+    res.json({
+      success: true,
+      device: device || null,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

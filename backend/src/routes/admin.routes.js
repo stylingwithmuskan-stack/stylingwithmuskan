@@ -18,6 +18,7 @@ import { computeExpiresAt } from "../lib/assignment.js";
 import { bumpContentVersion } from "../lib/contentCache.js";
 import { notify } from "../lib/notify.js";
 import * as AdminSubscriptionController from "../modules/subscriptions/controllers/adminSubscription.controller.js";
+import * as AdminPushController from "../modules/admin/controllers/adminPush.controller.js";
 
 const router = Router();
 
@@ -662,5 +663,19 @@ router.get("/subscription-plans", requireRole("admin"), AdminSubscriptionControl
 router.post("/subscription-plans", requireRole("admin"), AdminSubscriptionController.createPlan);
 router.put("/subscription-plans/:planId", requireRole("admin"), AdminSubscriptionController.updatePlan);
 router.get("/subscription-report", requireRole("admin"), AdminSubscriptionController.report);
+router.post(
+  "/push/broadcast",
+  requireRole("admin"),
+  body("roles").isArray({ min: 1 }),
+  body("title").isString().notEmpty(),
+  body("message").isString().notEmpty(),
+  AdminPushController.broadcast
+);
+router.get("/push/broadcast/history", requireRole("admin"), AdminPushController.history);
+router.post("/push/test", requireRole("admin"), AdminPushController.test);
+
+// ───── PAYOUTS ─────
+router.get("/payouts", requireRole("admin"), AdminController.listPayouts);
+router.patch("/payouts/:id/status", requireRole("admin"), AdminController.updatePayoutStatus);
 
 export default router;

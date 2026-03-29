@@ -2,6 +2,7 @@ import Notification from "../models/Notification.js";
 import { getIO } from "../startup/socket.js";
 import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
+import { buildNotificationLink, queuePushForNotification, sendPushForNotification } from "./push.js";
 
 const TYPE_ALIASES = {
   new_booking: "booking_assigned",
@@ -39,6 +40,7 @@ const CANONICAL_TYPES = new Set([
   "leave_approved",
   "leave_rejected",
   "reminder",
+  "marketing_campaign",
 ]);
 
 function shortId(id) {
@@ -257,6 +259,11 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         title: "Booking Reminder",
         message: `Reminder: ${ref} is coming up soon${safeMeta.time ? ` at ${safeMeta.time}` : ""}.`,
       };
+    case "marketing_campaign":
+      return {
+        title: safeMeta.title || titleCase(type) || "Special Update",
+        message: safeMeta.message || "You have a new update from Styling With Muskan.",
+      };
     default:
       return null;
   }
@@ -295,6 +302,7 @@ export async function notify({
   type,
   title,
   message,
+  link,
   meta = {},
   emit = true,
   respectProviderQuietHours = true,
@@ -308,6 +316,7 @@ export async function notify({
     title: templated?.title || title || "Notification",
     message: templated?.message || message || "You have a new notification.",
     type,
+    link: link || buildNotificationLink({ recipientRole, type, meta: safeMeta }),
     meta: safeMeta,
   };
   const notification = await Notification.create(payload);
@@ -325,6 +334,28 @@ export async function notify({
         notification,
       });
     } catch {}
+  }
+
+  try {
+    if (recipientRole === "provider" && respectProviderQuietHours) {
+      const ok = await isWithinProviderWindow();
+      if (!ok) await queuePushForNotification(notification, "Queued until provider notification window opens");
+      else await sendPushForNotification(notification);
+    } else {
+      await sendPushForNotification(notification);
+    }
+  } catch (error) {
+    await Notification.updateOne(
+      { _id: notification._id },
+      {
+        $set: {
+          "delivery.push.status": "failed",
+          "delivery.push.lastAttemptAt": new Date(),
+          "delivery.push.lastError": error?.message || "Push send failed",
+        },
+        $inc: { "delivery.push.failureCount": 1 },
+      }
+    );
   }
   return notification;
 }

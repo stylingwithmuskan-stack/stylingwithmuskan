@@ -16,6 +16,20 @@ const NotificationSchema = new mongoose.Schema(
       // Common types for all modules
     },
     meta: { type: Object, default: {} },
+    link: { type: String, default: "/notifications" },
+    delivery: {
+      push: {
+        status: {
+          type: String,
+          enum: ["pending", "queued", "sent", "failed", "disabled"],
+          default: "pending",
+        },
+        failureCount: { type: Number, default: 0 },
+        lastAttemptAt: { type: Date, default: null },
+        sentAt: { type: Date, default: null },
+        lastError: { type: String, default: "" },
+      },
+    },
     isRead: { type: Boolean, default: false },
   },
   { timestamps: true }

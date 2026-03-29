@@ -589,3 +589,72 @@ export async function getZoneStats(req, res) {
   });
 }
 
+// ───── PAYOUTS (Finance Management) ─────
+
+export async function listPayouts(req, res) {
+  const { city, status, startDate, endDate, query } = req.query;
+  const filter = { status: "completed" }; // Only completed bookings are eligible for payouts
+
+  if (city && city !== "All Cities") {
+    filter.$or = [{ "address.city": city }, { "address.area": city }];
+  }
+  if (status && status !== "All") {
+    filter.payoutStatus = status;
+  }
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = new Date(startDate);
+    if (endDate) {
+      const ed = new Date(endDate);
+      ed.setHours(23, 59, 59, 999);
+      filter.createdAt.$lte = ed;
+    }
+  }
+
+  // Fetch bookings with basic provider info
+  const bookings = await Booking.find(filter).sort({ createdAt: -1 }).lean();
+  
+  // Enhance with provider name if possible
+  const providerIds = [...new Set(bookings.map(b => b.assignedProvider).filter(Boolean))];
+  const providers = await ProviderAccount.find({ _id: { $in: providerIds } }, "name city").lean();
+  const provMap = new Map(providers.map(p => [p._id.toString(), p]));
+
+  const payouts = bookings.map(b => ({
+    id: b._id.toString(),
+    spName: provMap.get(b.assignedProvider)?.name || "Unknown SP",
+    city: b.address?.city || b.address?.area || "Unknown",
+    amount: b.totalAmount || 0,
+    status: b.payoutStatus || "pending",
+    date: b.createdAt.toISOString().split("T")[0],
+    vendorId: b.maintainProvider || "",
+    bookingId: b._id.toString(),
+  }));
+
+  // Simple client-side search simulation if query exists
+  let filtered = payouts;
+  if (query) {
+    const q = query.toLowerCase();
+    filtered = payouts.filter(p => 
+      p.spName.toLowerCase().includes(q) || 
+      p.id.toLowerCase().includes(q) ||
+      p.bookingId.toLowerCase().includes(q)
+    );
+  }
+
+  res.json({ payouts: filtered });
+}
+
+export async function updatePayoutStatus(req, res) {
+  const { id } = req.params;
+  const { status } = req.body;
+  
+  if (!["pending", "completed", "on_hold"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status" });
+  }
+
+  const b = await Booking.findByIdAndUpdate(id, { payoutStatus: status }, { new: true });
+  if (!b) return res.status(404).json({ error: "Booking not found" });
+
+  res.json({ success: true, booking: b });
+}
+

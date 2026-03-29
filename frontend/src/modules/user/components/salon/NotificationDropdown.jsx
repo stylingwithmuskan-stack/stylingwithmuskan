@@ -8,7 +8,19 @@ import { Badge } from "@/modules/user/components/ui/badge";
 import { ScrollArea } from "@/modules/user/components/ui/scroll-area";
 
 const NotificationDropdown = ({ isOpen, onClose }) => {
-    const { notifications, unreadCount, markAllAsRead, deleteNotification, fetchNotifications } = useNotifications();
+    const {
+        notifications,
+        unreadCount,
+        markAllAsRead,
+        deleteNotification,
+        fetchNotifications,
+        pushSupported,
+        pushPermission,
+        pushRegistered,
+        pushEnabled,
+        enablePushNotifications,
+        disablePushNotifications,
+    } = useNotifications();
     const wasOpen = useRef(false);
 
     // Filter only unread notifications for the dropdown
@@ -52,6 +64,42 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                     </Button>
                 </div>
             </div>
+
+            {pushSupported && (
+                <div className="px-5 py-3 border-b border-border bg-primary/[0.03]">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-[11px] font-black uppercase tracking-widest text-foreground">Push Notifications</p>
+                            <p className="text-[10px] text-muted-foreground">
+                                {pushRegistered && pushEnabled
+                                    ? "Background alerts are enabled on this device."
+                                    : pushPermission === "denied"
+                                        ? "Browser permission is blocked for this device."
+                                        : "Enable push for instant updates even when the app is closed."}
+                            </p>
+                        </div>
+                        {pushRegistered && pushEnabled ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full text-[10px] font-black uppercase tracking-wider"
+                                onClick={() => disablePushNotifications()}
+                            >
+                                Disable
+                            </Button>
+                        ) : (
+                            <Button
+                                size="sm"
+                                className="rounded-full text-[10px] font-black uppercase tracking-wider"
+                                disabled={pushPermission === "denied"}
+                                onClick={() => enablePushNotifications().catch(() => {})}
+                            >
+                                Enable
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <ScrollArea className="h-[400px]">
                 {unreadNotifications.length === 0 ? (

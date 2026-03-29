@@ -9,7 +9,19 @@ import { ScrollArea } from "@/modules/user/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
 
 const NotificationsPage = () => {
-    const { notifications, unreadCount, markAllAsRead, deleteNotification, fetchNotifications } = useNotifications();
+    const {
+        notifications,
+        unreadCount,
+        markAllAsRead,
+        deleteNotification,
+        fetchNotifications,
+        pushSupported,
+        pushPermission,
+        pushRegistered,
+        pushEnabled,
+        enablePushNotifications,
+        disablePushNotifications,
+    } = useNotifications();
     const navigate = useNavigate();
 
     const getIcon = (type) => {
@@ -56,6 +68,42 @@ const NotificationsPage = () => {
             </header>
 
             <main className="max-w-3xl mx-auto p-4 md:p-6 pb-24">
+                {pushSupported && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-4 rounded-2xl border border-primary/20 bg-primary/[0.04] p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                    >
+                        <div>
+                            <h2 className="text-sm font-black uppercase tracking-wider">Push Notifications</h2>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {pushRegistered && pushEnabled
+                                    ? "Instant background alerts are active on this device."
+                                    : pushPermission === "denied"
+                                        ? "Browser permission is blocked. Allow notifications in browser settings to enable push."
+                                        : "Enable push to receive real-time alerts even when the app is in background."}
+                            </p>
+                        </div>
+                        {pushRegistered && pushEnabled ? (
+                            <Button
+                                variant="outline"
+                                className="rounded-xl font-bold"
+                                onClick={() => disablePushNotifications()}
+                            >
+                                Disable Push
+                            </Button>
+                        ) : (
+                            <Button
+                                className="rounded-xl font-bold"
+                                disabled={pushPermission === "denied"}
+                                onClick={() => enablePushNotifications().catch(() => {})}
+                            >
+                                Enable Push
+                            </Button>
+                        )}
+                    </motion.div>
+                )}
+
                 {sortedNotifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
                         <div className="w-20 h-20 rounded-full bg-accent/50 flex items-center justify-center mb-6">
