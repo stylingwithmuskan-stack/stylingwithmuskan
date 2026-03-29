@@ -1,0 +1,19 @@
+# Render Blueprint for SWM Backend
+services:
+  - type: web
+    name: swm-backend
+    env: node
+    region: singapore
+    plan: free
+    # Set root directory to backend folder
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      # Add other environment variables in Render Dashboard
+      # MONGO_URI, JWT_SECRET, etc.

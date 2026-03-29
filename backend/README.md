@@ -1,6 +1,34 @@
 # Styling with Muskan – Backend API
 
-Base URL: `http://localhost:5000`
+Base URL (Development): `http://localhost:3001`
+Base URL (Production): `https://your-backend.onrender.com`
+
+## Quick Start
+
+### Development
+```bash
+npm install
+npm run dev
+```
+
+### Production (Render)
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+
+**Important:** Do NOT use PM2 on Render. Use simple `node src/server.js` command.
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+```bash
+cp .env.example .env
+```
+
+Required variables:
+- `MONGO_URI` - MongoDB connection string
+- `JWT_SECRET` - Secret for JWT tokens
+- `REDIS_URL` - Redis connection (optional, falls back to in-memory)
+
+See `.env.example` for complete list.
 
 ## Auth
 - Route: POST `/auth/request-otp`
