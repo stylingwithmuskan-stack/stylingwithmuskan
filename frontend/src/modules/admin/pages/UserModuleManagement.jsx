@@ -579,9 +579,9 @@ const UserModuleManagement = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
-                                {filteredData.map((item, i) => (
-                                    <motion.tr key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                                        className="hover:bg-accent/5 transition-colors">
+                                        {filteredData.map((item, i) => (
+                                            <motion.tr key={item._id || item.id || `row-${i}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                                                className="hover:bg-accent/5 transition-colors">
                                         <td className="px-3 py-3 md:px-4">
                                             <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden border border-border">
                                                 {(item.image || item.poster) ? (

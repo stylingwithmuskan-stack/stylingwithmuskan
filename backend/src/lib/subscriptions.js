@@ -136,6 +136,7 @@ export async function ensureSubscriptionDefaults() {
     { upsert: true, new: true }
   );
 
+  /* Auto-seeding disabled for production
   for (const plan of DEFAULT_PLANS) {
     await SubscriptionPlan.findOneAndUpdate(
       { planId: plan.planId },
@@ -143,6 +144,7 @@ export async function ensureSubscriptionDefaults() {
       { upsert: true, new: true }
     );
   }
+  */
 }
 
 export async function getSubscriptionSettings() {

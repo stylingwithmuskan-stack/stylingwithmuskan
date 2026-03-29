@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from "@/modules/user/lib/api";
-import { revokePushRegistration } from "@/modules/user/lib/firebasePush";
+import { ensurePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const AuthContext = createContext();
 const STORAGE_KEY = "swm_user_auth_state";
@@ -77,15 +77,16 @@ export const AuthProvider = ({ children }) => {
             setUser(updated);
             setHasAddress((updated.addresses || []).length > 0);
             setIsLoggedIn(true);
+            ensurePushRegistration("user").catch(() => {});
             return;
         }
         setUser(u);
         setHasAddress((u.addresses || []).length > 0);
         setIsLoggedIn(true);
+        ensurePushRegistration("user").catch(() => {});
     };
 
     const logout = () => {
-        revokePushRegistration("user").catch(() => {});
         api.logout().then((res) => {
             console.log("[Auth] logout response", res);
         }).finally(() => {

@@ -22,7 +22,7 @@ const statusColors = {
 };
 
 export default function SPOversight() {
-    const { getAllServiceProviders, updateSPStatus } = useAdminAuth();
+    const { getAllServiceProviders, updateSPStatus, approveProviderZones, rejectProviderZones } = useAdminAuth();
     const [providers, setProviders] = useState([]);
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("all");
@@ -74,6 +74,22 @@ export default function SPOversight() {
             }
         } catch {
             toast.error("Status update failed");
+        }
+    };
+
+    const handleZoneAction = async (id, action) => {
+        try {
+            if (action === "approve") await approveProviderZones(id);
+            else await rejectProviderZones(id);
+            toast.success(`Zones ${action}d successfully`);
+            load();
+            if (selectedSP?._id === id || selectedSP?.id === id) {
+                const updated = await getAllServiceProviders();
+                const found = updated.find(u => u._id === id || u.id === id);
+                if (found) setSelectedSP(found);
+            }
+        } catch {
+            toast.error(`Zone ${action} failed`);
         }
     };
 
@@ -162,6 +178,31 @@ export default function SPOversight() {
                                                     )}
                                                 </div>
                                             </div>
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                    {(sp.zones || []).map(z => (
+                                                        <Badge key={z} variant="secondary" className="text-[9px] font-bold bg-muted/50 text-muted-foreground border-none">
+                                                            {z}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                                {sp.pendingZones?.length > 0 && (
+                                                    <div className="mt-3 p-3 bg-amber-50/50 rounded-xl border border-amber-100/50 flex items-center justify-between">
+                                                        <div className="flex-1">
+                                                            <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">New Zone Request</p>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {sp.pendingZones.map(z => (
+                                                                    <Badge key={z} className="bg-white text-amber-600 border-amber-200 text-[9px] font-bold">
+                                                                        + {z}
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-1 ml-4">
+                                                            <Button size="sm" className="h-6 text-[9px] font-black bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleZoneAction(sp._id || sp.id, "approve"); }}>Approve</Button>
+                                                            <Button size="sm" variant="ghost" className="h-6 text-[9px] font-black text-amber-700 hover:bg-amber-100 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleZoneAction(sp._id || sp.id, "reject"); }}>Reject</Button>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                             {/* Advanced Stats (For View) */}
                                             {sp.approvalStatus === "approved" && (

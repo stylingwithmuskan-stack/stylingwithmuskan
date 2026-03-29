@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import app from "../app.js";
-import { seedContentIfNeeded } from "../startup/seed.js";
 import mongoose from "mongoose";
 import ProviderAccount from "../models/ProviderAccount.js";
 import Booking from "../models/Booking.js";
@@ -11,13 +10,6 @@ describe("SWM API", () => {
     const res = await request(app).get("/healthz");
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
-  });
-
-  it("seed content", async () => {
-    await seedContentIfNeeded();
-    const res = await request(app).get("/content/categories");
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.data)).toBe(true);
   });
 
   it("auth request-otp and verify", async () => {

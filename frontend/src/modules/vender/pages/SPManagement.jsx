@@ -16,7 +16,7 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } 
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 
 export default function SPManagement() {
-    const { getServiceProviders, updateSPStatus, hydrated, isLoggedIn } = useVenderAuth();
+    const { getServiceProviders, updateSPStatus, approveSPZones, rejectSPZones, hydrated, isLoggedIn } = useVenderAuth();
     const [providers, setProviders] = useState([]);
     const [search, setSearch] = useState("");
     const [selectedSP, setSelectedSP] = useState(null);
@@ -67,6 +67,22 @@ export default function SPManagement() {
             }
         } catch {
             toast.error("Status update failed");
+        }
+    };
+
+    const handleZoneAction = async (id, action) => {
+        try {
+            if (action === "approve") await approveSPZones(id);
+            else await rejectSPZones(id);
+            toast.success(`Zones ${action}d successfully`);
+            loadProviders();
+            if (selectedSP?._id === id || selectedSP?.id === id) {
+                const updated = await getServiceProviders();
+                const found = updated.find(u => u._id === id || u.id === id);
+                if (found) setSelectedSP(found);
+            }
+        } catch {
+            toast.error(`Zone ${action} failed`);
         }
     };
 
@@ -150,6 +166,31 @@ export default function SPManagement() {
                                                                 <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500 fill-amber-500" />{getSPRating(sp) || "N/A"}</span>
                                                                 <span className="flex items-center gap-1 hidden sm:flex"><CheckCircle className="h-3 w-3 text-primary" />{getSPJobs(sp)} Jobs</span>
                                                             </div>
+                                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                {(sp.zones || []).map(z => (
+                                                                    <Badge key={z} variant="secondary" className="text-[9px] font-bold bg-muted/50 text-muted-foreground border-none">
+                                                                        {z}
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                            {sp.pendingZones?.length > 0 && (
+                                                                <div className="mt-3 p-3 bg-amber-50/50 rounded-xl border border-amber-100/50 flex items-center justify-between">
+                                                                    <div className="flex-1">
+                                                                        <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Hub Access Request</p>
+                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                            {sp.pendingZones.map(z => (
+                                                                                <Badge key={z} className="bg-white text-amber-600 border-amber-200 text-[9px] font-bold">
+                                                                                    + {z}
+                                                                                </Badge>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex gap-1 ml-4">
+                                                                        <Button size="sm" className="h-6 text-[9px] font-black bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleZoneAction(sp._id || sp.id, "approve"); }}>Approve</Button>
+                                                                        <Button size="sm" variant="ghost" className="h-6 text-[9px] font-black text-amber-700 hover:bg-amber-100 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleZoneAction(sp._id || sp.id, "reject"); }}>Reject</Button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         {/* Actions */}
                                                         <div className="flex items-center gap-2">

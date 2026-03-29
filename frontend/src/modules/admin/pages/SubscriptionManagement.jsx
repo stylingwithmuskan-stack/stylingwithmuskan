@@ -295,11 +295,14 @@ export default function SubscriptionManagement() {
               </div>
               <div className="grid md:grid-cols-4 gap-3">
                 <label className="space-y-2 text-sm font-semibold">
-                  <span>Active</span>
-                  <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={plan.isActive ? "true" : "false"} onChange={(e) => handlePlanChange(plan.planId, "isActive", e.target.value === "true")}>
-                    <option value="true">Enabled</option>
-                    <option value="false">Disabled</option>
-                  </select>
+                  <span>Status</span>
+                  <Button
+                    variant={plan.isActive ? "default" : "outline"}
+                    className={`h-10 w-full rounded-md font-bold text-[10px] uppercase tracking-wider ${plan.isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                    onClick={() => handlePlanChange(plan.planId, "isActive", !plan.isActive)}
+                  >
+                    {plan.isActive ? "Enabled" : "Disabled"}
+                  </Button>
                 </label>
                 <label className="space-y-2 text-sm font-semibold">
                   <span>Price</span>

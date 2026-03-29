@@ -6,7 +6,8 @@ import {
     XCircle,
     AlertTriangle,
     MessageCircle,
-    ChevronLeft
+    ChevronLeft,
+    RefreshCcw
 } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { Card, CardContent } from "@/modules/user/components/ui/card";
@@ -15,35 +16,35 @@ import { toast } from "sonner";
 
 export default function VenderStatusPage() {
     const navigate = useNavigate();
-    const { vendor, isLoggedIn } = useVenderAuth();
+    const { vendor, isLoggedIn, isApproved } = useVenderAuth();
     const status = vendor?.status || "pending"; // pending, approved, rejected, blocked
 
     React.useEffect(() => {
-        if (status === "approved") {
+        if (isApproved) {
             toast.success("Congratulations! Your vendor account has been approved.");
             const timer = setTimeout(() => {
                 navigate("/vender/dashboard", { replace: true });
             }, 1500);
             return () => clearTimeout(timer);
         }
-    }, [status, navigate]);
+    }, [isApproved, navigate]);
 
     const statusConfigs = {
         pending: {
             icon: Clock,
             iconClass: "bg-emerald-50 text-emerald-600",
             title: "Verification in Progress",
-            description: "Thanks for joining SWM! Our admin team is currently reviewing your registration request. You'll be able to access your dashboard once approved.",
+            description: "Thanks for joining SWM! Our admin team is currently reviewing your registration request. You'll receive a notification once approved.",
             badge: "Under Review",
             badgeClass: "bg-emerald-100 text-emerald-700",
-            buttonText: "Wait for Approval",
-            onButtonClick: () => { }
+            buttonText: "Check Again",
+            onButtonClick: () => window.location.reload()
         },
         approved: {
             icon: ShieldCheck,
             iconClass: "bg-green-50 text-green-600",
             title: "Account Approved!",
-            description: "Congratulations! Your vendor account is now active. You can start managing your zone and service providers.",
+            description: "Congratulations! Your vendor account is now active. You can start managing your zones and service providers.",
             badge: "Active Vendor",
             badgeClass: "bg-green-100 text-green-700",
             buttonText: "Go to Dashboard",
@@ -74,11 +75,13 @@ export default function VenderStatusPage() {
     const config = statusConfigs[status] || statusConfigs.pending;
     const Icon = config.icon;
 
-    if (!isLoggedIn && status !== "approved") {
+    if (!isLoggedIn) {
         return (
             <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
-                <p className="text-gray-500 font-bold">Please login to check your status.</p>
-                <Button onClick={() => navigate("/vender/login")} className="ml-4 bg-emerald-600">Login</Button>
+                <Card className="w-full max-w-md border-none shadow-xl rounded-3xl p-8">
+                    <p className="text-gray-500 font-bold mb-6">Please login to check your status.</p>
+                    <Button onClick={() => navigate("/vender/login")} className="w-full h-12 bg-emerald-600 rounded-xl font-bold">Login</Button>
+                </Card>
             </div>
         );
     }
@@ -109,34 +112,36 @@ export default function VenderStatusPage() {
                         {status === 'approved' && (
                             <Button
                                 className="w-full h-14 rounded-2xl font-black text-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-100"
-                                onClick={() => navigate("/vender/dashboard")}
+                                onClick={config.onButtonClick}
                             >
-                                Go to Dashboard
+                                {config.buttonText}
                             </Button>
                         )}
                         {(status === 'rejected' || status === 'blocked') && (
                             <Button
                                 variant="outline"
-                                className="w-full h-14 rounded-2xl border-gray-200 font-black text-gray-600 flex items-center gap-2"
+                                className="w-full h-14 rounded-2xl border-gray-200 font-black text-gray-600 flex items-center justify-center gap-2"
+                                onClick={config.onButtonClick}
                             >
                                 <MessageCircle className="h-5 w-5" />
-                                Talk to Support
+                                {config.buttonText}
                             </Button>
                         )}
                         {status === 'pending' && (
                              <Button
                              variant="outline"
-                             className="w-full h-14 rounded-2xl border-gray-200 font-black text-gray-600"
-                             onClick={() => window.location.reload()}
+                             className="w-full h-14 rounded-2xl border-gray-200 font-black text-gray-600 flex items-center justify-center gap-2"
+                             onClick={config.onButtonClick}
                          >
-                             Check Again
+                             <RefreshCcw className="h-5 w-5" />
+                             {config.buttonText}
                          </Button>
                         )}
                     </div>
 
                     <div className="mt-10 pt-8 border-t border-gray-50 w-full">
                         <img src="/logo1.png" alt="SWM" className="h-12 w-12 rounded-full object-cover mx-auto opacity-50 grayscale hover:opacity-100 transition-all shadow-sm" />
-                        <p className="text-[10px] font-black uppercase text-gray-300 mt-2 tracking-widest lowercase">stylingwithmuskan</p>
+                        <p className="text-[10px] font-black uppercase text-gray-300 mt-2 tracking-widest">stylingwithmuskan</p>
                     </div>
                 </CardContent>
             </Card>

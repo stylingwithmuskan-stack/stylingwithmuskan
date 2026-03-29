@@ -348,6 +348,57 @@ router.post(
   }
 );
 
+router.post(
+  "/request-zones",
+  requireRole("provider"),
+  body("zones").isArray({ min: 1 }),
+  async (req, res) => {
+    const providerId = req.auth?.sub;
+    const { zones } = req.body;
+    if (!Array.isArray(zones) || zones.length === 0) {
+      return res.status(400).json({ error: "Zones array is required" });
+    }
+
+    const p = await ProviderAccount.findByIdAndUpdate(
+      providerId,
+      { $set: { pendingZones: zones } },
+      { new: true }
+    );
+
+    try {
+      // Notify Admin
+      await notify({
+        recipientId: "ADMIN001",
+        recipientRole: "admin",
+        title: "Provider Zone Update Request",
+        message: `Provider ${p.name} has requested to add new zones: ${zones.join(", ")}.`,
+        type: "system",
+        meta: { providerId: p._id.toString(), pendingZones: zones },
+      });
+
+      // Notify Vendor of the city
+      const city = p.city || "";
+      if (city) {
+        const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+        if (vendor) {
+          await notify({
+            recipientId: vendor._id.toString(),
+            recipientRole: "vendor",
+            title: "Provider Zone Update Request",
+            message: `Provider ${p.name} in your city (${city}) has requested new zones: ${zones.join(", ")}.`,
+            type: "system",
+            meta: { providerId: p._id.toString(), pendingZones: zones },
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to notify about provider zone request:", err);
+    }
+
+    res.json({ success: true, provider: p });
+  }
+);
+
 router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isString(), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -361,7 +412,7 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
     email: req.body.email || "",
     address: req.body.address || "",
     city: String(req.body.city || "").trim(),
-    zone: req.body.zone || "",
+    zones: Array.isArray(req.body.zones) ? req.body.zones : (req.body.zone ? [req.body.zone] : []),
     gender: req.body.gender || "",
     dob: req.body.dob || "",
     experience: req.body.experience || "0-1",
@@ -385,22 +436,23 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
   };
   const acc = await ProviderAccount.findOneAndUpdate({ phone: req.body.phone }, update, { new: true, upsert: true });
 
-  // Notify relevant vendor if zone is specified
-  if (req.body.zone) {
+  // Notify relevant vendor if zones are specified
+  const zones = Array.isArray(req.body.zones) ? req.body.zones : (req.body.zone ? [req.body.zone] : []);
+  if (zones.length > 0) {
     try {
-      const { Vendor } = await import("../models/Vendor.js");
-      const vendor = await Vendor.findOne({ 
-        city: new RegExp(`^${req.body.city}$`, "i"),
-        zone: new RegExp(`^${req.body.zone}$`, "i"),
+      const city = String(req.body.city || "").trim();
+      const vendors = await Vendor.find({ 
+        city: new RegExp(`^${city}$`, "i"),
+        zones: { $in: zones.map(z => new RegExp(`^${z}$`, "i")) },
         status: "approved"
       }).lean();
 
-      if (vendor) {
+      for (const vendor of vendors) {
         await notify({
           recipientId: vendor._id.toString(),
           recipientRole: "vendor",
           title: "New Provider Request",
-          message: `New provider ${req.body.name} has requested registration for your zone (${req.body.zone}).`,
+          message: `New provider ${req.body.name} has requested registration in your zones.`,
           type: "system",
           meta: { providerId: acc._id.toString() },
         });

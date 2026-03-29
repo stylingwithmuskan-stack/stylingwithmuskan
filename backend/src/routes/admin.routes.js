@@ -264,6 +264,43 @@ router.patch("/vendors/:id/status", requireRole("admin"), param("id").isString()
   res.json({ vendor: v });
 });
 
+router.patch("/vendors/:id/approve-zones", requireRole("admin"), param("id").isString(), async (req, res) => {
+  const v = await Vendor.findById(req.params.id);
+  if (!v) return res.status(404).json({ error: "Vendor not found" });
+  if (v.pendingZones && v.pendingZones.length > 0) {
+    v.zones = [...new Set([...(v.zones || []), ...v.pendingZones])];
+    v.pendingZones = [];
+    await v.save();
+    try {
+      await notify({
+        recipientId: v._id.toString(),
+        recipientRole: "vendor",
+        title: "Zones Approved",
+        message: "Your request to add new service zones has been approved.",
+        type: "vendor_zones_approved",
+        meta: { vendorId: v._id.toString(), zones: v.zones },
+      });
+    } catch {}
+  }
+  res.json({ vendor: v });
+});
+
+router.patch("/vendors/:id/reject-zones", requireRole("admin"), param("id").isString(), async (req, res) => {
+  const v = await Vendor.findByIdAndUpdate(req.params.id, { $set: { pendingZones: [] } }, { new: true });
+  if (!v) return res.status(404).json({ error: "Vendor not found" });
+  try {
+    await notify({
+      recipientId: v._id.toString(),
+      recipientRole: "vendor",
+      title: "Zones Request Rejected",
+      message: "Your request to add new service zones was rejected.",
+      type: "vendor_zones_rejected",
+      meta: { vendorId: v._id.toString() },
+    });
+  } catch {}
+  res.json({ vendor: v });
+});
+
 router.get("/providers", requireRole("admin"), AdminController.listProviders);
 
 router.patch("/providers/:id/status", requireRole("admin"), param("id").isString(), body("status").isIn(["approved", "pending", "rejected", "blocked"]), async (req, res) => {
@@ -295,6 +332,43 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
         respectProviderQuietHours: true,
       });
     }
+  } catch {}
+  res.json({ provider: p });
+});
+
+router.patch("/providers/:id/approve-zones", requireRole("admin"), param("id").isString(), async (req, res) => {
+  const p = await ProviderAccount.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: "Provider not found" });
+  if (p.pendingZones && p.pendingZones.length > 0) {
+    p.zones = [...new Set([...(p.zones || []), ...p.pendingZones])];
+    p.pendingZones = [];
+    await p.save();
+    try {
+      await notify({
+        recipientId: p._id.toString(),
+        recipientRole: "provider",
+        title: "Zones Approved",
+        message: "Your request to add new service zones has been approved.",
+        type: "provider_zones_approved",
+        meta: { providerId: p._id.toString(), zones: p.zones },
+      });
+    } catch {}
+  }
+  res.json({ provider: p });
+});
+
+router.patch("/providers/:id/reject-zones", requireRole("admin"), param("id").isString(), async (req, res) => {
+  const p = await ProviderAccount.findByIdAndUpdate(req.params.id, { $set: { pendingZones: [] } }, { new: true });
+  if (!p) return res.status(404).json({ error: "Provider not found" });
+  try {
+    await notify({
+      recipientId: p._id.toString(),
+      recipientRole: "provider",
+      title: "Zones Request Rejected",
+      message: "Your request to add new service zones was rejected.",
+      type: "provider_zones_rejected",
+      meta: { providerId: p._id.toString() },
+    });
   } catch {}
   res.json({ provider: p });
 });

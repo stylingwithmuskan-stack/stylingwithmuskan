@@ -263,4 +263,22 @@ router.get(
   }
 );
 
+router.patch("/:id/approve-zones", requireAuth, param("id").isString(), async (req, res) => {
+  const p = await ProviderAccount.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: "Provider not found" });
+  if (p.pendingZones && p.pendingZones.length > 0) {
+    p.zones = [...new Set([...(p.zones || []), ...p.pendingZones])];
+    p.pendingZones = [];
+    await p.save();
+    // Notification logic would go here if notify were imported
+  }
+  res.json({ provider: p });
+});
+
+router.patch("/:id/reject-zones", requireAuth, param("id").isString(), async (req, res) => {
+  const p = await ProviderAccount.findByIdAndUpdate(req.params.id, { $set: { pendingZones: [] } }, { new: true });
+  if (!p) return res.status(404).json({ error: "Provider not found" });
+  res.json({ provider: p });
+});
+
 export default router;

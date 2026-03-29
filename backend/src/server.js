@@ -10,7 +10,6 @@ import { createServer } from "http";
 import app from "./app.js";
 import { connectMongo } from "./startup/mongo.js";
 import { connectRedis } from "./startup/redis.js";
-import { seedContentIfNeeded, seedDemoDataIfNeeded } from "./startup/seed.js";
 import { configureCloudinary } from "./startup/cloudinary.js";
 import { initSocket } from "./startup/socket.js";
 import { startCron } from "./startup/cron.js";
@@ -22,8 +21,6 @@ async function boot() {
   await connectMongo();
   await connectRedis();
   configureCloudinary();
-  await seedContentIfNeeded();
-  await seedDemoDataIfNeeded();
 
   const server = createServer(app);
   initSocket(server);

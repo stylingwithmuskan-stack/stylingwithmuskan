@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Store, User, Mail, Phone, MapPin, Building2, ArrowRight, X } from "lucide-react";
+import { Store, User, Mail, Phone, MapPin, Building2, ArrowRight, X, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
 import { Label } from "@/modules/user/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/modules/user/components/ui/select";
+import { Checkbox } from "@/modules/user/components/ui/checkbox";
+import { Badge } from "@/modules/user/components/ui/badge";
 import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,7 +15,7 @@ import { api } from "@/modules/user/lib/api";
 export default function VenderRegisterPage() {
     const { registerRequest, verifyRegistrationOtp, isLoggedIn } = useVenderAuth();
     const navigate = useNavigate();
-    const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", zone: "", customZone: "" });
+    const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", zones: [], customZone: "" });
     const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
@@ -38,7 +40,7 @@ export default function VenderRegisterPage() {
             setZonesLoading(true);
             api.content.zones({ cityName: form.city }).then(res => {
                 setZones(res.zones || []);
-                setForm(prev => ({ ...prev, zone: "" }));
+                setForm(prev => ({ ...prev, zones: [] }));
             }).catch(() => {
                 setZones([]);
             }).finally(() => {
@@ -73,12 +75,8 @@ export default function VenderRegisterPage() {
             toast.error("Please select a city");
             return;
         }
-        if (!form.zone) {
-            toast.error("Please select a zone");
-            return;
-        }
-        if (form.zone === "other" && !form.customZone.trim()) {
-            toast.error("Please enter your custom zone name");
+        if (form.zones.length === 0 && !form.customZone.trim()) {
+            toast.error("Please select at least one zone");
             return;
         }
 
@@ -104,11 +102,12 @@ export default function VenderRegisterPage() {
         }
         setLoading(true);
         try {
-            const finalZone = form.zone === "other" ? form.customZone : form.zone;
-            const res = await verifyRegistrationOtp({ ...form, zone: finalZone, otp });
+            const finalZones = [...form.zones];
+            if (form.customZone.trim()) finalZones.push(form.customZone.trim());
+            
+            const res = await verifyRegistrationOtp({ ...form, zones: finalZones, otp });
             if (res?.success) {
                 toast.success("Registration request submitted! Please wait for admin approval.");
-                // Use res.redirect if context provides it, or manual redirect
                 navigate("/vender/status");
             }
         } catch (err) {
@@ -120,9 +119,27 @@ export default function VenderRegisterPage() {
 
     const update = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
+    const toggleZone = (zoneName) => {
+        setForm(prev => {
+            const current = [...prev.zones];
+            const idx = current.indexOf(zoneName);
+            if (idx > -1) current.splice(idx, 1);
+            else current.push(zoneName);
+            return { ...prev, zones: current };
+        });
+    };
+
+    const selectAllZones = () => {
+        if (form.zones.length === zones.length) {
+            update("zones", []);
+        } else {
+            update("zones", zones.map(z => z.name));
+        }
+    };
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50/30 to-white p-4">
-            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-[480px]">
+            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-[520px]">
                 <div className="text-center mb-8">
                     <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", delay: 0.2 }}
                         className="h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-200">
@@ -157,7 +174,7 @@ export default function VenderRegisterPage() {
                                     <Input type="tel" placeholder="9876543210" value={form.phone} onChange={e => update("phone", e.target.value)} className="pl-10 h-11 rounded-xl" required />
                                 </div>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-2 col-span-2">
                                 <Label className="text-xs font-bold text-gray-600">City</Label>
                                 <Select value={form.city} onValueChange={val => update("city", val)}>
                                     <SelectTrigger className="h-11 rounded-xl">
@@ -169,30 +186,43 @@ export default function VenderRegisterPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-bold text-gray-600">City Zone</Label>
-                                <Select value={form.zone} onValueChange={val => update("zone", val)} disabled={!form.city || zonesLoading}>
-                                    <SelectTrigger className="h-11 rounded-xl">
-                                        <SelectValue placeholder={zonesLoading ? "Loading zones..." : "Select zone"} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {zones.map(z => <SelectItem key={z._id} value={z.name}>{z.name}</SelectItem>)}
-                                        <SelectItem value="other" className="text-emerald-600 font-bold">Other / Custom Zone</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {form.zone === "other" && (
-                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-2 col-span-2">
-                                    <Label className="text-xs font-bold text-gray-600">Custom Zone Name</Label>
-                                    <div className="relative">
-                                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                        <Input placeholder="Enter your area/zone name" value={form.customZone} onChange={e => update("customZone", e.target.value)} className="pl-10 h-11 rounded-xl" required />
+                            
+                            {form.city && (
+                                <div className="space-y-3 col-span-2 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <Label className="text-xs font-black text-emerald-800 uppercase tracking-wider">Service Zones (Multiple)</Label>
+                                        <Button type="button" variant="ghost" size="sm" onClick={selectAllZones} className="h-7 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100">
+                                            {form.zones.length === zones.length ? "Deselect All" : "Select All Zones"}
+                                        </Button>
                                     </div>
-                                </motion.div>
+                                    
+                                    {zonesLoading ? (
+                                        <p className="text-xs text-emerald-600 animate-pulse">Fetching zones...</p>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {zones.map(z => (
+                                                <div key={z._id} onClick={() => toggleZone(z.name)} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${form.zones.includes(z.name) ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm' : 'bg-white border-gray-100 text-gray-600 hover:border-emerald-200'}`}>
+                                                    <div className={`h-4 w-4 rounded flex items-center justify-center ${form.zones.includes(z.name) ? 'bg-white text-emerald-600' : 'bg-gray-100'}`}>
+                                                        {form.zones.includes(z.name) && <Check className="h-3 w-3" />}
+                                                    </div>
+                                                    <span className="text-xs font-bold truncate">{z.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="pt-2 mt-2 border-t border-emerald-100">
+                                        <Label className="text-[10px] font-bold text-emerald-700 uppercase mb-2 block">Custom Zone (If not in list)</Label>
+                                        <div className="relative">
+                                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-emerald-400" />
+                                            <Input placeholder="Enter custom area name" value={form.customZone} onChange={e => update("customZone", e.target.value)} className="pl-9 h-9 rounded-lg text-xs border-emerald-100 bg-white" />
+                                        </div>
+                                    </div>
+                                </div>
                             )}
                         </div>
-                        <Button type="submit" disabled={loading} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white gap-2 shadow-lg shadow-emerald-200 mt-2">
+                        
+                        <Button type="submit" disabled={loading || !form.city || (form.zones.length === 0 && !form.customZone)} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white gap-2 shadow-lg shadow-emerald-200 mt-2">
                             {loading ? "Sending OTP..." : "Register"} <ArrowRight className="h-4 w-4" />
                         </Button>
                     </form>

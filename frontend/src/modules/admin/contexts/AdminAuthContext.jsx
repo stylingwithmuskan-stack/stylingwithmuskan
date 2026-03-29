@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
-import { revokePushRegistration } from "@/modules/user/lib/firebasePush";
+import { ensurePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const AdminAuthContext = createContext(null);
 
@@ -50,6 +50,7 @@ export const AdminAuthProvider = ({ children }) => {
             }
             setAdmin(admin);
             try { localStorage.setItem(ADMIN_KEY, JSON.stringify(admin)); } catch {}
+            ensurePushRegistration("admin").catch(() => {});
             return { success: true };
         } catch (e) {
             const msg = e?.message || "Login failed";
@@ -58,7 +59,6 @@ export const AdminAuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        revokePushRegistration("admin").catch(() => {});
         setAdmin(null);
         try { 
             localStorage.removeItem(ADMIN_KEY);
@@ -70,6 +70,8 @@ export const AdminAuthProvider = ({ children }) => {
     // ───── VENDORS ─────
     const getAllVendors = async () => (await api.admin.vendors()).vendors;
     const updateVendorStatus = async (vendorId, status) => { await api.admin.updateVendorStatus(vendorId, status); };
+    const approveVendorZones = async (vendorId) => { await api.admin.approveVendorZones(vendorId); };
+    const rejectVendorZones = async (vendorId) => { await api.admin.rejectVendorZones(vendorId); };
 
     // ───── CUSTOMERS ─────
     const getAllCustomers = async () => (await api.admin.customers()).customers;
@@ -210,6 +212,7 @@ export const AdminAuthProvider = ({ children }) => {
         <AdminAuthContext.Provider value={{
             admin, isLoggedIn, login, logout,
             getAllVendors, updateVendorStatus,
+            approveVendorZones, rejectVendorZones,
             getAllCustomers,
             getAllServiceProviders, updateSPStatus,
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,

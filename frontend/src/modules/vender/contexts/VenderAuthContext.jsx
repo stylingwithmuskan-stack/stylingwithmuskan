@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/modules/user/lib/api";
-import { revokePushRegistration } from "@/modules/user/lib/firebasePush";
+import { ensurePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const VenderAuthContext = createContext(undefined);
 
@@ -50,6 +50,7 @@ export const VenderAuthProvider = ({ children }) => {
             try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
         }
         syncVendor(vendor);
+        ensurePushRegistration("vendor").catch(() => {});
         
         if (vendor?.status !== "approved") {
             return { success: true, redirect: "/vender/status" };
@@ -66,6 +67,7 @@ export const VenderAuthProvider = ({ children }) => {
             try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
         }
         syncVendor(vendor);
+        ensurePushRegistration("vendor").catch(() => {});
         
         if (vendor?.status !== "approved") {
             return { success: true, redirect: "/vender/status" };
@@ -87,11 +89,18 @@ export const VenderAuthProvider = ({ children }) => {
     };
 
     const verifyRegistrationOtp = async (payload) => {
-        return await api.vendor.verifyRegistrationOtp(payload);
+        const res = await api.vendor.verifyRegistrationOtp(payload);
+        if (res?.success && res?.vendor) {
+            if (res.vendorToken) {
+                try { localStorage.setItem("swm_vendor_token", res.vendorToken); } catch {}
+            }
+            syncVendor(res.vendor);
+            ensurePushRegistration("vendor").catch(() => {});
+        }
+        return res;
     };
 
     const logout = () => {
-        revokePushRegistration("vendor").catch(() => {});
         setVendor(null);
         try { 
             localStorage.removeItem(STORAGE_KEY);
@@ -104,7 +113,10 @@ export const VenderAuthProvider = ({ children }) => {
     const getServiceProviders = async () => (await api.vendor.providers()).providers || [];
 
     // Approve / Reject / Block / Suspend SP
-    const updateSPStatus = async (id, status) => { await api.vendor.updateProviderStatus(id, status); };
+    const updateSPStatus = async (id, status) => { await api.vendor.updateSPStatus(id, status); };
+
+    const approveSPZones = async (id) => { await api.vendor.approveSPZones(id); };
+    const rejectSPZones = async (id) => { await api.vendor.rejectSPZones(id); };
 
     // Get all bookings
     const getAllBookings = async () => (await api.vendor.bookings()).bookings || [];
@@ -152,6 +164,12 @@ export const VenderAuthProvider = ({ children }) => {
         await api.vendor.updatePayoutStatus(bookingId, status);
     };
 
+    const getStats = async () => (await api.vendor.stats()).stats || {};
+
+    const requestZones = async (zones) => {
+        return await api.vendor.requestZones({ zones });
+    };
+
     const getProviderRankings = async (city) => await api.vendor.getProviderRankings(city);
 
     return (
@@ -170,6 +188,8 @@ export const VenderAuthProvider = ({ children }) => {
             logout,
             getServiceProviders,
             updateSPStatus,
+            approveSPZones,
+            rejectSPZones,
             getAllBookings,
             assignSPToBooking,
             reassignBooking,
@@ -179,6 +199,8 @@ export const VenderAuthProvider = ({ children }) => {
             getSOSAlerts,
             resolveSOSAlert,
             updatePayoutStatus,
+            getStats,
+            requestZones,
             getProviderRankings,
         }}>
             {children}

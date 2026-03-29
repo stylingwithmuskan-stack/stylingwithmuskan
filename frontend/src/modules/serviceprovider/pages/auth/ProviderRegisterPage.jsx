@@ -63,7 +63,7 @@ export default function ProviderRegisterPage() {
         addressLine1: "",
         area: "",
         city: "",
-        zone: "",
+        zones: [],
         customZone: "",
         profilePhoto: null,
         aadharFront: null,
@@ -315,12 +315,8 @@ export default function ProviderRegisterPage() {
                 setOtpError("Please select your city");
                 return;
             }
-            if (!formData.zone) {
-                setOtpError("Please select your hub zone");
-                return;
-            }
-            if (formData.zone === "other" && !formData.customZone.trim()) {
-                setOtpError("Please enter your custom zone name");
+            if (formData.zones.length === 0 && !formData.customZone.trim()) {
+                setOtpError("Please select at least one hub zone");
                 return;
             }
             if (!formData.addressLine1.trim() || !formData.area.trim()) {
@@ -370,8 +366,9 @@ export default function ProviderRegisterPage() {
         }
         setIsLoading(true);
         try {
-            const finalZone = formData.zone === "other" ? formData.customZone : formData.zone;
-            await register({ ...formData, zone: finalZone });
+            const finalZones = [...formData.zones];
+            if (formData.customZone.trim()) finalZones.push(formData.customZone.trim());
+            await register({ ...formData, zones: finalZones });
             setIsLoading(false);
             setIsSuccess(true);
         } catch (err) {
@@ -578,30 +575,55 @@ export default function ProviderRegisterPage() {
                                                 </Select>
                                             </div>
                                             <div className="space-y-2">
-                                                <Label className="text-[10px] font-bold text-gray-500">HUB ZONE</Label>
-                                                <Select value={formData.zone} onValueChange={v => setFormData({ ...formData, zone: v })} disabled={!formData.city || zonesLoading}>
-                                                    <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600">
-                                                        <SelectValue placeholder={zonesLoading ? "Loading..." : "Select Hub"} />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {zones.map(z => <SelectItem key={z._id} value={z.name}>{z.name}</SelectItem>)}
-                                                        <SelectItem value="other" className="text-violet-600 font-bold">Other / Custom Zone</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hub Zones (Multiple)</Label>
+                                                <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                                    {zonesLoading ? (
+                                                        <div className="flex items-center gap-2 py-2">
+                                                            <Loader2 className="h-4 w-4 text-violet-600 animate-spin" />
+                                                            <span className="text-xs font-bold text-gray-400">Fetching zones...</span>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-[10px] font-black text-gray-400 uppercase">Available Hubs</span>
+                                                                <Button type="button" variant="ghost" size="sm" onClick={() => {
+                                                                    if (formData.zones.length === zones.length) setFormData({ ...formData, zones: [] });
+                                                                    else setFormData({ ...formData, zones: zones.map(z => z.name) });
+                                                                }} className="h-6 text-[9px] font-black text-violet-600 hover:bg-violet-50">
+                                                                    {formData.zones.length === zones.length ? "Deselect All" : "Select All"}
+                                                                </Button>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 gap-2">
+                                                                {zones.map(z => (
+                                                                    <div key={z._id} onClick={() => {
+                                                                        const current = [...formData.zones];
+                                                                        const idx = current.indexOf(z.name);
+                                                                        if (idx > -1) current.splice(idx, 1);
+                                                                        else current.push(z.name);
+                                                                        setFormData({ ...formData, zones: current });
+                                                                    }} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.zones.includes(z.name) ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100' : 'bg-white border-gray-100 text-gray-600 hover:border-violet-200'}`}>
+                                                                        <div className={`h-5 w-5 rounded flex items-center justify-center ${formData.zones.includes(z.name) ? 'bg-white text-violet-600' : 'bg-gray-100'}`}>
+                                                                            {formData.zones.includes(z.name) && <Check className="h-3 w-3" />}
+                                                                        </div>
+                                                                        <span className="text-xs font-black truncate">{z.name}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    
+                                                    <div className="pt-2 mt-2 border-t border-slate-200">
+                                                        <Label className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Custom Hub (If not listed)</Label>
+                                                        <Input
+                                                            placeholder="Enter custom area name"
+                                                            className="h-10 rounded-xl bg-white border-gray-100 font-bold text-xs"
+                                                            value={formData.customZone}
+                                                            onChange={(e) => setFormData({ ...formData, customZone: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-
-                                        {formData.zone === "other" && (
-                                            <div className="mb-4 space-y-2">
-                                                <Label className="text-[10px] font-bold text-gray-500">CUSTOM ZONE NAME</Label>
-                                                <Input
-                                                    placeholder="Enter your area/zone name"
-                                                    className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                                    value={formData.customZone}
-                                                    onChange={(e) => setFormData({ ...formData, customZone: e.target.value })}
-                                                />
-                                            </div>
-                                        )}
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             <Input

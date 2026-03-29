@@ -21,6 +21,8 @@ router.patch(
   body("status").isIn(["approved", "pending", "rejected", "blocked"]),
   VendorController.updateProviderStatus
 );
+router.patch("/providers/:id/approve-zones", requireRole("vendor"), param("id").isString(), VendorController.approveSPZones);
+router.patch("/providers/:id/reject-zones", requireRole("vendor"), param("id").isString(), VendorController.rejectSPZones);
 
 router.get("/bookings", requireRole("vendor"), VendorController.listBookings);
 router.patch(
@@ -89,6 +91,13 @@ router.post(
   VendorController.createSubAccount
 );
 router.delete("/subaccounts/:id", requireRole("vendor"), param("id").isString(), VendorController.deleteSubAccount);
+
+router.post(
+  "/request-zones",
+  requireRole("vendor"),
+  body("zones").isArray({ min: 1 }),
+  VendorController.requestZones
+);
 
 export default router;
 

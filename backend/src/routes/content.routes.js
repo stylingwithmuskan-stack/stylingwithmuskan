@@ -3,7 +3,6 @@ import { redis } from "../startup/redis.js";
 import { ServiceType, BookingType, Category, Service, Banner, Provider, OfficeSettings } from "../models/Content.js";
 import { BookingSettings } from "../models/Settings.js";
 import { Spotlight, GalleryItem, Testimonial } from "../models/SiteContent.js";
-import { ensureCategoriesAndServices } from "../startup/seed.js";
 import { versionedKey } from "../lib/contentCache.js";
 import { City, Zone } from "../models/CityZone.js";
 
@@ -28,10 +27,13 @@ router.get("/service-types", async (_req, res) => {
   try {
     data = await cached("content:service-types", () => ServiceType.find().lean());
   } catch {
+    data = [];
+    /* Fallback disabled for production
     data = [
       { id: "skin", label: "Skin" },
       { id: "hair", label: "Hair" },
     ];
+    */
   }
   res.json({ data });
 });
@@ -41,10 +43,13 @@ router.get("/booking-types", async (_req, res) => {
   try {
     data = await cached("content:booking-types", () => BookingType.find().lean());
   } catch {
+    data = [];
+    /* Fallback disabled for production
     data = [
       { id: "instant", label: "Instant" },
       { id: "scheduled", label: "Scheduled" },
     ];
+    */
   }
   res.json({ data });
 });
@@ -57,6 +62,8 @@ router.get("/categories", async (req, res) => {
       gender ? Category.find({ gender }).lean() : Category.find().lean()
     );
   } catch {
+    data = [];
+    /* Fallback disabled for production
     const base = [
       // Women (skin)
       { id: "cleanup", name: "Cleanup", gender: "women", serviceType: "skin", bookingType: "instant" },
@@ -68,11 +75,10 @@ router.get("/categories", async (req, res) => {
       { id: "haircut-m", name: "Haircut", gender: "men", serviceType: "hair", bookingType: "instant" },
     ];
     data = gender ? base.filter(b => b.gender === gender) : base;
+    */
   }
   if (!Array.isArray(data) || data.length === 0) {
     try {
-      await ensureCategoriesAndServices();
-      // Content is versioned; no explicit del required.
       data = await (gender ? Category.find({ gender }).lean() : Category.find().lean());
     } catch {}
   }
@@ -89,6 +95,8 @@ router.get("/services", async (req, res) => {
   try {
     data = await cached(key, () => Service.find(q).lean());
   } catch {
+    data = [];
+    /* Fallback disabled for production
     const all = [
       // Women Cleanup
       { id: "cleanup_basic_w1", name: "Basic Cleanup", category: "cleanup", gender: "women", price: 499, originalPrice: 699, duration: "45m", rating: 4.6, reviews: 129, description: "Basic skin cleanup for daily glow", includes: ["Cleansing", "Scrub", "Mask"], image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400&h=300&fit=crop" },
@@ -110,11 +118,10 @@ router.get("/services", async (req, res) => {
       const byGen = gender ? s.gender === gender : true;
       return byCat && byGen;
     });
+    */
   }
   if (!Array.isArray(data) || data.length === 0) {
     try {
-      await ensureCategoriesAndServices();
-      // Content is versioned; no explicit del required.
       data = await Service.find(q).lean();
     } catch {}
   }

@@ -1,0 +1,163 @@
+# Implementation Plan
+
+- [~] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Logout Revokes Push Registration
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: For deterministic bugs, scope the property to the concrete failing case(s) to ensure reproducibility
+  - Test that for all roles (user, provider, vendor, admin), when logout is called, `revokePushRegistration()` is NOT called and device remains `isActive: true` in database
+  - The test assertions should match the Expected Behavior Properties from design (Requirements 2.1, 2.2, 2.3)
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found to understand root cause:
+    - User logout calls `revokePushRegistration("user")` → device marked `isActive: false`
+    - Provider logout calls `revokePushRegistration("provider")` → device marked `isActive: false`
+    - Vendor logout calls `revokePushRegistration("vendor")` → device marked `isActive: false`
+    - Admin logout calls `revokePushRegistration("admin")` → device marked `isActive: false`
+    - After login, device remains `isActive: false` → push notifications not sent
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 2.1, 2.2, 2.3_
+
+- [~] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Explicit Disable and FCM Error Handling
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs (explicit disable actions, FCM errors)
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements:
+    - Explicit disable via "Disable Push" button marks device as `isActive: false` (Requirement 3.1)
+    - FCM token errors mark device as `isActive: false` (Requirement 3.3)
+    - Device registration via POST `/push/register` sets `isActive: true` (Requirement 3.6)
+    - Push notifications sent to active devices with valid FCM tokens (Requirement 3.2)
+    - Backend queries filter by `isActive: true` and `preferences.enabled: { $ne: false }` (Requirement 3.5)
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [x] 3. Fix for push notification logout bug
+
+  - [x] 3.1 Remove revokePushRegistration from user logout
+    - File: `frontend/src/modules/user/contexts/AuthContext.jsx`
+    - Function: `logout`
+    - Remove line: `revokePushRegistration("user").catch(() => {});`
+    - Device should remain active in database after logout
+    - _Bug_Condition: isBugCondition(input) where input.action === "logout" AND input.role === "user"_
+    - _Expected_Behavior: Device remains `isActive: true` after logout (Requirement 2.1)_
+    - _Preservation: Explicit disable functionality unchanged (Requirement 3.1)_
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.2 Add ensurePushRegistration to user login
+    - File: `frontend/src/modules/user/contexts/AuthContext.jsx`
+    - Function: `loginWithOtp`
+    - Add after successful login: `ensurePushRegistration("user").catch(() => {});`
+    - Import: `import { revokePushRegistration, ensurePushRegistration } from "@/modules/user/lib/firebasePush";`
+    - Device should be reactivated if push permissions are granted
+    - _Expected_Behavior: Device reactivated on login if permissions granted (Requirement 2.5)_
+    - _Requirements: 2.5_
+
+  - [x] 3.3 Remove revokePushRegistration from provider logout
+    - File: `frontend/src/modules/serviceprovider/contexts/ProviderAuthContext.jsx`
+    - Function: `logout`
+    - Remove line: `revokePushRegistration("provider").catch(() => {});`
+    - Device should remain active in database after logout
+    - _Bug_Condition: isBugCondition(input) where input.action === "logout" AND input.role === "provider"_
+    - _Expected_Behavior: Device remains `isActive: true` after logout (Requirement 2.1)_
+    - _Preservation: Explicit disable functionality unchanged (Requirement 3.1)_
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.4 Add ensurePushRegistration to provider login
+    - File: `frontend/src/modules/serviceprovider/contexts/ProviderAuthContext.jsx`
+    - Function: `verifyOtp`
+    - Add after successful login: `ensurePushRegistration("provider").catch(() => {});`
+    - Import: `import { revokePushRegistration, ensurePushRegistration } from "@/modules/user/lib/firebasePush";`
+    - Device should be reactivated if push permissions are granted
+    - _Expected_Behavior: Device reactivated on login if permissions granted (Requirement 2.5)_
+    - _Requirements: 2.5_
+
+  - [x] 3.5 Remove revokePushRegistration from vendor logout
+    - File: `frontend/src/modules/vender/contexts/VenderAuthContext.jsx`
+    - Function: `logout`
+    - Remove line: `revokePushRegistration("vendor").catch(() => {});`
+    - Device should remain active in database after logout
+    - _Bug_Condition: isBugCondition(input) where input.action === "logout" AND input.role === "vendor"_
+    - _Expected_Behavior: Device remains `isActive: true` after logout (Requirement 2.1)_
+    - _Preservation: Explicit disable functionality unchanged (Requirement 3.1)_
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.6 Add ensurePushRegistration to vendor login (email/password)
+    - File: `frontend/src/modules/vender/contexts/VenderAuthContext.jsx`
+    - Function: `login`
+    - Add after successful login: `ensurePushRegistration("vendor").catch(() => {});`
+    - Import: `import { revokePushRegistration, ensurePushRegistration } from "@/modules/user/lib/firebasePush";`
+    - Device should be reactivated if push permissions are granted
+    - _Expected_Behavior: Device reactivated on login if permissions granted (Requirement 2.5)_
+    - _Requirements: 2.5_
+
+  - [x] 3.7 Add ensurePushRegistration to vendor login (OTP)
+    - File: `frontend/src/modules/vender/contexts/VenderAuthContext.jsx`
+    - Function: `verifyOtp`
+    - Add after successful login: `ensurePushRegistration("vendor").catch(() => {});`
+    - Device should be reactivated if push permissions are granted
+    - _Expected_Behavior: Device reactivated on login if permissions granted (Requirement 2.5)_
+    - _Requirements: 2.5_
+
+  - [x] 3.8 Remove revokePushRegistration from admin logout
+    - File: `frontend/src/modules/admin/contexts/AdminAuthContext.jsx`
+    - Function: `logout`
+    - Remove line: `revokePushRegistration("admin").catch(() => {});`
+    - Device should remain active in database after logout
+    - _Bug_Condition: isBugCondition(input) where input.action === "logout" AND input.role === "admin"_
+    - _Expected_Behavior: Device remains `isActive: true` after logout (Requirement 2.1)_
+    - _Preservation: Explicit disable functionality unchanged (Requirement 3.1)_
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.9 Add ensurePushRegistration to admin login
+    - File: `frontend/src/modules/admin/contexts/AdminAuthContext.jsx`
+    - Function: `login`
+    - Add after successful login: `ensurePushRegistration("admin").catch(() => {});`
+    - Import: `import { revokePushRegistration, ensurePushRegistration } from "@/modules/user/lib/firebasePush";`
+    - Device should be reactivated if push permissions are granted
+    - _Expected_Behavior: Device reactivated on login if permissions granted (Requirement 2.5)_
+    - _Requirements: 2.5_
+
+  - [x] 3.10 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Logout Does Not Revoke Push Registration
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify for all roles (user, provider, vendor, admin):
+      - Logout does NOT call `revokePushRegistration()`
+      - Device remains `isActive: true` after logout
+      - Login calls `ensurePushRegistration()`
+      - Device is reactivated on login if permissions granted
+    - _Requirements: 2.1, 2.2, 2.3, 2.5_
+
+  - [x] 3.11 Verify preservation tests still pass
+    - **Property 2: Preservation** - Explicit Disable and FCM Error Handling
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix:
+      - Explicit disable via "Disable Push" button still marks device as `isActive: false`
+      - FCM token errors still mark device as `isActive: false`
+      - Device registration still sets `isActive: true`
+      - Push notifications still sent to active devices
+      - Backend queries still filter correctly
+    - Confirm no other functionality or UI is disturbed
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [~] 4. Checkpoint - Ensure all tests pass
+  - Run all tests (bug condition + preservation)
+  - Verify no regressions in other functionality
+  - Verify no UI changes or disturbances
+  - Test full user flows for all roles:
+    - User: register device → logout → login → verify push notifications received
+    - Provider: register device → logout → login → verify booking notifications received
+    - Vendor: register device → logout → login → verify SOS alerts received
+    - Admin: register device → logout → login → verify system alerts received
+  - Test explicit disable flow: register device → disable push → logout → login → verify device remains inactive
+  - Ask user if any questions arise or if manual testing is needed

@@ -77,7 +77,7 @@ export async function registerRequest(req, res) {
 }
 
 export async function verifyRegistrationOtp(req, res) {
-  const { phone, otp, name, email, city, zone } = req.body;
+  const { phone, otp, name, email, city, zones } = req.body;
   const valid = await verifyOtpValue({
     redis,
     key: `v:reg:otp:${phone}`,
@@ -94,7 +94,7 @@ export async function verifyRegistrationOtp(req, res) {
       email,
       phone,
       city: normCity(city),
-      zone,
+      zones: Array.isArray(zones) ? zones : [zones],
       status: "pending",
     });
 
@@ -104,13 +104,27 @@ export async function verifyRegistrationOtp(req, res) {
         recipientId: "ADMIN001",
         recipientRole: "admin",
         title: "New Vendor Request",
-        message: `New vendor ${name} has requested registration for ${city} (${zone}).`,
+        message: `New vendor ${name} has requested registration for ${city} (${(v.zones || []).join(", ")}).`,
         type: "system",
         meta: { vendorId: v._id.toString() },
       });
     } catch {}
 
-    res.status(201).json({ success: true, message: "Registration submitted for admin approval" });
+    const token = issueRoleToken("vendor", v._id?.toString() || v.email);
+    const isProd = process.env.NODE_ENV === "production";
+    res.cookie("vendorToken", token, {
+      httpOnly: true,
+      sameSite: isProd ? "none" : "lax",
+      secure: isProd,
+      maxAge: 30 * 24 * 3600 * 1000,
+    });
+
+    res.status(201).json({ 
+      success: true, 
+      message: "Registration submitted for admin approval",
+      vendor: v,
+      vendorToken: token
+    });
   } catch (err) {
     res.status(400).json({ error: err.message || "Registration failed" });
   }
@@ -195,17 +209,17 @@ export async function listProviders(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
   const city = normCity(vendor?.city) || "";
-  const zone = vendor?.zone || "";
+  const zones = vendor?.zones || [];
   
   let q = {};
-  if (zone) {
+  if (zones.length > 0) {
     q = { 
       $and: [
         { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
         { 
           $or: [
-            { zone: new RegExp(`^${escapeRegex(zone)}$`, "i") },
-            { address: new RegExp(escapeRegex(zone), "i") }
+            { zone: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } },
+            { address: { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } }
           ]
         }
       ]
@@ -215,31 +229,6 @@ export async function listProviders(req, res) {
   }
 
   let items = await ProviderAccount.find(q).sort({ createdAt: -1 }).lean();
-
-  // Seed fake providers if empty for smoother demo/dev experience
-  try {
-    if (items.length === 0 && city) {
-      const mkPhone = (base, idx) => String(base + idx).padStart(10, "9").slice(0, 10);
-      const docs = [];
-      const areaName = zone || city;
-      for (let i = 0; i < 3; i++) {
-        docs.push({
-          phone: mkPhone(9200000000, i + 1),
-          name: `Demo ${areaName} Provider ${i + 1}`,
-          email: `demo${i + 1}.${areaName.toLowerCase().replace(/\s+/g, '')}@swm.com`,
-          city,
-          zone: zone || "",
-          address: zone ? `123 Main St, ${zone}` : `123 Main St, ${city}`,
-          gender: i % 2 === 0 ? "women" : "men",
-          experience: i % 2 === 0 ? "1-3" : "3-5",
-          approvalStatus: "approved",
-          registrationComplete: true
-        });
-      }
-      await ProviderAccount.insertMany(docs);
-      items = await ProviderAccount.find(q).sort({ createdAt: -1 }).lean();
-    }
-  } catch {}
   res.json({ providers: items });
 }
 
@@ -293,24 +282,69 @@ export async function updateProviderStatus(req, res) {
   res.json({ provider: p });
 }
 
+export async function approveSPZones(req, res) {
+  const { id } = req.params;
+  const p = await ProviderAccount.findById(id);
+  if (!p) return res.status(404).json({ error: "Provider not found" });
+  
+  if (p.pendingZones && p.pendingZones.length > 0) {
+    p.zones = [...new Set([...(p.zones || []), ...p.pendingZones])];
+    p.pendingZones = [];
+    await p.save();
+    try {
+      await notify({
+        recipientId: p._id.toString(),
+        recipientRole: "provider",
+        title: "Zones Approved by Vendor",
+        message: "Your request to add new service zones has been approved by your city vendor.",
+        type: "provider_zones_approved",
+        meta: { providerId: p._id.toString(), zones: p.zones },
+      });
+    } catch {}
+  }
+  res.json({ success: true, provider: p });
+}
+
+export async function rejectSPZones(req, res) {
+  const { id } = req.params;
+  const p = await ProviderAccount.findByIdAndUpdate(id, { $set: { pendingZones: [] } }, { new: true });
+  if (!p) return res.status(404).json({ error: "Provider not found" });
+  try {
+    await notify({
+      recipientId: p._id.toString(),
+      recipientRole: "provider",
+      title: "Zones Request Rejected by Vendor",
+      message: "Your request to add new service zones was rejected by your city vendor.",
+      type: "provider_zones_rejected",
+      meta: { providerId: p._id.toString() },
+    });
+  } catch {}
+  res.json({ success: true, provider: p });
+}
+
 export async function listBookings(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
   const city = normCity(vendor?.city) || "";
-  const zone = vendor?.zone || "";
+  const zones = vendor?.zones || [];
 
-  if (!city && !zone) {
+  if (!city && zones.length === 0) {
     const bookings = await Booking.find().sort({ createdAt: -1 }).limit(200).lean();
     return res.json({ bookings });
   }
 
-  // Find providers in vendor's area
+  // Find providers in vendor's areas
   let pQuery = {};
-  if (zone) {
+  if (zones.length > 0) {
     pQuery = { 
       $and: [
         { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
-        { address: new RegExp(escapeRegex(zone), "i") }
+        { 
+          $or: [
+            { zone: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } },
+            { address: { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } }
+          ]
+        }
       ]
     };
   } else {
@@ -325,10 +359,10 @@ export async function listBookings(req, res) {
     ? await Booking.find({ assignedProvider: { $in: providerIds } }).sort({ createdAt: -1 }).lean()
     : [];
 
-  // Bookings in vendor's area (by address)
+  // Bookings in vendor's areas (by address)
   let bQuery = {};
-  if (zone) {
-    bQuery = { "address.area": new RegExp(escapeRegex(zone), "i") };
+  if (zones.length > 0) {
+    bQuery = { "address.area": { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } };
   } else {
     bQuery = {
       $or: [
@@ -342,39 +376,6 @@ export async function listBookings(req, res) {
   
   let combined = [...byProvider, ...byAddress];
   
-  // Seed demo bookings if none exist for vendor's area
-  try {
-    if (combined.length === 0 && (zone || city)) {
-      const areaName = zone || city;
-      const mkBooking = (status, customerName, time, amt) => ({
-        customerId: "DEMO-" + Math.random().toString(36).slice(2, 7),
-        customerName,
-        services: [
-          { name: "Haircut", price: Math.round(199 + Math.random() * 300), duration: "30m", category: "hair", serviceType: "instant" },
-        ],
-        totalAmount: amt,
-        prepaidAmount: 0,
-        balanceAmount: amt,
-        address: { houseNo: "101", area: areaName, landmark: "Area Center", city: city || areaName },
-        slot: { date: new Date().toISOString().slice(0, 10), time },
-        bookingType: "instant",
-        status,
-        otp: "1234",
-        assignedProvider: providerIds[0] || null,
-      });
-      await Booking.insertMany([
-        mkBooking("incoming", "Demo Cust 1", "09:00", 499),
-        mkBooking("pending", "Demo Cust 2", "11:00", 899),
-        mkBooking("accepted", "Demo Cust 3", "13:00", 1299),
-        mkBooking("in_progress", "Demo Cust 4", "15:00", 999),
-        mkBooking("completed", "Demo Cust 5", "17:00", 1599),
-        mkBooking("cancelled", "Demo Cust 6", "19:00", 799),
-      ]);
-      const byAddressSeed = await Booking.find(bQuery).sort({ createdAt: -1 }).lean();
-      combined = [...byAddressSeed];
-    }
-  } catch {}
-
   const map = new Map();
   combined.forEach((b) => map.set(b._id.toString(), b));
   const bookings = Array.from(map.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -708,14 +709,19 @@ export async function stats(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
   const city = normCity(vendor?.city) || "";
-  const zone = vendor?.zone || "";
+  const zones = vendor?.zones || [];
 
   let pQuery = {};
-  if (zone) {
+  if (zones.length > 0) {
     pQuery = { 
       $and: [
         { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
-        { address: new RegExp(escapeRegex(zone), "i") }
+        { 
+          $or: [
+            { zone: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } },
+            { address: { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } }
+          ]
+        }
       ]
     };
   } else if (city) {
@@ -726,8 +732,8 @@ export async function stats(req, res) {
   const providerIds = providers.map((p) => p._id?.toString());
 
   let bQuery = {};
-  if (zone) {
-    bQuery = { "address.area": new RegExp(escapeRegex(zone), "i") };
+  if (zones.length > 0) {
+    bQuery = { "address.area": { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } };
   } else if (city) {
     bQuery = {
       $or: [
@@ -737,7 +743,7 @@ export async function stats(req, res) {
     };
   }
 
-  const bookings = (zone || city)
+  const bookings = (zones.length > 0 || city)
     ? await Booking.find({ 
         $or: [
           { assignedProvider: { $in: providerIds } },
@@ -765,16 +771,30 @@ export async function stats(req, res) {
     ]
   });
 
+  // Zone-wise booking heatmap
+  const heatmap = {};
+  zones.forEach(z => { heatmap[z] = 0; });
+  bookings.forEach(b => {
+    const area = b.address?.area;
+    if (area) {
+      const match = zones.find(z => new RegExp(escapeRegex(z), "i").test(area));
+      if (match) {
+        heatmap[match] = (heatmap[match] || 0) + 1;
+      }
+    }
+  });
+
   // Check for SWM City Manager Enterprise subscription
   const subscription = await UserSubscription.findOne({ userId: vendorId, status: 'active' });
   const subscriptionSnapshot = await getSubscriptionSnapshot(vendorId, "vendor");
   let advancedAnalytics = null;
   if (subscriptionSnapshot.isEnterprise) {
     advancedAnalytics = {
-      demandInsights: `High demand for services in ${zone || city}.`,
+      demandInsights: `High demand for services in ${zones.join(", ") || city}.`,
       marketingCredits: await getMarketingCreditsBalance(vendorId),
       prioritySupport: subscriptionSnapshot.prioritySupport,
       nextBillingAt: subscriptionSnapshot.currentPeriodEnd,
+      heatmap,
     };
   }
 
@@ -786,6 +806,7 @@ export async function stats(req, res) {
       sosActive: sos,
       advancedAnalytics,
       subscription: subscriptionSnapshot,
+      heatmap, // Always provide heatmap if possible
     },
   });
 }
@@ -824,4 +845,31 @@ export async function deleteSubAccount(req, res) {
   }
   await VendorSubAccount.findOneAndDelete({ _id: req.params.id, vendorId });
   res.json({ success: true });
+}
+
+export async function requestZones(req, res) {
+  const vendorId = req.auth?.sub;
+  const { zones } = req.body;
+  if (!Array.isArray(zones) || zones.length === 0) {
+    return res.status(400).json({ error: "Zones array is required" });
+  }
+
+  const v = await Vendor.findByIdAndUpdate(
+    vendorId,
+    { $set: { pendingZones: zones } },
+    { new: true }
+  );
+
+  try {
+    await notify({
+      recipientId: "ADMIN001",
+      recipientRole: "admin",
+      title: "Vendor Zone Update Request",
+      message: `Vendor ${v.name} has requested to add new zones: ${zones.join(", ")}.`,
+      type: "system",
+      meta: { vendorId: v._id.toString(), pendingZones: zones },
+    });
+  } catch {}
+
+  res.json({ success: true, vendor: v });
 }

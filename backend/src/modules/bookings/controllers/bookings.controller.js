@@ -243,13 +243,15 @@ export async function create(req, res) {
   // Use admin setting as base, but also respect if user explicitly asked for autoAssign (or if we want to force it)
   const autoAssign = autoAssignAllowed; 
   
-  // Build candidate provider list within 5 km from user's address lat/lng if available
-  const userLat = Number(req.user?.addresses?.[0]?.lat);
-  const userLng = Number(req.user?.addresses?.[0]?.lng);
+  // Build candidate provider list based on zones OR fallback to city
+  const bookingCity = String(safeAddress.city || "").trim();
+  const bookingArea = String(safeAddress.area || "").trim();
+
   const requestedDate = String(slot?.date || "").trim();
   const requestedTime = String(slot?.time || "").trim();
   const wantCats = new Set((items || []).map(it => String(it.category || "")).filter(Boolean));
   const wantTypes = new Set((items || []).map(it => String(it.serviceType || "")).filter(Boolean));
+  
   const matchesSpecialty = (p) => {
     const spec = p?.documents?.specializations || [];
     if (!Array.isArray(spec) || spec.length === 0) return true;
@@ -258,6 +260,19 @@ export async function create(req, res) {
   const wantsKnownDate = isIsoDate(requestedDate);
   const wantsKnownSlot = DEFAULT_TIME_SLOTS.includes(requestedTime);
   let candidateProviders = [];
+  
+  const isProviderAvailableAtSlot = async (providerId) => {
+    if (!wantsKnownSlot || !wantsKnownDate) return true;
+    const avail = await computeAvailableSlots(providerId, requestedDate, settings);
+    return avail?.slotMap?.[requestedTime] === true;
+  };
+
+  const activeProviderSubs = await (await import("../../../models/UserSubscription.js")).default.find({
+    userType: "provider",
+    status: "active",
+  }).lean();
+  const proPartnerIds = activeProviderSubs.map((s) => s.userId);
+
   const eliteMinRating = Number(customerSubscription.snapshot.eliteMinRating || 0);
   const eliteMinJobs = Number(customerSubscription.snapshot.eliteMinJobs || 0);
   const qualifiesAsElite = (provider) =>
@@ -267,11 +282,40 @@ export async function create(req, res) {
     && Number(provider.rating || 0) >= eliteMinRating
     && Number(provider.totalJobs || 0) >= eliteMinJobs;
 
-  const activeProviderSubs = await (await import("../../../models/UserSubscription.js")).default.find({
-    userType: "provider",
-    status: "active",
+  // Search by Zone (Priority 1)
+  let providers = await ProviderAccount.find({
+    approvalStatus: "approved",
+    registrationComplete: true,
+    city: { $regex: new RegExp(`^${bookingCity}$`, "i") },
+    zones: { $in: [new RegExp(`^${bookingArea}$`, "i")] }
   }).lean();
-  const proPartnerIds = activeProviderSubs.map((s) => s.userId);
+
+  // Fallback to City (Priority 2) if no zone-specific providers
+  if (providers.length === 0) {
+    providers = await ProviderAccount.find({
+      approvalStatus: "approved",
+      registrationComplete: true,
+      city: { $regex: new RegExp(`^${bookingCity}$`, "i") }
+    }).lean();
+  }
+
+  const mappedProviders = await Promise.all(providers
+    .filter(p => matchesSpecialty(p))
+    .map(async (p) => ({
+      id: p._id.toString(),
+      online: p.isOnline ? 1 : 0,
+      isPro: proPartnerIds.includes(p._id.toString()) ? 1 : 0,
+      isElite: qualifiesAsElite(p) ? 1 : 0,
+      rating: Number(p.rating || 0),
+      jobs: Number(p.totalJobs || 0),
+    })));
+  
+  const sorted = mappedProviders
+    .sort((a, b) => (b.isElite - a.isElite) || (b.isPro - a.isPro) || (b.online - a.online) || (b.rating - a.rating) || (b.jobs - a.jobs));
+
+  for (const s of sorted) {
+    if (await isProviderAvailableAtSlot(s.id)) candidateProviders.push(s.id);
+  }
 
   // Enforce booking window + lead time if slot is valid
   if (isIsoDate(requestedDate) && DEFAULT_TIME_SLOTS.includes(requestedTime)) {
@@ -296,83 +340,6 @@ export async function create(req, res) {
       if (slotMin < windowStartMin || slotMin > windowEndMin) {
         return res.status(400).json({ error: "Selected slot is outside service hours." });
       }
-    }
-  }
-  const isProviderAvailableAtSlot = async (providerId) => {
-    if (!wantsKnownSlot || !wantsKnownDate) return true;
-    const avail = await computeAvailableSlots(providerId, requestedDate, settings);
-    return avail?.slotMap?.[requestedTime] === true;
-  };
-
-  if (!Number.isNaN(userLat) && !Number.isNaN(userLng)) {
-    const providers = await ProviderAccount.find({
-      approvalStatus: "approved",
-      registrationComplete: true,
-      "currentLocation.lat": { $ne: null },
-      "currentLocation.lng": { $ne: null }
-    }).lean();
-    const toRad = (v) => (v * Math.PI) / 180;
-    const distKm = (a, b) => {
-      const R = 6371;
-      const dLat = toRad(b.lat - a.lat);
-      const dLng = toRad(b.lng - a.lng);
-      const lat1 = toRad(a.lat);
-      const lat2 = toRad(b.lat);
-      const aVal = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-      const c = 2 * Math.atan2(Math.sqrt(aVal), Math.sqrt(1 - aVal));
-      return R * c;
-    };
-    const maxKm = Math.max(Number(settings?.maxServiceRadiusKm || 5), 1);
-    const mappedProviders = await Promise.all(providers
-      .filter(p => matchesSpecialty(p))
-      .map(async (p) => ({
-        id: p._id.toString(),
-        d: distKm({ lat: userLat, lng: userLng }, { lat: p.currentLocation.lat, lng: p.currentLocation.lng }),
-        online: p.isOnline ? 1 : 0,
-        isPro: proPartnerIds.includes(p._id.toString()) ? 1 : 0,
-        isElite: qualifiesAsElite(p) ? 1 : 0,
-        rating: Number(p.rating || 0),
-      })));
-    
-    const sorted = mappedProviders
-      .filter(x => x.d <= maxKm)
-      .sort((a, b) => (b.isElite - a.isElite) || (b.isPro - a.isPro) || (b.online - a.online) || (b.rating - a.rating) || (a.d - b.d));
-
-    for (const s of sorted) {
-      if (await isProviderAvailableAtSlot(s.id)) candidateProviders.push(s.id);
-    }
-  }
-  // If no location-based candidates, compute a fallback list (rating-based) so auto-assign still works.
-  if (candidateProviders.length === 0) {
-    const providers = await ProviderAccount.find({
-      approvalStatus: "approved",
-      registrationComplete: true,
-    }).lean();
-
-    const sorted = await Promise.all(providers
-      .filter(p => matchesSpecialty(p))
-      .map(async (p) => ({
-        id: p._id.toString(),
-        rating: Number(p.rating || 0),
-        jobs: Number(p.totalJobs || 0),
-        online: p.isOnline ? 1 : 0,
-        isPro: proPartnerIds.includes(p._id.toString()) ? 1 : 0,
-        isElite: qualifiesAsElite(p) ? 1 : 0,
-      })));
-    sorted.sort((a, b) => {
-      const elite = b.isElite - a.isElite;
-      if (elite !== 0) return elite;
-      const pro = b.isPro - a.isPro;
-      if (pro !== 0) return pro;
-      const o = b.online - a.online;
-      if (o !== 0) return o;
-      const r = b.rating - a.rating;
-      if (r !== 0) return r;
-      return b.jobs - a.jobs;
-    });
-
-    for (const s of sorted) {
-      if (await isProviderAvailableAtSlot(s.id)) candidateProviders.push(s.id);
     }
   }
 

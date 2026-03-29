@@ -12,7 +12,7 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } 
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 
 export default function VendorManagement() {
-    const { isLoggedIn, getAllVendors, updateVendorStatus } = useAdminAuth();
+    const { isLoggedIn, getAllVendors, updateVendorStatus, approveVendorZones, rejectVendorZones } = useAdminAuth();
     const [vendors, setVendors] = useState([]);
     const [search, setSearch] = useState("");
 
@@ -34,6 +34,17 @@ export default function VendorManagement() {
             load();
         } catch {
             toast.error("Status update failed");
+        }
+    };
+
+    const handleZoneAction = async (id, action) => {
+        try {
+            if (action === "approve") await approveVendorZones(id);
+            else await rejectVendorZones(id);
+            toast.success(`Zones ${action}d successfully`);
+            load();
+        } catch {
+            toast.error(`Zone ${action} failed`);
         }
     };
 
@@ -63,50 +74,83 @@ export default function VendorManagement() {
                 <motion.div variants={container} initial="hidden" animate="show" className="grid gap-3 md:grid-cols-2">
                     {filtered.map(v => (
                         <motion.div key={v._id || v.id} variants={item}>
-                            <Card className="shadow-none border-border/50 hover:border-primary/30 transition-all duration-200">
-                                <CardContent className="p-5">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-lg font-black text-primary">{v.name?.charAt(0) || "V"}</span>
+                            <Card className="shadow-none border-border/50 hover:border-primary/30 transition-all duration-200 overflow-hidden">
+                                <CardContent className="p-0">
+                                    <div className="p-5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
+                                                <span className="text-lg font-black text-primary">{v.name?.charAt(0) || "V"}</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-sm font-bold truncate">{v.name}</h3>
+                                                    <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 ${
+                                                        v.status === "approved" ? "bg-green-500/15 text-green-400 border-green-500/30" : 
+                                                        v.status === "pending" ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                                                        "bg-red-500/15 text-red-400 border-red-500/30"
+                                                    }`}>
+                                                        {(v.status || "Pending").toUpperCase()}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-muted-foreground font-medium">
+                                                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{v.city || "N/A"}</span>
+                                                    <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{v.email}</span>
+                                                    <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{v.phone || "N/A"}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-1.5">
+                                                {v.status === "pending" ? (
+                                                    <>
+                                                        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-green-500/30 text-green-400 hover:bg-green-500/10 rounded-lg" onClick={() => handleAction(v._id || v.id, "approved")}>
+                                                            <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-lg" onClick={() => handleAction(v._id || v.id, "rejected")}>
+                                                            <Ban className="h-3 w-3 mr-1" /> Reject
+                                                        </Button>
+                                                    </>
+                                                ) : v.status === "approved" ? (
+                                                    <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-lg" onClick={() => handleAction(v._id || v.id, "blocked")}>
+                                                        <Ban className="h-3 w-3 mr-1" /> Block
+                                                    </Button>
+                                                ) : (
+                                                    <Button size="sm" className="h-8 text-[10px] font-bold bg-primary rounded-lg" onClick={() => handleAction(v._id || v.id, "approved")}>
+                                                        <UserCheck className="h-3 w-3 mr-1" /> Unblock
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="text-sm font-bold truncate">{v.name}</h3>
-                                                <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 ${
-                                                    v.status === "approved" ? "bg-green-500/15 text-green-400 border-green-500/30" : 
-                                                    v.status === "pending" ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
-                                                    "bg-red-500/15 text-red-400 border-red-500/30"
-                                                }`}>
-                                                    {(v.status || "Pending").toUpperCase()}
+
+                                        <div className="mt-4 flex flex-wrap gap-1.5">
+                                            {(v.zones || []).map(z => (
+                                                <Badge key={z} variant="secondary" className="text-[9px] font-bold bg-muted/50 text-muted-foreground border-none">
+                                                    {z}
                                                 </Badge>
-                                            </div>
-                                            <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-muted-foreground font-medium">
-                                                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{v.city || "N/A"}</span>
-                                                <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{v.email}</span>
-                                                <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{v.phone || "N/A"}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-1.5">
-                                            {v.status === "pending" ? (
-                                                <>
-                                                    <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-green-500/30 text-green-400 hover:bg-green-500/10 rounded-lg" onClick={() => handleAction(v._id || v.id, "approved")}>
-                                                        <CheckCircle className="h-3 w-3 mr-1" /> Approve
-                                                    </Button>
-                                                    <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-lg" onClick={() => handleAction(v._id || v.id, "rejected")}>
-                                                        <Ban className="h-3 w-3 mr-1" /> Reject
-                                                    </Button>
-                                                </>
-                                            ) : v.status === "approved" ? (
-                                                <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-lg" onClick={() => handleAction(v._id || v.id, "blocked")}>
-                                                    <Ban className="h-3 w-3 mr-1" /> Block
-                                                </Button>
-                                            ) : (
-                                                <Button size="sm" className="h-8 text-[10px] font-bold bg-primary rounded-lg" onClick={() => handleAction(v._id || v.id, "approved")}>
-                                                    <UserCheck className="h-3 w-3 mr-1" /> Unblock
-                                                </Button>
-                                            )}
+                                            ))}
                                         </div>
                                     </div>
+
+                                    {v.pendingZones?.length > 0 && (
+                                        <div className="bg-amber-50/50 p-4 border-t border-amber-100/50 flex items-center justify-between">
+                                            <div className="flex-1">
+                                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Zone Requests</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {v.pendingZones.map(z => (
+                                                        <Badge key={z} className="bg-white text-amber-600 border-amber-200 text-[10px] font-bold">
+                                                            + {z}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-1.5 ml-4">
+                                                <Button size="sm" className="h-7 text-[9px] font-black bg-amber-600 hover:bg-amber-700 text-white rounded-lg" onClick={() => handleZoneAction(v._id || v.id, "approve")}>
+                                                    Approve
+                                                </Button>
+                                                <Button size="sm" variant="ghost" className="h-7 text-[9px] font-black text-amber-700 hover:bg-amber-100 rounded-lg" onClick={() => handleZoneAction(v._id || v.id, "reject")}>
+                                                    Reject
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         </motion.div>

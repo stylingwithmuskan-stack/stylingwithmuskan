@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
-import { revokePushRegistration } from "@/modules/user/lib/firebasePush";
+import { ensurePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const ProviderAuthContext = createContext(undefined);
 
@@ -168,11 +168,11 @@ export const ProviderAuthProvider = ({ children }) => {
         const { provider, providerToken } = await api.provider.verifyOtp(phone, otp);
         setProvider(provider);
         if (providerToken) setProviderToken(providerToken);
+        ensurePushRegistration("provider").catch(() => {});
         return { success: true, registered: provider.registrationComplete };
     };
 
     const logout = () => {
-        revokePushRegistration("provider").catch(() => {});
         setProvider(null);
         setProviderToken("");
         api.provider.logout();
@@ -198,6 +198,10 @@ export const ProviderAuthProvider = ({ children }) => {
         return latest || null;
     };
 
+    const requestZones = async (zones) => {
+        return await api.provider.requestZones({ zones });
+    };
+
     return (
         <ProviderAuthContext.Provider value={{
             provider,
@@ -218,6 +222,7 @@ export const ProviderAuthProvider = ({ children }) => {
             adminReject,
             upgradeToPro,
             refreshProvider,
+            requestZones,
         }}>
             {children}
         </ProviderAuthContext.Provider>
