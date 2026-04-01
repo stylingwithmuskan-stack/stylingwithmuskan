@@ -12,13 +12,14 @@ import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import { Button } from "@/modules/user/components/ui/button";
 import { shareContent } from "@/modules/user/lib/utils";
 import FilterModal from "@/modules/user/components/salon/FilterModal";
+import QuantityControl from "@/modules/user/components/ui/QuantityControl";
 
 const ExplorePage = () => {
     const { categoryId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
     const { gender } = useGenderTheme();
-    const { totalItems, cartItems, addToCart, bookingType: contextBookingType, setBookingType, isFloatingSummaryOpen, setIsFloatingSummaryOpen } = useCart();
+    const { totalItems, cartItems, addToCart, updateQuantity, bookingType: contextBookingType, setBookingType, isFloatingSummaryOpen, setIsFloatingSummaryOpen } = useCart();
     const { isLoggedIn, setIsLoginModalOpen, user } = useAuth();
     const { toggleWishlist, isInWishlist } = useWishlist();
     const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability } = useUserModuleData();
@@ -274,18 +275,47 @@ const ExplorePage = () => {
                                                 <span className="text-[10px] text-muted-foreground line-through opacity-60 font-bold">₹{service.originalPrice}</span>
                                             )}
                                         </div>
-                                        <Button
-                                            onClick={(e) => { e.stopPropagation(); if (!isLoggedIn) setIsLoginModalOpen(true); else addToCart(service); }}
-                                            className={`h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm ${(() => {
-                                                const inCart = cartItems.find(item => item.id === service.id);
-                                                return inCart ? 'bg-primary text-white border-2 border-primary hover:bg-primary/90' : 'bg-white text-primary border-2 border-primary/20 hover:bg-primary hover:text-white';
-                                            })()}`}
-                                        >
-                                            {(() => {
-                                                const inCart = cartItems.find(item => item.id === service.id);
-                                                return inCart ? `${inCart.quantity} Added` : 'Add';
-                                            })()}
-                                        </Button>
+                                        {(() => {
+                                            const inCart = cartItems.find(item => item.id === service.id);
+                                            
+                                            // If not in cart, show ADD button
+                                            if (!inCart) {
+                                                return (
+                                                    <Button
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            if (!isLoggedIn) setIsLoginModalOpen(true); 
+                                                            else addToCart(service); 
+                                                        }}
+                                                        className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm bg-white text-primary border-2 border-primary/20 hover:bg-primary hover:text-white"
+                                                    >
+                                                        Add
+                                                    </Button>
+                                                );
+                                            }
+                                            
+                                            // If in cart, show quantity controls
+                                            return (
+                                                <QuantityControl
+                                                    quantity={inCart.quantity}
+                                                    onIncrement={() => {
+                                                        if (!isLoggedIn) {
+                                                            setIsLoginModalOpen(true);
+                                                        } else {
+                                                            updateQuantity(service.id, 1);
+                                                        }
+                                                    }}
+                                                    onDecrement={() => {
+                                                        if (!isLoggedIn) {
+                                                            setIsLoginModalOpen(true);
+                                                        } else {
+                                                            updateQuantity(service.id, -1);
+                                                        }
+                                                    }}
+                                                    size="sm"
+                                                />
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             </motion.div>

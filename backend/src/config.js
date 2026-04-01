@@ -47,3 +47,6 @@ export const PUSH_DEFAULT_ICON_URL = process.env.PUSH_DEFAULT_ICON_URL || "";
 export const PUSH_DEFAULT_CLICK_BASE_URL = process.env.PUSH_DEFAULT_CLICK_BASE_URL || "http://localhost:5173";
 export const PUSH_BATCH_SIZE = Number(process.env.PUSH_BATCH_SIZE || 100);
 export const PUSH_RETRY_LIMIT = Number(process.env.PUSH_RETRY_LIMIT || 3);
+
+// Booking Auto-Expiry
+export const BOOKING_AUTO_CANCEL_THRESHOLD_MINUTES = Number(process.env.BOOKING_AUTO_CANCEL_THRESHOLD_MINUTES || 60);

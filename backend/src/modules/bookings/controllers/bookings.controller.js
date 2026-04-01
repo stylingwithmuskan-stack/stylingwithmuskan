@@ -556,29 +556,54 @@ export async function create(req, res) {
       });
     } catch {}
   } else {
-    // Escalated / unassigned booking - notify admin and city vendor (if any)
+    // Escalated / unassigned booking - escalate to VENDOR first, then admin as fallback
+    const city = booking.address?.city || booking.address?.area || "";
+    let vendor = null;
+    
+    if (city) {
+      vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+    }
+
     try {
-      await notify({
-        recipientId: "ADMIN001",
-        recipientRole: "admin",
-        title: "Booking Escalated",
-        message: `Booking #${bookingId.slice(-6)} could not be auto-assigned.`,
-        type: "booking_escalated",
-        meta: { bookingId },
-      });
-      const city = booking.address?.city || booking.address?.area || "";
-      if (city) {
-        const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
-        if (vendor) {
-          await notify({
-            recipientId: vendor._id?.toString(),
-            recipientRole: "vendor",
-            title: "Booking Escalated",
-            message: `Booking #${bookingId.slice(-6)} in ${city} needs manual assignment.`,
-            type: "booking_escalated",
-            meta: { bookingId, city },
-          });
-        }
+      if (vendor) {
+        // Escalate to vendor
+        booking.vendorEscalated = true;
+        booking.vendorEscalatedAt = new Date();
+        booking.adminEscalated = false;
+        await booking.save();
+
+        await notify({
+          recipientId: vendor._id?.toString(),
+          recipientRole: "vendor",
+          title: "Booking Escalated",
+          message: `Booking #${bookingId.slice(-6)} in ${city} needs manual assignment.`,
+          type: "booking_escalated",
+          meta: { bookingId, city },
+        });
+        
+        // Also notify admin (as copy)
+        await notify({
+          recipientId: "ADMIN001",
+          recipientRole: "admin",
+          title: "Booking Escalated to Vendor",
+          message: `Booking #${bookingId.slice(-6)} escalated to vendor in ${city}.`,
+          type: "booking_escalated",
+          meta: { bookingId, city, vendorId: vendor._id?.toString() },
+        });
+      } else {
+        // Fallback to admin if no vendor found
+        booking.adminEscalated = true;
+        booking.vendorEscalated = false;
+        await booking.save();
+
+        await notify({
+          recipientId: "ADMIN001",
+          recipientRole: "admin",
+          title: "Booking Escalated",
+          message: `Booking #${bookingId.slice(-6)} could not be auto-assigned. No vendor found for ${city}.`,
+          type: "booking_escalated",
+          meta: { bookingId, city },
+        });
       }
     } catch {}
   }

@@ -80,11 +80,18 @@ export default function SubscriptionPortal({
       try {
         const currentRes = await api.subscriptions.getCurrent(role);
         setCurrent(currentRes || null);
-      } catch {
+      } catch (err) {
+        // 401 is expected if user is not logged in - don't show error
+        if (err?.status !== 401) {
+          console.error("Failed to fetch current subscription:", err);
+        }
         setCurrent(null);
       }
     } catch (error) {
-      toast.error(error?.message || "Failed to load subscription details");
+      // Only show error toast if it's not a 401 (unauthorized)
+      if (error?.status !== 401) {
+        toast.error(error?.message || "Failed to load subscription details");
+      }
     } finally {
       setIsLoading(false);
     }

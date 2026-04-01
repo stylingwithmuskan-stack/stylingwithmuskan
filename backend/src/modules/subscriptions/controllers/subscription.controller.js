@@ -22,6 +22,9 @@ import {
 } from "../../../config.js";
 
 function getRazorpay() {
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    throw new Error("Razorpay keys not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env");
+  }
   return new Razorpay({
     key_id: RAZORPAY_KEY_ID,
     key_secret: RAZORPAY_KEY_SECRET,
@@ -30,6 +33,9 @@ function getRazorpay() {
 
 function ensurePaymentKeys(res) {
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    console.error("[Subscription] Razorpay keys missing!");
+    console.error("[Subscription] RAZORPAY_KEY_ID:", RAZORPAY_KEY_ID ? "SET" : "MISSING");
+    console.error("[Subscription] RAZORPAY_KEY_SECRET:", RAZORPAY_KEY_SECRET ? "SET" : "MISSING");
     res.status(500).json({ error: "Razorpay keys not configured" });
     return false;
   }
@@ -92,8 +98,12 @@ export async function getSubscriptionPlans(req, res) {
     const query = {};
     if (["customer", "provider", "vendor"].includes(userType)) query.userType = userType;
     const plans = await SubscriptionPlan.find(query).sort({ userType: 1, sortOrder: 1, price: 1 }).lean();
+    
+    console.log(`[Subscription] Fetched ${plans.length} plans for userType: ${userType || 'all'}`);
+    
     res.json({ plans: plans.map((plan) => mapPlan(plan, settings)) });
   } catch (error) {
+    console.error("[Subscription] Error fetching plans:", error);
     res.status(500).json({ error: "Could not fetch subscription plans." });
   }
 }
@@ -132,25 +142,55 @@ export async function getMySubscription(req, res) {
 }
 
 export async function createSubscriptionOrder(req, res) {
+  console.log("[Subscription] Creating order - Start");
+  
   if (!ensurePaymentKeys(res)) return;
 
   const actor = await inferActor(req);
-  if (!actor) return res.status(401).json({ error: "Unauthorized" });
+  if (!actor) {
+    console.log("[Subscription] No actor found - Unauthorized");
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  console.log("[Subscription] Actor:", { userType: actor.userType, userId: actor.userId });
 
   const { planId } = req.body;
-  if (!planId) return res.status(400).json({ error: "planId is required" });
+  if (!planId) {
+    console.log("[Subscription] No planId provided");
+    return res.status(400).json({ error: "planId is required" });
+  }
+
+  console.log("[Subscription] Requested planId:", planId);
 
   try {
     await ensureSubscriptionDefaults();
     const settings = await getSubscriptionSettings();
+    
+    console.log("[Subscription] Looking for plan:", { planId, userType: actor.userType });
     const plan = await SubscriptionPlan.findOne({ planId, userType: actor.userType, isActive: true }).lean();
-    if (!plan) return res.status(404).json({ error: "Subscription plan not found." });
+    
+    if (!plan) {
+      console.log("[Subscription] Plan not found in database");
+      console.log("[Subscription] Available plans:", await SubscriptionPlan.find({ userType: actor.userType }).select('planId name isActive').lean());
+      return res.status(404).json({ error: "Subscription plan not found." });
+    }
 
+    console.log("[Subscription] Plan found:", { planId: plan.planId, name: plan.name, price: plan.price });
+
+    console.log("[Subscription] Creating Razorpay order...");
     const rzp = getRazorpay();
+    
+    // Razorpay receipt must be <= 40 characters
+    // Format: sub_USERTYPE_TIMESTAMP (e.g., sub_cust_1234567890)
+    const shortUserType = actor.userType === 'customer' ? 'cust' : actor.userType.slice(0, 4);
+    const receipt = `sub_${shortUserType}_${Date.now()}`.slice(0, 40);
+    
+    console.log("[Subscription] Receipt:", receipt, `(${receipt.length} chars)`);
+    
     const order = await rzp.orders.create({
       amount: Math.round(Number(plan.price || 0) * 100),
       currency: "INR",
-      receipt: `sub_${actor.userType}_${actor.userId}_${Date.now()}`,
+      receipt: receipt,
       notes: {
         purpose: "subscription",
         planId: plan.planId,
@@ -158,6 +198,8 @@ export async function createSubscriptionOrder(req, res) {
         userType: actor.userType,
       },
     });
+
+    console.log("[Subscription] Razorpay order created:", order.id);
 
     await UserSubscription.findOneAndUpdate(
       {
@@ -188,6 +230,9 @@ export async function createSubscriptionOrder(req, res) {
       { upsert: true, new: true }
     );
 
+    console.log("[Subscription] UserSubscription record created/updated");
+    console.log("[Subscription] Order creation successful");
+
     res.json({
       order,
       plan: mapPlan(plan, settings),
@@ -197,7 +242,17 @@ export async function createSubscriptionOrder(req, res) {
       },
     });
   } catch (error) {
-    res.status(502).json({ error: "Could not create subscription order." });
+    console.error("[Subscription] Error creating order:", error);
+    console.error("[Subscription] Error details:", {
+      message: error.message,
+      code: error.code,
+      statusCode: error.statusCode,
+      description: error.description,
+    });
+    res.status(502).json({ 
+      error: "Could not create subscription order.",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }
 

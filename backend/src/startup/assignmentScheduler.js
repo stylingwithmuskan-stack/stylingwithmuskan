@@ -13,6 +13,7 @@ export function startAssignmentScheduler() {
     const q = {
       status: "pending",
       adminEscalated: false,
+      vendorEscalated: false,
       assignedProvider: { $ne: "" },
       $or: [
         { expiresAt: { $ne: null, $lte: now } },
@@ -49,6 +50,7 @@ export function startAssignmentScheduler() {
           b.lastAssignedAt = now;
           b.expiresAt = computeExpiresAt(now);
           b.adminEscalated = false;
+          b.vendorEscalated = false;
           await b.save();
           try {
             const io = getIO();
@@ -67,38 +69,68 @@ export function startAssignmentScheduler() {
             });
           } catch {}
         } else {
-          console.log(`[Scheduler] No more candidates for Booking ${b._id}. Escalating to admin.`);
-          b.assignedProvider = "";
-          b.adminEscalated = true;
-          b.expiresAt = null;
-          await b.save();
+          // No more candidates - escalate to VENDOR (not admin)
+          const city = b.address?.city || "";
+          let vendor = null;
+          
+          if (city) {
+            vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}`, "i") }, status: "approved" }).lean();
+          }
+
+          if (vendor) {
+            // Escalate to vendor
+            console.log(`[Scheduler] No more candidates for Booking ${b._id}. Escalating to vendor in ${city}.`);
+            b.assignedProvider = "";
+            b.vendorEscalated = true;
+            b.vendorEscalatedAt = now;
+            b.adminEscalated = false;
+            b.expiresAt = null;
+            await b.save();
+
+            try {
+              await notify({
+                recipientId: vendor._id?.toString(),
+                recipientRole: "vendor",
+                title: "Booking Escalated",
+                message: `Booking #${b._id.toString().slice(-6)} in ${city} needs manual assignment.`,
+                type: "booking_escalated",
+                meta: { bookingId: b._id.toString(), city },
+              });
+              
+              // Also notify admin (as copy)
+              await notify({
+                recipientId: "ADMIN001",
+                recipientRole: "admin",
+                title: "Booking Escalated to Vendor",
+                message: `Booking #${b._id.toString().slice(-6)} escalated to vendor in ${city}.`,
+                type: "booking_escalated",
+                meta: { bookingId: b._id.toString(), city, vendorId: vendor._id?.toString() },
+              });
+            } catch {}
+          } else {
+            // Fallback to admin if no vendor found
+            console.log(`[Scheduler] No more candidates for Booking ${b._id}. No vendor found for ${city}. Escalating to admin.`);
+            b.assignedProvider = "";
+            b.adminEscalated = true;
+            b.vendorEscalated = false;
+            b.expiresAt = null;
+            await b.save();
+
+            try {
+              await notify({
+                recipientId: "ADMIN001",
+                recipientRole: "admin",
+                title: "Booking Escalated",
+                message: `Booking #${b._id.toString().slice(-6)} could not be auto-assigned. No vendor found for ${city}.`,
+                type: "booking_escalated",
+                meta: { bookingId: b._id.toString(), city },
+              });
+            } catch {}
+          }
+
           try {
             const io = getIO();
             io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
-          } catch {}
-          try {
-            await notify({
-              recipientId: "ADMIN001",
-              recipientRole: "admin",
-              title: "Booking Escalated",
-              message: `Booking #${b._id.toString().slice(-6)} could not be auto-assigned.`,
-              type: "booking_escalated",
-              meta: { bookingId: b._id.toString() },
-            });
-            const city = b.address?.city || "";
-            if (city) {
-              const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
-              if (vendor) {
-                await notify({
-                  recipientId: vendor._id?.toString(),
-                  recipientRole: "vendor",
-                  title: "Booking Escalated",
-                  message: `Booking #${b._id.toString().slice(-6)} in ${city} needs manual assignment.`,
-                  type: "booking_escalated",
-                  meta: { bookingId: b._id.toString(), city },
-                });
-              }
-            }
           } catch {}
         }
       }

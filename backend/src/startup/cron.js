@@ -7,6 +7,7 @@ import { getIO } from "./socket.js";
 import BookingLog from "../models/BookingLog.js";
 import { notify } from "../lib/notify.js";
 import { processQueuedPushNotifications } from "../lib/push.js";
+import { processAutoExpiredBookings } from "../lib/bookingExpiry.js";
 
 function withinWindow(now, startTime, endTime) {
   const [startH, startM] = String(startTime || "07:00").split(":").map(Number);
@@ -21,6 +22,15 @@ function withinWindow(now, startTime, endTime) {
 }
 
 export function startCron() {
+  // Auto-expire escalated bookings every 5 minutes
+  setInterval(async () => {
+    try {
+      await processAutoExpiredBookings();
+    } catch (e) {
+      console.error("[Cron] Error in auto-expiry:", e.message);
+    }
+  }, 5 * 60 * 1000); // Every 5 minutes
+
   // Check for auto-cancellations every minute
   setInterval(async () => {
     try {
