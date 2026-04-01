@@ -335,6 +335,10 @@ export default function SPOversight() {
                                         <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Joined</p>
                                         <p className="text-sm font-bold mt-1">{selectedSP.createdAt ? new Date(selectedSP.createdAt).toLocaleDateString() : "N/A"}</p>
                                     </div>
+                                    <div className="bg-muted/50 rounded-xl p-3 col-span-2">
+                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Full Address</p>
+                                        <p className="text-sm font-bold mt-1">{selectedSP.address || "N/A"}</p>
+                                    </div>
                                 </div>
 
                                 {/* Professional Details */}

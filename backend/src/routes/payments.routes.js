@@ -208,13 +208,25 @@ router.post(
     if ((purpose === "booking_full" || purpose === "booking_advance") && bookingId && amount > 0) {
       const b = await Booking.findOne({ _id: bookingId, customerId: req.user._id.toString() });
       if (b) {
+        // Track payment source for smart refunds
+        if (!b.paymentSources) b.paymentSources = [];
+        b.paymentSources.push({
+          source: "razorpay",
+          amount,
+          paymentId: payment_id,
+          transactionId: order_id,
+          paidAt: new Date()
+        });
+        
         b.prepaidAmount = (b.prepaidAmount || 0) + amount;
         b.balanceAmount = Math.max((b.totalAmount || 0) - (b.prepaidAmount || 0), 0);
         b.paymentStatus = b.balanceAmount > 0 ? "Partially Paid" : "Fully Paid";
         b.status = b.status === "payment_pending" && b.balanceAmount === 0 ? "documentation" : b.status;
         b.paymentOrder = { id: "", amount: 0, currency: "INR", receipt: "", createdAt: null };
+        b.paymentId = payment_id;
+        b.onlineAmountPaid = (b.onlineAmountPaid || 0) + amount;
         await b.save();
-        await BookingLog.create({ action: "booking:payment-update", userId: req.user._id.toString(), bookingId: b._id.toString(), meta: { amount } });
+        await BookingLog.create({ action: "booking:payment-update", userId: req.user._id.toString(), bookingId: b._id.toString(), meta: { amount, source: "razorpay", paymentId: payment_id } });
       }
       try {
         await notify({

@@ -21,7 +21,7 @@ const CommissionSettingsSchema = new mongoose.Schema(
 const BookingSettingsSchema = new mongoose.Schema(
   {
     minBookingAmount: { type: Number, default: 500 },
-    minLeadTimeMinutes: { type: Number, default: 60 },
+    minLeadTimeMinutes: { type: Number, default: 30 },
     providerBufferMinutes: { type: Number, default: 60 },
     serviceStartTime: { type: String, default: "08:00" },
     serviceEndTime: { type: String, default: "19:00" },

@@ -33,8 +33,12 @@ const UserSchema = new mongoose.Schema(
         {
           title: { type: String, default: "" },
           amount: { type: Number, required: true },
-          type: { type: String, enum: ["credit", "debit"], required: true },
+          type: { type: String, enum: ["credit", "debit", "refund", "topup", "booking_payment"], required: true },
           at: { type: Date, default: Date.now },
+          balanceAfter: { type: Number, default: 0 },
+          description: { type: String, default: "" },
+          bookingId: { type: String, default: "" },
+          refundId: { type: String, default: "" },
         },
       ],
     },

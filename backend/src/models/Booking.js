@@ -29,6 +29,33 @@ const BookingSchema = new mongoose.Schema(
       receipt: { type: String, default: "" },
       createdAt: { type: Date, default: null },
     },
+    // Payment source tracking (for smart refunds)
+    paymentSources: [{
+      source: { type: String, enum: ["wallet", "razorpay", "cod"], default: "razorpay" },
+      amount: { type: Number, default: 0 },
+      paymentId: { type: String, default: "" },
+      transactionId: { type: String, default: "" },
+      paidAt: { type: Date, default: null }
+    }],
+    walletAmountUsed: { type: Number, default: 0 },
+    onlineAmountPaid: { type: Number, default: 0 },
+    paymentId: { type: String, default: "" },
+    // Refund tracking (split by source)
+    refunds: [{
+      source: { type: String, enum: ["wallet", "razorpay"], default: "razorpay" },
+      amount: { type: Number, default: 0 },
+      status: { type: String, enum: ["pending", "processing", "processed", "failed"], default: "pending" },
+      refundId: { type: String, default: "" },
+      transactionId: { type: String, default: "" },
+      refundedAt: { type: Date, default: null },
+      error: { type: String, default: "" }
+    }],
+    refundAmount: { type: Number, default: 0 },
+    refundStatus: { type: String, enum: ["none", "pending", "processing", "processed", "failed", "partial"], default: "none" },
+    cancellationCharge: { type: Number, default: 0 },
+    cancelledBy: { type: String, enum: ["", "customer", "provider", "admin", "system"], default: "" },
+    cancelledAt: { type: Date, default: null },
+    cancellationReason: { type: String, default: "" },
     payoutStatus: { type: String, default: "pending" },
     commissionAmount: { type: Number, default: 0 },
     commissionChargedAt: { type: Date, default: null },

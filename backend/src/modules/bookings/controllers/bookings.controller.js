@@ -7,6 +7,7 @@ import { BookingSettings } from "../../../models/Settings.js";
 import ProviderAccount from "../../../models/ProviderAccount.js";
 import BookingLog from "../../../models/BookingLog.js";
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
+import User from "../../../models/User.js";
 import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM } from "../../../lib/slots.js";
 import { isIsoDate } from "../../../lib/isoDateTime.js";
 import { computeExpiresAt } from "../../../lib/assignment.js";
@@ -21,6 +22,7 @@ import {
   createLedgerEntry,
   getSubscriptionSnapshot,
 } from "../../../lib/subscriptions.js";
+import { calculateRefundPolicy, processSmartRefund } from "../../../lib/refund.service.js";
 
 async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
   // Logic: Instant bookings never require advance payment.
@@ -86,7 +88,7 @@ async function loadBookingSettings() {
   const s = await BookingSettings.findOne().lean();
   return s || {
     minBookingAmount: 500,
-    minLeadTimeMinutes: 60,
+    minLeadTimeMinutes: 30,
     providerBufferMinutes: 60,
     serviceStartTime: "08:00",
     serviceEndTime: "19:00",
@@ -858,46 +860,81 @@ export async function adminFinalApprove(req, res) {
 
 export async function cancel(req, res) {
   const { id } = req.params;
+  const { reason } = req.body;
   const booking = await Booking.findOne({ _id: id, customerId: req.user._id.toString() });
   if (!booking) return res.status(404).json({ error: "Booking not found" });
-
-  const subscription = await getSubscriptionSnapshot(req.user._id.toString(), "customer");
-  if (subscription.isPlusMember && Number(subscription.freeCancellationWindowHours || 0) > 0) {
-    const bookingTime = new Date(`${booking.slot.date}T${booking.slot.time}`);
-    const now = new Date();
-    const diffHours = (bookingTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-    if (diffHours > Number(subscription.freeCancellationWindowHours || 0)) {
-      booking.status = "cancelled";
-      await booking.save();
-      return res.json({ booking, message: "Booking cancelled successfully with SWM Plus benefits." });
-    }
-  }
 
   const status = (booking.status || "").toLowerCase();
   const restrictedStatuses = ["arrived", "in_progress", "completed", "cancelled", "rejected"];
   if (restrictedStatuses.includes(status)) {
-    return res.status(400).json({ 
-      error: `Cannot cancel booking with current status: ${booking.status}` 
+    return res.status(400).json({
+      error: `Cannot cancel booking with current status: ${booking.status}`
     });
   }
 
+  const subscription = await getSubscriptionSnapshot(req.user._id.toString(), "customer");
+
+  // Calculate refund policy
+  const refundPolicy = calculateRefundPolicy(booking, "customer", subscription);
+  const refundAmount = Math.round((booking.prepaidAmount || 0) * (refundPolicy.refundPercentage / 100));
+  const cancellationCharge = (booking.prepaidAmount || 0) - refundAmount;
+
+  console.log(`[Cancel] Booking #${id.slice(-6)}: refundPolicy=${JSON.stringify(refundPolicy)}, refundAmount=₹${refundAmount}, charge=₹${cancellationCharge}`);
+
+  // Update booking status
   const oldStatus = booking.status;
   booking.status = "cancelled";
+  booking.cancelledBy = "customer";
+  booking.cancelledAt = new Date();
+  booking.cancellationReason = reason || "";
+  booking.cancellationCharge = cancellationCharge;
+
+  // Process refund if prepaid amount exists
+  let refundResult = null;
+  if (refundAmount > 0 && booking.prepaidAmount > 0) {
+    try {
+      const user = await User.findById(req.user._id);
+      refundResult = await processSmartRefund({
+        booking,
+        user,
+        refundAmount,
+        reason: reason || "booking_cancellation"
+      });
+
+      console.log(`[Cancel] Refund processed: status=${refundResult.status}, totalRefunded=₹${refundResult.totalRefunded}`);
+    } catch (error) {
+      console.error(`[Cancel] Refund processing failed:`, error);
+      booking.refundStatus = "failed";
+      booking.refunds = [{
+        source: "razorpay",
+        amount: refundAmount,
+        status: "failed",
+        error: error.message
+      }];
+    }
+  }
+
   await booking.save();
 
   await BookingLog.create({
     action: "booking:cancel",
     userId: req.user._id.toString(),
     bookingId: id,
-    meta: { oldStatus, by: "customer" }
+    meta: {
+      oldStatus,
+      by: "customer",
+      refundAmount,
+      cancellationCharge,
+      refundPolicy: refundPolicy.reason
+    }
   });
 
   // Socket notifications
   try {
     const io = getIO();
-    const payload = { 
-      id: booking._id.toString(), 
-      status: "cancelled", 
+    const payload = {
+      id: booking._id.toString(),
+      status: "cancelled",
       customerName: booking.customerName,
       city: booking.address?.city || ""
     };
@@ -934,7 +971,7 @@ export async function cancel(req, res) {
       });
       const city = booking.address?.city || "";
       if (city) {
-        const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+        const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}`, "i") }, status: "approved" }).lean();
         if (vendor) {
           await notify({
             recipientId: vendor._id?.toString(),
@@ -951,5 +988,16 @@ export async function cancel(req, res) {
     console.error("Socket notification failed:", err);
   }
 
-  res.json({ booking });
+  res.json({
+    booking,
+    refund: refundResult ? {
+      amount: refundAmount,
+      status: refundResult.status,
+      breakdown: refundResult.refunds
+    } : null,
+    cancellationCharge,
+    message: refundAmount > 0
+      ? `Booking cancelled. Refund of ₹${refundAmount} is being processed.`
+      : "Booking cancelled successfully."
+  });
 }

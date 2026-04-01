@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { body, query } from "express-validator";
+import { body, query, validationResult } from "express-validator";
 import { requireAuth } from "../middleware/auth.js";
 import * as BookingsController from "../modules/bookings/controllers/bookings.controller.js";
 
@@ -88,6 +88,65 @@ router.patch(
   "/:id/cancel",
   requireAuth,
   BookingsController.cancel
+);
+
+// Feedback submission
+router.post(
+  "/:id/feedback",
+  requireAuth,
+  body("rating").isInt({ min: 1, max: 5 }),
+  body("comment").optional().isString(),
+  body("tags").optional().isArray(),
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+      const Feedback = (await import("../models/Feedback.js")).default;
+      const Booking = (await import("../models/Booking.js")).default;
+      const { updateProviderRating } = await import("../lib/updateProviderRating.js");
+
+      const booking = await Booking.findById(req.params.id).lean();
+      if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+      // Verify booking belongs to user
+      if (booking.customerId !== req.user._id.toString()) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Check if feedback already exists
+      const existing = await Feedback.findOne({ bookingId: req.params.id });
+      if (existing) {
+        return res.status(400).json({ error: "Feedback already submitted for this booking" });
+      }
+
+      // Create feedback
+      const feedback = await Feedback.create({
+        bookingId: req.params.id,
+        customerId: req.user._id.toString(),
+        customerName: req.user.name || booking.customerName || "Customer",
+        providerId: booking.assignedProvider || "",
+        providerName: booking.assignedProvider ? "Provider" : "",
+        serviceName: booking.services?.[0]?.name || "Service",
+        serviceCategory: booking.services?.[0]?.category || "",
+        rating: req.body.rating,
+        comment: req.body.comment || "",
+        tags: req.body.tags || [],
+        type: "customer_to_provider",
+        status: "active",
+      });
+
+      // Update provider rating if provider is assigned
+      if (booking.assignedProvider) {
+        await updateProviderRating(booking.assignedProvider);
+      }
+
+      res.status(201).json({ success: true, feedback });
+    } catch (error) {
+      console.error("[Feedback] Error:", error);
+      res.status(500).json({ error: "Failed to submit feedback" });
+    }
+  }
 );
 
 export default router;

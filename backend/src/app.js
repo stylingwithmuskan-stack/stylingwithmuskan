@@ -4,6 +4,7 @@ import morgan from "morgan";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
+import webhooksRoutes from "./routes/webhooks.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./modules/user/routes/index.js";
 import contentRoutes from "./routes/content.routes.js";
@@ -37,6 +38,11 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// IMPORTANT: Webhook route MUST be registered BEFORE express.json()
+// because we need raw body for signature verification
+app.use("/webhooks", webhooksRoutes);
+
 app.use(express.json({
   limit: "8mb",
   verify: (req, _res, buf) => {
@@ -53,7 +59,7 @@ app.use(limiter);
 
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 app.get("/",(req,res)=>{
-  app.send("Welcome to Styling With Muskan");
+  res.send("Welcome to Styling With Muskan");
 });
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
