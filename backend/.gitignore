@@ -6,12 +6,11 @@ dist
 # PM2 (only for local development, not used in production)
 ecosystem.config.cjs
 .pm2
-# Firebase Admin SDK
-backend/src/config/*.json
+
+# Firebase Admin SDK & Config files
+src/config/*.json
+src\config\*.json
 
 # env files
 .env
 .env.*
-.env
-.env.*
-backend/src/config/*.json

@@ -18,8 +18,15 @@ import { toast } from "sonner";
 
 export default function ProviderStatusPage() {
     const navigate = useNavigate();
-    const { provider, isApproved } = useProviderAuth();
+    const { provider, isApproved, refreshProvider } = useProviderAuth();
     const status = provider?.approvalStatus || "pending"; // pending, approved, rejected, suspended
+
+    React.useEffect(() => {
+        // Auto refresh status on mount
+        if (provider && !isApproved) {
+            refreshProvider().catch(() => {});
+        }
+    }, []);
 
     React.useEffect(() => {
         if (isApproved) {
@@ -122,6 +129,22 @@ export default function ProviderStatusPage() {
                     </p>
 
                     <div className="w-full space-y-4">
+                        <Button
+                            variant={config.isCritical ? "destructive" : "outline"}
+                            className="w-full h-14 rounded-2xl border-gray-200 font-black text-gray-600 flex items-center gap-2 shadow-sm active:scale-[0.98] transition-transform"
+                            onClick={async () => {
+                                try {
+                                    await refreshProvider();
+                                    toast.success("Status updated!");
+                                } catch {
+                                    toast.error("Could not refresh status");
+                                }
+                            }}
+                        >
+                            <RotateCcw className="h-5 w-5" />
+                            Check Again
+                        </Button>
+
                         {status === 'approved' && (
                             <Button
                                 className="w-full h-14 rounded-2xl font-black text-lg bg-green-600 hover:bg-green-700 text-white shadow-xl shadow-green-100"

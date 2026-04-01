@@ -4,6 +4,17 @@
 
 **URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
+## Configuration
+
+### Google Maps API Setup
+
+The admin panel's Cities & Zones feature requires a Google Maps API key. See [GOOGLE_MAPS_SETUP.md](./GOOGLE_MAPS_SETUP.md) for detailed setup instructions.
+
+**Quick Start:**
+1. Get API key from [Google Cloud Console](https://console.cloud.google.com/google/maps-apis)
+2. Add to `.env`: `VITE_GOOGLE_MAPS_API_KEY=your_api_key_here`
+3. Restart dev server
+
 ## How can I edit this code?
 
 There are several ways of editing your application.

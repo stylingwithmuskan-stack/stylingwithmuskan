@@ -736,6 +736,7 @@ router.put("/subscription-settings", requireRole("admin"), AdminSubscriptionCont
 router.get("/subscription-plans", requireRole("admin"), AdminSubscriptionController.listPlans);
 router.post("/subscription-plans", requireRole("admin"), AdminSubscriptionController.createPlan);
 router.put("/subscription-plans/:planId", requireRole("admin"), AdminSubscriptionController.updatePlan);
+router.delete("/subscription-plans/:planId", requireRole("admin"), AdminSubscriptionController.deletePlan);
 router.get("/subscription-report", requireRole("admin"), AdminSubscriptionController.report);
 router.post(
   "/push/broadcast",
@@ -751,5 +752,15 @@ router.post("/push/test", requireRole("admin"), AdminPushController.test);
 // ───── PAYOUTS ─────
 router.get("/payouts", requireRole("admin"), AdminController.listPayouts);
 router.patch("/payouts/:id/status", requireRole("admin"), AdminController.updatePayoutStatus);
+
+// ───── FEEDBACK MANAGEMENT ─────
+router.get("/feedback", requireRole("admin"), AdminController.listFeedback);
+router.get("/feedback/stats", requireRole("admin"), AdminController.getFeedbackStats);
+router.delete("/feedback/:id", requireRole("admin"), AdminController.deleteFeedback);
+router.patch("/feedback/:id/status", requireRole("admin"), AdminController.updateFeedbackStatus);
+
+// ───── CUSTOMER COD MANAGEMENT ─────
+router.patch("/customers/:id/toggle-cod", requireRole("admin"), AdminController.toggleCustomerCOD);
+router.patch("/customers/:id/status", requireRole("admin"), AdminController.updateCustomerStatus);
 
 export default router;

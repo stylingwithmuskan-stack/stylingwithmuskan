@@ -42,6 +42,12 @@ export async function updatePlan(req, res) {
   res.json({ plan });
 }
 
+export async function deletePlan(req, res) {
+  const plan = await SubscriptionPlan.findOneAndDelete({ planId: req.params.planId });
+  if (!plan) return res.status(404).json({ error: "Plan not found" });
+  res.json({ success: true, message: "Plan deleted successfully" });
+}
+
 export async function report(_req, res) {
   await ensureSubscriptionDefaults();
   await expireStaleSubscriptions();

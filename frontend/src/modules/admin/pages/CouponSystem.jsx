@@ -9,14 +9,14 @@ import { Label } from "@/modules/user/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/modules/user/components/ui/select";
 import { Switch } from "@/modules/user/components/ui/switch";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
+import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 
-const CATEGORIES = ["Hair", "Makeup", "Skin Care", "Nails", "Bridal", "All"];
-
 export default function CouponSystem() {
     const { getCoupons, addCoupon, deleteCoupon } = useAdminAuth();
+    const { categories } = useUserModuleData();
     const [coupons, setCoupons] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [copied, setCopied] = useState(null);
@@ -107,7 +107,10 @@ export default function CouponSystem() {
                                         <Label className="text-xs font-bold">Category</Label>
                                         <Select value={form.category} onValueChange={v => update("category", v)}>
                                             <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
-                                            <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                                            <SelectContent>
+                                                <SelectItem value="All">All</SelectItem>
+                                                {categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                                            </SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
@@ -152,7 +155,7 @@ export default function CouponSystem() {
                                                 {copied === c.code ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3 opacity-40" />}
                                             </button>
                                         </div>
-                                        <Button size="sm" variant="outline" className="h-7 text-[10px] border-red-500/30 text-red-400 rounded-lg px-2" onClick={() => { deleteCoupon(c.id); load(); }}>
+                                        <Button size="sm" variant="outline" className="h-7 text-[10px] border-red-500/30 text-red-400 rounded-lg px-2" onClick={() => { deleteCoupon(c._id || c.id); load(); }}>
                                             <Trash2 className="h-3 w-3" />
                                         </Button>
                                     </div>

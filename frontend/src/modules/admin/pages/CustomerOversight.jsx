@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, CreditCard, AlertTriangle, Star } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -12,7 +13,7 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } 
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 
 export default function CustomerOversight() {
-    const { getUserBookings, getAllCustomers } = useAdminAuth();
+    const { getUserBookings, getAllCustomers, toggleCustomerCOD, updateCustomerStatus } = useAdminAuth();
     const [customers, setCustomers] = useState([]);
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("all");
@@ -36,6 +37,7 @@ export default function CustomerOversight() {
                     name: u.name || "Unknown Customer",
                     phone: u.phone,
                     status: u.status || "active",
+                    codDisabled: u.codDisabled || false,
                     totalBookings: 0,
                     cancelledBookings: 0,
                     paymentFailures: 0,
@@ -80,6 +82,36 @@ export default function CustomerOversight() {
 
     const handleAction = (id, newStatus) => {
         setCustomers(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
+    };
+
+    const handleToggleCOD = async (userId, codDisabled) => {
+        try {
+            await toggleCustomerCOD(userId, codDisabled);
+            toast.success(codDisabled ? "COD disabled for user" : "COD enabled for user");
+            await load();
+        } catch (error) {
+            toast.error(error?.message || "Failed to update COD status");
+        }
+    };
+
+    const handleBlacklist = async (userId) => {
+        try {
+            await updateCustomerStatus(userId, "blocked");
+            toast.success("User blacklisted successfully");
+            await load();
+        } catch (error) {
+            toast.error(error?.message || "Failed to blacklist user");
+        }
+    };
+
+    const handleUnblock = async (userId) => {
+        try {
+            await updateCustomerStatus(userId, "active");
+            toast.success("User unblocked successfully");
+            await load();
+        } catch (error) {
+            toast.error(error?.message || "Failed to unblock user");
+        }
     };
 
     return (
@@ -128,14 +160,34 @@ export default function CustomerOversight() {
                                                                 BLACKLISTED
                                                             </Badge>
                                                         )}
+                                                        {c.codDisabled && (
+                                                            <Badge variant="outline" className="text-[8px] font-black px-1.5 py-0 h-4 bg-orange-100 text-orange-600 border-orange-200">
+                                                                COD DISABLED
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                     <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3" />{c.phone}</span>
                                                 </div>
                                                 <div className="flex gap-1.5">
+                                                    {c.status === "active" && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className={`h-7 text-[10px] font-bold rounded-lg px-2 ${
+                                                                c.codDisabled
+                                                                    ? "border-green-500/30 text-green-600 bg-green-50 hover:bg-green-100"
+                                                                    : "border-orange-500/30 text-orange-600 bg-orange-50 hover:bg-orange-100"
+                                                            }`}
+                                                            onClick={() => handleToggleCOD(c.id, !c.codDisabled)}
+                                                        >
+                                                            <CreditCard className="h-3 w-3 mr-1" />
+                                                            {c.codDisabled ? "Enable COD" : "Disable COD"}
+                                                        </Button>
+                                                    )}
                                                     {c.status === "active" ? (
-                                                        <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold border-red-500/30 text-red-600 rounded-lg px-2 bg-red-50 hover:bg-red-100" onClick={() => handleAction(c.id, "blocked")}><Ban className="h-3 w-3 mr-1" />Blacklist</Button>
+                                                        <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold border-red-500/30 text-red-600 rounded-lg px-2 bg-red-50 hover:bg-red-100" onClick={() => handleBlacklist(c.id)}><Ban className="h-3 w-3 mr-1" />Blacklist</Button>
                                                     ) : (
-                                                        <Button size="sm" className="h-7 text-[10px] font-bold bg-green-600 hover:bg-green-700 rounded-lg px-2" onClick={() => handleAction(c.id, "active")}><UserCheck className="h-3 w-3 mr-1" />Unblock</Button>
+                                                        <Button size="sm" className="h-7 text-[10px] font-bold bg-green-600 hover:bg-green-700 rounded-lg px-2" onClick={() => handleUnblock(c.id)}><UserCheck className="h-3 w-3 mr-1" />Unblock</Button>
                                                     )}
                                                 </div>
                                             </div>
@@ -161,7 +213,8 @@ export default function CustomerOversight() {
                                             {c.cancelledBookings > 2 && c.status !== 'blocked' && (
                                                 <div className="bg-red-50 border border-red-200 text-red-600 text-xs p-2 rounded-lg flex items-center gap-2 mt-1 font-medium">
                                                     <AlertTriangle className="h-4 w-4 shrink-0" />
-                                                    High cancellation frequency detected. Consider blacklisting if pattern continues.
+                                                    High cancellation frequency detected ({c.cancelledBookings} cancellations).
+                                                    {!c.codDisabled && " Consider disabling COD or blacklisting."}
                                                 </div>
                                             )}
                                         </CardContent>

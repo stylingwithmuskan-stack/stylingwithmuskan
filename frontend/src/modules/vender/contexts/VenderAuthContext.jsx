@@ -172,6 +172,12 @@ export const VenderAuthProvider = ({ children }) => {
 
     const getProviderRankings = async (city) => await api.vendor.getProviderRankings(city);
 
+    const refreshVendor = async () => {
+        const { vendor: latest } = await api.vendor.me();
+        if (latest) syncVendor(latest);
+        return latest || null;
+    };
+
     return (
         <VenderAuthContext.Provider value={{
             vendor,
@@ -202,6 +208,7 @@ export const VenderAuthProvider = ({ children }) => {
             getStats,
             requestZones,
             getProviderRankings,
+            refreshVendor,
         }}>
             {children}
         </VenderAuthContext.Provider>

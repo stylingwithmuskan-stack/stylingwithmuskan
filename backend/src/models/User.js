@@ -23,6 +23,10 @@ const UserSchema = new mongoose.Schema(
     avatar: { type: String, default: "" },
     addresses: [AddressSchema],
     favorites: { type: [String], default: [] },
+    status: { type: String, enum: ["active", "blocked"], default: "active" },
+    codDisabled: { type: Boolean, default: false },
+    codDisabledAt: { type: Date, default: null },
+    codDisabledBy: { type: String, default: "" },
     wallet: {
       balance: { type: Number, default: 0 },
       transactions: [

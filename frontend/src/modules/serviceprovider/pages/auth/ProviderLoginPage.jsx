@@ -19,6 +19,7 @@ import {
 } from "@/modules/user/components/ui/select";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { api } from "@/modules/user/lib/api";
+import { toast } from "sonner";
 
 export default function ProviderLoginPage() {
     const navigate = useNavigate();
@@ -224,7 +225,21 @@ export default function ProviderLoginPage() {
                                             Resend OTP in <span className="text-gray-900 font-bold">0:{timer.toString().padStart(2, '0')}</span>
                                         </p>
                                     ) : (
-                                        <button className="text-violet-600 text-sm font-black hover:underline">
+                                        <button 
+                                            type="button"
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await requestOtp(phone);
+                                                    setOtpDeliveryMode(res?.deliveryMode || "sms");
+                                                    setTimer(30);
+                                                    toast.success("OTP sent successfully!");
+                                                } catch (err) {
+                                                    console.error("[ProviderLogin] resend-otp error", err);
+                                                    toast.error(err.message || "Failed to resend OTP");
+                                                }
+                                            }}
+                                            className="text-violet-600 text-sm font-black hover:underline"
+                                        >
                                             Resend OTP
                                         </button>
                                     )}

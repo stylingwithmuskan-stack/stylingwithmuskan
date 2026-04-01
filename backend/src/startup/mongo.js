@@ -17,7 +17,7 @@ export async function connectMongo() {
   try {
     await mongoose.connect(uri, {
       dbName,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000, // Increased to 30s
     });
     console.log(`[DB] ✅ Mongo connected to Atlas/Remote db=${dbName}`);
     console.log(`[DB] Connection state: ${mongoose.connection.readyState}`); // 1 = connected

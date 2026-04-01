@@ -248,6 +248,7 @@ export const api = {
     testimonials: () => request("/content/testimonials"),
     providers: () => request("/content/providers"),
     officeSettings: () => request("/content/office-settings"),
+    zones: () => request("/content/zones"),
     cities: () => request("/content/cities"),
     zones: (params = {}) => {
       const q = new URLSearchParams(params).toString();
@@ -350,6 +351,7 @@ export const api = {
     requestOtp: (phone) => request("/vendor/request-otp", { method: "POST", body: { phone } }),
     verifyOtp: (phone, otp) => request("/vendor/verify-otp", { method: "POST", body: { phone, otp } }),
     logout: () => request("/vendor/logout", { method: "POST" }),
+    me: () => request("/vendor/me"),
     providers: () => request("/vendor/providers"),
     updateSPStatus: (id, status) => request(`/vendor/service-providers/${id}/status`, { method: "PATCH", body: { status } }),
     approveSPZones: (id) => request(`/vendor/service-providers/${id}/approve-zones`, { method: "PATCH" }),
@@ -497,10 +499,21 @@ export const api = {
     listSubscriptionPlans: () => request("/admin/subscription-plans"),
     createSubscriptionPlan: (body) => request("/admin/subscription-plans", { method: "POST", body }),
     updateSubscriptionPlan: (planId, body) => request(`/admin/subscription-plans/${planId}`, { method: "PUT", body }),
+    deleteSubscriptionPlan: (planId) => request(`/admin/subscription-plans/${planId}`, { method: "DELETE" }),
     getSubscriptionReport: () => request("/admin/subscription-report"),
     pushBroadcast: (body) => request("/admin/push/broadcast", { method: "POST", body }),
     pushBroadcastHistory: () => request("/admin/push/broadcast/history"),
     pushTest: (body) => request("/admin/push/test", { method: "POST", body }),
+
+    // Feedback Management
+    listFeedback: (params) => request("/admin/feedback", { params }),
+    getFeedbackStats: () => request("/admin/feedback/stats"),
+    deleteFeedback: (id) => request(`/admin/feedback/${id}`, { method: "DELETE" }),
+    updateFeedbackStatus: (id, status) => request(`/admin/feedback/${id}/status`, { method: "PATCH", body: { status } }),
+
+    // Customer COD Management
+    toggleCustomerCOD: (userId, codDisabled) => request(`/admin/customers/${userId}/toggle-cod`, { method: "PATCH", body: { codDisabled } }),
+    updateCustomerStatus: (userId, status) => request(`/admin/customers/${userId}/status`, { method: "PATCH", body: { status } }),
   },
 
   subscriptions: {
@@ -513,6 +526,11 @@ export const api = {
   // SOS (customer/provider)
   sos: {
     create: (payload) => request("/sos", { method: "POST", body: payload }),
+  },
+
+  // Feedback Submission
+  feedback: {
+    submit: (bookingId, data) => request(`/bookings/${bookingId}/feedback`, { method: "POST", body: data }),
   },
 
   // Notifications

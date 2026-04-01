@@ -2,23 +2,29 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, X, MessageSquare, Send, ThumbsUp } from "lucide-react";
+import { toast } from "sonner";
+import { api } from "@/modules/user/lib/api";
 
 const FeedbackModal = ({ isOpen, onClose, booking, onSubmit }) => {
     const [rating, setRating] = useState(0);
     const [hoverRating, setHoverRating] = useState(0);
     const [comment, setComment] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
 
     const tags = ["Professional", "On Time", "Great Service", "Clean", "Friendly", "Value for Money"];
     const [selectedTags, setSelectedTags] = useState([]);
 
     const toggleTag = (t) => setSelectedTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (rating === 0) return;
+        
+        setSubmitting(true);
+        
         const feedback = {
             id: `FB${Date.now()}`,
-            bookingId: booking?.id,
+            bookingId: booking?.id || booking?._id,
             customerName: booking?.customerName || booking?.address?.name || "Customer",
             providerName: booking?.slot?.provider?.name || booking?.assignedProvider || "Provider",
             serviceName: booking?.items?.[0]?.name || booking?.services?.[0]?.name || "Service",
@@ -28,19 +34,37 @@ const FeedbackModal = ({ isOpen, onClose, booking, onSubmit }) => {
             type: "customer_to_provider",
             createdAt: new Date().toISOString(),
         };
-        // Save to localStorage
-        const existing = JSON.parse(localStorage.getItem("muskan-feedback") || "[]");
-        existing.unshift(feedback);
-        localStorage.setItem("muskan-feedback", JSON.stringify(existing));
-        if (onSubmit) onSubmit(feedback);
-        setSubmitted(true);
-        setTimeout(() => {
-            setSubmitted(false);
-            setRating(0);
-            setComment("");
-            setSelectedTags([]);
-            onClose();
-        }, 2000);
+
+        try {
+            // Submit to backend
+            await api.feedback.submit(booking?.id || booking?._id, {
+                rating,
+                comment,
+                tags: selectedTags,
+            });
+
+            // Also save to localStorage for backward compatibility
+            const existing = JSON.parse(localStorage.getItem("muskan-feedback") || "[]");
+            existing.unshift(feedback);
+            localStorage.setItem("muskan-feedback", JSON.stringify(existing));
+
+            if (onSubmit) onSubmit(feedback);
+            
+            setSubmitted(true);
+            toast.success("Thank you for your feedback!");
+            
+            setTimeout(() => {
+                setSubmitted(false);
+                setRating(0);
+                setComment("");
+                setSelectedTags([]);
+                onClose();
+            }, 2000);
+        } catch (error) {
+            toast.error(error?.message || "Failed to submit feedback");
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -125,10 +149,10 @@ const FeedbackModal = ({ isOpen, onClose, booking, onSubmit }) => {
                             {/* Submit */}
                             <button
                                 onClick={handleSubmit}
-                                disabled={rating === 0}
-                                className={`w-full h-13 py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${rating > 0 ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99]" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+                                disabled={rating === 0 || submitting}
+                                className={`w-full h-13 py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${rating > 0 && !submitting ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99]" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
                             >
-                                <Send className="w-4 h-4" /> Submit Review
+                                <Send className="w-4 h-4" /> {submitting ? "Submitting..." : "Submit Review"}
                             </button>
                         </>
                     )}

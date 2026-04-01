@@ -15,7 +15,6 @@ export function initSocket(httpServer) {
           if (!origin || allowed.includes("*") || allowed.includes(origin) || allowed.length === 0) {
             callback(null, true);
           } else {
-            console.warn(`[Socket CORS] Rejected origin: ${origin}`);
             callback(new Error("Not allowed by CORS"));
           }
         },

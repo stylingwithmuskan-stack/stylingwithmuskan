@@ -519,11 +519,47 @@ export async function listZones(req, res) {
   res.json({ zones });
 }
 
+// Helper function for coordinate validation
+function isValidCoordinate(coord) {
+  if (!coord) return false;
+  if (typeof coord.lat !== 'number') return false;
+  if (typeof coord.lng !== 'number') return false;
+  if (coord.lat < -90 || coord.lat > 90) return false;
+  if (coord.lng < -180 || coord.lng > 180) return false;
+  return true;
+}
+
 export async function createZone(req, res) {
   const { cityId } = req.params;
-  const { name } = req.body;
+  const { name, coordinates } = req.body;
+  
+  // Existing validation
   if (!name) return res.status(400).json({ error: "Name is required" });
-  const zone = await Zone.create({ name, city: cityId });
+  
+  // NEW: Validate coordinates if provided
+  if (coordinates !== undefined && coordinates !== null) {
+    if (!Array.isArray(coordinates) || coordinates.length !== 5) {
+      return res.status(400).json({ 
+        error: "Coordinates must be an array of exactly 5 points" 
+      });
+    }
+    
+    for (const coord of coordinates) {
+      if (!isValidCoordinate(coord)) {
+        return res.status(400).json({ 
+          error: "Invalid coordinate format or values" 
+        });
+      }
+    }
+  }
+  
+  // Create zone with optional coordinates
+  const zone = await Zone.create({ 
+    name, 
+    city: cityId,
+    ...(coordinates && { coordinates }) // Only include if provided
+  });
+  
   res.json({ zone });
 }
 
@@ -547,10 +583,35 @@ export async function deleteCity(req, res) {
 
 export async function updateZone(req, res) {
   const { zoneId } = req.params;
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: "Name is required" });
-  const zone = await Zone.findByIdAndUpdate(zoneId, { name }, { new: true });
+  const { name, coordinates } = req.body;
+  
+  const updates = {};
+  if (name) updates.name = name;
+  
+  // NEW: Validate and include coordinates if provided
+  if (coordinates !== undefined) {
+    if (coordinates === null) {
+      updates.coordinates = null; // Allow clearing coordinates
+    } else {
+      if (!Array.isArray(coordinates) || coordinates.length !== 5) {
+        return res.status(400).json({ 
+          error: "Coordinates must be an array of exactly 5 points" 
+        });
+      }
+      for (const coord of coordinates) {
+        if (!isValidCoordinate(coord)) {
+          return res.status(400).json({ 
+            error: "Invalid coordinate format or values" 
+          });
+        }
+      }
+      updates.coordinates = coordinates;
+    }
+  }
+  
+  const zone = await Zone.findByIdAndUpdate(zoneId, updates, { new: true });
   if (!zone) return res.status(404).json({ error: "Zone not found" });
+  
   res.json({ zone });
 }
 
@@ -658,3 +719,227 @@ export async function updatePayoutStatus(req, res) {
   res.json({ success: true, booking: b });
 }
 
+
+// ───── FEEDBACK MANAGEMENT ─────
+import Feedback from "../../../models/Feedback.js";
+
+export async function listFeedback(req, res) {
+  try {
+    const { type, rating, search, page = 1, limit = 50 } = req.query;
+    const query = { status: "active" };
+
+    // Filter by type
+    if (type && ["customer_to_provider", "provider_to_customer"].includes(type)) {
+      query.type = type;
+    }
+
+    // Filter by rating
+    if (rating) {
+      const r = Number(rating);
+      if (r >= 1 && r <= 5) query.rating = r;
+    }
+
+    // Search filter
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      query.$or = [
+        { customerName: searchRegex },
+        { providerName: searchRegex },
+        { serviceName: searchRegex },
+        { bookingId: searchRegex },
+        { comment: searchRegex },
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+    const feedbacks = await Feedback.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+
+    const total = await Feedback.countDocuments(query);
+
+    res.json({
+      feedback: feedbacks,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Error listing feedback:", error);
+    res.status(500).json({ error: "Could not fetch feedback" });
+  }
+}
+
+export async function getFeedbackStats(req, res) {
+  try {
+    const allFeedback = await Feedback.find({ status: "active" }).lean();
+
+    // Basic stats
+    const totalReviews = allFeedback.length;
+    const avgRating = totalReviews > 0 
+      ? (allFeedback.reduce((sum, f) => sum + f.rating, 0) / totalReviews).toFixed(1)
+      : "0.0";
+    
+    const customerToSP = allFeedback.filter(f => f.type === "customer_to_provider").length;
+    const spToCustomer = allFeedback.filter(f => f.type === "provider_to_customer").length;
+    const positiveCount = allFeedback.filter(f => f.rating >= 4).length;
+    const negativeCount = allFeedback.filter(f => f.rating <= 2).length;
+
+    // Service-wise analysis
+    const serviceMap = {};
+    allFeedback.forEach(f => {
+      const svc = f.serviceName || "General";
+      if (!serviceMap[svc]) serviceMap[svc] = { count: 0, total: 0 };
+      serviceMap[svc].count += 1;
+      serviceMap[svc].total += f.rating;
+    });
+    const serviceAnalysis = Object.entries(serviceMap)
+      .map(([name, data]) => ({
+        name,
+        count: data.count,
+        avg: (data.total / data.count).toFixed(1),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Tag analysis
+    const tagMap = {};
+    allFeedback.forEach(f => {
+      (f.tags || []).forEach(t => {
+        tagMap[t] = (tagMap[t] || 0) + 1;
+      });
+    });
+    const topTags = Object.entries(tagMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([tag, count]) => ({ tag, count }));
+
+    // Rating distribution
+    const ratingDistribution = {
+      1: allFeedback.filter(f => f.rating === 1).length,
+      2: allFeedback.filter(f => f.rating === 2).length,
+      3: allFeedback.filter(f => f.rating === 3).length,
+      4: allFeedback.filter(f => f.rating === 4).length,
+      5: allFeedback.filter(f => f.rating === 5).length,
+    };
+
+    res.json({
+      stats: {
+        totalReviews,
+        avgRating,
+        customerToSP,
+        spToCustomer,
+        positiveCount,
+        negativeCount,
+        serviceAnalysis,
+        topTags,
+        ratingDistribution,
+      },
+    });
+  } catch (error) {
+    console.error("Error calculating feedback stats:", error);
+    res.status(500).json({ error: "Could not calculate feedback stats" });
+  }
+}
+
+export async function deleteFeedback(req, res) {
+  try {
+    const feedback = await Feedback.findByIdAndDelete(req.params.id);
+    if (!feedback) return res.status(404).json({ error: "Feedback not found" });
+
+    // Update provider rating if it was customer feedback
+    if (feedback.type === "customer_to_provider" && feedback.providerId) {
+      const { updateProviderRating } = await import("../../../lib/updateProviderRating.js");
+      await updateProviderRating(feedback.providerId);
+    }
+
+    res.json({ success: true, message: "Feedback deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting feedback:", error);
+    res.status(500).json({ error: "Could not delete feedback" });
+  }
+}
+
+export async function updateFeedbackStatus(req, res) {
+  try {
+    const { status } = req.body;
+    if (!["active", "hidden", "flagged"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const feedback = await Feedback.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+
+    if (!feedback) return res.status(404).json({ error: "Feedback not found" });
+
+    // Update provider rating if status changed
+    if (feedback.type === "customer_to_provider" && feedback.providerId) {
+      const { updateProviderRating } = await import("../../../lib/updateProviderRating.js");
+      await updateProviderRating(feedback.providerId);
+    }
+
+    res.json({ feedback });
+  } catch (error) {
+    console.error("Error updating feedback status:", error);
+    res.status(500).json({ error: "Could not update feedback status" });
+  }
+}
+
+// ───── CUSTOMER COD MANAGEMENT ─────
+export async function toggleCustomerCOD(req, res) {
+  try {
+    const User = (await import("../../../models/User.js")).default;
+    const userId = req.params.id;
+    const { codDisabled } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        codDisabled: !!codDisabled,
+        codDisabledAt: codDisabled ? new Date() : null,
+        codDisabledBy: codDisabled ? (req.auth?.sub || "admin") : "",
+      },
+      { new: true }
+    );
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    res.json({ user });
+  } catch (error) {
+    console.error("Error toggling customer COD:", error);
+    res.status(500).json({ error: "Could not update COD status" });
+  }
+}
+
+export async function updateCustomerStatus(req, res) {
+  try {
+    const User = (await import("../../../models/User.js")).default;
+    const userId = req.params.id;
+    const { status } = req.body;
+
+    if (!["active", "blocked"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { status },
+      { new: true }
+    );
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    res.json({ user });
+  } catch (error) {
+    console.error("Error updating customer status:", error);
+    res.status(500).json({ error: "Could not update customer status" });
+  }
+}

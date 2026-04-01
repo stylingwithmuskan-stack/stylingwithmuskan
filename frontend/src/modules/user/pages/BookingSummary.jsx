@@ -209,6 +209,28 @@ const BookingSummary = () => {
       return;
     }
     
+    // Bug Fix 1: Zone Service Availability Validation
+    // Check if the selected zone has available services
+    const userAddress = user.addresses[0];
+    const zoneName = userAddress?.area || userAddress?.city;
+    
+    if (zoneName && displayItems.length > 0) {
+      // Check if any of the services in cart are available in the user's zone
+      const hasUnavailableServices = displayItems.some(item => {
+        // If item has zones defined, check if user's zone is in the list
+        if (item.zones && Array.isArray(item.zones) && item.zones.length > 0) {
+          return !item.zones.includes(zoneName);
+        }
+        // If no zones defined, service is available everywhere
+        return false;
+      });
+      
+      if (hasUnavailableServices) {
+        toast.error("Currently this service is not available in your zone.");
+        return;
+      }
+    }
+    
     setIsProcessing(true);
     try {
       const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType }));

@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "@/modules/user/lib/api";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { Button } from "@/modules/user/components/ui/button";
+import { toast } from "sonner";
 
 /**
  * UserRegisterPage Component
@@ -84,8 +85,10 @@ const UserRegisterPage = () => {
             const res = await api.requestOtp(phone, "register");
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setTimer(30);
+            toast.success("OTP sent successfully!");
         } catch (err) {
-            alert(err.message || "Failed to resend OTP");
+            console.error("[UserRegister] resend-otp error", err);
+            toast.error(err.message || "Failed to resend OTP");
         }
     };
 

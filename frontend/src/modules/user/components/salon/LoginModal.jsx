@@ -5,6 +5,7 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { Button } from "@/modules/user/components/ui/button";
 import { api } from "@/modules/user/lib/api";
+import { toast } from "sonner";
 
 const LoginModal = () => {
     const { gender } = useGenderTheme();
@@ -61,9 +62,10 @@ const LoginModal = () => {
             console.log("[User] resend-otp response", res);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setTimer(30);
+            toast.success("OTP sent successfully!");
         } catch (err) {
             console.error("[User] resend-otp error", err);
-            alert(err.message || "Failed to resend OTP");
+            toast.error(err.message || "Failed to resend OTP");
         }
     };
 

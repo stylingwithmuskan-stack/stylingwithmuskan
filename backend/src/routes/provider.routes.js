@@ -392,7 +392,7 @@ router.post(
         }
       }
     } catch (err) {
-      console.error("Failed to notify about provider zone request:", err);
+      // Failed to notify about provider zone request
     }
 
     res.json({ success: true, provider: p });
@@ -458,7 +458,7 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
         });
       }
     } catch (err) {
-      console.error("Failed to notify vendor of new provider:", err);
+      // Failed to notify vendor of new provider
     }
   }
 
@@ -644,7 +644,6 @@ router.post("/wallet/create-order", requireRole("provider"), body("amount").isNu
     });
     res.json({ order });
   } catch (err) {
-    console.error("[Razorpay] Create order failed:", err);
     res.status(502).json({ error: "Payment gateway unavailable" });
   }
 });
@@ -684,7 +683,6 @@ router.post("/wallet/verify-payment", requireRole("provider"), body("razorpay_pa
 
     res.json({ success: true, credits: acc.credits });
   } catch (err) {
-    console.error("[Razorpay] Verify payment failed:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -830,7 +828,6 @@ router.post("/bookings/:id/request-payment", requireRole("provider"), param("id"
   try {
     let order;
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      console.warn("[Payment] Razorpay keys missing. Creating MOCK order for provider request.");
       order = {
         id: "order_mock_" + Math.random().toString(36).slice(2, 9),
         amount: balance * 100,
@@ -876,7 +873,6 @@ router.post("/bookings/:id/request-payment", requireRole("provider"), param("id"
     } catch {}
     res.json({ booking: { ...b.toObject(), id: b._id.toString() }, order });
   } catch (err) {
-    console.error("Payment request error:", err);
     res.status(502).json({ error: "Payment gateway unavailable" });
   }
 });
@@ -1230,7 +1226,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         }
       } catch {}
     } catch (err) {
-      console.error("Socket notification failed:", err);
+      // Socket notification failed
     }
 
     return res.json({ 

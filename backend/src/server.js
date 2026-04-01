@@ -15,7 +15,7 @@ import { initSocket } from "./startup/socket.js";
 import { startCron } from "./startup/cron.js";
 import { startAssignmentScheduler } from "./startup/assignmentScheduler.js";
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 async function boot() {
   await connectMongo();
@@ -24,7 +24,7 @@ async function boot() {
 
   const server = createServer(app);
   initSocket(server);
-  const port = Number(PORT) || 3001;
+  const port = Number(PORT);
   server.listen(port, () => {
     console.log(`[Server] API listening on http://localhost:${port} env=${process.env.NODE_ENV || "development"}`);
     startCron();

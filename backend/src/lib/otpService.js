@@ -71,34 +71,10 @@ export async function issueOtp({
     try {
       validateSmsIndiaHubConfig();
       await sendOtpSms({ phone, otp, role, intent });
-      console.info("[OTP]", JSON.stringify({
-        role,
-        intent,
-        phone: maskPhone(phone),
-        deliveryMode,
-        status: "sent",
-      }));
     } catch (error) {
       await redis.del(key);
-      console.error("[OTP]", JSON.stringify({
-        role,
-        intent,
-        phone: maskPhone(phone),
-        deliveryMode,
-        status: "failed",
-        reason: error?.message || "Failed to send OTP",
-      }));
       throw error;
     }
-  } else {
-    console.info("[OTP]", JSON.stringify({
-      role,
-      intent,
-      phone: maskPhone(phone),
-      deliveryMode,
-      status: "skipped",
-      reason: "Allowlisted number",
-    }));
   }
 
   return {

@@ -6,6 +6,7 @@ import {
     Smartphone, Landmark, CheckCircle2, ChevronRight,
     Lock, Sparkles
 } from "lucide-react";
+import { toast } from "sonner";
 import { useCart } from "@/modules/user/contexts/CartContext";
 import { useBookings } from "@/modules/user/contexts/BookingContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
@@ -45,12 +46,14 @@ const PaymentPage = () => {
     const advanceAmt = Number(passedState?.advanceAmount || 0);
     const currentPayableAmount = isCOD ? 0 : (advanceAmt > 0 ? advanceAmt : finalTotal);
 
+    const isCODDisabled = user?.codDisabled || false;
+
     const paymentMethods = [
-        { id: "upi", name: "UPI (GPay, PhonePe, Paytm)", icon: Smartphone, color: "text-purple-600", bg: "bg-purple-100" },
-        { id: "card", name: "Credit / Debit Card", icon: CreditCard, color: "text-blue-600", bg: "bg-blue-100" },
-        { id: "wallet", name: "Wallets", icon: Wallet, color: "text-orange-600", bg: "bg-orange-100" },
-        { id: "netbanking", name: "Net Banking", icon: Landmark, color: "text-green-600", bg: "bg-green-100" },
-        { id: "cod", name: "Pay After Service", icon: ShieldCheck, color: "text-primary", bg: "bg-primary/10" }
+        { id: "upi", name: "UPI (GPay, PhonePe, Paytm)", icon: Smartphone, color: "text-purple-600", bg: "bg-purple-100", disabled: false },
+        { id: "card", name: "Credit / Debit Card", icon: CreditCard, color: "text-blue-600", bg: "bg-blue-100", disabled: false },
+        { id: "wallet", name: "Wallets", icon: Wallet, color: "text-orange-600", bg: "bg-orange-100", disabled: false },
+        { id: "netbanking", name: "Net Banking", icon: Landmark, color: "text-green-600", bg: "bg-green-100", disabled: false },
+        { id: "cod", name: "Pay After Service", icon: ShieldCheck, color: "text-primary", bg: "bg-primary/10", disabled: isCODDisabled }
     ];
 
 
@@ -66,6 +69,13 @@ const PaymentPage = () => {
 
     const handlePayment = async () => {
         setError("");
+        
+        // Check if COD is disabled for this user
+        if (selectedMethod === "cod" && isCODDisabled) {
+            setError("Pay After Service is disabled for your account. Please select another payment method.");
+            return;
+        }
+        
         setIsProcessing(true);
         try {
             const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
@@ -264,24 +274,42 @@ const PaymentPage = () => {
                     {paymentMethods.map((method) => (
                         <motion.button
                             key={method.id}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setSelectedMethod(method.id)}
-                            className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${selectedMethod === method.id
-                                ? "bg-primary/5 border-primary shadow-lg shadow-primary/5"
-                                : "bg-accent/40 border-transparent hover:border-border"
-                                }`}
+                            whileTap={method.disabled ? {} : { scale: 0.98 }}
+                            onClick={() => {
+                                if (method.disabled) {
+                                    toast.error("This payment option is disabled for your account. Please contact support.");
+                                    return;
+                                }
+                                setSelectedMethod(method.id);
+                            }}
+                            onMouseEnter={() => {
+                                if (method.disabled) {
+                                    toast.error("This payment option is disabled for your account", {
+                                        duration: 2000,
+                                    });
+                                }
+                            }}
+                            disabled={method.disabled}
+                            className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${
+                                method.disabled
+                                    ? "opacity-50 cursor-not-allowed bg-muted border-border/30"
+                                    : selectedMethod === method.id
+                                    ? "bg-primary/5 border-primary shadow-lg shadow-primary/5"
+                                    : "bg-accent/40 border-transparent hover:border-border"
+                            }`}
                         >
                             <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-xl ${method.bg} flex items-center justify-center transition-transform duration-500 ${selectedMethod === method.id ? 'rotate-[360deg]' : ''}`}>
+                                <div className={`w-12 h-12 rounded-xl ${method.bg} flex items-center justify-center transition-transform duration-500 ${selectedMethod === method.id && !method.disabled ? 'rotate-[360deg]' : ''}`}>
                                     <method.icon className={`w-6 h-6 ${method.color}`} />
                                 </div>
-                                <span className={`font-bold text-sm ${selectedMethod === method.id ? "text-primary" : "text-foreground"}`}>
+                                <span className={`font-bold text-sm ${selectedMethod === method.id && !method.disabled ? "text-primary" : "text-foreground"}`}>
                                     {method.name}
                                 </span>
                             </div>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedMethod === method.id ? "border-primary bg-primary" : "border-muted-foreground/30"
-                                }`}>
-                                {selectedMethod === method.id && <div className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                selectedMethod === method.id && !method.disabled ? "border-primary bg-primary" : "border-muted-foreground/30"
+                            }`}>
+                                {selectedMethod === method.id && !method.disabled && <div className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                             </div>
                         </motion.button>
                     ))}

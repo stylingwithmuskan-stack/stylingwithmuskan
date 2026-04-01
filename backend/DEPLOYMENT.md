@@ -117,6 +117,36 @@ Update frontend `.env` with Render backend URL:
 VITE_API_BASE_URL=https://your-backend.onrender.com
 ```
 
+**Frontend Environment Variables:**
+
+```env
+# Backend API
+VITE_API_BASE_URL=https://your-backend.onrender.com
+
+# Payment Gateway
+VITE_RAZORPAY_KEY_ID=your-razorpay-key-id
+
+# Google Maps (for admin zone drawing)
+VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+
+# Firebase Push Notifications
+VITE_FIREBASE_API_KEY=your-firebase-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+VITE_FIREBASE_APP_ID=your-app-id
+VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id
+VITE_FIREBASE_VAPID_KEY=your-vapid-key
+```
+
+**Google Maps API Setup:**
+- See `frontend/GOOGLE_MAPS_SETUP.md` for detailed instructions
+- Required for admin Cities & Zones map drawing feature
+- Get key from: https://console.cloud.google.com/google/maps-apis
+- Enable: Maps JavaScript API
+- Restrict key to your production domain
+
 ## Important Notes
 
 ### ❌ DO NOT USE PM2 on Render

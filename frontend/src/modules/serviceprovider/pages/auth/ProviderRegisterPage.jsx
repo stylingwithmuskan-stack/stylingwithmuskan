@@ -47,6 +47,7 @@ export default function ProviderRegisterPage() {
     const [currentStep, setCurrentStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [stepError, setStepError] = useState("");
 
     const [cities, setCities] = useState([]);
     const [zones, setZones] = useState([]);
@@ -341,16 +342,16 @@ export default function ProviderRegisterPage() {
 
         if (currentStep === 4) {
             if (!formData.bankName.trim() || !formData.accountNumber.trim() || !formData.ifscCode.trim()) {
-                setOtpError("Please complete your bank details");
+                setStepError("Please complete your bank details");
                 return;
             }
-            if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode)) {
-                setOtpError("Please enter a valid IFSC code");
+            if (formData.ifscCode.length !== 11) {
+                setStepError("IFSC code must be 11 characters");
                 return;
             }
         }
 
-        setOtpError("");
+        setStepError("");
         if (currentStep < 5) setCurrentStep(currentStep + 1);
         else handleSubmit();
     };
@@ -927,6 +928,10 @@ export default function ProviderRegisterPage() {
                                         Used for weekly payouts only. We do not store PINs or passwords.
                                     </p>
                                 </div>
+
+                                {stepError && (
+                                    <p className="text-sm font-bold text-red-600 text-center">{stepError}</p>
+                                )}
                             </div>
                         )}
 

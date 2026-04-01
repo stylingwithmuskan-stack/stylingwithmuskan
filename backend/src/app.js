@@ -33,7 +33,6 @@ app.use(cors({
     if (allowedOrigins.includes("*")) return cb(null, true);
     if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return cb(null, true);
     if (origin.endsWith(".vercel.app")) return cb(null, true);
-    console.warn(`[Express CORS] Rejected origin: ${origin}`);
     return cb(new Error("Not allowed by CORS"));
   },
   credentials: true,
@@ -53,7 +52,9 @@ const limiter = rateLimit({
 app.use(limiter);
 
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
-
+app.get("/",(req,res)=>{
+  app.send("Welcome to Styling With Muskan");
+});
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/content", contentRoutes);
@@ -75,7 +76,6 @@ try {
 } catch {}
 
 app.use((err, _req, res, _next) => {
-  console.error(err);
   res.status(err.status || 500).json({ error: err.message || "Server error" });
 });
 

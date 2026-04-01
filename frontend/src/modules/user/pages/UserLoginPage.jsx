@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldCheck, ArrowLeft, ChevronRight, Star, Smartphone, Apple } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { api } from "@/modules/user/lib/api";
 import { Button } from "@/modules/user/components/ui/button";
@@ -59,11 +60,23 @@ const UserLoginPage = () => {
 
     const handleResend = async () => {
         try {
+            setError(""); // Clear previous errors
             const res = await request();
-            setOtpDeliveryMode(res?.deliveryMode || "sms");
+            
+            // Update delivery mode if returned
+            if (res?.deliveryMode) {
+                setOtpDeliveryMode(res.deliveryMode);
+            }
+            
+            // Show success message
+            toast.success(res?.message || "OTP sent successfully!");
+            
+            // Reset timer
             setTimer(30);
         } catch (e) {
-            setError(e.message || "Failed to resend OTP");
+            const errorMsg = e.message || "Failed to resend OTP";
+            setError(errorMsg);
+            toast.error(errorMsg);
         }
     };
 

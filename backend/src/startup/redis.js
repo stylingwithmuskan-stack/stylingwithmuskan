@@ -3,7 +3,6 @@ import { REDIS_URL } from "../config.js";
 
 let redis;
 const useMemory = REDIS_URL === "memory" || process.env.NODE_ENV === "test";
-console.log(`[Redis] config url=${REDIS_URL} useMemory=${useMemory}`);
 if (useMemory) {
   const store = new Map();
   redis = {
@@ -29,10 +28,8 @@ export async function connectRedis() {
   try {
     if (!redis.isOpen) {
       await redis.connect();
-      console.log("Redis connected");
     }
   } catch (e) {
-    console.warn("[Redis] connection failed, falling back to in-memory store");
     const store = new Map();
     redis = {
       isOpen: true,

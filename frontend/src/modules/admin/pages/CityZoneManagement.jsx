@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { 
     Plus, MapPin, ChevronRight, Store, Users, 
-    Repeat, IndianRupee, TrendingUp, Loader2, X, BarChart3, ChevronDown,
-    Edit2, Trash2, AlertTriangle
+    Repeat, IndianRupee, Loader2, BarChart3, ChevronDown,
+    Edit2, Trash2, AlertTriangle, Star
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/modules/user/components/ui/card";
+import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
+import { Badge } from "@/modules/user/components/ui/badge";
 import { Input } from "@/modules/user/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/modules/user/components/ui/dialog";
 import { toast } from "sonner";
 import { api } from "@/modules/user/lib/api";
 import { useNavigate } from "react-router-dom";
+import ZoneDrawingModal from "@/modules/admin/components/ZoneDrawingModal";
 
 const CityZoneManagement = () => {
     const navigate = useNavigate();
@@ -30,6 +32,10 @@ const CityZoneManagement = () => {
     const [selectedCityForZone, setSelectedCityForZone] = useState(null);
     const [newName, setNewName] = useState("");
     const [submitting, setSubmitting] = useState(false);
+
+    // Zone Drawing Modal States
+    const [isZoneDrawingOpen, setIsZoneDrawingOpen] = useState(false);
+    const [cityForDrawing, setCityForDrawing] = useState(null);
 
     // Edit/Delete States
     const [editingCity, setEditingCity] = useState(null);
@@ -178,6 +184,29 @@ const CityZoneManagement = () => {
         }
     };
 
+    const handleSaveZoneWithCoordinates = async (zoneData) => {
+        if (!hasAdminToken()) {
+            redirectToAdminLogin();
+            return;
+        }
+        try {
+            await api.admin.createZone(zoneData.cityId, {
+                name: zoneData.name,
+                coordinates: zoneData.coordinates
+            });
+            toast.success("Zone with coordinates added successfully");
+            setIsZoneDrawingOpen(false);
+            setCityForDrawing(null);
+            fetchZones(zoneData.cityId);
+        } catch (err) {
+            if (err?.status === 401) {
+                redirectToAdminLogin();
+                return;
+            }
+            throw err; // Re-throw to let modal handle the error
+        }
+    };
+
     const handleUpdateCity = async () => {
         if (!newName.trim() || !editingCity) return;
         try {
@@ -298,11 +327,11 @@ const CityZoneManagement = () => {
                                     expandedCityId === city._id ? "ring-1 ring-primary/30" : "hover:border-primary/30"
                                 }`}
                             >
-                                <button
-                                    onClick={() => toggleCity(city)}
-                                    className="w-full flex items-center justify-between p-4 bg-card"
-                                >
-                                    <div className="flex items-center gap-4">
+                                <div className="w-full flex items-center justify-between p-4 bg-card">
+                                    <div 
+                                        onClick={() => toggleCity(city)}
+                                        className="flex items-center gap-4 flex-1 cursor-pointer"
+                                    >
                                         <div className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${
                                             expandedCityId === city._id ? "bg-primary text-white" : "bg-primary/15 text-primary"
                                         }`}>
@@ -346,18 +375,21 @@ const CityZoneManagement = () => {
                                             size="sm"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setSelectedCityForZone(city);
-                                                setIsAddZoneOpen(true);
+                                                setCityForDrawing(city);
+                                                setIsZoneDrawingOpen(true);
                                             }}
                                             className="h-8 px-3 rounded-lg text-primary hover:bg-primary/5 font-bold hidden sm:flex text-xs"
                                         >
                                             <Plus className="h-4 w-4 mr-1.5" /> Add Zone
                                         </Button>
-                                        <div className={`p-1 rounded-full transition-transform duration-300 ${expandedCityId === city._id ? "rotate-180 text-primary" : "text-muted-foreground/40"}`}>
+                                        <div 
+                                            onClick={() => toggleCity(city)}
+                                            className={`p-1 rounded-full transition-transform duration-300 cursor-pointer ${expandedCityId === city._id ? "rotate-180 text-primary" : "text-muted-foreground/40"}`}
+                                        >
                                             <ChevronDown className="h-5 w-5" />
                                         </div>
                                     </div>
-                                </button>
+                                </div>
 
                                 <AnimatePresence>
                                     {expandedCityId === city._id && (
@@ -423,8 +455,8 @@ const CityZoneManagement = () => {
                                                     {/* Mobile Add Zone Button */}
                                                     <button 
                                                         onClick={() => {
-                                                            setSelectedCityForZone(city);
-                                                            setIsAddZoneOpen(true);
+                                                            setCityForDrawing(city);
+                                                            setIsZoneDrawingOpen(true);
                                                         }}
                                                         className="sm:hidden flex items-center justify-center gap-2 p-3 border border-dashed border-border/50 rounded-xl text-muted-foreground font-bold hover:bg-card hover:border-primary/30 hover:text-primary transition-all text-xs"
                                                     >
@@ -693,6 +725,17 @@ const CityZoneManagement = () => {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Zone Drawing Modal */}
+            <ZoneDrawingModal
+                isOpen={isZoneDrawingOpen}
+                onClose={() => {
+                    setIsZoneDrawingOpen(false);
+                    setCityForDrawing(null);
+                }}
+                city={cityForDrawing}
+                onSave={handleSaveZoneWithCoordinates}
+            />
         </div>
     );
 };

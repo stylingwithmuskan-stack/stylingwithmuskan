@@ -89,7 +89,7 @@ export async function getSubscriptionPlans(req, res) {
     await ensureSubscriptionDefaults();
     const settings = await getSubscriptionSettings();
     const userType = String(req.query.userType || "").trim().toLowerCase();
-    const query = { isActive: true };
+    const query = {};
     if (["customer", "provider", "vendor"].includes(userType)) query.userType = userType;
     const plans = await SubscriptionPlan.find(query).sort({ userType: 1, sortOrder: 1, price: 1 }).lean();
     res.json({ plans: plans.map((plan) => mapPlan(plan, settings)) });

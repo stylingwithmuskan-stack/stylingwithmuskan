@@ -234,6 +234,30 @@ const SystemSettingsConfig = () => {
 };
 
 const AvailabilityEditor = ({ formData, setFormData }) => {
+    // Zone selection state
+    const [availableZones, setAvailableZones] = useState([]);
+    const [loadingZones, setLoadingZones] = useState(false);
+    const [zoneError, setZoneError] = useState(null);
+
+    // Fetch zones on mount
+    useEffect(() => {
+        fetchZones();
+    }, []);
+
+    const fetchZones = async () => {
+        setLoadingZones(true);
+        setZoneError(null);
+        try {
+            const data = await api.content.zones();
+            setAvailableZones(data.zones || []);
+        } catch (error) {
+            setZoneError("Failed to load zones");
+            console.error("Error fetching zones:", error);
+        } finally {
+            setLoadingZones(false);
+        }
+    };
+
     const handleAddZone = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -243,6 +267,15 @@ const AvailabilityEditor = ({ formData, setFormData }) => {
             }
             e.target.value = '';
         }
+    };
+
+    const handleZoneSelect = (e) => {
+        const zoneName = e.target.value;
+        if (zoneName && !(formData.zones || []).includes(zoneName)) {
+            setFormData({ ...formData, zones: [...(formData.zones || []), zoneName] });
+        }
+        // Reset select to placeholder
+        e.target.value = '';
     };
 
     const removeZone = (idx) => {
@@ -289,9 +322,50 @@ const AvailabilityEditor = ({ formData, setFormData }) => {
                         <span className="text-[10px] text-muted-foreground italic">Available in all zones</span>
                     )}
                 </div>
+                
+                {/* Zone Selector Dropdown */}
+                {loadingZones ? (
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs py-2">
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        Loading zones...
+                    </div>
+                ) : zoneError ? (
+                    <div className="flex items-center justify-between gap-2 text-xs py-2">
+                        <span className="text-red-500">{zoneError}</span>
+                        <button 
+                            type="button" 
+                            onClick={fetchZones}
+                            className="text-primary hover:underline"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : availableZones.length > 0 ? (
+                    <select
+                        value=""
+                        onChange={handleZoneSelect}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                    >
+                        <option value="">Select zone from list...</option>
+                        {availableZones
+                            .filter(zone => !(formData.zones || []).includes(zone.name))
+                            .map(zone => (
+                                <option key={zone._id} value={zone.name}>
+                                    {zone.name}
+                                </option>
+                            ))
+                        }
+                    </select>
+                ) : (
+                    <div className="text-xs text-muted-foreground italic py-2">
+                        No zones available
+                    </div>
+                )}
+                
+                {/* Fallback: Manual text input (kept for backward compatibility) */}
                 <input
                     type="text"
-                    placeholder="Type city name and press Enter (e.g. Indore)..."
+                    placeholder="Or type zone name and press Enter..."
                     onKeyDown={handleAddZone}
                     className="w-full px-3 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
                 />
@@ -386,7 +460,7 @@ const UserModuleManagement = () => {
     const handleOpenAdd = () => {
         setEditingItem(null);
         if (activeTab === "parent_categories") {
-            setFormData({ label: "", description: "", image: "", color: "from-gray-400 to-gray-500", textColor: "text-gray-600", bgColor: "bg-gray-100", zones: [], disabledDates: [] });
+            setFormData({ label: "", description: "", image: "", color: "from-gray-400 to-gray-500", textColor: "text-gray-600", bgColor: "bg-gray-100", gender: "women", zones: [], disabledDates: [] });
         } else if (activeTab === "categories") {
             setFormData({ name: "", gender: "women", bookingType: "instant", serviceType: "skin", image: "", icon: "", advancePercentage: 0, zones: [], disabledDates: [] });
         } else if (activeTab === "spotlights") {
@@ -755,6 +829,15 @@ const UserModuleManagement = () => {
                                         <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Description</label>
                                         <input required type="text" value={formData.description || ''} onChange={e => setFormData({ ...formData, description: e.target.value })}
                                             className="w-full px-3 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Gender</label>
+                                        <select value={formData.gender || 'women'} onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                                            className="w-full px-3 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground">
+                                            <option value="women">Women</option>
+                                            <option value="men">Men</option>
+                                            <option value="both">Both</option>
+                                        </select>
                                     </div>
                                 </div>
                             ) : (

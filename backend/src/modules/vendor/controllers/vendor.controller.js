@@ -148,6 +148,13 @@ export async function login(req, res) {
   res.json({ vendor: { ...v, subscription }, vendorToken: token });
 }
 
+export async function getMe(req, res) {
+  const v = await Vendor.findById(req.auth?.sub).lean();
+  if (!v) return res.status(404).json({ error: "Vendor not found" });
+  const subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");
+  res.json({ vendor: { ...v, subscription } });
+}
+
 export async function logout(_req, res) {
   res.clearCookie("vendorToken").json({ success: true });
 }

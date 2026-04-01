@@ -16,8 +16,15 @@ import { toast } from "sonner";
 
 export default function VenderStatusPage() {
     const navigate = useNavigate();
-    const { vendor, isLoggedIn, isApproved } = useVenderAuth();
+    const { vendor, isLoggedIn, isApproved, refreshVendor } = useVenderAuth();
     const status = vendor?.status || "pending"; // pending, approved, rejected, blocked
+
+    React.useEffect(() => {
+        // Auto refresh status on mount
+        if (isLoggedIn && !isApproved) {
+            refreshVendor().catch(() => {});
+        }
+    }, []);
 
     React.useEffect(() => {
         if (isApproved) {
@@ -34,11 +41,18 @@ export default function VenderStatusPage() {
             icon: Clock,
             iconClass: "bg-emerald-50 text-emerald-600",
             title: "Verification in Progress",
-            description: "Thanks for joining SWM! Our admin team is currently reviewing your registration request. You'll receive a notification once approved.",
+            description: "Thanks for joining SWM! Our admin team is currently reviewing your registration request. You\'ll receive a notification once approved.",
             badge: "Under Review",
             badgeClass: "bg-emerald-100 text-emerald-700",
             buttonText: "Check Again",
-            onButtonClick: () => window.location.reload()
+            onButtonClick: async () => {
+                try {
+                    await refreshVendor();
+                    toast.success("Status updated!");
+                } catch {
+                    toast.error("Could not refresh status");
+                }
+            }
         },
         approved: {
             icon: ShieldCheck,
@@ -109,34 +123,12 @@ export default function VenderStatusPage() {
                     </p>
 
                     <div className="w-full space-y-4">
-                        {status === 'approved' && (
-                            <Button
-                                className="w-full h-14 rounded-2xl font-black text-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-100"
-                                onClick={config.onButtonClick}
-                            >
-                                {config.buttonText}
-                            </Button>
-                        )}
-                        {(status === 'rejected' || status === 'blocked') && (
-                            <Button
-                                variant="outline"
-                                className="w-full h-14 rounded-2xl border-gray-200 font-black text-gray-600 flex items-center justify-center gap-2"
-                                onClick={config.onButtonClick}
-                            >
-                                <MessageCircle className="h-5 w-5" />
-                                {config.buttonText}
-                            </Button>
-                        )}
-                        {status === 'pending' && (
-                             <Button
-                             variant="outline"
-                             className="w-full h-14 rounded-2xl border-gray-200 font-black text-gray-600 flex items-center justify-center gap-2"
-                             onClick={config.onButtonClick}
-                         >
-                             <RefreshCcw className="h-5 w-5" />
-                             {config.buttonText}
-                         </Button>
-                        )}
+                        <Button
+                            className={`w-full h-14 rounded-2xl font-black text-lg ${status === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-100' : 'bg-gray-100 text-gray-800'}`}
+                            onClick={config.onButtonClick}
+                        >
+                            {config.buttonText}
+                        </Button>
                     </div>
 
                     <div className="mt-10 pt-8 border-t border-gray-50 w-full">

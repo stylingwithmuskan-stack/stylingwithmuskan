@@ -72,7 +72,6 @@ export function validateSmsIndiaHubConfig() {
   if (missing.length > 0) {
     const message = `SMS India Hub config missing: ${missing.join(", ")}`;
     if (!hasLoggedConfigWarning) {
-      console.warn("[SMS CONFIG]", message);
       hasLoggedConfigWarning = true;
     }
     throw new Error(message);
@@ -97,16 +96,8 @@ export async function sendOtpSms({ phone, otp, role = "unknown", intent = "auto"
       throw new Error(`SMS India Hub error: ${parsedResponse.reason}`);
     }
 
-    console.info("[SMS]", JSON.stringify({
-      role,
-      intent,
-      phone: String(phone || "").replace(/^(\d{2})\d+(\d{2})$/, "$1******$2"),
-      status: "accepted",
-    }));
-
     return { success: true, raw: text, parsed: parsedResponse.parsed };
   } catch (error) {
-    console.error("[SMS ERROR]", error.message);
     throw error;
   }
 }

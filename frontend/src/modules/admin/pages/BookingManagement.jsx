@@ -357,10 +357,13 @@ export default function BookingManagement() {
                                                             onClick={() => setAdminTeamReviewModal(b)}>
                                                             <CheckCircle className="h-3 w-3" /> Approve Team
                                                         </Button>
-                                                    ) : ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected"].includes(b.status) && (
-                                                        <Button size="sm" className="h-8 text-[10px] font-bold bg-primary rounded-lg gap-1" onClick={() => setAssignModal(b)}>
-                                                            <Users className="h-3 w-3" />{b.assignedProvider ? "Re-assign" : "Assign"}
-                                                        </Button>
+                                                    ) : (
+                                                        /* Only show Assign button for customize bookings - normal bookings are handled by vendor panel */
+                                                        (b.bookingType === "customized" || b.eventType) && ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected"].includes(b.status) && (
+                                                            <Button size="sm" className="h-8 text-[10px] font-bold bg-primary rounded-lg gap-1" onClick={() => setAssignModal(b)}>
+                                                                <Users className="h-3 w-3" />{b.assignedProvider ? "Re-assign" : "Assign"}
+                                                            </Button>
+                                                        )
                                                     )}
                                                 </div>
                                             </CardContent>

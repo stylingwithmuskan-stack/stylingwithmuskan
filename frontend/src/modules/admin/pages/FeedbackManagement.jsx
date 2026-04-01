@@ -4,6 +4,8 @@ import {
     MessageSquare, Star, Search, RefreshCw, Filter, TrendingUp,
     ThumbsUp, ThumbsDown, User, Users, Tag, Eye, Trash2, BarChart3
 } from "lucide-react";
+import { toast } from "sonner";
+import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -13,34 +15,51 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/modules/user/compone
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 
-const FEEDBACK_KEY = "muskan-feedback";
-
 export default function FeedbackManagement() {
+    const { getFeedback, getFeedbackStats, deleteFeedback: deleteFeedbackAPI } = useAdminAuth();
     const [feedbacks, setFeedbacks] = useState([]);
+    const [stats, setStats] = useState(null);
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("all");
-    const [selectedFeedback, setSelectedFeedback] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    const load = () => {
-        const data = JSON.parse(localStorage.getItem(FEEDBACK_KEY) || "[]");
-        setFeedbacks(data);
+    const load = async () => {
+        setLoading(true);
+        try {
+            const [feedbackData, statsData] = await Promise.all([
+                getFeedback(),
+                getFeedbackStats(),
+            ]);
+            setFeedbacks(Array.isArray(feedbackData) ? feedbackData : []);
+            setStats(statsData || null);
+        } catch (error) {
+            toast.error(error?.message || "Failed to load feedback");
+        } finally {
+            setLoading(false);
+        }
     };
+
     useEffect(() => { load(); }, []);
 
-    const deleteFeedback = (id) => {
-        const updated = feedbacks.filter(f => f.id !== id);
-        localStorage.setItem(FEEDBACK_KEY, JSON.stringify(updated));
-        setFeedbacks(updated);
-        setSelectedFeedback(null);
+    const handleDelete = async (id) => {
+        if (!confirm("Are you sure you want to delete this feedback?")) return;
+        try {
+            await deleteFeedbackAPI(id);
+            toast.success("Feedback deleted successfully");
+            await load();
+        } catch (error) {
+            toast.error(error?.message || "Failed to delete feedback");
+        }
     };
 
-    // Stats
-    const totalFeedback = feedbacks.length;
-    const avgRating = totalFeedback > 0 ? (feedbacks.reduce((s, f) => s + f.rating, 0) / totalFeedback).toFixed(1) : "0.0";
-    const customerToSP = feedbacks.filter(f => f.type === "customer_to_provider");
-    const spToCustomer = feedbacks.filter(f => f.type === "provider_to_customer");
-    const positiveCount = feedbacks.filter(f => f.rating >= 4).length;
-    const negativeCount = feedbacks.filter(f => f.rating <= 2).length;
+    // Stats from backend
+    const totalFeedback = stats?.totalReviews || 0;
+    const avgRating = stats?.avgRating || "0.0";
+    const customerToSP = stats?.customerToSP || 0;
+    const spToCustomer = stats?.spToCustomer || 0;
+    const positiveCount = stats?.positiveCount || 0;
+    const serviceAnalysis = stats?.serviceAnalysis || [];
+    const topTags = stats?.topTags || [];
 
     // Filter
     const filtered = feedbacks.filter(f => {
@@ -57,26 +76,6 @@ export default function FeedbackManagement() {
         return matchesSearch;
     });
 
-    // Service-wise analysis
-    const serviceMap = {};
-    feedbacks.forEach(f => {
-        const svc = f.serviceName || "General";
-        if (!serviceMap[svc]) serviceMap[svc] = { count: 0, total: 0 };
-        serviceMap[svc].count += 1;
-        serviceMap[svc].total += f.rating;
-    });
-    const serviceAnalysis = Object.entries(serviceMap)
-        .map(([name, data]) => ({ name, count: data.count, avg: (data.total / data.count).toFixed(1) }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 6);
-
-    // Tag analysis
-    const tagMap = {};
-    feedbacks.forEach(f => {
-        (f.tags || []).forEach(t => { tagMap[t] = (tagMap[t] || 0) + 1; });
-    });
-    const topTags = Object.entries(tagMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
-
     const renderStars = (rating) => (
         <div className="flex gap-0.5">
             {[1, 2, 3, 4, 5].map(s => (
@@ -84,6 +83,14 @@ export default function FeedbackManagement() {
             ))}
         </div>
     );
+
+    if (loading) {
+        return (
+            <div className="p-8 text-sm font-semibold text-muted-foreground">
+                Loading feedback data...
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -104,8 +111,8 @@ export default function FeedbackManagement() {
                 {[
                     { label: "Total Reviews", val: totalFeedback, color: "bg-blue-50 text-blue-600 border-blue-200", icon: MessageSquare },
                     { label: "Avg Rating", val: `${avgRating} ★`, color: "bg-amber-50 text-amber-600 border-amber-200", icon: Star },
-                    { label: "Customer → SP", val: customerToSP.length, color: "bg-emerald-50 text-emerald-600 border-emerald-200", icon: User },
-                    { label: "SP → Customer", val: spToCustomer.length, color: "bg-purple-50 text-purple-600 border-purple-200", icon: Users },
+                    { label: "Customer → SP", val: customerToSP, color: "bg-emerald-50 text-emerald-600 border-emerald-200", icon: User },
+                    { label: "SP → Customer", val: spToCustomer, color: "bg-purple-50 text-purple-600 border-purple-200", icon: Users },
                     { label: "Positive (4+)", val: positiveCount, color: "bg-green-50 text-green-600 border-green-200", icon: ThumbsUp },
                 ].map((s, i) => (
                     <motion.div key={s.label} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 + i * 0.05 }}
@@ -160,7 +167,7 @@ export default function FeedbackManagement() {
                     <CardContent>
                         {topTags.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
-                                {topTags.map(([tag, count]) => (
+                                {topTags.map(({ tag, count }) => (
                                     <div key={tag} className="flex items-center gap-1.5 bg-primary/5 border border-primary/10 rounded-full px-3 py-1.5">
                                         <span className="text-xs font-bold text-primary">{tag}</span>
                                         <span className="text-[9px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{count}</span>
@@ -201,7 +208,7 @@ export default function FeedbackManagement() {
                     ) : (
                         <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
                             {filtered.map(f => (
-                                <motion.div key={f.id} variants={item}>
+                                <motion.div key={f._id} variants={item}>
                                     <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all">
                                         <CardContent className="p-4">
                                             <div className="flex flex-col md:flex-row md:items-center gap-3">
@@ -240,7 +247,7 @@ export default function FeedbackManagement() {
                                                     <span className={`text-2xl font-black ${f.rating >= 4 ? "text-green-500" : f.rating <= 2 ? "text-red-500" : "text-amber-500"}`}>
                                                         {f.rating}.0
                                                     </span>
-                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => deleteFeedback(f.id)}>
+                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(f._id)}>
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                     </Button>
                                                 </div>

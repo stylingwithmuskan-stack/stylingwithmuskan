@@ -203,10 +203,21 @@ export const AdminAuthProvider = ({ children }) => {
     const getSubscriptionPlans = async () => (await api.admin.listSubscriptionPlans()).plans;
     const createSubscriptionPlan = async (body) => (await api.admin.createSubscriptionPlan(body)).plan;
     const updateSubscriptionPlan = async (planId, body) => (await api.admin.updateSubscriptionPlan(planId, body)).plan;
+    const deleteSubscriptionPlan = async (planId) => (await api.admin.deleteSubscriptionPlan(planId));
     const getSubscriptionReport = async () => (await api.admin.getSubscriptionReport()).report;
     const pushBroadcast = async (payload) => (await api.admin.pushBroadcast(payload)).broadcast;
     const getPushBroadcastHistory = async () => (await api.admin.pushBroadcastHistory()).broadcasts || [];
     const sendPushTest = async (payload = {}) => (await api.admin.pushTest(payload));
+
+    // ───── FEEDBACK ─────
+    const getFeedback = async (params = {}) => (await api.admin.listFeedback(params)).feedback;
+    const getFeedbackStats = async () => (await api.admin.getFeedbackStats()).stats;
+    const deleteFeedback = async (id) => { await api.admin.deleteFeedback(id); };
+    const updateFeedbackStatus = async (id, status) => { await api.admin.updateFeedbackStatus(id, status); };
+
+    // ───── CUSTOMER COD MANAGEMENT ─────
+    const toggleCustomerCOD = async (userId, codDisabled) => { await api.admin.toggleCustomerCOD(userId, codDisabled); };
+    const updateCustomerStatus = async (userId, status) => { await api.admin.updateCustomerStatus(userId, status); };
 
     return (
         <AdminAuthContext.Provider value={{
@@ -226,7 +237,10 @@ export const AdminAuthProvider = ({ children }) => {
             getPayouts, updatePayoutStatus,
             getPerformanceCriteria, updatePerformanceCriteria,
             getSubscriptionSettings, updateSubscriptionSettings, getSubscriptionPlans, createSubscriptionPlan, updateSubscriptionPlan, getSubscriptionReport,
+            deleteSubscriptionPlan,
             pushBroadcast, getPushBroadcastHistory, sendPushTest,
+            getFeedback, getFeedbackStats, deleteFeedback, updateFeedbackStatus,
+            toggleCustomerCOD, updateCustomerStatus,
         }}>
             {children}
         </AdminAuthContext.Provider>
