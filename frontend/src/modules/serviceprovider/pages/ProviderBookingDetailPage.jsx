@@ -29,7 +29,7 @@ const ProviderBookingDetailPage = () => {
     const booking = bookings.find(b => (b.id || b._id) === id);
     const bookingId = booking?.id || booking?._id;
 
-    const [otpInput, setOtpInput] = useState(["", "", "", ""]);
+    const [otpInput, setOtpInput] = useState(["", "", "", "", "", ""]);
     const [otpError, setOtpError] = useState(false);
     const [feedback, setFeedback] = useState("");
     const [showOTP, setShowOTP] = useState(false);
@@ -110,7 +110,7 @@ const ProviderBookingDetailPage = () => {
         const newOtp = [...otpInput];
         newOtp[idx] = val.slice(-1);
         setOtpInput(newOtp);
-        if (val && idx < 3) document.getElementById(`potp-${idx + 1}`)?.focus();
+        if (val && idx < 5) document.getElementById(`potp-${idx + 1}`)?.focus();
     };
 
     const handleVerifyOTP = () => {
@@ -161,6 +161,7 @@ const ProviderBookingDetailPage = () => {
 
     const getNextAction = () => {
         switch (booking.status) {
+            case "vendor_assigned":
             case "vendor_reassigned":
             case "accepted": return { label: "Start Travelling", icon: Navigation, action: () => updateBookingStatus(bookingId, "travelling") };
             case "travelling": return { label: "Mark as Arrived", icon: MapPin, action: () => updateBookingStatus(bookingId, "arrived") };
@@ -479,11 +480,11 @@ const ProviderBookingDetailPage = () => {
                                 <Shield className="w-6 h-6 text-purple-600" />
                             </div>
                             <h3 className="font-black text-xl text-center mb-1 text-gray-900">Customer OTP</h3>
-                            <p className="text-[11px] text-gray-500 text-center mb-6 uppercase tracking-widest font-bold">Ask customer for the 4-digit code</p>
-                            <div className="flex justify-center gap-3 mb-6">
+                            <p className="text-[11px] text-gray-500 text-center mb-6 uppercase tracking-widest font-bold">Ask customer for the 6-digit code</p>
+                            <div className="flex justify-center gap-2 mb-6">
                                 {otpInput.map((d, i) => (
                                     <input key={i} id={`potp-${i}`} type="text" maxLength={1} value={d} onChange={e => handleOtpChange(i, e.target.value)}
-                                        className={`w-14 h-16 text-center text-3xl font-black bg-gray-50 border-2 rounded-2xl ${otpError ? "border-red-500 text-red-600 animate-shake bg-red-50" : "border-gray-200 text-gray-900"} focus:border-purple-500 focus:bg-white transition-all outline-none`} />
+                                        className={`w-12 h-14 text-center text-2xl font-black bg-gray-50 border-2 rounded-2xl ${otpError ? "border-red-500 text-red-600 animate-shake bg-red-50" : "border-gray-200 text-gray-900"} focus:border-purple-500 focus:bg-white transition-all outline-none`} />
                                 ))}
                             </div>
                             {otpError && <p className="text-red-600 text-[11px] font-bold text-center mb-4 uppercase tracking-widest">Invalid OTP Code</p>}
@@ -537,7 +538,7 @@ const ProviderBookingDetailPage = () => {
             </AnimatePresence>
 
             {/* Sticky Action Footer */}
-            {(nextAction || ["accepted", "travelling", "vendor_reassigned"].includes(booking?.status?.toLowerCase())) && (
+            {(nextAction || ["accepted", "travelling", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase())) && (
                 <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 p-4 z-40">
                     <div className="max-w-xl mx-auto flex gap-3">
                         {nextAction && (
@@ -548,7 +549,7 @@ const ProviderBookingDetailPage = () => {
                                 {nextAction.label.toUpperCase()} <ChevronRight className="w-4 h-4" />
                             </Button>
                         )}
-                        {["accepted", "travelling", "vendor_reassigned"].includes(booking?.status?.toLowerCase()) && (
+                        {["accepted", "travelling", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase()) && (
                             <button
                                 onClick={() => setShowCancelConfirm(true)}
                                 className="flex-1 h-14 rounded-2xl border-2 border-red-100 bg-red-50 text-red-600 flex items-center justify-center gap-2 hover:bg-red-100 transition-all shadow-sm font-black text-xs uppercase"

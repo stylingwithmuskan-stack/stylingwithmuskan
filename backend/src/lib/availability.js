@@ -63,11 +63,12 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   }
 
   const availDoc = await ProviderDayAvailability.findOne({ providerId, date }).lean();
-  const baseMap = availDoc?.availableSlots?.length
+  // FIXED: Treat empty array as "no availability set" and default to TRUE
+  const baseMap = (availDoc && availDoc.availableSlots && availDoc.availableSlots.length > 0)
     ? (() => {
       const m = {};
       DEFAULT_TIME_SLOTS.forEach((s) => { m[s] = false; });
-      for (const s of (availDoc.availableSlots || [])) {
+      for (const s of availDoc.availableSlots) {
         if (DEFAULT_TIME_SLOTS.includes(s)) m[s] = true;
       }
       return m;

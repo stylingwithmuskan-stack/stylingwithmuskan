@@ -5,6 +5,7 @@ import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext
 import { Button } from "@/modules/user/components/ui/button";
 import { api } from "@/modules/user/lib/api";
 import { toast } from "sonner";
+import BookingTypesManager from "../components/BookingTypesManager";
 
 const ImageUpload = ({ label, value, onChange, className = "" }) => {
     const fileInputRef = useRef(null);
@@ -617,7 +618,7 @@ const UserModuleManagement = () => {
                         <button key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`flex-1 sm:px-6 py-2 px-3 whitespace-nowrap rounded-lg text-sm font-medium transition-all ${activeTab === tab ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-                            {tab === "parent_categories" ? "Parent Categories" : tab === "categories" ? "Subcategories" : tab === "booking_rules" ? "Booking Rules" : tab === "system_settings" ? "System Core" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            {tab === "parent_categories" ? "Parent Categories" : tab === "categories" ? "Subcategories" : tab === "booking_rules" ? "Booking Types" : tab === "system_settings" ? "System Core" : tab.charAt(0).toUpperCase() + tab.slice(1)}
                         </button>
                     ))}
                 </div>
@@ -740,6 +741,8 @@ const UserModuleManagement = () => {
                 </div>
             ) : activeTab === "system_settings" ? (
                 <SystemSettingsConfig />
+            ) : activeTab === "booking_rules" ? (
+                <BookingTypesManager />
             ) : (
                 <BookingRulesConfig config={bookingTypeConfig} onUpdate={updateBookingTypeConfig} />
             )}

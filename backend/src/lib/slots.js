@@ -13,10 +13,10 @@ export function isValidSlotLabel(s) {
   return typeof s === "string" && DEFAULT_TIME_SLOTS.includes(s);
 }
 
-export function defaultSlotsMap(startTime = "09:00", endTime = "17:00") {
+export function defaultSlotsMap(startTime = "07:00", endTime = "22:00") {
   const map = {};
-  const startMin = parseHHMMToMinutes(startTime) ?? 540; // 9:00 AM
-  const endMin = parseHHMMToMinutes(endTime) ?? 1020;   // 5:00 PM
+  const startMin = parseHHMMToMinutes(startTime) ?? 420;  // 7:00 AM
+  const endMin = parseHHMMToMinutes(endTime) ?? 1320;     // 10:00 PM
 
   DEFAULT_TIME_SLOTS.forEach((slot) => {
     const hm = parseSlotLabelToHM(slot);

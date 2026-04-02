@@ -11,7 +11,7 @@ import { issueRoleToken, requireRole } from "../middleware/roles.js";
 import * as AdminController from "../modules/admin/controllers/admin.controller.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../config.js";
-import { ServiceType, Category, Service, OfficeSettings, Banner } from "../models/Content.js";
+import { ServiceType, Category, Service, OfficeSettings, Banner, BookingType } from "../models/Content.js";
 import { Spotlight, GalleryItem, Testimonial } from "../models/SiteContent.js";
 import * as BookingsController from "../modules/bookings/controllers/bookings.controller.js";
 import { computeExpiresAt } from "../lib/assignment.js";
@@ -19,8 +19,39 @@ import { bumpContentVersion } from "../lib/contentCache.js";
 import { notify } from "../lib/notify.js";
 import * as AdminSubscriptionController from "../modules/subscriptions/controllers/adminSubscription.controller.js";
 import * as AdminPushController from "../modules/admin/controllers/adminPush.controller.js";
+import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
+import { defaultSlotsMap } from "../lib/slots.js";
 
 const router = Router();
+
+// Helper function to create default availability for provider (30 days)
+async function createDefaultProviderAvailability(providerId) {
+  try {
+    const defaultSlots = defaultSlotsMap("07:00", "22:00");
+    const availableSlots = Object.keys(defaultSlots).filter(slot => defaultSlots[slot] === true);
+    
+    // Create availability for next 30 days
+    const promises = [];
+    for (let i = 0; i < 30; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      promises.push(
+        ProviderDayAvailability.findOneAndUpdate(
+          { providerId: providerId.toString(), date: dateStr },
+          { $set: { availableSlots } },
+          { upsert: true, new: true }
+        )
+      );
+    }
+    
+    await Promise.all(promises);
+    console.log(`[Provider] Created default availability for provider ${providerId} (30 days, 7 AM - 10 PM)`);
+  } catch (error) {
+    console.error(`[Provider] Error creating default availability for ${providerId}:`, error.message);
+  }
+}
 
 router.post(
   "/login",
@@ -316,6 +347,12 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
     updates.approvalStatus = status;
   }
   const p = await ProviderAccount.findByIdAndUpdate(req.params.id, updates, { new: true });
+  
+  // Create default availability when provider is approved
+  if (status === "approved" && p?._id) {
+    await createDefaultProviderAvailability(p._id);
+  }
+  
   try {
     if (p?._id) {
       await notify({
@@ -767,5 +804,147 @@ router.patch("/feedback/:id/status", requireRole("admin"), AdminController.updat
 // ───── CUSTOMER COD MANAGEMENT ─────
 router.patch("/customers/:id/toggle-cod", requireRole("admin"), AdminController.toggleCustomerCOD);
 router.patch("/customers/:id/status", requireRole("admin"), AdminController.updateCustomerStatus);
+
+// ==================== BOOKING TYPES MANAGEMENT ====================
+
+// GET /admin/booking-types - List all booking types
+router.get("/booking-types", requireRole("admin"), async (req, res) => {
+  try {
+    const types = await BookingType.find().sort({ createdAt: 1 }).lean();
+    res.json({ bookingTypes: types });
+  } catch (error) {
+    console.error("[Admin] Error fetching booking types:", error);
+    res.status(500).json({ error: "Failed to fetch booking types" });
+  }
+});
+
+// POST /admin/booking-types - Create new booking type
+router.post("/booking-types", 
+  requireRole("admin"),
+  body("id").isString().notEmpty().trim(),
+  body("label").isString().notEmpty().trim(),
+  body("icon").isString().notEmpty().trim(),
+  body("description").isString().notEmpty().trim(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id, label, icon, description } = req.body;
+      
+      // Check if id already exists
+      const existing = await BookingType.findOne({ id });
+      if (existing) {
+        return res.status(400).json({ error: "Booking type ID already exists" });
+      }
+      
+      const bookingType = await BookingType.create({
+        id: id.toLowerCase().trim(),
+        label: label.trim(),
+        icon: icon.trim(),
+        description: description.trim()
+      });
+      
+      // Invalidate cache
+      await bumpContentVersion();
+      
+      console.log(`[Admin] Created booking type: ${id}`);
+      res.status(201).json({ bookingType });
+    } catch (error) {
+      console.error("[Admin] Error creating booking type:", error);
+      res.status(500).json({ error: "Failed to create booking type" });
+    }
+  }
+);
+
+// PATCH /admin/booking-types/:id - Update booking type
+router.patch("/admin/booking-types/:id",
+  requireRole("admin"),
+  param("id").isString().notEmpty(),
+  body("label").optional().isString().trim(),
+  body("icon").optional().isString().trim(),
+  body("description").optional().isString().trim(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const updates = {};
+      
+      if (req.body.label) updates.label = req.body.label.trim();
+      if (req.body.icon) updates.icon = req.body.icon.trim();
+      if (req.body.description) updates.description = req.body.description.trim();
+      
+      const bookingType = await BookingType.findOneAndUpdate(
+        { id },
+        updates,
+        { new: true }
+      );
+      
+      if (!bookingType) {
+        return res.status(404).json({ error: "Booking type not found" });
+      }
+      
+      // Invalidate cache
+      await bumpContentVersion();
+      
+      console.log(`[Admin] Updated booking type: ${id}`);
+      res.json({ bookingType });
+    } catch (error) {
+      console.error("[Admin] Error updating booking type:", error);
+      res.status(500).json({ error: "Failed to update booking type" });
+    }
+  }
+);
+
+// DELETE /admin/booking-types/:id - Delete booking type
+router.delete("/admin/booking-types/:id",
+  requireRole("admin"),
+  param("id").isString().notEmpty(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      
+      // Check if booking type is in use
+      const categoriesUsingType = await Category.countDocuments({ bookingType: id });
+      const servicesUsingType = await Service.countDocuments({ bookingType: id });
+      
+      if (categoriesUsingType > 0 || servicesUsingType > 0) {
+        return res.status(400).json({ 
+          error: "Cannot delete booking type that is in use",
+          usage: {
+            categories: categoriesUsingType,
+            services: servicesUsingType
+          }
+        });
+      }
+      
+      const bookingType = await BookingType.findOneAndDelete({ id });
+      
+      if (!bookingType) {
+        return res.status(404).json({ error: "Booking type not found" });
+      }
+      
+      // Invalidate cache
+      await bumpContentVersion();
+      
+      console.log(`[Admin] Deleted booking type: ${id}`);
+      res.json({ message: "Booking type deleted successfully" });
+    } catch (error) {
+      console.error("[Admin] Error deleting booking type:", error);
+      res.status(500).json({ error: "Failed to delete booking type" });
+    }
+  }
+);
 
 export default router;

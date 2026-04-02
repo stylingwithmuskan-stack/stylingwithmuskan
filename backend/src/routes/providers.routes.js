@@ -221,10 +221,8 @@ router.get(
       q.city = new RegExp(`^${escapeRegex(cityGuess)}$`, "i");
     }
     if (zoneGuess) {
-      q.$or = [
-        { zone: new RegExp(`^${escapeRegex(zoneGuess)}$`, "i") },
-        { address: new RegExp(escapeRegex(zoneGuess), "i") }
-      ];
+      // FIXED: Use zones array (plural) to match booking API logic
+      q.zones = { $in: [new RegExp(`^${escapeRegex(zoneGuess)}$`, "i")] };
     }
 
     let providers = await ProviderAccount.find(q).lean();

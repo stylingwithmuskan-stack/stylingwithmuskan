@@ -14,6 +14,37 @@ import VendorSubAccount from "../../../models/VendorSubAccount.js";
 import { notify } from "../../../lib/notify.js";
 import { issueOtp, OTP_LENGTH, verifyOtpValue } from "../../../lib/otpService.js";
 import { getMarketingCreditsBalance, getSubscriptionSnapshot } from "../../../lib/subscriptions.js";
+import ProviderDayAvailability from "../../../models/ProviderDayAvailability.js";
+import { defaultSlotsMap } from "../../../lib/slots.js";
+
+// Helper function to create default availability for provider (30 days)
+async function createDefaultProviderAvailability(providerId) {
+  try {
+    const defaultSlots = defaultSlotsMap("07:00", "22:00");
+    const availableSlots = Object.keys(defaultSlots).filter(slot => defaultSlots[slot] === true);
+    
+    // Create availability for next 30 days
+    const promises = [];
+    for (let i = 0; i < 30; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      promises.push(
+        ProviderDayAvailability.findOneAndUpdate(
+          { providerId: providerId.toString(), date: dateStr },
+          { $set: { availableSlots } },
+          { upsert: true, new: true }
+        )
+      );
+    }
+    
+    await Promise.all(promises);
+    console.log(`[Provider] Created default availability for provider ${providerId} (30 days, 7 AM - 10 PM)`);
+  } catch (error) {
+    console.error(`[Provider] Error creating default availability for ${providerId}:`, error.message);
+  }
+}
 
 function escapeRegex(s) {
   return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

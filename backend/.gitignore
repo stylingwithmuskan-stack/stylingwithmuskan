@@ -7,9 +7,8 @@ dist
 ecosystem.config.cjs
 .pm2
 
-# Firebase Admin SDK & Config files
+# Firebase Admin SDK & Config files (folder tracked, but JSON files ignored)
 src/config/*.json
-src\config\*.json
 
 # env files
 .env
