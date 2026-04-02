@@ -5,21 +5,29 @@ import { Input } from "@/modules/user/components/ui/input";
 import { toast } from "sonner";
 import useGoogleMaps from "../hooks/useGoogleMaps";
 
-const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, onSave }) => {
+const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, providerLocation = null, initialZoneName = "", onSave }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const providerMarkerRef = useRef(null);
   const [markers, setMarkers] = useState([]);
   const markersRef = useRef([]);
   const [polygon, setPolygon] = useState(null);
   const polygonRef = useRef(null);
   const [pointsPlaced, setPointsPlaced] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
-  const [zoneName, setZoneName] = useState("");
+  const [zoneName, setZoneName] = useState(initialZoneName || "");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded: isMapLoaded, loadError } = useGoogleMaps(apiKey);
+
+  // Update zone name when initialZoneName changes
+  useEffect(() => {
+    if (initialZoneName) {
+      setZoneName(initialZoneName);
+    }
+  }, [initialZoneName]);
 
   // Sync refs
   useEffect(() => {

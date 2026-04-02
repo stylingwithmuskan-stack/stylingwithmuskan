@@ -27,6 +27,8 @@ const statusColors = {
     completed: "bg-green-100 text-green-700 border-green-200",
     cancelled: "bg-red-100 text-red-700 border-red-200",
     provider_cancelled: "bg-orange-100 text-orange-700 border-orange-200",
+    vendor_reassigned: "bg-blue-100 text-blue-700 border-blue-200",
+    vendor_assigned: "bg-blue-100 text-blue-700 border-blue-200",
     rejected: "bg-red-100 text-red-700 border-red-200",
     "Unassigned": "bg-orange-100 text-orange-700 border-orange-200",
     enquiry_created: "bg-slate-100 text-slate-700 border-slate-200",
@@ -105,7 +107,7 @@ export default function VenderBookings() {
         const status = (b.status || "").toLowerCase();
 
         let tabMatch = true;
-        if (tab === "active") tabMatch = ["accepted", "travelling", "arrived", "in_progress", "service_confirmed", "vendor_reassigned"].includes(status);
+        if (tab === "active") tabMatch = ["accepted", "travelling", "arrived", "in_progress", "service_confirmed", "vendor_assigned", "vendor_reassigned"].includes(status);
         else if (tab === "pending") tabMatch = ["incoming", "pending", "unassigned", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid"].includes(status);
         else if (tab === "completed") tabMatch = status === "completed";
         else if (tab === "cancelled") tabMatch = ["cancelled", "rejected", "quote_expired"].includes(status);

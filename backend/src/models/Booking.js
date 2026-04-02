@@ -64,6 +64,7 @@ const BookingSchema = new mongoose.Schema(
       houseNo: String,
       area: String,
       city: { type: String, default: "" },
+      zone: { type: String, default: "" },
       landmark: String,
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },

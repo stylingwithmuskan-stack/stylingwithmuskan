@@ -15,7 +15,8 @@ import {
     ChevronRight,
     Store,
     MessageSquare,
-    CreditCard
+    CreditCard,
+    MapPin
 } from "lucide-react";
 import { cn } from "@/modules/user/lib/utils";
 import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
@@ -51,6 +52,7 @@ const VenderLayout = () => {
     const navLinks = [
         { name: "Dashboard", path: "/vender/dashboard", icon: LayoutDashboard },
         { name: "SP Management", path: "/vender/service-providers", icon: Users },
+        { name: "Zone Requests", path: "/vender/zone-requests", icon: MapPin }, // NEW
         { name: "Bookings", path: "/vender/bookings", icon: CalendarRange },
         { name: "Payouts", path: "/vender/payouts", icon: Wallet },
         { name: "Subscription", path: "/vender/subscription", icon: CreditCard },

@@ -238,6 +238,8 @@ const BookingSummary = () => {
         houseNo: user.addresses[0].houseNo,
         area: user.addresses[0].area,
         landmark: user.addresses[0].landmark || "",
+        city: user.addresses[0].city || user.addresses[0].area || "",
+        zone: user.addresses[0].zone || user.addresses[0].area || "",
         lat: user.addresses[0].lat ?? null,
         lng: user.addresses[0].lng ?? null
       };

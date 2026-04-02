@@ -943,3 +943,212 @@ export async function updateCustomerStatus(req, res) {
     res.status(500).json({ error: "Could not update customer status" });
   }
 }
+
+
+// List pending zone creation requests (vendor-approved new zones) - Phase 4
+export async function listPendingZoneCreations(req, res) {
+  try {
+    // Find all providers with vendor-approved new zone requests
+    const providers = await ProviderAccount.find({
+      pendingZoneRequests: {
+        $elemMatch: {
+          isNewZone: true,
+          vendorStatus: "approved",
+          adminStatus: "pending"
+        }
+      }
+    }).select('name phone address currentLocation city pendingZoneRequests').lean();
+
+    // Flatten and format pending zone creation requests
+    const requests = [];
+    for (const provider of providers) {
+      if (!provider.pendingZoneRequests) continue;
+      
+      for (const request of provider.pendingZoneRequests) {
+        // Only include vendor-approved new zones pending admin action
+        if (request.isNewZone && request.vendorStatus === "approved" && request.adminStatus === "pending") {
+          requests.push({
+            _id: request._id,
+            providerId: provider._id,
+            providerName: provider.name,
+            providerPhone: provider.phone,
+            providerAddress: provider.address,
+            providerLocation: provider.currentLocation,
+            providerCity: provider.city,
+            zoneName: request.zoneName,
+            requestedAt: request.requestedAt,
+            vendorReviewedAt: request.vendorReviewedAt,
+            vendorReviewedBy: request.vendorReviewedBy
+          });
+        }
+      }
+    }
+
+    // Sort by vendor review date (newest first)
+    requests.sort((a, b) => new Date(b.vendorReviewedAt) - new Date(a.vendorReviewedAt));
+
+    res.json({ requests });
+  } catch (error) {
+    console.error('[Admin] Failed to list pending zone creations:', error);
+    res.status(500).json({ error: 'Failed to fetch pending zone creations' });
+  }
+}
+
+// Create zone from provider request - Phase 4
+export async function createZoneFromRequest(req, res) {
+  try {
+    const { providerId, requestId, cityId, zoneName, coordinates } = req.body;
+
+    // Validate inputs
+    if (!providerId || !requestId || !cityId || !zoneName || !coordinates) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Validate coordinates (must be array of 5 lat/lng pairs)
+    if (!Array.isArray(coordinates) || coordinates.length !== 5) {
+      return res.status(400).json({ error: 'Coordinates must be an array of exactly 5 points' });
+    }
+
+    for (const coord of coordinates) {
+      if (typeof coord.lat !== 'number' || typeof coord.lng !== 'number') {
+        return res.status(400).json({ error: 'Invalid coordinate format' });
+      }
+      if (coord.lat < -90 || coord.lat > 90 || coord.lng < -180 || coord.lng > 180) {
+        return res.status(400).json({ error: 'Coordinate values out of range' });
+      }
+    }
+
+    // Find provider and request
+    const provider = await ProviderAccount.findById(providerId);
+    if (!provider) {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+
+    const request = provider.pendingZoneRequests.id(requestId);
+    if (!request) {
+      return res.status(404).json({ error: 'Zone request not found' });
+    }
+
+    if (request.adminStatus !== 'pending') {
+      return res.status(400).json({ error: 'Request already processed' });
+    }
+
+    // Create the zone
+    const zone = await Zone.create({
+      name: zoneName,
+      city: cityId,
+      status: 'active',
+      coordinates
+    });
+
+    // Update request status
+    request.adminStatus = 'approved';
+    request.adminReviewedAt = new Date();
+    request.adminReviewedBy = req.auth?.sub || 'admin';
+
+    // Add zone to provider's zones array
+    if (!provider.zones.includes(zoneName)) {
+      provider.zones.push(zoneName);
+    }
+
+    await provider.save();
+
+    // Send notifications
+    try {
+      await (await import("../../../lib/notify.js")).notify({
+        recipientId: provider._id.toString(),
+        recipientRole: "provider",
+        title: "New Zone Created",
+        message: `Your requested zone "${zoneName}" has been created by admin. You can now serve customers in this area.`,
+        type: "zone_created",
+        meta: { zoneId: zone._id.toString(), zoneName },
+      });
+
+      // Notify vendor
+      if (request.vendorReviewedBy) {
+        const Vendor = (await import("../../../models/Vendor.js")).default;
+        const vendor = await Vendor.findOne({ 
+          city: { $regex: new RegExp(`^${provider.city}$`, "i") },
+          status: "approved"
+        }).lean();
+        
+        if (vendor) {
+          await (await import("../../../lib/notify.js")).notify({
+            recipientId: vendor._id.toString(),
+            recipientRole: "vendor",
+            title: "Zone Created",
+            message: `Admin created zone "${zoneName}" for provider ${provider.name}.`,
+            type: "zone_created",
+            meta: { zoneId: zone._id.toString(), zoneName, providerId: provider._id.toString() },
+          });
+        }
+      }
+    } catch (notifyError) {
+      console.error('[Admin] Failed to send zone creation notifications:', notifyError);
+    }
+
+    res.status(201).json({ 
+      success: true, 
+      zone,
+      message: `Zone "${zoneName}" created and assigned to provider ${provider.name}`
+    });
+  } catch (error) {
+    console.error('[Admin] Failed to create zone from request:', error);
+    res.status(500).json({ error: 'Failed to create zone' });
+  }
+}
+
+// Reject zone creation request - Phase 4
+export async function rejectZoneCreationRequest(req, res) {
+  try {
+    const { providerId, requestId, reason } = req.body;
+
+    if (!providerId || !requestId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const provider = await ProviderAccount.findById(providerId);
+    if (!provider) {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+
+    const request = provider.pendingZoneRequests.id(requestId);
+    if (!request) {
+      return res.status(404).json({ error: 'Zone request not found' });
+    }
+
+    if (request.adminStatus !== 'pending') {
+      return res.status(400).json({ error: 'Request already processed' });
+    }
+
+    // Update request status
+    request.adminStatus = 'rejected';
+    request.adminReviewedAt = new Date();
+    request.adminReviewedBy = req.auth?.sub || 'admin';
+    request.rejectionReason = reason || 'Rejected by admin';
+
+    await provider.save();
+
+    // Send notification
+    try {
+      await (await import("../../../lib/notify.js")).notify({
+        recipientId: provider._id.toString(),
+        recipientRole: "provider",
+        title: "Zone Request Rejected",
+        message: `Your zone request for "${request.zoneName}" was rejected by admin. ${reason ? `Reason: ${reason}` : ''}`,
+        type: "zone_request_rejected",
+        meta: { zoneName: request.zoneName, reason },
+      });
+    } catch (notifyError) {
+      console.error('[Admin] Failed to send rejection notification:', notifyError);
+    }
+
+    res.json({ 
+      success: true,
+      message: `Zone request for "${request.zoneName}" rejected`
+    });
+  } catch (error) {
+    console.error('[Admin] Failed to reject zone request:', error);
+    res.status(500).json({ error: 'Failed to reject zone request' });
+  }
+}

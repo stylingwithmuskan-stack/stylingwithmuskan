@@ -223,12 +223,7 @@ export async function listProviders(req, res) {
     q = { 
       $and: [
         { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
-        { 
-          $or: [
-            { zone: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } },
-            { address: { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } }
-          ]
-        }
+        { zones: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } }
       ]
     };
   } else if (city) {
@@ -291,9 +286,105 @@ export async function updateProviderStatus(req, res) {
 
 export async function approveSPZones(req, res) {
   const { id } = req.params;
+  const { requestIds } = req.body; // Optional: specific request IDs to approve
+  
   const p = await ProviderAccount.findById(id);
   if (!p) return res.status(404).json({ error: "Provider not found" });
   
+  // Enhanced workflow: Handle pendingZoneRequests
+  if (p.pendingZoneRequests && p.pendingZoneRequests.length > 0) {
+    const vendorId = req.auth?.sub;
+    const vendor = await Vendor.findById(vendorId).lean();
+    
+    // Filter requests to approve (either specific IDs or all pending)
+    let requestsToApprove = p.pendingZoneRequests.filter(r => r.vendorStatus === "pending");
+    if (requestIds && Array.isArray(requestIds)) {
+      requestsToApprove = requestsToApprove.filter(r => requestIds.includes(r._id?.toString()));
+    }
+    
+    const existingZones = [];
+    const newZones = [];
+    
+    for (const request of requestsToApprove) {
+      // Update vendor approval
+      request.vendorStatus = "approved";
+      request.vendorReviewedAt = new Date();
+      request.vendorReviewedBy = vendor?.name || vendorId;
+      
+      if (request.isNewZone) {
+        // New zone: Forward to admin for zone creation
+        newZones.push(request.zoneName);
+        // Keep adminStatus as "pending" - admin needs to create zone
+      } else {
+        // Existing zone: Directly add to provider's zones
+        existingZones.push(request.zoneName);
+        request.adminStatus = "approved"; // Auto-approve for existing zones
+        request.adminReviewedAt = new Date();
+        request.adminReviewedBy = "auto";
+        
+        // Add to provider's zones array
+        if (!p.zones.includes(request.zoneName)) {
+          p.zones.push(request.zoneName);
+        }
+      }
+    }
+    
+    await p.save();
+    
+    // Notifications
+    try {
+      if (existingZones.length > 0) {
+        await notify({
+          recipientId: p._id.toString(),
+          recipientRole: "provider",
+          title: "Zones Approved by Vendor",
+          message: `Your request for zones ${existingZones.join(", ")} has been approved. You can now serve in these areas.`,
+          type: "provider_zones_approved",
+          meta: { providerId: p._id.toString(), zones: existingZones },
+        });
+      }
+      
+      if (newZones.length > 0) {
+        await notify({
+          recipientId: p._id.toString(),
+          recipientRole: "provider",
+          title: "New Zone Request Forwarded",
+          message: `Your request for new zones ${newZones.join(", ")} has been approved by vendor and forwarded to admin for zone creation.`,
+          type: "provider_zones_pending_admin",
+          meta: { providerId: p._id.toString(), zones: newZones },
+        });
+        
+        // Notify admin about new zone creation requests
+        await notify({
+          recipientId: "ADMIN001",
+          recipientRole: "admin",
+          title: "New Zone Creation Request",
+          message: `Vendor ${vendor?.name || "Unknown"} approved provider ${p.name}'s request for new zones: ${newZones.join(", ")}. Please create zones.`,
+          type: "zone_creation_request",
+          meta: { 
+            providerId: p._id.toString(), 
+            vendorId: vendorId,
+            zones: newZones,
+            providerLocation: p.currentLocation,
+            providerAddress: p.address
+          },
+        });
+      }
+    } catch (err) {
+      console.error('[Vendor] Failed to send zone approval notifications:', err);
+    }
+    
+    return res.json({ 
+      success: true, 
+      provider: p,
+      summary: {
+        existingZonesApproved: existingZones.length,
+        newZonesForwardedToAdmin: newZones.length
+      }
+    });
+  }
+  
+  // Legacy support: Handle old pendingZones array
   if (p.pendingZones && p.pendingZones.length > 0) {
     p.zones = [...new Set([...(p.zones || []), ...p.pendingZones])];
     p.pendingZones = [];
@@ -309,13 +400,64 @@ export async function approveSPZones(req, res) {
       });
     } catch {}
   }
+  
   res.json({ success: true, provider: p });
 }
 
 export async function rejectSPZones(req, res) {
   const { id } = req.params;
-  const p = await ProviderAccount.findByIdAndUpdate(id, { $set: { pendingZones: [] } }, { new: true });
+  const { requestIds, reason } = req.body; // Optional: specific request IDs and rejection reason
+  
+  const p = await ProviderAccount.findById(id);
   if (!p) return res.status(404).json({ error: "Provider not found" });
+  
+  // Enhanced workflow: Handle pendingZoneRequests
+  if (p.pendingZoneRequests && p.pendingZoneRequests.length > 0) {
+    const vendorId = req.auth?.sub;
+    const vendor = await Vendor.findById(vendorId).lean();
+    
+    // Filter requests to reject (either specific IDs or all pending)
+    let requestsToReject = p.pendingZoneRequests.filter(r => r.vendorStatus === "pending");
+    if (requestIds && Array.isArray(requestIds)) {
+      requestsToReject = requestsToReject.filter(r => requestIds.includes(r._id?.toString()));
+    }
+    
+    const rejectedZones = [];
+    
+    for (const request of requestsToReject) {
+      request.vendorStatus = "rejected";
+      request.vendorReviewedAt = new Date();
+      request.vendorReviewedBy = vendor?.name || vendorId;
+      request.rejectionReason = reason || "Rejected by vendor";
+      rejectedZones.push(request.zoneName);
+    }
+    
+    await p.save();
+    
+    try {
+      await notify({
+        recipientId: p._id.toString(),
+        recipientRole: "provider",
+        title: "Zone Request Rejected by Vendor",
+        message: `Your request for zones ${rejectedZones.join(", ")} was rejected. ${reason ? `Reason: ${reason}` : ''}`,
+        type: "provider_zones_rejected",
+        meta: { providerId: p._id.toString(), zones: rejectedZones, reason },
+      });
+    } catch {}
+    
+    return res.json({ 
+      success: true, 
+      provider: p,
+      summary: {
+        rejectedZones: rejectedZones.length
+      }
+    });
+  }
+  
+  // Legacy support: Handle old pendingZones array
+  p.pendingZones = [];
+  await p.save();
+  
   try {
     await notify({
       recipientId: p._id.toString(),
@@ -326,6 +468,7 @@ export async function rejectSPZones(req, res) {
       meta: { providerId: p._id.toString() },
     });
   } catch {}
+  
   res.json({ success: true, provider: p });
 }
 
@@ -346,12 +489,7 @@ export async function listBookings(req, res) {
     pQuery = { 
       $and: [
         { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
-        { 
-          $or: [
-            { zone: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } },
-            { address: { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } }
-          ]
-        }
+        { zones: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } }
       ]
     };
   } else {
@@ -396,9 +534,9 @@ export async function assignBooking(req, res) {
     req.params.id,
     { 
       assignedProvider: req.body.providerId, 
-      status: "pending",
+      status: "vendor_assigned", 
       lastAssignedAt: now,
-      expiresAt: expiresAt,
+      expiresAt: null, // Manual vendor assignment should not expire automatically
       adminEscalated: false
     },
     { new: true }
@@ -643,9 +781,9 @@ export async function assignTeamCustomEnquiry(req, res) {
       },
       slot: { date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10), time: enq.scheduledAt?.timeSlot || "10:00" },
       bookingType: "customized",
-      status: "pending",
+      status: "vendor_assigned",
       lastAssignedAt: new Date(),
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 mins for custom team
+      expiresAt: null, // Manual vendor assignment should not expire automatically
       notificationStatus: (await withinNotificationWindow()) ? "immediate" : "queued",
       assignedProvider: enq.maintainerProvider,
       maintainProvider: enq.maintainerProvider,
@@ -879,4 +1017,53 @@ export async function requestZones(req, res) {
   } catch {}
 
   res.json({ success: true, vendor: v });
+}
+
+
+// List zone requests from providers in vendor's city (Phase 4)
+export async function listZoneRequests(req, res) {
+  const vendorId = req.auth?.sub;
+  const vendor = await Vendor.findById(vendorId).lean();
+  if (!vendor) return res.status(404).json({ error: "Vendor not found" });
+  
+  const city = normCity(vendor?.city) || "";
+  if (!city) {
+    return res.json({ requests: [] });
+  }
+  
+  // Find all providers in vendor's city with pending zone requests
+  const providers = await ProviderAccount.find({
+    city: new RegExp(`^${escapeRegex(city)}$`, "i"),
+    pendingZoneRequests: { $exists: true, $ne: [] }
+  }).select('name phone address currentLocation pendingZoneRequests').lean();
+  
+  // Flatten and format zone requests
+  const requests = [];
+  for (const provider of providers) {
+    if (!provider.pendingZoneRequests) continue;
+    
+    for (const request of provider.pendingZoneRequests) {
+      requests.push({
+        _id: request._id,
+        providerId: provider._id,
+        providerName: provider.name,
+        providerPhone: provider.phone,
+        providerAddress: provider.address,
+        providerLocation: provider.currentLocation,
+        zoneName: request.zoneName,
+        isNewZone: request.isNewZone,
+        requestedAt: request.requestedAt,
+        vendorStatus: request.vendorStatus,
+        vendorReviewedAt: request.vendorReviewedAt,
+        vendorReviewedBy: request.vendorReviewedBy,
+        adminStatus: request.adminStatus,
+        rejectionReason: request.rejectionReason
+      });
+    }
+  }
+  
+  // Sort by requested date (newest first)
+  requests.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+  
+  res.json({ requests });
 }

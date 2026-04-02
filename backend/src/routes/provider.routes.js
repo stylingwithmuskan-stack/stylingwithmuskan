@@ -359,11 +359,49 @@ router.post(
       return res.status(400).json({ error: "Zones array is required" });
     }
 
-    const p = await ProviderAccount.findByIdAndUpdate(
-      providerId,
-      { $set: { pendingZones: zones } },
-      { new: true }
-    );
+    const p = await ProviderAccount.findById(providerId);
+    if (!p) {
+      return res.status(404).json({ error: "Provider not found" });
+    }
+
+    // Get all existing zones in provider's city for validation
+    const cityZones = await (await import("../models/CityZone.js")).Zone.find({
+      status: "active"
+    }).populate('city').lean();
+    
+    const cityZoneNames = cityZones
+      .filter(z => z.city?.name?.toLowerCase() === p.city?.toLowerCase())
+      .map(z => z.name.toLowerCase());
+
+    // Enhanced zone request tracking (Phase 4)
+    const newRequests = zones.map(zoneName => {
+      const isNewZone = !cityZoneNames.includes(zoneName.toLowerCase());
+      
+      return {
+        zoneName,
+        isNewZone,
+        requestedAt: new Date(),
+        providerAddress: p.address || "",
+        providerLocation: {
+          lat: p.currentLocation?.lat || null,
+          lng: p.currentLocation?.lng || null
+        },
+        vendorStatus: "pending",
+        adminStatus: isNewZone ? "pending" : "pending" // Both need approval for new zones
+      };
+    });
+
+    // Add to pendingZoneRequests array (new enhanced tracking)
+    p.pendingZoneRequests = p.pendingZoneRequests || [];
+    p.pendingZoneRequests.push(...newRequests);
+    
+    // Also update legacy pendingZones for backward compatibility
+    p.pendingZones = zones;
+    
+    await p.save();
+
+    const newZoneCount = newRequests.filter(r => r.isNewZone).length;
+    const existingZoneCount = newRequests.length - newZoneCount;
 
     try {
       // Notify Admin
@@ -371,9 +409,14 @@ router.post(
         recipientId: "ADMIN001",
         recipientRole: "admin",
         title: "Provider Zone Update Request",
-        message: `Provider ${p.name} has requested to add new zones: ${zones.join(", ")}.`,
+        message: `Provider ${p.name} has requested zones: ${zones.join(", ")}. ${newZoneCount > 0 ? `(${newZoneCount} new zone${newZoneCount > 1 ? 's' : ''})` : ''}`,
         type: "system",
-        meta: { providerId: p._id.toString(), pendingZones: zones },
+        meta: { 
+          providerId: p._id.toString(), 
+          pendingZones: zones,
+          newZoneCount,
+          existingZoneCount
+        },
       });
 
       // Notify Vendor of the city
@@ -385,17 +428,31 @@ router.post(
             recipientId: vendor._id.toString(),
             recipientRole: "vendor",
             title: "Provider Zone Update Request",
-            message: `Provider ${p.name} in your city (${city}) has requested new zones: ${zones.join(", ")}.`,
+            message: `Provider ${p.name} in your city (${city}) has requested zones: ${zones.join(", ")}. ${newZoneCount > 0 ? `🆕 ${newZoneCount} new zone${newZoneCount > 1 ? 's' : ''} need creation` : ''}`,
             type: "system",
-            meta: { providerId: p._id.toString(), pendingZones: zones },
+            meta: { 
+              providerId: p._id.toString(), 
+              pendingZones: zones,
+              newZoneCount,
+              existingZoneCount,
+              providerLocation: p.currentLocation
+            },
           });
         }
       }
     } catch (err) {
-      // Failed to notify about provider zone request
+      console.error('[Provider] Failed to notify about zone request:', err);
     }
 
-    res.json({ success: true, provider: p });
+    res.json({ 
+      success: true, 
+      provider: p,
+      summary: {
+        totalRequests: zones.length,
+        newZones: newZoneCount,
+        existingZones: existingZoneCount
+      }
+    });
   }
 );
 
@@ -635,16 +692,60 @@ router.post("/wallet/create-order", requireRole("provider"), body("amount").isNu
   if (amount < 100) return res.status(400).json({ error: "Minimum recharge amount is ₹100" });
 
   try {
+    const isMockMode = !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || RAZORPAY_KEY_ID.includes("YOUR_RAZORPAY_KEY") || !RAZORPAY_KEY_ID.startsWith("rzp_");
+    
+    // Debug logging
+    console.log("[ProviderWallet] Create order request:");
+    console.log("  - Amount:", amount);
+    console.log("  - Provider ID:", req.auth.sub);
+    console.log("  - Key ID:", RAZORPAY_KEY_ID ? `${RAZORPAY_KEY_ID.substring(0, 15)}...` : "MISSING");
+    console.log("  - Key Secret:", RAZORPAY_KEY_SECRET ? "SET" : "MISSING");
+    console.log("  - Mock Mode:", isMockMode);
+    
+    if (isMockMode) {
+      console.log("[ProviderWallet] Razorpay keys missing or placeholder, returning mock order");
+      const mockId = "order_mock_" + amount + "_" + Math.random().toString(36).substring(7);
+      const shortProviderId = String(req.auth.sub).slice(-8);
+      const shortTimestamp = Date.now().toString().slice(-8);
+      return res.json({
+        order: {
+          id: mockId,
+          amount: amount * 100,
+          currency: "INR",
+          receipt: `SWM_${shortProviderId}_${shortTimestamp}`,
+          status: "created",
+          mock: true
+        }
+      });
+    }
+    
+    console.log("[ProviderWallet] Creating Razorpay order...");
     const rzp = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
+    
+    // Generate short receipt (max 40 chars for Razorpay)
+    const shortProviderId = String(req.auth.sub).slice(-8); // Last 8 chars of provider ID
+    const shortTimestamp = Date.now().toString().slice(-8); // Last 8 digits of timestamp
+    const receipt = `SWM_${shortProviderId}_${shortTimestamp}`; // Max 24 chars
+    
     const order = await rzp.orders.create({
       amount: amount * 100,
       currency: "INR",
-      receipt: `SWM_RECHARGE_${req.auth.sub}_${Date.now()}`,
+      receipt,
       notes: { providerId: req.auth.sub, type: "wallet_recharge" },
     });
+    
+    console.log("[ProviderWallet] ✅ Order created successfully:", order.id);
     res.json({ order });
   } catch (err) {
-    res.status(502).json({ error: "Payment gateway unavailable" });
+    console.error("[ProviderWallet] ❌ Razorpay order creation FAILED");
+    console.error("[ProviderWallet] Error message:", err.message);
+    console.error("[ProviderWallet] Error status:", err.statusCode);
+    console.error("[ProviderWallet] Error description:", err.error?.description);
+    console.error("[ProviderWallet] Full error:", err);
+    res.status(502).json({ 
+      error: "Payment gateway unavailable",
+      details: process.env.NODE_ENV === "development" ? err.message : undefined
+    });
   }
 });
 
@@ -656,6 +757,33 @@ router.post("/wallet/verify-payment", requireRole("provider"), body("razorpay_pa
   const providerId = req.auth.sub;
 
   try {
+    const isMockMode = !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || RAZORPAY_KEY_ID.includes("YOUR_RAZORPAY_KEY") || !RAZORPAY_KEY_ID.startsWith("rzp_");
+    
+    if (isMockMode) {
+      if (razorpay_order_id.startsWith("order_mock_")) {
+        const acc = await ProviderAccount.findById(providerId);
+        if (!acc) return res.status(404).json({ error: "Provider not found" });
+
+        // Extract amount from mock order ID if present (order_mock_<amount>_<random>)
+        const parts = razorpay_order_id.split("_");
+        const amount = Number(parts[2] || req.body.amount || 100); 
+        
+        acc.credits = (acc.credits || 0) + amount;
+        await acc.save();
+
+        await ProviderWalletTxn.create({
+          providerId,
+          type: "recharge",
+          amount,
+          balanceAfter: acc.credits,
+          meta: { title: "Wallet Recharge (Mock)", source: "mock", paymentId: razorpay_payment_id },
+        });
+
+        return res.json({ success: true, credits: acc.credits });
+      }
+      return res.status(400).json({ error: "Invalid payment signature" });
+    }
+
     const generated_signature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(razorpay_order_id + "|" + razorpay_payment_id).digest('hex');
     if (generated_signature !== razorpay_signature) {
       return res.status(400).json({ error: "Invalid payment signature" });

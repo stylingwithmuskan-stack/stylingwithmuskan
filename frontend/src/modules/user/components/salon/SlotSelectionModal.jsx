@@ -22,6 +22,13 @@ const timeToMinutes = (timeStr) => {
     return hours * 60 + (minutes || 0);
 };
 
+const getLocalDateKey = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     const { selectedSlot, setSelectedSlot, cartItems, setBookingType } = useCart();
     const { gender } = useGenderTheme();
@@ -48,7 +55,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     useEffect(() => {
         let cancelled = false;
         if (isOpen) {
-            const todayKey = new Date().toISOString().split("T")[0];
+            const todayKey = getLocalDateKey();
             setTempDate(selectedSlot?.date || todayKey);
             setTempSlot(selectedSlot?.time || null);
             setAvailableSlots([]);
@@ -147,7 +154,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             return {
                 label: d.toLocaleDateString("en-IN", { weekday: "short" }),
                 date: d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
-                key: d.toISOString().split("T")[0],
+                key: getLocalDateKey(d),
                 isToday: i === 0,
             };
         });
@@ -165,7 +172,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         });
     }, [availableSlots, officeSettings]);
 
-    const todayKey = new Date().toISOString().split("T")[0];
+    const todayKey = getLocalDateKey();
     const isToday = tempDate === todayKey;
     const nextAvailableSlot = slots.length > 0 ? slots[0] : null;
 
@@ -178,7 +185,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             setSelectedSlot(next);
             
             // Set booking type based on date: Today = Instant, Future = Scheduled
-            const todayKey = new Date().toISOString().split("T")[0];
+            const todayKey = getLocalDateKey();
             if (tempDate === todayKey) {
                 setBookingType("instant");
             } else {

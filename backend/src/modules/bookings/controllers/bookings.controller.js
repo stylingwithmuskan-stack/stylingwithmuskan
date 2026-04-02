@@ -23,6 +23,7 @@ import {
   getSubscriptionSnapshot,
 } from "../../../lib/subscriptions.js";
 import { calculateRefundPolicy, processSmartRefund } from "../../../lib/refund.service.js";
+import { findProvidersInZone, sortProvidersByProximity } from "../../../lib/geoMatching.js";
 
 async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
   // Logic: Instant bookings never require advance payment.
@@ -40,7 +41,7 @@ async function computeAdvanceFromCategories(items = [], bookingType = "instant")
     const catType = String(c.bookingType || "").toLowerCase();
     // Advance applies if category is scheduled/prebook/customize OR if explicitly requested as scheduled/prebook
     if (pct > 0 && (catType === "scheduled" || catType === "prebooking" || catType === "pre-book" || catType === "customize" || bType === "scheduled" || bType === "pre-book")) {
-      sum += Math.ceil((Number(it.price) || 0) * (pct / 100));
+      sum += Math.ceil((Number(it.price) || 0) * (Number(it.quantity) || 1) * (pct / 100));
     }
   }
   return Math.max(sum, 0);
@@ -206,6 +207,7 @@ export async function create(req, res) {
     area: address?.area || fallbackAddr.area || "",
     landmark: address?.landmark || fallbackAddr.landmark || "",
     city: address?.city || address?.area || fallbackAddr.city || fallbackAddr.area || "",
+    zone: address?.zone || fallbackAddr.zone || address?.area || fallbackAddr.area || "",
     lat: address?.lat ?? fallbackAddr.lat ?? null,
     lng: address?.lng ?? fallbackAddr.lng ?? null,
   };
@@ -247,10 +249,19 @@ export async function create(req, res) {
   
   // Build candidate provider list based on zones OR fallback to city
   const bookingCity = String(safeAddress.city || "").trim();
-  const bookingArea = String(safeAddress.area || "").trim();
+  const bookingZone = String(safeAddress.zone || safeAddress.area || "").trim(); // FIXED: Use zone field like slot API does
 
   const requestedDate = String(slot?.date || "").trim();
   const requestedTime = String(slot?.time || "").trim();
+
+  console.log(`[Booking] Zone matching debug:`, {
+    bookingCity,
+    bookingZone,
+    addressProvided: address,
+    safeAddress,
+    slotDate: requestedDate,
+    slotTime: requestedTime
+  });
   const wantCats = new Set((items || []).map(it => String(it.category || "")).filter(Boolean));
   const wantTypes = new Set((items || []).map(it => String(it.serviceType || "")).filter(Boolean));
   
@@ -284,39 +295,41 @@ export async function create(req, res) {
     && Number(provider.rating || 0) >= eliteMinRating
     && Number(provider.totalJobs || 0) >= eliteMinJobs;
 
-  // Search by Zone (Priority 1)
-  let providers = await ProviderAccount.find({
-    approvalStatus: "approved",
-    registrationComplete: true,
-    city: { $regex: new RegExp(`^${bookingCity}$`, "i") },
-    zones: { $in: [new RegExp(`^${bookingArea}$`, "i")] }
-  }).lean();
-
-  // Fallback to City (Priority 2) if no zone-specific providers
-  if (providers.length === 0) {
-    providers = await ProviderAccount.find({
+  // ENHANCED: Geo-spatial zone matching with polygon boundaries + distance-based sorting
+  // Priority 1: Polygon-based zone matching (if coordinates available)
+  // Priority 2: Text-based zone matching (fallback)
+  // Priority 3: City-wide search (final fallback)
+  let providers = await findProvidersInZone(
+    {
+      lat: safeAddress.lat,
+      lng: safeAddress.lng,
+      zone: bookingZone,
+      city: bookingCity
+    },
+    {
       approvalStatus: "approved",
-      registrationComplete: true,
-      city: { $regex: new RegExp(`^${bookingCity}$`, "i") }
-    }).lean();
-  }
+      registrationComplete: true
+    }
+  );
 
-  const mappedProviders = await Promise.all(providers
-    .filter(p => matchesSpecialty(p))
-    .map(async (p) => ({
-      id: p._id.toString(),
-      online: p.isOnline ? 1 : 0,
-      isPro: proPartnerIds.includes(p._id.toString()) ? 1 : 0,
-      isElite: qualifiesAsElite(p) ? 1 : 0,
-      rating: Number(p.rating || 0),
-      jobs: Number(p.totalJobs || 0),
-    })));
-  
-  const sorted = mappedProviders
-    .sort((a, b) => (b.isElite - a.isElite) || (b.isPro - a.isPro) || (b.online - a.online) || (b.rating - a.rating) || (b.jobs - a.jobs));
+  // Filter by specialty
+  providers = providers.filter(p => matchesSpecialty(p));
 
+  // Sort by proximity (distance) + Elite > Pro > Online > Rating > Jobs
+  const sorted = await sortProvidersByProximity(
+    providers,
+    safeAddress.lat,
+    safeAddress.lng,
+    proPartnerIds,
+    qualifiesAsElite
+  );
+
+  // Build candidate list with availability check
   for (const s of sorted) {
-    if (await isProviderAvailableAtSlot(s.id)) candidateProviders.push(s.id);
+    const providerId = s._id?.toString() || s.id;
+    if (await isProviderAvailableAtSlot(providerId)) {
+      candidateProviders.push(providerId);
+    }
   }
 
   // Enforce booking window + lead time if slot is valid
@@ -367,12 +380,20 @@ export async function create(req, res) {
   }
 
   // If autoAssign is completely OFF or NO providers were found even in candidate list, it stays unassigned/admin-escalated.
-  // We only fail if user expects something that is absolutely impossible (like no providers exist at all for that slot)
+  // CHANGED: Don't fail the booking - allow it to be created and escalated to vendor/admin
+  // This prevents "No provider available" error when slot was shown as available
+  // 
+  // NOTE: This can happen when:
+  // 1. Provider was available during slot selection but became busy before booking creation
+  // 2. Another user booked the same provider in the meantime
+  // 3. Provider went offline or changed availability
+  //
+  // FUTURE IMPROVEMENT: Pass candidateProvidersBySlot from frontend to backend
+  // so we can use the same providers that were shown as available during slot selection
   if (!assignedProvider && autoAssignAllowed && candidateProviders.length === 0) {
-    return res.status(409).json({
-      error: "No professionals are currently available for this slot. Please try a different time or date.",
-      code: "NO_PROVIDERS",
-    });
+    console.log(`[Booking] No providers found for slot ${requestedTime} on ${requestedDate}. Creating unassigned booking for manual assignment.`);
+    // Don't return error - let booking be created as unassigned
+    // It will be escalated to vendor/admin below
   }
   const maxCandidates = Math.max(Number(settings?.providerSearchLimit || 0), 0);
   if (maxCandidates > 0 && candidateProviders.length > maxCandidates) {

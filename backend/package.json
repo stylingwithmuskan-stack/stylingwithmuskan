@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "NODE_ENV=production node src/server.js",
+    "dev": "node --max-old-space-size=4096 --watch src/server.js",
+    "start": "NODE_ENV=production node --max-old-space-size=4096 src/server.js",
     "lint": "echo \"No linter configured for backend\"",
     "smoke": "node scripts/smoke.mjs",
     "seed:booking-flow": "node scripts/seed-booking-flow.mjs",

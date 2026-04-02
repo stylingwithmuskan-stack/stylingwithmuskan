@@ -33,10 +33,51 @@ const ZoneSchema = new mongoose.Schema(
         },
         message: 'Coordinates must be an array of exactly 5 valid lat/lng pairs'
       }
-    }
+    },
+    
+    // GeoJSON format for geo-spatial queries (Phase 1)
+    // This is auto-generated from coordinates array
+    geometry: {
+      type: {
+        type: String,
+        enum: ['Polygon'],
+        default: 'Polygon'
+      },
+      coordinates: {
+        type: [[[Number]]], // Array of arrays of coordinate pairs
+        default: undefined
+      }
+    },
+    
+    // Zone metadata (Phase 7 - Future)
+    pricingMultiplier: { type: Number, default: 1.0, min: 0.5, max: 3.0 },
+    providerCount: { type: Number, default: 0 },
+    bookingCount: { type: Number, default: 0 }
   },
   { timestamps: true }
 );
+
+// Pre-save hook: Auto-generate GeoJSON geometry from coordinates (Phase 1)
+ZoneSchema.pre('save', function(next) {
+  if (this.coordinates && Array.isArray(this.coordinates) && this.coordinates.length === 5) {
+    // Convert to GeoJSON Polygon format: [[[lng, lat], [lng, lat], ...]]
+    // Note: GeoJSON uses [longitude, latitude] order (opposite of our lat/lng)
+    const geoCoords = this.coordinates.map(c => [c.lng, c.lat]);
+    // Close the polygon by adding first point at the end
+    geoCoords.push([this.coordinates[0].lng, this.coordinates[0].lat]);
+    
+    this.geometry = {
+      type: 'Polygon',
+      coordinates: [geoCoords]
+    };
+    
+    console.log(`[CityZone] Generated GeoJSON geometry for zone: ${this.name}`);
+  }
+  next();
+});
+
+// Create 2dsphere index for geo-spatial queries (Phase 1)
+ZoneSchema.index({ geometry: '2dsphere' });
 
 // Drop problematic geospatial index on startup
 async function dropGeoIndexIfExists() {

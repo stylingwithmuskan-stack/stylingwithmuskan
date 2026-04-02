@@ -15,6 +15,7 @@ router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLeng
 router.get("/me", requireRole("vendor"), VendorController.getMe);
 
 router.get("/providers", requireRole("vendor"), VendorController.listProviders);
+router.get("/zone-requests", requireRole("vendor"), VendorController.listZoneRequests); // NEW: List zone requests
 router.patch(
   "/providers/:id/status",
   requireRole("vendor"),

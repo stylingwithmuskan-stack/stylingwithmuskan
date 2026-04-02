@@ -731,6 +731,11 @@ router.put("/zones/:zoneId", requireRole("admin"), AdminController.updateZone);
 router.delete("/zones/:zoneId", requireRole("admin"), AdminController.deleteZone);
 router.get("/zones/:zoneId/stats", requireRole("admin"), AdminController.getZoneStats);
 
+// ───── ZONE CREATION FROM PROVIDER REQUESTS (Phase 4) ─────
+router.get("/pending-zone-creations", requireRole("admin"), AdminController.listPendingZoneCreations);
+router.post("/zones/create-from-request", requireRole("admin"), AdminController.createZoneFromRequest);
+router.post("/zones/reject-request", requireRole("admin"), AdminController.rejectZoneCreationRequest);
+
 router.get("/subscription-settings", requireRole("admin"), AdminSubscriptionController.getSettings);
 router.put("/subscription-settings", requireRole("admin"), AdminSubscriptionController.updateSettings);
 router.get("/subscription-plans", requireRole("admin"), AdminSubscriptionController.listPlans);

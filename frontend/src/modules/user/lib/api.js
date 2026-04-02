@@ -121,6 +121,17 @@ async function request(path, options = {}) {
     authToken = providerToken || vendorToken || adminToken || token;
   }
 
+  // Debug: Log token status for authenticated endpoints
+  if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/content/")) {
+    console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path}`);
+    console.warn(`[API] Token status:`, { 
+      userToken: token ? '✓' : '✗', 
+      providerToken: providerToken ? '✓' : '✗',
+      adminToken: adminToken ? '✓' : '✗',
+      vendorToken: vendorToken ? '✓' : '✗'
+    });
+  }
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || "GET",
     headers: {
@@ -353,9 +364,10 @@ export const api = {
     logout: () => request("/vendor/logout", { method: "POST" }),
     me: () => request("/vendor/me"),
     providers: () => request("/vendor/providers"),
-    updateSPStatus: (id, status) => request(`/vendor/service-providers/${id}/status`, { method: "PATCH", body: { status } }),
-    approveSPZones: (id) => request(`/vendor/service-providers/${id}/approve-zones`, { method: "PATCH" }),
-    rejectSPZones: (id) => request(`/vendor/service-providers/${id}/reject-zones`, { method: "PATCH" }),
+    listZoneRequests: () => request("/vendor/zone-requests"), // NEW: List zone requests
+    updateSPStatus: (id, status) => request(`/vendor/providers/${id}/status`, { method: "PATCH", body: { status } }),
+    approveSPZones: (id, body) => request(`/vendor/providers/${id}/approve-zones`, { method: "PATCH", body: body || {} }),
+    rejectSPZones: (id, body) => request(`/vendor/providers/${id}/reject-zones`, { method: "PATCH", body: body || {} }),
     bookings: () => request("/vendor/bookings"),
     assignBooking: (id, providerId) => request(`/vendor/bookings/${id}/assign`, { method: "PATCH", body: { providerId } }),
     reassignBooking: (id, providerId) => request(`/vendor/bookings/${id}/reassign`, { method: "PATCH", body: { providerId } }),
@@ -494,6 +506,12 @@ export const api = {
     updateZone: (id, body) => request(`/admin/zones/${id}`, { method: "PUT", body }),
     deleteZone: (id) => request(`/admin/zones/${id}`, { method: "DELETE" }),
     getZoneStats: (zoneId) => request(`/admin/zones/${zoneId}/stats`),
+    
+    // Zone Creation from Provider Requests (Phase 4)
+    listPendingZoneCreations: () => request("/admin/pending-zone-creations"),
+    createZoneFromRequest: (body) => request("/admin/zones/create-from-request", { method: "POST", body }),
+    rejectZoneCreationRequest: (body) => request("/admin/zones/reject-request", { method: "POST", body }),
+    
     getSubscriptionSettings: () => request("/admin/subscription-settings"),
     updateSubscriptionSettings: (body) => request("/admin/subscription-settings", { method: "PUT", body }),
     listSubscriptionPlans: () => request("/admin/subscription-plans"),

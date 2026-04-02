@@ -325,6 +325,9 @@ export default function ProviderProfile() {
                             <Clock className="h-3.5 w-3.5 text-amber-600" />
                             <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Awaiting Approval</p>
                         </div>
+                        <p className="text-[11px] font-bold text-amber-800 mb-3 bg-white/50 p-2 rounded-lg">
+                            Please wait for admin or city vendor to approve your new hub requests. Bookings from these areas will start appearing once approved.
+                        </p>
                         <div className="flex flex-wrap gap-2">
                             {provider.pendingZones.map(z => (
                                 <Badge key={z} variant="outline" className="bg-white/50 border-amber-200 text-amber-700 text-[11px] font-bold py-1 px-2.5 rounded-lg italic">
