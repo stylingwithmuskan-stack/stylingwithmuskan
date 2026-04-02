@@ -85,7 +85,10 @@ export const ProviderAuthProvider = ({ children }) => {
                 name: payload.name,
                 email: payload.email,
                 address: payload.address || [payload.addressLine1, payload.area].filter(Boolean).join(", ").trim(),
-                city: payload.city,
+                city: String(payload.city || "").trim(),
+                zones: Array.isArray(payload.zones)
+                    ? payload.zones
+                    : (payload.zone ? [payload.zone] : []),
                 gender: payload.gender,
                 dob: payload.dob,
                 experience: payload.experience,

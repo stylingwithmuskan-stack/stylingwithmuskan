@@ -4,6 +4,7 @@ import morgan from "morgan";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
+import mongoose from "mongoose";
 import webhooksRoutes from "./routes/webhooks.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./modules/user/routes/index.js";
@@ -60,6 +61,16 @@ app.use(limiter);
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 app.get("/",(req,res)=>{
   res.send("Welcome to Styling With Muskan");
+});
+
+// Fail fast if DB is unavailable (prevents silent local/memory writes)
+app.use((req, res, next) => {
+  const path = req.path || "";
+  if (path === "/healthz" || path.startsWith("/docs")) return next();
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: "Database unavailable" });
+  }
+  return next();
 });
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
