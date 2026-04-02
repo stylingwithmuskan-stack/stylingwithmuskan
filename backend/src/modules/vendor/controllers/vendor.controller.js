@@ -119,6 +119,8 @@ export async function verifyRegistrationOtp(req, res) {
 
   if (!valid) return res.status(400).json({ error: "Invalid OTP" });
 
+  console.log('[Vendor Registration] Starting registration:', { phone, name, email, city, zones });
+
   try {
     const v = await Vendor.create({
       name,
@@ -127,6 +129,14 @@ export async function verifyRegistrationOtp(req, res) {
       city: normCity(city),
       zones: Array.isArray(zones) ? zones : [zones],
       status: "pending",
+    });
+
+    console.log('[Vendor Registration] SUCCESS - Vendor created:', { 
+      id: v._id.toString(), 
+      name: v.name, 
+      city: v.city, 
+      zones: v.zones,
+      status: v.status 
     });
 
     // Notify admin
@@ -157,6 +167,7 @@ export async function verifyRegistrationOtp(req, res) {
       vendorToken: token
     });
   } catch (err) {
+    console.error('[Vendor Registration] ERROR:', err.message, err.stack);
     res.status(400).json({ error: err.message || "Registration failed" });
   }
 }
@@ -249,6 +260,8 @@ export async function listProviders(req, res) {
   const city = normCity(vendor?.city) || "";
   const zones = vendor?.zones || [];
   
+  console.log('[Vendor] listProviders called:', { vendorId, vendorCity: vendor?.city, normalizedCity: city, zones });
+  
   let q = {};
   if (zones.length > 0) {
     q = { 
@@ -260,8 +273,16 @@ export async function listProviders(req, res) {
   } else if (city) {
     q = { city: new RegExp(`^${escapeRegex(city)}$`, "i") };
   }
-
+  
+  console.log('[Vendor] Query:', JSON.stringify(q, null, 2));
+  
   let items = await ProviderAccount.find(q).sort({ createdAt: -1 }).lean();
+  
+  console.log('[Vendor] Found providers:', items.length);
+  if (items.length > 0) {
+    console.log('[Vendor] Sample provider cities:', items.slice(0, 3).map(p => ({ name: p.name, city: p.city, zones: p.zones })));
+  }
+  
   res.json({ providers: items });
 }
 

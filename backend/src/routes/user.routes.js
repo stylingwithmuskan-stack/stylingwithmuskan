@@ -188,41 +188,43 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   const cityGuess = String(req.query.city || addr0.city || addr0.area || "").trim();
   const zoneGuess = String(req.query.zone || addr0.zone || "").trim();
 
+  // ✅ FIX 1: Only fetch COMPLETED bookings (not just non-cancelled)
+  // Limit to last 6 months for performance
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
   const recentBookings = await Booking.find({
     customerId,
     assignedProvider: { $ne: "" },
-    status: { $ne: "cancelled" },
+    status: "completed",  // ✅ Only completed bookings
+    createdAt: { $gte: sixMonthsAgo }  // ✅ Last 6 months only
   }).sort({ createdAt: -1 }).limit(50).lean();
 
   const recentIds = [];
   const seen = new Set();
+  const bookingCounts = {};  // ✅ FIX 3: Track booking count per provider
+  
   for (const b of recentBookings) {
     const pid = String(b.assignedProvider || "").trim();
-    if (!pid || seen.has(pid)) continue;
-    seen.add(pid);
-    recentIds.push(pid);
-    if (recentIds.length >= limit) break;
+    if (!pid) continue;
+    
+    // Count bookings per provider
+    bookingCounts[pid] = (bookingCounts[pid] || 0) + 1;
+    
+    if (!seen.has(pid)) {
+      seen.add(pid);
+      recentIds.push(pid);
+      if (recentIds.length >= limit) break;
+    }
   }
 
-  // Find providers that match the city/zone criteria
-  let q = {
-    approvalStatus: "approved",
-    registrationComplete: true,
-  };
-  if (cityGuess) {
-    q.city = new RegExp(`^${escapeRegex(cityGuess)}$`, "i");
-  }
-  if (zoneGuess) {
-    q.$or = [
-      { zone: new RegExp(`^${escapeRegex(zoneGuess)}$`, "i") },
-      { address: new RegExp(escapeRegex(zoneGuess), "i") }
-    ];
-  }
-
+  // ✅ FIX 2: Remove city/zone filter for previous providers
+  // User should see ALL their previous providers regardless of location
   const recentDocs = recentIds.length
     ? await ProviderAccount.find({
       _id: { $in: recentIds },
-      ...q
+      approvalStatus: "approved",
+      registrationComplete: true,
     }).lean()
     : [];
   const decoratedRecent = await Promise.all(recentDocs.map(async (p) => ({
@@ -237,11 +239,25 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
     recentProviders = recentProviders.filter((p) => p.isElite || p.isPro);
   }
 
+  // ✅ FIX 4: Sort by booking frequency first, then rating
+  // Add booking count to each provider
   recentProviders = recentProviders
-    .sort((a, b) => (Number(b.isElite) - Number(a.isElite)) || (Number(b.isPro) - Number(a.isPro)) || (Number(b.rating || 0) - Number(a.rating || 0)))
-    .map(providerCard);
+    .map(p => ({
+      ...providerCard(p),
+      bookingCount: bookingCounts[p._id.toString()] || 0  // ✅ Add booking count
+    }))
+    .sort((a, b) => {
+      // Sort: Most booked → Elite → Pro → Highest rated → Most jobs
+      if (b.bookingCount !== a.bookingCount) return b.bookingCount - a.bookingCount;
+      if (Number(b.isElite) !== Number(a.isElite)) return Number(b.isElite) - Number(a.isElite);
+      if (Number(b.isPro) !== Number(a.isPro)) return Number(b.isPro) - Number(a.isPro);
+      if (Number(b.rating || 0) !== Number(a.rating || 0)) return Number(b.rating || 0) - Number(a.rating || 0);
+      return Number(b.totalJobs || 0) - Number(a.totalJobs || 0);
+    });
 
   const isFirstBooking = recentIds.length === 0;
+  
+  console.log(`[Provider Suggestions] User: ${customerId}, Mode: ${isFirstBooking ? "new_user" : "repeat_user"}, Providers: ${recentProviders.length}`);
   res.json({
     mode: isFirstBooking ? "new_user" : "repeat_user",
     isFirstBooking,

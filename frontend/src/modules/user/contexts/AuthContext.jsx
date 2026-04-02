@@ -63,27 +63,44 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const loginWithOtp = async ({ phone, otp, name, referralCode, intent = "login" }) => {
-        const res = await api.verifyOtp(phone, otp, intent);
-        console.log("[Auth] verifyOtp response", res);
-        const { user: u } = res;
-        // If new user and profile fields provided, update
-        if ((name && name.trim()) || (referralCode && referralCode.trim())) {
-            const profileRes = await api.updateProfile({
-                name: name?.trim(),
-                referralCode: (referralCode || "").trim()
-            });
-            console.log("[Auth] updateProfile response", profileRes);
-            const { user: updated } = profileRes;
-            setUser(updated);
-            setHasAddress((updated.addresses || []).length > 0);
+        try {
+            const res = await api.verifyOtp(phone, otp, intent);
+            console.log("[Auth] verifyOtp response", res);
+            
+            // Validate response
+            if (!res || !res.user || !res.user._id) {
+                throw new Error("Login failed - invalid response from server");
+            }
+            
+            const { user: u } = res;
+            
+            // If new user and profile fields provided, update
+            if ((name && name.trim()) || (referralCode && referralCode.trim())) {
+                const profileRes = await api.updateProfile({
+                    name: name?.trim(),
+                    referralCode: (referralCode || "").trim()
+                });
+                console.log("[Auth] updateProfile response", profileRes);
+                const { user: updated } = profileRes;
+                setUser(updated);
+                setHasAddress((updated.addresses || []).length > 0);
+                setIsLoggedIn(true);
+                ensurePushRegistration("user").catch(() => {});
+                return;
+            }
+            
+            setUser(u);
+            setHasAddress((u.addresses || []).length > 0);
             setIsLoggedIn(true);
             ensurePushRegistration("user").catch(() => {});
-            return;
+        } catch (error) {
+            // Clear any stale data on error
+            setIsLoggedIn(false);
+            setUser(null);
+            setHasAddress(false);
+            localStorage.removeItem(STORAGE_KEY);
+            throw error;
         }
-        setUser(u);
-        setHasAddress((u.addresses || []).length > 0);
-        setIsLoggedIn(true);
-        ensurePushRegistration("user").catch(() => {});
     };
 
     const logout = () => {

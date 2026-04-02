@@ -77,31 +77,39 @@ export const ProviderAuthProvider = ({ children }) => {
     const isRegistered = provider?.registrationComplete === true;
 
     const register = async (data) => {
-        const payload = { ...data };
-        if (!payload.phone && provider?.phone) payload.phone = provider.phone;
-        const safe = {
-            phone: payload.phone,
-            name: payload.name,
-            email: payload.email,
-            address: payload.address || [payload.addressLine1, payload.area].filter(Boolean).join(", ").trim(),
-            city: payload.city,
-            gender: payload.gender,
-            dob: payload.dob,
-            experience: payload.experience,
-            profilePhoto: typeof payload.profilePhoto === "string" && !payload.profilePhoto?.startsWith("data:") ? payload.profilePhoto : "",
-            aadharFront: typeof payload.aadharFront === "string" && !payload.aadharFront?.startsWith("data:") ? payload.aadharFront : "",
-            aadharBack: typeof payload.aadharBack === "string" && !payload.aadharBack?.startsWith("data:") ? payload.aadharBack : "",
-            panCard: typeof payload.panCard === "string" && !payload.panCard?.startsWith("data:") ? payload.panCard : "",
-            primaryCategory: payload.primaryCategory,
-            specializations: payload.specializations,
-            bankName: payload.bankName,
-            accountNumber: payload.accountNumber,
-            ifscCode: payload.ifscCode,
-            upiId: payload.upiId,
-        };
-        const { provider: regProvider, providerToken } = await api.provider.register(safe);
-        if (providerToken) setProviderToken(providerToken);
-        let nextProvider = regProvider;
+        try {
+            const payload = { ...data };
+            if (!payload.phone && provider?.phone) payload.phone = provider.phone;
+            const safe = {
+                phone: payload.phone,
+                name: payload.name,
+                email: payload.email,
+                address: payload.address || [payload.addressLine1, payload.area].filter(Boolean).join(", ").trim(),
+                city: payload.city,
+                gender: payload.gender,
+                dob: payload.dob,
+                experience: payload.experience,
+                profilePhoto: typeof payload.profilePhoto === "string" && !payload.profilePhoto?.startsWith("data:") ? payload.profilePhoto : "",
+                aadharFront: typeof payload.aadharFront === "string" && !payload.aadharFront?.startsWith("data:") ? payload.aadharFront : "",
+                aadharBack: typeof payload.aadharBack === "string" && !payload.aadharBack?.startsWith("data:") ? payload.aadharBack : "",
+                panCard: typeof payload.panCard === "string" && !payload.panCard?.startsWith("data:") ? payload.panCard : "",
+                primaryCategory: payload.primaryCategory,
+                specializations: payload.specializations,
+                bankName: payload.bankName,
+                accountNumber: payload.accountNumber,
+                ifscCode: payload.ifscCode,
+                upiId: payload.upiId,
+            };
+            
+            const { provider: regProvider, providerToken } = await api.provider.register(safe);
+            
+            // Validate response
+            if (!regProvider || !regProvider._id) {
+                throw new Error("Registration failed - no provider data received");
+            }
+            
+            if (providerToken) setProviderToken(providerToken);
+            let nextProvider = regProvider;
         const hasFiles =
             payload.profilePhoto instanceof File ||
             payload.aadharFront instanceof File ||
@@ -148,9 +156,19 @@ export const ProviderAuthProvider = ({ children }) => {
             try {
                 const { provider: upProvider } = await api.provider.uploadDocs(form);
                 nextProvider = upProvider || nextProvider;
-            } catch {}
+            } catch (uploadError) {
+                console.error('[Provider] Document upload failed:', uploadError);
+                // Continue with registration even if upload fails
+            }
         }
+        
+        // Only save to localStorage after successful registration
         setProvider(nextProvider);
+        } catch (error) {
+            // Clear any stale data on error
+            logout();
+            throw error;
+        }
     };
 
     const requestRegisterOtp = async (phone) => {
@@ -165,11 +183,23 @@ export const ProviderAuthProvider = ({ children }) => {
         return await api.provider.requestOtp(phone);
     };
     const verifyOtp = async (phone, otp) => {
-        const { provider, providerToken } = await api.provider.verifyOtp(phone, otp);
-        setProvider(provider);
-        if (providerToken) setProviderToken(providerToken);
-        ensurePushRegistration("provider").catch(() => {});
-        return { success: true, registered: provider.registrationComplete };
+        try {
+            const { provider, providerToken } = await api.provider.verifyOtp(phone, otp);
+            
+            // Validate response
+            if (!provider || !provider._id) {
+                throw new Error("OTP verification failed - invalid response from server");
+            }
+            
+            setProvider(provider);
+            if (providerToken) setProviderToken(providerToken);
+            ensurePushRegistration("provider").catch(() => {});
+            return { success: true, registered: provider.registrationComplete };
+        } catch (error) {
+            // Clear any stale data on error
+            logout();
+            throw error;
+        }
     };
 
     const logout = () => {

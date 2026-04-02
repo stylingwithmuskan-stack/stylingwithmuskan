@@ -45,43 +45,79 @@ export const VenderAuthProvider = ({ children }) => {
     const isApproved = vendor?.status === "approved";
 
     const login = async (email, password) => {
-        const { vendor, vendorToken } = await api.vendor.login(email, password);
-        if (vendorToken) {
-            try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+        try {
+            const { vendor, vendorToken } = await api.vendor.login(email, password);
+            
+            // Only save if we got valid vendor data back
+            if (vendor && vendor._id) {
+                if (vendorToken) {
+                    try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+                }
+                syncVendor(vendor);
+                ensurePushRegistration("vendor").catch(() => {});
+                
+                if (vendor?.status !== "approved") {
+                    return { success: true, redirect: "/vender/status" };
+                }
+                return { success: true, redirect: "/vender/dashboard" };
+            } else {
+                throw new Error("Login failed - no vendor data received");
+            }
+        } catch (error) {
+            // Clear any stale data on error
+            logout();
+            throw error;
         }
-        syncVendor(vendor);
-        ensurePushRegistration("vendor").catch(() => {});
-        
-        if (vendor?.status !== "approved") {
-            return { success: true, redirect: "/vender/status" };
-        }
-        return { success: true, redirect: "/vender/dashboard" };
     };
 
     const requestOtp = async (phone) => {
         return await api.vendor.requestOtp(phone);
     };
     const verifyOtp = async (phone, otp) => {
-        const { vendor, vendorToken } = await api.vendor.verifyOtp(phone, otp);
-        if (vendorToken) {
-            try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+        try {
+            const { vendor, vendorToken } = await api.vendor.verifyOtp(phone, otp);
+            
+            // Only save if we got valid vendor data back
+            if (vendor && vendor._id) {
+                if (vendorToken) {
+                    try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+                }
+                syncVendor(vendor);
+                ensurePushRegistration("vendor").catch(() => {});
+                
+                if (vendor?.status !== "approved") {
+                    return { success: true, redirect: "/vender/status" };
+                }
+                return { success: true, redirect: "/vender/dashboard" };
+            } else {
+                throw new Error("OTP verification failed - no vendor data received");
+            }
+        } catch (error) {
+            // Clear any stale data on error
+            logout();
+            throw error;
         }
-        syncVendor(vendor);
-        ensurePushRegistration("vendor").catch(() => {});
-        
-        if (vendor?.status !== "approved") {
-            return { success: true, redirect: "/vender/status" };
-        }
-        return { success: true, redirect: "/vender/dashboard" };
     };
 
     const register = async (data) => {
-        const { vendor, vendorToken } = await api.vendor.register(data);
-        if (vendorToken) {
-            try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+        try {
+            const { vendor, vendorToken } = await api.vendor.register(data);
+            
+            // Only save if we got valid vendor data back
+            if (vendor && vendor._id) {
+                if (vendorToken) {
+                    try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+                }
+                syncVendor(vendor);
+                return { success: true };
+            } else {
+                throw new Error("Registration failed - no vendor data received");
+            }
+        } catch (error) {
+            // Clear any stale data on error
+            logout();
+            throw error;
         }
-        syncVendor(vendor);
-        return { success: true };
     };
 
     const registerRequest = async (phone) => {
@@ -89,15 +125,28 @@ export const VenderAuthProvider = ({ children }) => {
     };
 
     const verifyRegistrationOtp = async (payload) => {
-        const res = await api.vendor.verifyRegistrationOtp(payload);
-        if (res?.success && res?.vendor) {
-            if (res.vendorToken) {
-                try { localStorage.setItem("swm_vendor_token", res.vendorToken); } catch {}
+        try {
+            const res = await api.vendor.verifyRegistrationOtp(payload);
+            
+            // Only save to localStorage if API call was successful
+            if (res?.success && res?.vendor) {
+                if (res.vendorToken) {
+                    try { localStorage.setItem("swm_vendor_token", res.vendorToken); } catch {}
+                }
+                syncVendor(res.vendor);
+                ensurePushRegistration("vendor").catch(() => {});
+            } else {
+                // If no vendor in response, clear any stale data
+                logout();
+                throw new Error(res?.message || "Registration failed");
             }
-            syncVendor(res.vendor);
-            ensurePushRegistration("vendor").catch(() => {});
+            
+            return res;
+        } catch (error) {
+            // On error, clear any cached data
+            logout();
+            throw error;
         }
-        return res;
     };
 
     const logout = () => {

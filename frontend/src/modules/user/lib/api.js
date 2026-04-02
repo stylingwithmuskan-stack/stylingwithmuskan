@@ -532,6 +532,12 @@ export const api = {
     // Customer COD Management
     toggleCustomerCOD: (userId, codDisabled) => request(`/admin/customers/${userId}/toggle-cod`, { method: "PATCH", body: { codDisabled } }),
     updateCustomerStatus: (userId, status) => request(`/admin/customers/${userId}/status`, { method: "PATCH", body: { status } }),
+
+    // Booking Types Management
+    getBookingTypes: () => request("/admin/booking-types"),
+    createBookingType: (body) => request("/admin/booking-types", { method: "POST", body }),
+    updateBookingType: (id, body) => request(`/admin/booking-types/${id}`, { method: "PATCH", body }),
+    deleteBookingType: (id) => request(`/admin/booking-types/${id}`, { method: "DELETE" }),
   },
 
   subscriptions: {

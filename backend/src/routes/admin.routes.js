@@ -821,7 +821,8 @@ router.get("/booking-types", requireRole("admin"), async (req, res) => {
 // POST /admin/booking-types - Create new booking type
 router.post("/booking-types", 
   requireRole("admin"),
-  body("id").isString().notEmpty().trim(),
+  body("id").isString().notEmpty().trim()
+    .matches(/^[a-z0-9_-]+$/).withMessage("ID must contain only lowercase letters, numbers, hyphens, and underscores (no spaces)"),
   body("label").isString().notEmpty().trim(),
   body("icon").isString().notEmpty().trim(),
   body("description").isString().notEmpty().trim(),
@@ -833,6 +834,13 @@ router.post("/booking-types",
 
     try {
       const { id, label, icon, description } = req.body;
+      
+      // Additional validation: no spaces allowed in ID
+      if (id.includes(' ')) {
+        return res.status(400).json({ 
+          error: "Booking type ID cannot contain spaces. Use hyphens or underscores instead (e.g., 'fast-return' or 'fast_return')" 
+        });
+      }
       
       // Check if id already exists
       const existing = await BookingType.findOne({ id });
@@ -854,6 +862,12 @@ router.post("/booking-types",
       res.status(201).json({ bookingType });
     } catch (error) {
       console.error("[Admin] Error creating booking type:", error);
+      
+      // Handle duplicate key error
+      if (error.code === 11000) {
+        return res.status(400).json({ error: "Booking type ID already exists" });
+      }
+      
       res.status(500).json({ error: "Failed to create booking type" });
     }
   }
@@ -915,6 +929,17 @@ router.delete("/admin/booking-types/:id",
     try {
       const { id } = req.params;
       
+      console.log(`[Admin] Attempting to delete booking type with id: "${id}"`);
+      
+      // Check if booking type exists first
+      const existingType = await BookingType.findOne({ id });
+      console.log(`[Admin] Found booking type:`, existingType);
+      
+      if (!existingType) {
+        console.log(`[Admin] Booking type not found with id: "${id}"`);
+        return res.status(404).json({ error: `Booking type not found: ${id}` });
+      }
+      
       // Check if booking type is in use
       const categoriesUsingType = await Category.countDocuments({ bookingType: id });
       const servicesUsingType = await Service.countDocuments({ bookingType: id });
@@ -931,14 +956,10 @@ router.delete("/admin/booking-types/:id",
       
       const bookingType = await BookingType.findOneAndDelete({ id });
       
-      if (!bookingType) {
-        return res.status(404).json({ error: "Booking type not found" });
-      }
-      
       // Invalidate cache
       await bumpContentVersion();
       
-      console.log(`[Admin] Deleted booking type: ${id}`);
+      console.log(`[Admin] Successfully deleted booking type: ${id}`);
       res.json({ message: "Booking type deleted successfully" });
     } catch (error) {
       console.error("[Admin] Error deleting booking type:", error);

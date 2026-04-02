@@ -236,7 +236,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                         {bookingMode === "repeat_user" && (
                             <div>
                                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <UserCheck className="w-4 h-4 text-primary" /> Service Professional
+                                    <UserCheck className="w-4 h-4 text-primary" /> Your Previous Professionals
                                 </h3>
                                 <div className="space-y-3">
                                     {/* Any Professional Button */}
@@ -265,7 +265,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                                 </span>
                                             </div>
                                             <p className="text-[10px] text-muted-foreground font-medium">
-                                                Choose this for the fastest available service
+                                                Let us assign the best available professional
                                             </p>
                                         </div>
                                         <div className="flex-shrink-0">
@@ -280,7 +280,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                     )}
                                     {!providersLoading && providerList.length === 0 && (
                                         <div className="text-[10px] text-muted-foreground font-bold px-4 py-3 rounded-xl border border-border/40 glass">
-                                            No professionals available right now.
+                                            No previous professionals found. Select "Any Professional" to get started.
                                         </div>
                                     )}
                                     {!providersLoading && providerList.map((provider, i) => (
@@ -304,7 +304,9 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                                 <div className="flex items-center gap-2 mb-0.5">
                                                     <h4 className="font-bold text-sm truncate">{provider.name}</h4>
                                                     <span className="text-[8px] font-black uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">
-                                                        Previously booked
+                                                        {provider.bookingCount > 1 
+                                                            ? `${provider.bookingCount}x Booked` 
+                                                            : "Previously booked"}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-3">

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/modules/user/components/ui/button";
+import { Input } from "@/modules/user/components/ui/input";
 import { Plus, Edit2, Trash2, Save, X } from "lucide-react";
 import { toast } from "sonner";
-import api from "@/lib/api";
+import { api } from "@/modules/user/lib/api";
 
 export default function BookingTypesManager() {
   const [bookingTypes, setBookingTypes] = useState([]);
@@ -24,8 +24,8 @@ export default function BookingTypesManager() {
   const fetchBookingTypes = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/admin/booking-types");
-      setBookingTypes(res.data.bookingTypes || []);
+      const res = await api.admin.getBookingTypes();
+      setBookingTypes(res.bookingTypes || []);
     } catch (error) {
       toast.error("Failed to load booking types");
       console.error("Error fetching booking types:", error);
@@ -41,13 +41,25 @@ export default function BookingTypesManager() {
         return;
       }
 
-      await api.post("/admin/booking-types", formData);
+      // Validate ID format
+      if (formData.id.includes(' ')) {
+        toast.error("ID cannot contain spaces. Use hyphens or underscores instead (e.g., 'fast-return')");
+        return;
+      }
+
+      if (!/^[a-z0-9_-]+$/.test(formData.id)) {
+        toast.error("ID must contain only lowercase letters, numbers, hyphens, and underscores");
+        return;
+      }
+
+      await api.admin.createBookingType(formData);
       toast.success("Booking type created successfully");
       setShowCreateForm(false);
       setFormData({ id: "", label: "", icon: "", description: "" });
       fetchBookingTypes();
     } catch (error) {
-      toast.error(error.response?.data?.error || "Failed to create booking type");
+      const errorMsg = error.data?.error || error.message || "Failed to create booking type";
+      toast.error(errorMsg);
       console.error("Error creating booking type:", error);
     }
   };
@@ -55,7 +67,7 @@ export default function BookingTypesManager() {
   const handleUpdate = async (id) => {
     try {
       const type = bookingTypes.find(t => t.id === id);
-      await api.patch(`/admin/booking-types/${id}`, {
+      await api.admin.updateBookingType(id, {
         label: type.label,
         icon: type.icon,
         description: type.description
@@ -73,18 +85,35 @@ export default function BookingTypesManager() {
     if (!confirm("Are you sure you want to delete this booking type?")) return;
 
     try {
-      await api.delete(`/admin/booking-types/${id}`);
+      console.log(`[BookingTypes] Attempting to delete booking type: ${id}`);
+      const result = await api.admin.deleteBookingType(id);
+      console.log(`[BookingTypes] Delete successful:`, result);
       toast.success("Booking type deleted successfully");
       fetchBookingTypes();
     } catch (error) {
-      const errorMsg = error.response?.data?.error || "Failed to delete booking type";
-      const usage = error.response?.data?.usage;
-      if (usage) {
-        toast.error(`${errorMsg}\n${usage.categories} categories and ${usage.services} services are using this type`);
+      console.error("[BookingTypes] Error deleting booking type:", {
+        id,
+        error,
+        message: error.message,
+        status: error.status,
+        data: error.data,
+        response: error.response
+      });
+      
+      // Handle different error structures
+      const errorData = error.data || error.response?.data || {};
+      const errorMsg = error.message || errorData.error || "Failed to delete booking type";
+      const usage = errorData.usage;
+      
+      if (error.status === 404) {
+        toast.error(`Booking type "${id}" not found in database. It may have been already deleted.`);
+        // Refresh the list to sync with database
+        fetchBookingTypes();
+      } else if (usage) {
+        toast.error(`${errorMsg}: ${usage.categories} categories and ${usage.services} services are using this type`);
       } else {
         toast.error(errorMsg);
       }
-      console.error("Error deleting booking type:", error);
     }
   };
 
@@ -150,12 +179,12 @@ export default function BookingTypesManager() {
               </label>
               <Input
                 value={formData.id}
-                onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                placeholder="e.g., instant, scheduled"
+                onChange={(e) => setFormData({ ...formData, id: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                placeholder="e.g., instant, scheduled, fast-return"
                 className="bg-background"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Lowercase, no spaces (used in code)
+                Lowercase, no spaces (use hyphens or underscores)
               </p>
             </div>
 
