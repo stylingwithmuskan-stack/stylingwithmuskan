@@ -154,9 +154,10 @@ export async function initializePushSupport() {
   
   try {
     console.log('[Push] Registering service worker:', SW_PATH);
-    const registration = await navigator.serviceWorker.register(SW_PATH);
-    console.log('[Push] ✅ Service worker registered:', registration.active?.scriptURL || 'pending');
-    return registration;
+    await navigator.serviceWorker.register(SW_PATH);
+    const ready = await navigator.serviceWorker.ready;
+    console.log('[Push] ✅ Service worker ready:', ready.active?.scriptURL || 'pending');
+    return ready;
   } catch (error) {
     console.error('[Push] ❌ Service worker registration failed:', error);
     throw error;
@@ -214,6 +215,9 @@ export async function getOrCreateFcmToken() {
         code: error.code || 'Unknown code',
         stack: error.stack || 'No stack trace'
       });
+      if (error.name === "AbortError") {
+        console.error('[Push] Hint: Browser push service blocked. In Brave, enable "Use Google Services for Push Messaging" (brave://settings/privacy) and disable Shields for localhost.');
+      }
     }
     throw error;
   }
