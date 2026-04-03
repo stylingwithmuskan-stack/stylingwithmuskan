@@ -160,6 +160,7 @@ export const VenderAuthProvider = ({ children }) => {
 
     // Get all SPs in vendor's city
     const getServiceProviders = async () => (await api.vendor.providers()).providers || [];
+    const getCityVendors = async () => (await api.vendor.vendors()).vendors || [];
 
     // Approve / Reject / Block / Suspend SP
     const updateSPStatus = async (id, status) => { await api.vendor.updateSPStatus(id, status); };
@@ -242,6 +243,7 @@ export const VenderAuthProvider = ({ children }) => {
             verifyRegistrationOtp,
             logout,
             getServiceProviders,
+            getCityVendors,
             updateSPStatus,
             approveSPZones,
             rejectSPZones,

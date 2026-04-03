@@ -111,11 +111,16 @@ export async function autoExpireBooking(booking) {
 
     // Notify user
     try {
+      const isVendorRebook =
+        booking.vendorEscalated === true &&
+        !booking.assignedProvider;
+      const rebookMessage = "Kindly rebook the service, no provider was free for that time.";
+      const defaultMessage = `Your booking #${booking._id.toString().slice(-6)} has been cancelled as we couldn't assign a professional in time.${refunded ? " Your payment has been refunded." : ""}`;
       await notify({
         recipientId: booking.customerId,
         recipientRole: "user",
         title: "Booking Cancelled",
-        message: `Your booking #${booking._id.toString().slice(-6)} has been cancelled as we couldn't assign a professional in time.${refunded ? " Your payment has been refunded." : ""}`,
+        message: isVendorRebook ? rebookMessage : defaultMessage,
         type: "booking_cancel",
         meta: { 
           bookingId: booking._id.toString(), 
@@ -125,6 +130,9 @@ export async function autoExpireBooking(booking) {
       });
 
       booking.autoExpireNotified = true;
+      if (isVendorRebook && !booking.rebookNotifiedAt) {
+        booking.rebookNotifiedAt = now;
+      }
       await booking.save();
     } catch (notifyError) {
       console.error(`[Auto-Expiry] Notification error for booking ${booking._id}:`, notifyError.message);

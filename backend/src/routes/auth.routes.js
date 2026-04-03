@@ -142,6 +142,7 @@ router.post(
       .json({
         token,
         user: {
+          _id: user._id,
           id: user._id,
           phone: user.phone,
           name: user.name,
@@ -245,6 +246,7 @@ router.get("/me", async (req, res) => {
     const subscription = await getSubscriptionSnapshot(user._id.toString(), "customer");
     res.json({
       user: {
+        _id: user._id,
         id: user._id,
         phone: user.phone,
         name: user.name,

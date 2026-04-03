@@ -10,8 +10,7 @@ import CustomEnquiry from "../../../models/CustomEnquiry.js";
 import User from "../../../models/User.js";
 import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM } from "../../../lib/slots.js";
 import { isIsoDate } from "../../../lib/isoDateTime.js";
-import { computeExpiresAt } from "../../../lib/assignment.js";
-import { computeAvailableSlots } from "../../../lib/availability.js";
+import { computeExpiresAt, pickNextProviderForBooking } from "../../../lib/assignment.js";
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../../../config.js";
 import { getIO } from "../../../startup/socket.js";
@@ -23,7 +22,7 @@ import {
   getSubscriptionSnapshot,
 } from "../../../lib/subscriptions.js";
 import { calculateRefundPolicy, processSmartRefund } from "../../../lib/refund.service.js";
-import { findProvidersInZone, sortProvidersByProximity } from "../../../lib/geoMatching.js";
+import { buildAssignmentCandidates } from "../../../lib/assignmentCandidates.js";
 
 async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
   // Logic: Instant bookings never require advance payment.
@@ -247,90 +246,19 @@ export async function create(req, res) {
   // Use admin setting as base, but also respect if user explicitly asked for autoAssign (or if we want to force it)
   const autoAssign = autoAssignAllowed; 
   
-  // Build candidate provider list based on zones OR fallback to city
-  const bookingCity = String(safeAddress.city || "").trim();
-  const bookingZone = String(safeAddress.zone || safeAddress.area || "").trim(); // FIXED: Use zone field like slot API does
-
+  // Build candidate provider list (zone-strict, no city fallback if zone exists)
   const requestedDate = String(slot?.date || "").trim();
   const requestedTime = String(slot?.time || "").trim();
 
-  console.log(`[Booking] Zone matching debug:`, {
-    bookingCity,
-    bookingZone,
-    addressProvided: address,
-    safeAddress,
-    slotDate: requestedDate,
-    slotTime: requestedTime
+  const { candidateProviders: initialCandidates } = await buildAssignmentCandidates({
+    address: safeAddress,
+    slot,
+    items,
+    settings,
+    customerId: req.user._id.toString(),
+    subscriptionSnapshot: customerSubscription.snapshot,
   });
-  const wantCats = new Set((items || []).map(it => String(it.category || "")).filter(Boolean));
-  const wantTypes = new Set((items || []).map(it => String(it.serviceType || "")).filter(Boolean));
-  
-  const matchesSpecialty = (p) => {
-    const spec = p?.documents?.specializations || [];
-    if (!Array.isArray(spec) || spec.length === 0) return true;
-    return spec.some(s => wantCats.has(s) || wantTypes.has(s));
-  };
-  const wantsKnownDate = isIsoDate(requestedDate);
-  const wantsKnownSlot = DEFAULT_TIME_SLOTS.includes(requestedTime);
-  let candidateProviders = [];
-  
-  const isProviderAvailableAtSlot = async (providerId) => {
-    if (!wantsKnownSlot || !wantsKnownDate) return true;
-    const avail = await computeAvailableSlots(providerId, requestedDate, settings);
-    return avail?.slotMap?.[requestedTime] === true;
-  };
-
-  const activeProviderSubs = await (await import("../../../models/UserSubscription.js")).default.find({
-    userType: "provider",
-    status: "active",
-  }).lean();
-  const proPartnerIds = activeProviderSubs.map((s) => s.userId);
-
-  const eliteMinRating = Number(customerSubscription.snapshot.eliteMinRating || 0);
-  const eliteMinJobs = Number(customerSubscription.snapshot.eliteMinJobs || 0);
-  const qualifiesAsElite = (provider) =>
-    customerSubscription.snapshot.isPlusMember
-    && customerSubscription.snapshot.eliteAccessEnabled
-    && proPartnerIds.includes(provider._id.toString())
-    && Number(provider.rating || 0) >= eliteMinRating
-    && Number(provider.totalJobs || 0) >= eliteMinJobs;
-
-  // ENHANCED: Geo-spatial zone matching with polygon boundaries + distance-based sorting
-  // Priority 1: Polygon-based zone matching (if coordinates available)
-  // Priority 2: Text-based zone matching (fallback)
-  // Priority 3: City-wide search (final fallback)
-  let providers = await findProvidersInZone(
-    {
-      lat: safeAddress.lat,
-      lng: safeAddress.lng,
-      zone: bookingZone,
-      city: bookingCity
-    },
-    {
-      approvalStatus: "approved",
-      registrationComplete: true
-    }
-  );
-
-  // Filter by specialty
-  providers = providers.filter(p => matchesSpecialty(p));
-
-  // Sort by proximity (distance) + Elite > Pro > Online > Rating > Jobs
-  const sorted = await sortProvidersByProximity(
-    providers,
-    safeAddress.lat,
-    safeAddress.lng,
-    proPartnerIds,
-    qualifiesAsElite
-  );
-
-  // Build candidate list with availability check
-  for (const s of sorted) {
-    const providerId = s._id?.toString() || s.id;
-    if (await isProviderAvailableAtSlot(providerId)) {
-      candidateProviders.push(providerId);
-    }
-  }
+  let candidateProviders = initialCandidates;
 
   // Enforce booking window + lead time if slot is valid
   if (isIsoDate(requestedDate) && DEFAULT_TIME_SLOTS.includes(requestedTime)) {
@@ -368,14 +296,25 @@ export async function create(req, res) {
     });
   }
 
+  // Preferred provider takes priority within the candidate list
+  if (preferredProviderId && providerIsCandidate(preferredProviderId)) {
+    candidateProviders = [preferredProviderId, ...candidateProviders.filter((x) => x !== preferredProviderId)];
+  }
+
   let assignedProvider = "";
-  if (autoAssignAllowed) {
-    if (preferredProviderId && providerIsCandidate(preferredProviderId)) {
-      assignedProvider = preferredProviderId;
-      candidateProviders = [preferredProviderId, ...candidateProviders.filter((x) => x !== preferredProviderId)];
-    } else if (candidateProviders.length > 0) {
-      // If preferred is busy or not specified, pick the best candidate automatically
-      assignedProvider = candidateProviders[0];
+  let assignmentIndex = -1;
+  let lastAssignedAt = null;
+  let expiresAt = null;
+  if (autoAssignAllowed && candidateProviders.length > 0) {
+    const picked = await pickNextProviderForBooking(
+      { candidateProviders, rejectedProviders: [], slot, _id: null },
+      0
+    );
+    if (picked?.providerId) {
+      assignedProvider = picked.providerId;
+      assignmentIndex = picked.index;
+      lastAssignedAt = new Date();
+      expiresAt = computeExpiresAt(lastAssignedAt);
     }
   }
 
@@ -393,15 +332,9 @@ export async function create(req, res) {
   if (!assignedProvider && autoAssignAllowed && candidateProviders.length === 0) {
     console.log(`[Booking] No providers found for slot ${requestedTime} on ${requestedDate}. Creating unassigned booking for manual assignment.`);
     // Don't return error - let booking be created as unassigned
-    // It will be escalated to vendor/admin below
+    // It will remain in the auto-assign pool until it reaches escalation window
   }
-  const maxCandidates = Math.max(Number(settings?.providerSearchLimit || 0), 0);
-  if (maxCandidates > 0 && candidateProviders.length > maxCandidates) {
-    candidateProviders = candidateProviders.slice(0, maxCandidates);
-  }
-  const assignmentIndex = assignedProvider ? 0 : -1;
-  const lastAssignedAt = assignedProvider ? new Date() : null;
-  const expiresAt = assignedProvider ? computeExpiresAt(lastAssignedAt) : null;
+  // candidateProviders already limited in buildAssignmentCandidates
 
   // Developer Log: Track assignment
   if (assignedProvider) {
@@ -420,7 +353,7 @@ export async function create(req, res) {
     
     console.log(`[Booking] Assignment: ${mode} Provider = ${provName} (ID: ${assignedProvider})`);
   } else {
-    console.log(`[Booking] Assignment: NO Provider assigned (Admin escalation required)`);
+    console.log(`[Booking] Assignment: NO Provider assigned (pending auto-assign pool)`);
   }
 
   const booking = await Booking.create({
@@ -575,57 +508,6 @@ export async function create(req, res) {
         type: "booking_assigned",
         meta: { bookingId },
       });
-    } catch {}
-  } else {
-    // Escalated / unassigned booking - escalate to VENDOR first, then admin as fallback
-    const city = booking.address?.city || booking.address?.area || "";
-    let vendor = null;
-    
-    if (city) {
-      vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
-    }
-
-    try {
-      if (vendor) {
-        // Escalate to vendor
-        booking.vendorEscalated = true;
-        booking.vendorEscalatedAt = new Date();
-        booking.adminEscalated = false;
-        await booking.save();
-
-        await notify({
-          recipientId: vendor._id?.toString(),
-          recipientRole: "vendor",
-          title: "Booking Escalated",
-          message: `Booking #${bookingId.slice(-6)} in ${city} needs manual assignment.`,
-          type: "booking_escalated",
-          meta: { bookingId, city },
-        });
-        
-        // Also notify admin (as copy)
-        await notify({
-          recipientId: "ADMIN001",
-          recipientRole: "admin",
-          title: "Booking Escalated to Vendor",
-          message: `Booking #${bookingId.slice(-6)} escalated to vendor in ${city}.`,
-          type: "booking_escalated",
-          meta: { bookingId, city, vendorId: vendor._id?.toString() },
-        });
-      } else {
-        // Fallback to admin if no vendor found
-        booking.adminEscalated = true;
-        booking.vendorEscalated = false;
-        await booking.save();
-
-        await notify({
-          recipientId: "ADMIN001",
-          recipientRole: "admin",
-          title: "Booking Escalated",
-          message: `Booking #${bookingId.slice(-6)} could not be auto-assigned. No vendor found for ${city}.`,
-          type: "booking_escalated",
-          meta: { bookingId, city },
-        });
-      }
     } catch {}
   }
 }

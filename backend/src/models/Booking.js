@@ -102,6 +102,7 @@ const BookingSchema = new mongoose.Schema(
     autoExpiredAt: { type: Date, default: null },
     autoExpireReason: { type: String, default: "" },
     autoExpireNotified: { type: Boolean, default: false },
+    rebookNotifiedAt: { type: Date, default: null },
     vendorReminderSent: { type: Boolean, default: false },
     providerReminderSent: { type: Boolean, default: false },
   },

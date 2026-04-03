@@ -263,15 +263,25 @@ export async function listProviders(req, res) {
   console.log('[Vendor] listProviders called:', { vendorId, vendorCity: vendor?.city, normalizedCity: city, zones });
   
   let q = {};
-  if (zones.length > 0) {
-    q = { 
-      $and: [
-        { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
-        { zones: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } }
+  const cityRegex = city ? new RegExp(`^${escapeRegex(city)}$`, "i") : null;
+  if (cityRegex && zones.length > 0) {
+    const zoneRegexes = zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i"));
+    q = {
+      $or: [
+        {
+          $and: [
+            { city: cityRegex },
+            { zones: { $in: zoneRegexes } }
+          ]
+        },
+        {
+          city: cityRegex,
+          approvalStatus: { $in: ["pending_vendor", "pending"] }
+        }
       ]
     };
-  } else if (city) {
-    q = { city: new RegExp(`^${escapeRegex(city)}$`, "i") };
+  } else if (cityRegex) {
+    q = { city: cityRegex };
   }
   
   console.log('[Vendor] Query:', JSON.stringify(q, null, 2));
@@ -284,6 +294,21 @@ export async function listProviders(req, res) {
   }
   
   res.json({ providers: items });
+}
+
+// List vendors in the same city as current vendor
+export async function listVendors(req, res) {
+  const vendorId = req.auth?.sub;
+  const vendor = await Vendor.findById(vendorId).lean();
+  if (!vendor) return res.status(404).json({ error: "Vendor not found" });
+  const city = normCity(vendor?.city) || "";
+  if (!city) return res.json({ vendors: [] });
+  const items = await Vendor.find({
+    city: new RegExp(`^${escapeRegex(city)}$`, "i"),
+    status: "approved",
+    _id: { $ne: vendorId }
+  }).sort({ createdAt: -1 }).lean();
+  res.json({ vendors: items });
 }
 
 export async function updateProviderStatus(req, res) {

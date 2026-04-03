@@ -364,6 +364,7 @@ export const api = {
     logout: () => request("/vendor/logout", { method: "POST" }),
     me: () => request("/vendor/me"),
     providers: () => request("/vendor/providers"),
+    vendors: () => request("/vendor/vendors"),
     listZoneRequests: () => request("/vendor/zone-requests"), // NEW: List zone requests
     updateSPStatus: (id, status) => request(`/vendor/providers/${id}/status`, { method: "PATCH", body: { status } }),
     approveSPZones: (id, body) => request(`/vendor/providers/${id}/approve-zones`, { method: "PATCH", body: body || {} }),

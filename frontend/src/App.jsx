@@ -74,6 +74,7 @@ import VenderRegisterPage from "@/modules/vender/pages/auth/VenderRegisterPage";
 import VenderStatusPage from "@/modules/vender/pages/auth/VenderStatusPage";
 import VenderDashboard from "@/modules/vender/pages/VenderDashboard";
 import SPManagement from "@/modules/vender/pages/SPManagement";
+import VenderCityVendors from "@/modules/vender/pages/VenderCityVendors";
 import ZoneRequests from "@/modules/vender/pages/ZoneRequests";
 import VenderBookings from "@/modules/vender/pages/VenderBookings";
 import VenderPayouts from "@/modules/vender/pages/VenderPayouts";
@@ -184,6 +185,7 @@ const App = () => {
                                   <Route index element={<Navigate to="/vender/dashboard" replace />} />
                                   <Route path="dashboard" element={<VenderDashboard />} />
                                   <Route path="service-providers" element={<SPManagement />} />
+                                  <Route path="vendors" element={<VenderCityVendors />} />
                                   <Route path="zone-requests" element={<ZoneRequests />} />
                                   <Route path="bookings" element={<VenderBookings />} />
                                   <Route path="payouts" element={<VenderPayouts />} />
