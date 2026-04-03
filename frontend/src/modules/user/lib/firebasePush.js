@@ -50,6 +50,13 @@ export function getPushDeviceKey() {
   }
 }
 
+export function setPushDeviceKey(key) {
+  if (typeof window === "undefined") return;
+  try {
+    if (key) localStorage.setItem(DEVICE_KEY_STORAGE, key);
+  } catch {}
+}
+
 export function getStoredFcmToken() {
   if (typeof window === "undefined") return "";
   try {
@@ -65,6 +72,20 @@ function setStoredFcmToken(token) {
     if (token) localStorage.setItem(TOKEN_STORAGE, token);
     else localStorage.removeItem(TOKEN_STORAGE);
   } catch {}
+}
+
+async function deriveDeviceKeyFromToken(token) {
+  if (!token || typeof window === "undefined") return "";
+  try {
+    if (!window.crypto?.subtle) return "";
+    const enc = new TextEncoder().encode(token);
+    const hashBuffer = await window.crypto.subtle.digest("SHA-256", enc);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+    return `fcm_${hashHex.slice(0, 32)}`;
+  } catch {
+    return "";
+  }
 }
 
 async function getFirebaseModules() {
@@ -223,21 +244,14 @@ export async function ensurePushRegistration(role) {
       console.error('[Push] ❌ Failed to get FCM token');
       return { registered: false, reason: "token" };
     }
-    
-    const deviceKey = getPushDeviceKey();
+
+    const derivedKey = await deriveDeviceKeyFromToken(token);
+    if (derivedKey) setPushDeviceKey(derivedKey);
+    const deviceKey = derivedKey || getPushDeviceKey();
     console.log('[Push] Device Key:', deviceKey);
-    
+
     console.log('[Push] Registering with backend API...');
-    const response = await api.notifications.push.register(
-      {
-        fcmToken: token,
-        deviceKey,
-        platform: "web",
-        permission: Notification.permission,
-        enabled: true,
-      },
-      { role }
-    );
+    const response = await api.fcmTokens.save(role, token, "web");
     
     console.log('[Push] ✅ Backend registration successful:', response);
     return { registered: true, token, deviceKey, response };
@@ -254,16 +268,12 @@ export async function ensurePushRegistration(role) {
 }
 
 export async function revokePushRegistration(role) {
-  const deviceKey = getPushDeviceKey();
-  if (!deviceKey) return { success: true };
+  const token = getStoredFcmToken();
+  if (!token) return { success: true };
   try {
-    return await api.notifications.push.unregister(
-      {
-        deviceKey,
-        fcmToken: getStoredFcmToken(),
-      },
-      { role }
-    );
+    const res = await api.fcmTokens.remove(role, token, "web");
+    setStoredFcmToken("");
+    return res;
   } catch {
     return { success: false };
   }

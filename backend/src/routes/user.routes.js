@@ -103,6 +103,8 @@ router.post(
       houseNo: req.body.houseNo,
       area: req.body.area,
       landmark: req.body.landmark || "",
+      city: String(req.body.city || "").trim(),
+      zone: String(req.body.zone || "").trim(),
       type: req.body.type || "home",
       lat: req.body.lat !== undefined ? Number(req.body.lat) : null,
       lng: req.body.lng !== undefined ? Number(req.body.lng) : null,
@@ -132,6 +134,8 @@ router.patch(
   body("houseNo").optional().isString().notEmpty(),
   body("area").optional().isString().notEmpty(),
   body("landmark").optional().isString(),
+  body("city").optional().isString(),
+  body("zone").optional().isString(),
   body("type").optional().isIn(["home", "work", "other"]),
   async (req, res) => {
     const errors = validationResult(req);
@@ -142,6 +146,8 @@ router.patch(
     if (req.body.houseNo !== undefined) addr.houseNo = req.body.houseNo;
     if (req.body.area !== undefined) addr.area = req.body.area;
     if (req.body.landmark !== undefined) addr.landmark = req.body.landmark;
+    if (req.body.city !== undefined) addr.city = String(req.body.city || "").trim();
+    if (req.body.zone !== undefined) addr.zone = String(req.body.zone || "").trim();
     if (req.body.type !== undefined) addr.type = req.body.type;
     await req.user.save();
     res.json({ address: addr, addresses: req.user.addresses });

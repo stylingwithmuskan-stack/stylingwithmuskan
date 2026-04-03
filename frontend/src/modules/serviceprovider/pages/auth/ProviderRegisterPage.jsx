@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     ChevronLeft,
@@ -52,6 +52,10 @@ export default function ProviderRegisterPage() {
     const [cities, setCities] = useState([]);
     const [zones, setZones] = useState([]);
     const [zonesLoading, setZonesLoading] = useState(false);
+    const [serviceTypesList, setServiceTypesList] = useState([]);
+    const [categoriesList, setCategoriesList] = useState([]);
+    const [servicesList, setServicesList] = useState([]);
+    const [catalogLoading, setCatalogLoading] = useState(false);
 
     // Form States
     const [formData, setFormData] = useState({
@@ -71,6 +75,7 @@ export default function ProviderRegisterPage() {
         aadharBack: null,
         panCard: null,
         certifications: [],
+        services: [],
         primaryCategory: [],
         specializations: [],
         bankName: "",
@@ -82,6 +87,29 @@ export default function ProviderRegisterPage() {
 
     useEffect(() => {
         api.content.cities().then(res => setCities(res.cities || [])).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        setCatalogLoading(true);
+        Promise.all([
+            api.content.serviceTypes(),
+            api.content.categories(),
+            api.content.services()
+        ]).then(([stRes, catRes, svcRes]) => {
+            if (cancelled) return;
+            setServiceTypesList(Array.isArray(stRes?.data) ? stRes.data : []);
+            setCategoriesList(Array.isArray(catRes?.data) ? catRes.data : []);
+            setServicesList(Array.isArray(svcRes?.data) ? svcRes.data : []);
+        }).catch(() => {
+            if (cancelled) return;
+            setServiceTypesList([]);
+            setCategoriesList([]);
+            setServicesList([]);
+        }).finally(() => {
+            if (!cancelled) setCatalogLoading(false);
+        });
+        return () => { cancelled = true; };
     }, []);
 
     useEffect(() => {
@@ -99,6 +127,39 @@ export default function ProviderRegisterPage() {
             setZones([]);
         }
     }, [formData.city]);
+
+    const {
+        serviceTypeOptions,
+        filteredCategories,
+        serviceOptions
+    } = useMemo(() => {
+        const types = Array.isArray(serviceTypesList) ? serviceTypesList.filter(st => st?.label) : [];
+        const selectedTypeIds = new Set(
+            types.filter(st => formData.primaryCategory.includes(st.label)).map(st => st.id)
+        );
+        const catsRaw = Array.isArray(categoriesList) ? categoriesList.filter(c => c?.name) : [];
+        const cats = selectedTypeIds.size > 0
+            ? catsRaw.filter(c => selectedTypeIds.has(c.serviceType))
+            : catsRaw;
+        const selectedCatIds = new Set(
+            catsRaw.filter(c => formData.specializations.includes(c.name)).map(c => c.id)
+        );
+        const servicesRaw = Array.isArray(servicesList) ? servicesList.filter(s => s?.name) : [];
+        const catById = new Map(catsRaw.map(c => [c.id, c]));
+        const services = selectedCatIds.size > 0
+            ? servicesRaw.filter(s => selectedCatIds.has(s.category))
+            : (selectedTypeIds.size > 0
+                ? servicesRaw.filter(s => {
+                    const cat = catById.get(s.category);
+                    return cat && selectedTypeIds.has(cat.serviceType);
+                })
+                : servicesRaw);
+        return {
+            serviceTypeOptions: types,
+            filteredCategories: cats,
+            serviceOptions: services
+        };
+    }, [serviceTypesList, categoriesList, servicesList, formData.primaryCategory, formData.specializations]);
 
     const [otp, setOtp] = useState("");
     const [otpSent, setOtpSent] = useState(false);
@@ -336,6 +397,10 @@ export default function ProviderRegisterPage() {
         if (currentStep === 3) {
             if (formData.primaryCategory.length === 0) {
                 setOtpError("Please select at least one primary category");
+                return;
+            }
+            if (formData.services.length === 0) {
+                setOtpError("Please select at least one service");
                 return;
             }
         }
@@ -791,46 +856,81 @@ export default function ProviderRegisterPage() {
                                 <div className="space-y-4">
                                     <Label className="text-xs font-black uppercase text-gray-400">Primary Categories</Label>
                                     <div className="flex flex-wrap gap-2">
-                                        {["Salon for Women", "Salon for Men", "Makeup", "Skin Treatment", "Nail Art"].map(cat => (
+                                        {serviceTypeOptions.length > 0 ? serviceTypeOptions.map(cat => (
                                             <button
-                                                key={cat}
-                                                className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-tight transition-all border ${formData.primaryCategory.includes(cat)
+                                                key={cat.id || cat.label}
+                                                className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-tight transition-all border ${formData.primaryCategory.includes(cat.label)
                                                     ? "bg-purple-600 text-white border-purple-600 shadow-md"
                                                     : "bg-white text-gray-500 border-gray-100 hover:border-purple-200"
                                                     }`}
                                                 onClick={() => {
-                                                    const updated = formData.primaryCategory.includes(cat)
-                                                        ? formData.primaryCategory.filter(c => c !== cat)
-                                                        : [...formData.primaryCategory, cat];
+                                                    const updated = formData.primaryCategory.includes(cat.label)
+                                                        ? formData.primaryCategory.filter(c => c !== cat.label)
+                                                        : [...formData.primaryCategory, cat.label];
                                                     setFormData({ ...formData, primaryCategory: updated });
                                                 }}
                                             >
-                                                {cat}
+                                                {cat.label}
                                             </button>
-                                        ))}
+                                        )) : (
+                                            <p className="text-xs font-semibold text-gray-400">
+                                                {catalogLoading ? "Loading categories..." : "No categories available"}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 
                                 <div className="space-y-4">
                                     <Label className="text-xs font-black uppercase text-gray-400">Sub Categories (Specializations)</Label>
                                     <div className="flex flex-wrap gap-2">
-                                        {["Bridal", "Hair Styling", "Waxing", "Facial", "Pedicure", "Manicure", "Massage"].map(spec => (
+                                        {filteredCategories.length > 0 ? filteredCategories.map(spec => (
                                             <button
-                                                key={spec}
-                                                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tight transition-all border ${formData.specializations.includes(spec)
+                                                key={spec.id || spec.name}
+                                                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tight transition-all border ${formData.specializations.includes(spec.name)
                                                     ? "bg-blue-600 text-white border-blue-600 shadow-md"
                                                     : "bg-white text-gray-500 border-gray-100 hover:border-blue-200"
                                                     }`}
                                                 onClick={() => {
-                                                    const updated = formData.specializations.includes(spec)
-                                                        ? formData.specializations.filter(s => s !== spec)
-                                                        : [...formData.specializations, spec];
+                                                    const updated = formData.specializations.includes(spec.name)
+                                                        ? formData.specializations.filter(s => s !== spec.name)
+                                                        : [...formData.specializations, spec.name];
                                                     setFormData({ ...formData, specializations: updated });
                                                 }}
                                             >
-                                                {spec}
+                                                {spec.name}
                                             </button>
-                                        ))}
+                                        )) : (
+                                            <p className="text-xs font-semibold text-gray-400">
+                                                {catalogLoading ? "Loading sub categories..." : "No sub categories available"}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <Label className="text-xs font-black uppercase text-gray-400">Services</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {serviceOptions.length > 0 ? serviceOptions.map(svc => (
+                                            <button
+                                                key={svc.id || svc.name}
+                                                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tight transition-all border ${formData.services.includes(svc.name)
+                                                    ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
+                                                    : "bg-white text-gray-500 border-gray-100 hover:border-emerald-200"
+                                                    }`}
+                                                onClick={() => {
+                                                    const updated = formData.services.includes(svc.name)
+                                                        ? formData.services.filter(s => s !== svc.name)
+                                                        : [...formData.services, svc.name];
+                                                    setFormData({ ...formData, services: updated });
+                                                }}
+                                            >
+                                                {svc.name}
+                                            </button>
+                                        )) : (
+                                            <p className="text-xs font-semibold text-gray-400">
+                                                {catalogLoading ? "Loading services..." : "No services available"}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 
@@ -975,6 +1075,14 @@ export default function ProviderRegisterPage() {
                                                         <span className="text-gray-500">Specializations</span>
                                                         <span className="font-bold">
                                                             {formData.specializations.join(", ")}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {formData.services.length > 0 && (
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-gray-500">Services</span>
+                                                        <span className="font-bold">
+                                                            {formData.services.join(", ")}
                                                         </span>
                                                     </div>
                                                 )}

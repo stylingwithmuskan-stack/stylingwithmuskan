@@ -14,10 +14,11 @@ async function getVersion(providerId, date) {
   }
 }
 
-async function cacheKey(providerId, date, settings) {
+async function cacheKey(providerId, date, settings, requestedDurationMinutes) {
   const settingsKey = settings?.updatedAt ? new Date(settings.updatedAt).getTime() : 0;
   const ver = await getVersion(providerId, date);
-  return `slots:${providerId}:${date}:${ver}:${settingsKey}`;
+  const durKey = Math.max(Number(requestedDurationMinutes || 0), 0);
+  return `slots:${providerId}:${date}:${ver}:${settingsKey}:${durKey}`;
 }
 
 export async function invalidateProviderSlots(providerId, dates = []) {
@@ -32,9 +33,10 @@ export async function invalidateProviderSlots(providerId, dates = []) {
 
 export async function computeAvailableSlots(providerId, date, settings, opts = {}) {
   const useCache = opts.useCache !== false;
+  const requestedDurationMinutes = Math.max(Number(opts.requestedDurationMinutes || 0), 0);
   if (useCache) {
     try {
-      const key = await cacheKey(providerId, date, settings);
+      const key = await cacheKey(providerId, date, settings, requestedDurationMinutes);
       const hit = await redis.get(key);
       if (hit) return JSON.parse(hit);
     } catch {}
@@ -119,11 +121,23 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
       if (hm) {
         const slotMin = hm.hour * 60 + hm.minute;
         if (slotMin < windowStartMin || slotMin > windowEndMin) ok = false;
+        if (ok && requestedDurationMinutes > 0) {
+          const requiredEndMin = slotMin + requestedDurationMinutes + bufferMin;
+          if (requiredEndMin > windowEndMin) ok = false;
+        }
       }
     }
     if (ok && slotStart && busyIntervals.length > 0) {
+      const windowEnd = requestedDurationMinutes > 0
+        ? new Date(slotStart.getTime() + (requestedDurationMinutes + bufferMin) * 60 * 1000)
+        : null;
       for (const interval of busyIntervals) {
-        if (slotStart >= interval.start && slotStart < interval.end) {
+        if (requestedDurationMinutes > 0 && windowEnd) {
+          if (slotStart < interval.end && windowEnd > interval.start) {
+            ok = false;
+            break;
+          }
+        } else if (slotStart >= interval.start && slotStart < interval.end) {
           ok = false;
           break;
         }
@@ -136,7 +150,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   const result = { date, slots, slotMap };
   if (useCache) {
     try {
-      const key = await cacheKey(providerId, date, settings);
+      const key = await cacheKey(providerId, date, settings, requestedDurationMinutes);
       await redis.set(key, JSON.stringify(result), { EX: 300 });
     } catch {}
   }

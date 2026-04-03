@@ -614,6 +614,33 @@ export const api = {
       },
     },
   },
+
+  fcmTokens: {
+    save: (role, tokenValue, platform = "web") => {
+      const token = getTokenByRole(role);
+      const base =
+        role === "provider"
+          ? "/api/providers/fcm-tokens"
+          : role === "vendor"
+          ? "/api/vendors/fcm-tokens"
+          : role === "admin"
+          ? "/api/admins/fcm-tokens"
+          : "/api/users/fcm-tokens";
+      return requestWithToken(`${base}/save`, { method: "POST", body: { token: tokenValue, platform } }, token, role);
+    },
+    remove: (role, tokenValue, platform = "web") => {
+      const token = getTokenByRole(role);
+      const base =
+        role === "provider"
+          ? "/api/providers/fcm-tokens"
+          : role === "vendor"
+          ? "/api/vendors/fcm-tokens"
+          : role === "admin"
+          ? "/api/admins/fcm-tokens"
+          : "/api/users/fcm-tokens";
+      return requestWithToken(`${base}/remove`, { method: "POST", body: { token: tokenValue, platform } }, token, role);
+    },
+  },
 };
 
 // Provider booking images upload (multipart)

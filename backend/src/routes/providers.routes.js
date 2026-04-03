@@ -5,7 +5,7 @@ import { requireAuth } from "../middleware/auth.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import Booking from "../models/Booking.js";
 import { BookingSettings } from "../models/Settings.js";
-import { OfficeSettings } from "../models/Content.js";
+import { OfficeSettings, ServiceType } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, isIsoDate, slotLabelToLocalDateTime, parseDurationToMinutes } from "../lib/slots.js";
 import { computeAvailableSlots } from "../lib/availability.js";
 
@@ -33,6 +33,7 @@ router.get(
   requireAuth,
   param("providerId").isString().notEmpty(),
   query("date").isString().notEmpty(),
+  query("durationMinutes").optional().isNumeric(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ error: "Invalid input", details: errors.array() });
@@ -44,13 +45,17 @@ router.get(
     const provider = await ProviderAccount.findById(providerId).lean();
     if (!provider) return res.status(404).json({ error: "Provider not found" });
     const allowPending = process.env.NODE_ENV !== "production";
-    const approvalOk = allowPending ? (provider.approvalStatus === "approved" || provider.approvalStatus === "pending") : provider.approvalStatus === "approved";
+    const pendingStatuses = new Set(["pending", "pending_vendor", "pending_admin"]);
+    const approvalOk = allowPending
+      ? (provider.approvalStatus === "approved" || pendingStatuses.has(provider.approvalStatus))
+      : provider.approvalStatus === "approved";
     if (!approvalOk || !provider.registrationComplete) {
       return res.status(404).json({ error: "Provider not available" });
     }
 
     const settings = await BookingSettings.findOne().lean();
-    const result = await computeAvailableSlots(providerId, date, settings);
+    const durationMinutes = Math.max(Number(req.query.durationMinutes || 0), 0);
+    const result = await computeAvailableSlots(providerId, date, settings, { requestedDurationMinutes: durationMinutes });
     res.json({ provider: providerCard(provider), ...result });
   }
 );
@@ -174,6 +179,7 @@ router.get(
   query("serviceTypes").optional().isString(),
   query("city").optional().isString(),
   query("zone").optional().isString(),
+  query("durationMinutes").optional().isNumeric(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ error: "Invalid input", details: errors.array() });
@@ -189,13 +195,14 @@ router.get(
     const bookingSettings = await BookingSettings.findOne().lean();
     const officeSettings = await OfficeSettings.findOne().lean();
     const settings = { ...bookingSettings, ...officeSettings };
+    const durationMinutes = Math.max(Number(req.query.durationMinutes || 0), 0);
 
     // Case 1: Specific Provider Requested (Ensure it's a valid ID and not the string "null")
     if (providerId && providerId !== "null" && mongoose.isValidObjectId(providerId)) {
       const provider = await ProviderAccount.findById(providerId).lean();
       if (!provider) return res.status(404).json({ error: "Provider not found" });
 
-      const result = await computeAvailableSlots(providerId, date, settings);
+      const result = await computeAvailableSlots(providerId, date, settings, { requestedDurationMinutes: durationMinutes });
       return res.json({
         date,
         slots: result.slots || [],
@@ -205,13 +212,28 @@ router.get(
     }
 
     // Case 2: Any Professional Requested (Merged Slots)
-    const addr0 = (req.user?.addresses || [])[0] || {};
-    const cityGuess = city || String(addr0.city || addr0.area || "").trim();
-    const zoneGuess = zone || String(addr0.zone || "").trim();
+    const addrList = Array.isArray(req.user?.addresses) ? req.user.addresses : [];
+    const addrWithZone = addrList.find(a => (a?.zone || a?.city)) || addrList[0] || {};
+    const zoneGuess = zone || String(addrWithZone.zone || "").trim();
+    const rawCity = city || String(addrWithZone.city || "").trim();
+    const cityGuess = rawCity || (zoneGuess ? "" : String(addrWithZone.area || "").trim());
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[Slots] Address fallback debug:", {
+        queryCity: city,
+        queryZone: zone,
+        addrCity: addrWithZone.city,
+        addrZone: addrWithZone.zone,
+        addrArea: addrWithZone.area,
+        cityGuess,
+        zoneGuess,
+      });
+    }
     
     const allowPending = process.env.NODE_ENV !== "production";
+    const pendingStatuses = ["pending", "pending_vendor", "pending_admin"];
     const baseQ = {
-      approvalStatus: allowPending ? { $in: ["approved", "pending"] } : "approved",
+      approvalStatus: allowPending ? { $in: ["approved", ...pendingStatuses] } : "approved",
       registrationComplete: true
     };
 
@@ -233,11 +255,18 @@ router.get(
 
     // Filter by service types if provided
     if (serviceTypes.length > 0) {
-      const wantSet = new Set(serviceTypes);
+      let serviceTypeLabels = [];
+      try {
+        const docs = await ServiceType.find({ id: { $in: serviceTypes } }).select("id label").lean();
+        const map = new Map(docs.map(d => [d.id, d.label]));
+        serviceTypeLabels = serviceTypes.map(id => map.get(id)).filter(Boolean);
+      } catch {}
+      const wantSet = new Set([...serviceTypes, ...serviceTypeLabels]);
       providers = providers.filter(p => {
-        const spec = p?.documents?.specializations || [];
-        if (!Array.isArray(spec) || spec.length === 0) return true; // Default to true if no specs defined
-        return spec.some(s => wantSet.has(s));
+        const spec = Array.isArray(p?.documents?.specializations) ? p.documents.specializations : [];
+        const primary = Array.isArray(p?.documents?.primaryCategory) ? p.documents.primaryCategory : [];
+        if (spec.length === 0 && primary.length === 0) return true; // Default to true if no specs defined
+        return [...spec, ...primary].some(s => wantSet.has(s));
       });
     }
 
@@ -248,12 +277,27 @@ router.get(
       candidateProvidersBySlot[s] = [];
     });
 
+    const freeProviders = [];
     for (const provider of providers) {
-      const result = await computeAvailableSlots(provider._id?.toString(), date, settings);
+      const result = await computeAvailableSlots(provider._id?.toString(), date, settings, { requestedDurationMinutes: durationMinutes });
+      if ((result.slots || []).length > 0) {
+        freeProviders.push({
+          id: provider._id?.toString(),
+          name: provider.name || "",
+          phone: provider.phone || "",
+          city: provider.city || "",
+          zones: provider.zones || [],
+          availableSlots: result.slots.length
+        });
+      }
       for (const slot of result.slots || []) {
         slotMap[slot] = true;
         candidateProvidersBySlot[slot].push(String(provider._id));
       }
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[Slots] Zone free providers (${cityGuess || "unknown"} | ${zoneGuess || "no-zone"} | ${date}):`, freeProviders);
     }
 
     const slots = DEFAULT_TIME_SLOTS.filter((s) => slotMap[s]);

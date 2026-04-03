@@ -42,6 +42,14 @@ const UserSchema = new mongoose.Schema(
         },
       ],
     },
+    fcmTokens: [
+      {
+        token: { type: String, required: true },
+        platform: { type: String, default: "web" },
+        lastSeenAt: { type: Date, default: Date.now },
+        isActive: { type: Boolean, default: true },
+      },
+    ],
   },
   { timestamps: true }
 );

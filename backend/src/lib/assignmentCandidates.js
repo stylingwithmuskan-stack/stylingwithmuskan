@@ -1,6 +1,7 @@
 import ProviderAccount from "../models/ProviderAccount.js";
 import UserSubscription from "../models/UserSubscription.js";
 import { BookingSettings } from "../models/Settings.js";
+import { ServiceType, Category } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, isIsoDate } from "./slots.js";
 import { computeAvailableSlots } from "./availability.js";
 import { findZonesContainingPoint, sortProvidersByProximity } from "./geoMatching.js";
@@ -24,6 +25,30 @@ const DEFAULT_BOOKING_SETTINGS = {
   prebookingRequired: false,
 };
 
+const CONTENT_CACHE_TTL_MS = 5 * 60 * 1000;
+let contentCache = {
+  loadedAt: 0,
+  serviceTypeIdToLabel: new Map(),
+  categoryIdToName: new Map(),
+};
+
+async function getContentMaps() {
+  const now = Date.now();
+  if (contentCache.loadedAt && (now - contentCache.loadedAt) < CONTENT_CACHE_TTL_MS) {
+    return contentCache;
+  }
+  const [types, cats] = await Promise.all([
+    ServiceType.find().select("id label").lean(),
+    Category.find().select("id name").lean(),
+  ]);
+  contentCache = {
+    loadedAt: now,
+    serviceTypeIdToLabel: new Map((types || []).map(t => [t.id, t.label])),
+    categoryIdToName: new Map((cats || []).map(c => [c.id, c.name])),
+  };
+  return contentCache;
+}
+
 function norm(s) {
   return String(s || "").trim();
 }
@@ -32,10 +57,14 @@ function escapeRegex(s) {
   return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function matchesSpecialty(provider, wantCats, wantTypes) {
-  const spec = provider?.documents?.specializations || [];
-  if (!Array.isArray(spec) || spec.length === 0) return true;
-  return spec.some((s) => wantCats.has(s) || wantTypes.has(s));
+function matchesSpecialty(provider, wantCats, wantTypes, wantCatLabels, wantTypeLabels) {
+  const spec = Array.isArray(provider?.documents?.specializations) ? provider.documents.specializations : [];
+  const primary = Array.isArray(provider?.documents?.primaryCategory) ? provider.documents.primaryCategory : [];
+  if (spec.length === 0 && primary.length === 0) return true;
+  const all = [...spec, ...primary];
+  return all.some((s) =>
+    wantCats.has(s) || wantTypes.has(s) || wantCatLabels.has(s) || wantTypeLabels.has(s)
+  );
 }
 
 async function resolveSettings(settings) {
@@ -86,6 +115,7 @@ export async function buildAssignmentCandidates({
   settings,
   customerId,
   subscriptionSnapshot,
+  requestedDurationMinutes,
 } = {}) {
   const resolvedSettings = await resolveSettings(settings);
   const bookingCity = norm(address?.city);
@@ -93,13 +123,26 @@ export async function buildAssignmentCandidates({
 
   const wantCats = new Set((items || []).map((it) => String(it?.category || "")).filter(Boolean));
   const wantTypes = new Set((items || []).map((it) => String(it?.serviceType || "")).filter(Boolean));
+  let wantCatLabels = new Set();
+  let wantTypeLabels = new Set();
+  if (wantCats.size > 0 || wantTypes.size > 0) {
+    try {
+      const maps = await getContentMaps();
+      wantTypeLabels = new Set(
+        [...wantTypes].map((id) => maps.serviceTypeIdToLabel.get(id)).filter(Boolean)
+      );
+      wantCatLabels = new Set(
+        [...wantCats].map((id) => maps.categoryIdToName.get(id)).filter(Boolean)
+      );
+    } catch {}
+  }
 
   let providers = await findProvidersZoneStrict(
     { ...address, city: bookingCity, zone: bookingZone },
     { approvalStatus: "approved", registrationComplete: true }
   );
 
-  providers = providers.filter((p) => matchesSpecialty(p, wantCats, wantTypes));
+  providers = providers.filter((p) => matchesSpecialty(p, wantCats, wantTypes, wantCatLabels, wantTypeLabels));
 
   const activeProviderSubs = await UserSubscription.find({
     userType: "provider",
@@ -137,7 +180,9 @@ export async function buildAssignmentCandidates({
 
   const isProviderAvailableAtSlot = async (providerId) => {
     if (!wantsKnownSlot || !wantsKnownDate) return true;
-    const avail = await computeAvailableSlots(providerId, requestedDate, resolvedSettings);
+    const avail = await computeAvailableSlots(providerId, requestedDate, resolvedSettings, {
+      requestedDurationMinutes,
+    });
     return avail?.slotMap?.[requestedTime] === true;
   };
 
@@ -159,4 +204,3 @@ export async function buildAssignmentCandidates({
     meta: { bookingCity, bookingZone },
   };
 }
-

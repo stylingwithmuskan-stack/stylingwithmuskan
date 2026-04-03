@@ -484,6 +484,7 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
       upiId: req.body.upiId || "",
       primaryCategory: req.body.primaryCategory || [],
       specializations: req.body.specializations || [],
+      services: req.body.services || [],
       certifications: req.body.certifications || [],
     },
     approvalStatus: "pending_vendor",

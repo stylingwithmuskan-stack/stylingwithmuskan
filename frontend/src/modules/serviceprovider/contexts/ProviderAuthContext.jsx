@@ -98,6 +98,7 @@ export const ProviderAuthProvider = ({ children }) => {
                 panCard: typeof payload.panCard === "string" && !payload.panCard?.startsWith("data:") ? payload.panCard : "",
                 primaryCategory: payload.primaryCategory,
                 specializations: payload.specializations,
+                services: payload.services,
                 bankName: payload.bankName,
                 accountNumber: payload.accountNumber,
                 ifscCode: payload.ifscCode,

@@ -4,7 +4,7 @@ import { getIO } from "./socket.js";
 import { computeExpiresAt, getAcceptWindowMs, pickNextProviderForBooking } from "../lib/assignment.js";
 import { notify } from "../lib/notify.js";
 import Vendor from "../models/Vendor.js";
-import { slotLabelToLocalDateTime } from "../lib/slots.js";
+import { slotLabelToLocalDateTime, parseDurationToMinutes } from "../lib/slots.js";
 import { buildAssignmentCandidates } from "../lib/assignmentCandidates.js";
 
 export function startAssignmentScheduler() {
@@ -26,11 +26,18 @@ export function startAssignmentScheduler() {
         const diffMs = slotStart ? slotStart.getTime() - now.getTime() : null;
 
         // Re-discovery: rebuild candidates and assign if possible
+        const requestedDurationMinutes = (b.services || []).reduce((sum, it) => {
+          const per = parseDurationToMinutes(it?.duration, 60);
+          const qty = Number(it?.quantity || 1);
+          return sum + (per * (Number.isFinite(qty) ? qty : 1));
+        }, 0);
+
         const { candidateProviders } = await buildAssignmentCandidates({
           address: b.address,
           slot: b.slot,
           items: b.services || [],
           customerId: b.customerId,
+          requestedDurationMinutes,
         });
 
         if (candidateProviders.length > 0) {

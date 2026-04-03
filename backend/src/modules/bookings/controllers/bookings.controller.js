@@ -8,7 +8,7 @@ import ProviderAccount from "../../../models/ProviderAccount.js";
 import BookingLog from "../../../models/BookingLog.js";
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 import User from "../../../models/User.js";
-import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM } from "../../../lib/slots.js";
+import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes } from "../../../lib/slots.js";
 import { isIsoDate } from "../../../lib/isoDateTime.js";
 import { computeExpiresAt, pickNextProviderForBooking } from "../../../lib/assignment.js";
 import Razorpay from "razorpay";
@@ -249,6 +249,11 @@ export async function create(req, res) {
   // Build candidate provider list (zone-strict, no city fallback if zone exists)
   const requestedDate = String(slot?.date || "").trim();
   const requestedTime = String(slot?.time || "").trim();
+  const requestedDurationMinutes = (items || []).reduce((sum, it) => {
+    const per = parseDurationToMinutes(it?.duration, 60);
+    const qty = Number(it?.quantity || 1);
+    return sum + (per * (Number.isFinite(qty) ? qty : 1));
+  }, 0);
 
   const { candidateProviders: initialCandidates } = await buildAssignmentCandidates({
     address: safeAddress,
@@ -257,6 +262,7 @@ export async function create(req, res) {
     settings,
     customerId: req.user._id.toString(),
     subscriptionSnapshot: customerSubscription.snapshot,
+    requestedDurationMinutes,
   });
   let candidateProviders = initialCandidates;
 
@@ -342,18 +348,30 @@ export async function create(req, res) {
     const isAnyPro = !preferredProviderId;
     // Fetch name for console logging
     let provName = "Unknown";
+    let provPhone = "";
     try {
-      const pDoc = await ProviderAccount.findById(assignedProvider).select("name").lean();
-      if (pDoc) provName = pDoc.name;
+      const pDoc = await ProviderAccount.findById(assignedProvider).select("name phone").lean();
+      if (pDoc) {
+        provName = pDoc.name;
+        provPhone = pDoc.phone || "";
+      }
     } catch (e) {}
     
     let mode = "AUTO-ASSIGNED";
     if (isPreferred) mode = "PREFERRED";
     else if (isAnyPro) mode = "ANY-PROFESSIONAL (Random)";
     
-    console.log(`[Booking] Assignment: ${mode} Provider = ${provName} (ID: ${assignedProvider})`);
+    console.log(`[Booking] Assignment: ${mode} Provider = ${provName} (${provPhone}) (ID: ${assignedProvider})`);
   } else {
     console.log(`[Booking] Assignment: NO Provider assigned (pending auto-assign pool)`);
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      const list = await ProviderAccount.find({ _id: { $in: candidateProviders } }).select("name phone").lean();
+      const view = (list || []).map((p) => ({ name: p.name || "", phone: p.phone || "" }));
+      console.log(`[Booking] Zone free provider candidates (${requestedDate} ${requestedTime}):`, view);
+    } catch {}
   }
 
   const booking = await Booking.create({

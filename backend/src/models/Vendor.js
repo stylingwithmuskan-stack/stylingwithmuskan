@@ -10,6 +10,14 @@ const VendorSchema = new mongoose.Schema(
     pendingZones: [String],
     status: { type: String, enum: ["approved", "pending", "rejected", "blocked"], default: "approved" },
     businessName: String,
+    fcmTokens: [
+      {
+        token: { type: String, required: true },
+        platform: { type: String, default: "web" },
+        lastSeenAt: { type: Date, default: Date.now },
+        isActive: { type: Boolean, default: true },
+      },
+    ],
   },
   { timestamps: true }
 );

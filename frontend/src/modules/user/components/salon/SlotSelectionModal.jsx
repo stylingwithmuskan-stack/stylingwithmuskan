@@ -22,6 +22,37 @@ const timeToMinutes = (timeStr) => {
     return hours * 60 + (minutes || 0);
 };
 
+const parseDurationToMinutes = (input, fallbackMinutes = 60) => {
+    if (typeof input === "number" && !Number.isNaN(input)) {
+        return Math.max(15, Math.min(Math.round(input), 12 * 60));
+    }
+    if (!input || typeof input !== "string") return fallbackMinutes;
+    const s = input.toLowerCase()
+        .replace(/hours?/g, "h")
+        .replace(/hrs?/g, "h")
+        .replace(/minutes?/g, "m")
+        .replace(/mins?/g, "m");
+
+    const range = s.match(/(\d+)\s*-\s*(\d+)/);
+    if (range) {
+        const max = Math.max(parseInt(range[1], 10), parseInt(range[2], 10));
+        if (s.includes("h")) return Math.max(15, Math.min(max * 60, 12 * 60));
+        if (s.includes("m")) return Math.max(15, Math.min(max, 12 * 60));
+        return Math.max(15, Math.min(max, 12 * 60));
+    }
+
+    let minutes = 0;
+    const hMatch = s.match(/(\d+)\s*h/);
+    const mMatch = s.match(/(\d+)\s*m/);
+    if (hMatch) minutes += parseInt(hMatch[1], 10) * 60;
+    if (mMatch) minutes += parseInt(mMatch[1], 10);
+    if (minutes === 0) {
+        const num = s.match(/(\d+)/);
+        minutes = num ? parseInt(num[1], 10) : fallbackMinutes;
+    }
+    return Math.max(15, Math.min(minutes, 12 * 60));
+};
+
 const getLocalDateKey = (date = new Date()) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -46,6 +77,15 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
 
     const serviceTypes = useMemo(() => {
         return [...new Set((cartItems || []).map(item => item.serviceType).filter(Boolean))];
+    }, [cartItems]);
+
+    const totalDurationMinutes = useMemo(() => {
+        if (!Array.isArray(cartItems) || cartItems.length === 0) return 0;
+        return cartItems.reduce((sum, item) => {
+            const per = parseDurationToMinutes(item?.duration, 60);
+            const qty = Number(item?.quantity || 1);
+            return sum + (per * (Number.isFinite(qty) ? qty : 1));
+        }, 0);
     }, [cartItems]);
 
     const providerList = useMemo(() => {
@@ -109,6 +149,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                 zone: address?.zone || ""
             };
             if (pId) params.providerId = pId;
+            if (totalDurationMinutes > 0) params.durationMinutes = String(totalDurationMinutes);
 
             const { slots: rawSlots } = await api.providers.availableSlotsByDate(params);
             setAvailableSlots(rawSlots || []);
@@ -427,5 +468,4 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
 };
 
 export default SlotSelectionModal;
-
 
