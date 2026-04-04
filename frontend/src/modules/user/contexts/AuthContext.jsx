@@ -104,13 +104,14 @@ export const AuthProvider = ({ children }) => {
                 setHasAddress((updated.addresses || []).length > 0);
                 setIsLoggedIn(true);
                 await maybeRegisterPush();
-                return;
+                return profileRes;
             }
             
             setUser(u);
             setHasAddress((u.addresses || []).length > 0);
             setIsLoggedIn(true);
             await maybeRegisterPush();
+            return res;
         } catch (error) {
             // Clear any stale data on error
             setIsLoggedIn(false);

@@ -501,6 +501,8 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
     vendorApprovalStatus: "pending",
     adminApprovalStatus: "pending",
     registrationComplete: true,
+    currentLocation: (req.body.lat && req.body.lng) ? { lat: Number(req.body.lat), lng: Number(req.body.lng) } : undefined,
+    lastLocationUpdate: (req.body.lat && req.body.lng) ? new Date() : undefined,
   };
   const acc = await ProviderAccount.findOneAndUpdate({ phone: req.body.phone }, update, { new: true, upsert: true });
 

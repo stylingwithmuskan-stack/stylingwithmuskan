@@ -81,11 +81,21 @@ const UserLoginPage = () => {
     };
 
     const handleOtpChange = (i, v) => {
-        if (isNaN(v)) return;
+        if (v && isNaN(v)) return;
         const n = [...otp];
         n[i] = v.slice(-1);
         setOtp(n);
         if (v && i < 5) document.getElementById(`login-otp-${i + 1}`)?.focus();
+        if (v && i === 5 && n.every(d => d !== "")) {
+            // Optional: Auto-verify if needed, or just focus the button
+            // document.getElementById('login-verify-btn')?.focus();
+        }
+    };
+
+    const handleOtpKeyDown = (i, e) => {
+        if (e.key === "Backspace" && !otp[i] && i > 0) {
+            document.getElementById(`login-otp-${i - 1}`)?.focus();
+        }
     };
 
     const handleVerify = async (e) => {
@@ -110,8 +120,8 @@ const UserLoginPage = () => {
     );
 
     return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-            <div className="w-full max-w-lg bg-white/60 backdrop-blur-xl rounded-[32px] border border-white shadow-2xl p-8 relative">
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-6 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+            <div className="w-full max-w-lg bg-white/60 backdrop-blur-xl rounded-[24px] sm:rounded-[32px] border border-white shadow-2xl p-5 sm:p-8 relative">
                 <button onClick={() => navigate("/home")} className="absolute top-4 left-4 w-9 h-9 rounded-full hover:bg-black/5 flex items-center justify-center">
                     <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -144,9 +154,20 @@ const UserLoginPage = () => {
                                     ? `Enter the 6-digit OTP for +91 ${phone}`
                                     : `Enter the 6-digit code sent to +91 ${phone}`}
                             </p>
-                            <div className="flex justify-center gap-3">
+                            <div className="flex justify-center gap-2 sm:gap-3">
                                 {otp.map((d, i) => (
-                                    <input key={i} id={`login-otp-${i}`} type="text" maxLength={1} value={d} onChange={(e) => handleOtpChange(i, e.target.value)} className="w-12 h-14 text-center text-xl font-bold bg-accent rounded-xl border-2 border-transparent focus:border-primary" />
+                                    <input 
+                                        key={i} 
+                                        id={`login-otp-${i}`} 
+                                        type="tel" 
+                                        maxLength={1} 
+                                        value={d} 
+                                        autoFocus={i === 0}
+                                        autoComplete={i === 0 ? "one-time-code" : "off"}
+                                        onChange={(e) => handleOtpChange(i, e.target.value)} 
+                                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                                        className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold bg-accent rounded-xl border-2 border-transparent focus:border-primary focus:bg-white text-foreground" 
+                                    />
                                 ))}
                             </div>
                             {timer > 0 ? (

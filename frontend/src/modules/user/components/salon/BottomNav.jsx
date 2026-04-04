@@ -19,7 +19,7 @@ const BottomNav = () => {
   const { totalItems, isFloatingSummaryOpen, setIsFloatingSummaryOpen, setIsCartOpen, setActiveCheckoutType } = useCart();
   const { isLoggedIn } = useAuth();
   // Only show on user-facing pages (hide on admin/provider/vender/splash/gender-select)
-  const nonUserPrefixes = ["/admin", "/provider", "/vender", "/select-gender"];
+  const nonUserPrefixes = ["/admin", "/provider", "/vender", "/select-gender", "/login", "/register"];
   const isSplash = location.pathname === "/";
   if (isSplash || nonUserPrefixes.some(p => location.pathname.startsWith(p))) return null;
 
