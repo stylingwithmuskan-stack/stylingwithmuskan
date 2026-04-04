@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/modules/user/lib/api";
-import { ensurePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const VenderAuthContext = createContext(undefined);
 
@@ -54,7 +53,6 @@ export const VenderAuthProvider = ({ children }) => {
                     try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
                 }
                 syncVendor(vendor);
-                ensurePushRegistration("vendor").catch(() => {});
                 
                 if (vendor?.status !== "approved") {
                     return { success: true, redirect: "/vender/status" };
@@ -83,7 +81,6 @@ export const VenderAuthProvider = ({ children }) => {
                     try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
                 }
                 syncVendor(vendor);
-                ensurePushRegistration("vendor").catch(() => {});
                 
                 if (vendor?.status !== "approved") {
                     return { success: true, redirect: "/vender/status" };
@@ -134,7 +131,6 @@ export const VenderAuthProvider = ({ children }) => {
                     try { localStorage.setItem("swm_vendor_token", res.vendorToken); } catch {}
                 }
                 syncVendor(res.vendor);
-                ensurePushRegistration("vendor").catch(() => {});
             } else {
                 // If no vendor in response, clear any stale data
                 logout();

@@ -17,7 +17,6 @@ import sosRoutes from "./routes/sos.routes.js";
 import bookingsRoutes from "./modules/bookings/routes/index.js";
 import paymentsRoutes from "./routes/payments.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
-import fcmTokensRoutes from "./routes/fcmTokens.routes.js";
 import subscriptionRoutes from "./modules/subscriptions/routes/subscription.routes.js";
 import fs from "fs";
 import path from "path";
@@ -84,7 +83,6 @@ app.use("/sos", sosRoutes);
 app.use("/bookings", bookingsRoutes);
 app.use("/payments", paymentsRoutes);
 app.use("/notifications", notificationRoutes);
-app.use("/api", fcmTokensRoutes);
 app.use("/subscriptions", subscriptionRoutes);
 try {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -51,14 +51,6 @@ const ProviderAccountSchema = new mongoose.Schema(
     experience: String,
     profilePhoto: String,
     documents: DocumentsSchema,
-    fcmTokens: [
-      {
-        token: { type: String, required: true },
-        platform: { type: String, default: "web" },
-        lastSeenAt: { type: Date, default: Date.now },
-        isActive: { type: Boolean, default: true },
-      },
-    ],
     vendorApprovalStatus: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
     adminApprovalStatus: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
     approvalStatus: { type: String, enum: ["pending_vendor", "pending_admin", "approved", "rejected", "blocked", "pending", null], default: "pending_vendor" },

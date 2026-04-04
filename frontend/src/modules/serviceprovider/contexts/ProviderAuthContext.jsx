@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
-import { ensurePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const ProviderAuthContext = createContext(undefined);
 
@@ -199,7 +198,6 @@ export const ProviderAuthProvider = ({ children }) => {
             
             setProvider(provider);
             if (providerToken) setProviderToken(providerToken);
-            ensurePushRegistration("provider").catch(() => {});
             return { success: true, registered: provider.registrationComplete };
         } catch (error) {
             // Clear any stale data on error

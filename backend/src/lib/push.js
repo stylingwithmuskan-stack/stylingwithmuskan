@@ -1,14 +1,9 @@
 import Notification from "../models/Notification.js";
-import PushDevice from "../models/PushDevice.js";
 import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
 import {
-  PUSH_BATCH_SIZE,
   PUSH_DEFAULT_CLICK_BASE_URL,
-  PUSH_DEFAULT_ICON_URL,
-  PUSH_RETRY_LIMIT,
 } from "../config.js";
-import { sendFirebasePush, isFirebaseConfigured } from "./firebaseAdmin.js";
 
 function withinWindow(now, startTime, endTime) {
   const [startH, startM] = String(startTime || "07:00").split(":").map(Number);
@@ -76,128 +71,28 @@ export function buildNotificationLink({ recipientRole, type, meta = {} }) {
   return "/notifications";
 }
 
+// Firebase push notification functions removed
+// Notifications are now delivered only via Socket.io
 export async function sendPushForNotification(notification) {
-  if (!notification?.recipientId || !notification?.recipientRole) return { sent: 0, failed: 0 };
-
-  if (!isFirebaseConfigured()) {
-    await Notification.updateOne(
-      { _id: notification._id },
-      {
-        $set: {
-          "delivery.push.status": "disabled",
-          "delivery.push.lastError": "Firebase admin not configured",
-        },
-      }
-    );
-    return { sent: 0, failed: 0 };
-  }
-
-  const devices = await PushDevice.find({
-    recipientId: String(notification.recipientId),
-    recipientRole: notification.recipientRole,
-    isActive: true,
-    "preferences.enabled": { $ne: false },
-  }).lean();
-
-  if (!devices.length) {
-    await Notification.updateOne(
-      { _id: notification._id },
-      {
-        $set: {
-          "delivery.push.status": "disabled",
-          "delivery.push.lastError": "No active push devices",
-        },
-      }
-    );
-    return { sent: 0, failed: 0 };
-  }
-
-  const now = new Date();
-  const tokens = devices.map((device) => device.fcmToken).filter(Boolean);
-  const response = await sendFirebasePush({
-    tokens,
-    title: notification.title,
-    body: notification.message,
-    icon: notification.meta?.icon || PUSH_DEFAULT_ICON_URL,
-    data: {
-      link: normalizeLink(notification.link),
-      notificationId: notification._id.toString(),
-      recipientRole: notification.recipientRole,
-      type: notification.type,
-    },
-  });
-
-  const failedTokens = [];
-  const invalidTokens = [];
-  response.responses.forEach((item, index) => {
-    if (!item.success) {
-      const token = tokens[index];
-      failedTokens.push(token);
-      const code = item.error?.code || "";
-      if (code.includes("registration-token-not-registered") || code.includes("invalid-registration-token")) {
-        invalidTokens.push(token);
-      }
-    }
-  });
-
-  if (invalidTokens.length) {
-    await PushDevice.updateMany(
-      { fcmToken: { $in: invalidTokens } },
-      {
-        $set: {
-          isActive: false,
-          lastError: "FCM token invalidated",
-        },
-        $inc: { failureCount: 1 },
-      }
-    );
-  }
-
-  if (failedTokens.length) {
-    await PushDevice.updateMany(
-      { fcmToken: { $in: failedTokens } },
-      {
-        $set: { lastError: "FCM push failed" },
-        $inc: { failureCount: 1 },
-      }
-    );
-  }
-
-  if (response.successCount) {
-    await PushDevice.updateMany(
-      { fcmToken: { $in: tokens.filter((token) => !failedTokens.includes(token)) } },
-      {
-        $set: {
-          lastSuccessAt: now,
-          lastError: "",
-          lastSeenAt: now,
-        },
-      }
-    );
-  }
-
+  // Mark as delivered via Socket.io only
   await Notification.updateOne(
     { _id: notification._id },
     {
       $set: {
-        "delivery.push.status": response.failureCount > 0 ? "failed" : "sent",
-        "delivery.push.lastAttemptAt": now,
-        "delivery.push.sentAt": response.successCount > 0 ? now : null,
-        "delivery.push.lastError": response.failureCount > 0 ? "One or more push deliveries failed" : "",
+        "delivery.push.status": "socket_only",
+        "delivery.push.lastError": "Push notifications disabled - using Socket.io only",
       },
-      ...(response.failureCount > 0 ? { $inc: { "delivery.push.failureCount": 1 } } : {}),
     }
   );
-
-  return { sent: response.successCount || 0, failed: response.failureCount || 0 };
+  return { sent: 0, failed: 0 };
 }
 
-export async function queuePushForNotification(notification, reason = "Queued for later delivery") {
+export async function queuePushForNotification(notification, reason = "Socket.io delivery only") {
   await Notification.updateOne(
     { _id: notification._id },
     {
       $set: {
-        "delivery.push.status": "queued",
+        "delivery.push.status": "socket_only",
         "delivery.push.lastError": reason,
       },
     }
@@ -205,53 +100,6 @@ export async function queuePushForNotification(notification, reason = "Queued fo
 }
 
 export async function processQueuedPushNotifications() {
-  if (!isFirebaseConfigured()) return;
-  const queue = await Notification.find({
-    $or: [
-      { "delivery.push.status": "queued" },
-      { "delivery.push.status": "failed" },
-    ],
-  })
-    .sort({ createdAt: 1 })
-    .limit(PUSH_BATCH_SIZE)
-    .lean();
-
-  if (!queue.length) return;
-
-  const providerWindowOpen = await isWithinProviderPushWindow();
-
-  for (const rawNotification of queue) {
-    const notification = rawNotification;
-    const failureCount = Number(notification?.delivery?.push?.failureCount || 0);
-    if (failureCount >= PUSH_RETRY_LIMIT) {
-      // eslint-disable-next-line no-await-in-loop
-      await Notification.updateOne(
-        { _id: notification._id },
-        { $set: { "delivery.push.status": "disabled", "delivery.push.lastError": "Push retry limit reached" } }
-      );
-      continue;
-    }
-
-    if (notification.recipientRole === "provider" && !providerWindowOpen) {
-      continue;
-    }
-
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      await sendPushForNotification(notification);
-    } catch (error) {
-      // eslint-disable-next-line no-await-in-loop
-      await Notification.updateOne(
-        { _id: notification._id },
-        {
-          $set: {
-            "delivery.push.status": "failed",
-            "delivery.push.lastAttemptAt": new Date(),
-            "delivery.push.lastError": error?.message || "Push send failed",
-          },
-          $inc: { "delivery.push.failureCount": 1 },
-        }
-      );
-    }
-  }
+  // No-op: Firebase push removed, Socket.io handles all notifications
+  return;
 }

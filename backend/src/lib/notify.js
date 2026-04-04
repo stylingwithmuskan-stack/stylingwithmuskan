@@ -433,23 +433,15 @@ export async function notify({
   try {
     if (recipientRole === "provider" && respectProviderQuietHours) {
       const ok = await isWithinProviderWindow();
-      if (!ok) await queuePushForNotification(notification, "Queued until provider notification window opens");
-      else await sendPushForNotification(notification);
-    } else {
-      await sendPushForNotification(notification);
-    }
-  } catch (error) {
-    await Notification.updateOne(
-      { _id: notification._id },
-      {
-        $set: {
-          "delivery.push.status": "failed",
-          "delivery.push.lastAttemptAt": new Date(),
-          "delivery.push.lastError": error?.message || "Push send failed",
-        },
-        $inc: { "delivery.push.failureCount": 1 },
+      if (!ok) {
+        // Queue notification but don't send push (Firebase removed)
+        await queuePushForNotification(notification, "Provider quiet hours - Socket.io will deliver when online");
       }
-    );
+    }
+    // Firebase push removed - notifications delivered via Socket.io only
+  } catch (error) {
+    // Log error but don't fail notification creation
+    console.error('[Notify] Push notification skipped (Firebase removed):', error.message);
   }
   return notification;
 }

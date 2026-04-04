@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from "@/modules/user/lib/api";
 import { safeStorage } from "@/modules/user/lib/safeStorage";
-import { ensurePushRegistration, requestPushPermission } from "@/modules/user/lib/firebasePush";
 
 export const AuthContext = createContext();
 const STORAGE_KEY = "swm_user_auth_state";
@@ -75,23 +74,6 @@ export const AuthProvider = ({ children }) => {
             
             const { user: u } = res;
             const isNewUser = !!u?.isNew;
-            const maybeRegisterPush = async () => {
-                try {
-                    if (typeof Notification === "undefined") return;
-                    if (Notification.permission === "granted") {
-                        await ensurePushRegistration("user");
-                        return;
-                    }
-                    if (isNewUser && Notification.permission === "default") {
-                        const permission = await requestPushPermission();
-                        if (permission === "granted") {
-                            await ensurePushRegistration("user");
-                        }
-                    }
-                } catch {
-                    // Silent: push registration is best-effort
-                }
-            };
             
             // If new user and profile fields provided, update
             if ((name && name.trim()) || (referralCode && referralCode.trim())) {
@@ -104,14 +86,12 @@ export const AuthProvider = ({ children }) => {
                 setUser(updated);
                 setHasAddress((updated.addresses || []).length > 0);
                 setIsLoggedIn(true);
-                await maybeRegisterPush();
                 return profileRes;
             }
             
             setUser(u);
             setHasAddress((u.addresses || []).length > 0);
             setIsLoggedIn(true);
-            await maybeRegisterPush();
             return res;
         } catch (error) {
             // Clear any stale data on error

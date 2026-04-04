@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
-import { ensurePushRegistration } from "@/modules/user/lib/firebasePush";
 
 export const AdminAuthContext = createContext(null);
 
@@ -50,7 +49,6 @@ export const AdminAuthProvider = ({ children }) => {
             }
             setAdmin(admin);
             try { localStorage.setItem(ADMIN_KEY, JSON.stringify(admin)); } catch {}
-            ensurePushRegistration("admin").catch(() => {});
             return { success: true };
         } catch (e) {
             const msg = e?.message || "Login failed";
