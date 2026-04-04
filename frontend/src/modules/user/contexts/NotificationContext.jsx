@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { api, API_BASE_URL } from "@/modules/user/lib/api";
+import { safeStorage } from "@/modules/user/lib/safeStorage";
 import { io } from "socket.io-client";
 import { ProviderAuthContext } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { VenderAuthContext } from "@/modules/vender/contexts/VenderAuthContext";

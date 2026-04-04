@@ -698,6 +698,36 @@ router.post("/logout", async (_req, res) => {
   res.clearCookie("providerToken").json({ success: true });
 });
 
+// Delete account endpoint
+router.delete("/me/account", requireRole("provider"), async (req, res) => {
+  try {
+    const providerId = req.auth.sub;
+    
+    // Check for active bookings
+    const activeBookings = await Booking.countDocuments({
+      assignedProvider: providerId,
+      status: { $in: ["assigned", "accepted", "in_progress"] }
+    });
+    
+    if (activeBookings > 0) {
+      return res.status(400).json({ 
+        error: "Cannot delete account with active bookings. Please complete or cancel all active bookings first." 
+      });
+    }
+    
+    // Delete provider account
+    await ProviderAccount.findByIdAndDelete(providerId);
+    
+    // Clear auth cookie
+    res.clearCookie("providerToken");
+    
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting provider account:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
 router.get("/credits/:phone", param("phone").matches(/^\d{10}$/), async (req, res) => {
   const acc = await ProviderAccount.findOne({ phone: req.params.phone }).lean();
   if (!acc) return res.status(404).json({ error: "Not found" });

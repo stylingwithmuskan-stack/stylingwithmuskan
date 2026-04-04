@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, LogOut, Bell, Plus, Check, X, Loader2 } from "lucide-react";
+import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, LogOut, Bell, Plus, Check, X, Loader2, History, Info, FileText, ShieldCheck, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -23,6 +23,8 @@ export default function VenderProfile() {
     const [customZone, setCustomZone] = useState("");
     const [loadingZones, setLoadingZones] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         if (isZoneModalOpen && vendor?.city) {
@@ -42,6 +44,34 @@ export default function VenderProfile() {
     const handleLogout = () => {
         logout();
         navigate("/vender/login");
+    };
+
+    const handleDeleteAccount = async () => {
+        setIsDeleting(true);
+        try {
+            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiBaseUrl}/vendor/me/account`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({ error: 'Failed to delete account' }));
+                toast.error(data.error || 'Failed to delete account');
+                setIsDeleting(false);
+                setShowDeleteConfirm(false);
+                return;
+            }
+            
+            toast.success('Account deleted successfully');
+            logout();
+            navigate('/vender/login');
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            toast.error('Failed to delete account. Please try again.');
+            setIsDeleting(false);
+            setShowDeleteConfirm(false);
+        }
     };
 
     const toggleZone = (name) => {
@@ -202,11 +232,106 @@ export default function VenderProfile() {
                         </Badge>
                     )}
                 </Button>
+
+                <Button 
+                    variant="outline" 
+                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    onClick={() => navigate("/vender/activity")}
+                >
+                    <History className="h-5 w-5" />
+                    Activity
+                </Button>
+
+                <Button 
+                    variant="outline" 
+                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    onClick={() => navigate("/vender/about-us")}
+                >
+                    <Info className="h-5 w-5" />
+                    About Us
+                </Button>
+
+                <Button 
+                    variant="outline" 
+                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    onClick={() => navigate("/vender/contact-us")}
+                >
+                    <Phone className="h-5 w-5" />
+                    Contact Us
+                </Button>
+
+                <Button 
+                    variant="outline" 
+                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    onClick={() => navigate("/vender/privacy-policy")}
+                >
+                    <ShieldCheck className="h-5 w-5" />
+                    Privacy Policy
+                </Button>
+
+                <Button 
+                    variant="outline" 
+                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    onClick={() => navigate("/vender/terms-conditions")}
+                >
+                    <FileText className="h-5 w-5" />
+                    Terms & Conditions
+                </Button>
                 
                 <Button variant="outline" className="w-full h-14 rounded-2xl font-bold text-red-600 border-red-100 hover:bg-red-50 gap-3 shadow-sm" onClick={handleLogout}>
                     <LogOut className="h-5 w-5" /> Logout
                 </Button>
+
+                <Button 
+                    variant="outline" 
+                    className="w-full h-14 rounded-2xl font-bold text-red-600 border-red-200 hover:bg-red-50 gap-3 shadow-sm"
+                    onClick={() => setShowDeleteConfirm(true)}
+                >
+                    <Trash2 className="h-5 w-5" />
+                    Delete Account
+                </Button>
             </motion.div>
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                    <Trash2 className="w-6 h-6 text-red-600" />
+                                </div>
+                                <h3 className="text-lg font-bold">Delete Account?</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-6">
+                                This action cannot be undone. All your vendor data including zones, bookings history, and account information will be permanently deleted.
+                            </p>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    disabled={isDeleting}
+                                    className="flex-1 h-12 rounded-xl font-bold"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleDeleteAccount}
+                                    disabled={isDeleting}
+                                    className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold"
+                                >
+                                    {isDeleting ? 'Deleting...' : 'Delete'}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* Zone Request Modal */}
             <AnimatePresence>

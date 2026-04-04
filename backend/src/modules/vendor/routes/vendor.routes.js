@@ -102,4 +102,6 @@ router.post(
   VendorController.requestZones
 );
 
+router.delete("/me/account", requireRole("vendor"), VendorController.deleteAccount);
+
 export default router;

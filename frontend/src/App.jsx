@@ -71,6 +71,13 @@ import ProviderLoginPage from "@/modules/serviceprovider/pages/auth/ProviderLogi
 import ProviderRegisterPage from "@/modules/serviceprovider/pages/auth/ProviderRegisterPage";
 import ProviderStatusPage from "@/modules/serviceprovider/pages/auth/ProviderStatusPage";
 
+// Service Provider Info Pages
+import ProviderActivityPage from "@/modules/serviceprovider/pages/ProviderActivityPage";
+import ProviderPrivacyPolicyPage from "@/modules/serviceprovider/pages/ProviderPrivacyPolicyPage";
+import ProviderContactUsPage from "@/modules/serviceprovider/pages/ProviderContactUsPage";
+import ProviderAboutUsPage from "@/modules/serviceprovider/pages/ProviderAboutUsPage";
+import ProviderTermsConditionsPage from "@/modules/serviceprovider/pages/ProviderTermsConditionsPage";
+
 // Vendor Module
 import { VenderAuthProvider } from "@/modules/vender/contexts/VenderAuthContext";
 import VenderLayout from "@/modules/vender/components/VenderLayout";
@@ -87,6 +94,13 @@ import VenderSOSMonitor from "@/modules/vender/pages/VenderSOSMonitor";
 import VenderFeedback from "@/modules/vender/pages/VenderFeedback";
 import VenderProfile from "@/modules/vender/pages/VenderProfile";
 import VendorSubscriptionPage from "@/modules/vender/pages/VendorSubscriptionPage";
+
+// Vendor Info Pages
+import VenderActivityPage from "@/modules/vender/pages/VenderActivityPage";
+import VenderPrivacyPolicyPage from "@/modules/vender/pages/VenderPrivacyPolicyPage";
+import VenderContactUsPage from "@/modules/vender/pages/VenderContactUsPage";
+import VenderAboutUsPage from "@/modules/vender/pages/VenderAboutUsPage";
+import VenderTermsConditionsPage from "@/modules/vender/pages/VenderTermsConditionsPage";
 
 // Admin Module
 import { AdminAuthProvider } from "@/modules/admin/contexts/AdminAuthContext";
@@ -191,6 +205,11 @@ const App = () => {
                                   <Route path="hub" element={<MyHub />} />
                                   <Route path="shop" element={<SWMShop />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
+                                  <Route path="activity" element={<ProviderActivityPage />} />
+                                  <Route path="privacy-policy" element={<ProviderPrivacyPolicyPage />} />
+                                  <Route path="contact-us" element={<ProviderContactUsPage />} />
+                                  <Route path="about-us" element={<ProviderAboutUsPage />} />
+                                  <Route path="terms-conditions" element={<ProviderTermsConditionsPage />} />
                                 </Route>
 
                                 {/* Vendor Module */}
@@ -210,6 +229,11 @@ const App = () => {
                                   <Route path="feedback" element={<VenderFeedback />} />
                                   <Route path="profile" element={<VenderProfile />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
+                                  <Route path="activity" element={<VenderActivityPage />} />
+                                  <Route path="privacy-policy" element={<VenderPrivacyPolicyPage />} />
+                                  <Route path="contact-us" element={<VenderContactUsPage />} />
+                                  <Route path="about-us" element={<VenderAboutUsPage />} />
+                                  <Route path="terms-conditions" element={<VenderTermsConditionsPage />} />
                                 </Route>
 
                                 {/* Admin Module */}

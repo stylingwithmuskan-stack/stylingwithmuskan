@@ -279,6 +279,36 @@ router.get("/me/referral", requireAuth, async (_req, res) => {
   res.json({ referralCode: u.referralCode || "", settings: s || { referrerBonus: 100, refereeBonus: 50, maxReferrals: 10, isActive: true } });
 });
 
+// Delete account endpoint
+router.delete("/me/account", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user._id.toString();
+    
+    // Check for active bookings
+    const activeBookings = await Booking.countDocuments({
+      customerId: userId,
+      status: { $in: ["pending", "assigned", "accepted", "in_progress"] }
+    });
+    
+    if (activeBookings > 0) {
+      return res.status(400).json({ 
+        error: "Cannot delete account with active bookings. Please complete or cancel all active bookings first." 
+      });
+    }
+    
+    // Delete user account
+    await req.user.deleteOne();
+    
+    // Clear auth cookie
+    res.clearCookie("token");
+    
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting user account:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
 // ───── FEEDBACK SUBMISSION ─────
 router.post(
   "/bookings/:bookingId/feedback",

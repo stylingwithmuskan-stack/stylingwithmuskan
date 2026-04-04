@@ -49,3 +49,41 @@ export function requireRole(role) {
     }
   };
 }
+
+export function requireAnyRole(allowedRoles = []) {
+  return (req, res, next) => {
+    try {
+      const cookies = req.cookies || {};
+      const headerToken =
+        req.headers.authorization?.startsWith("Bearer ")
+          ? req.headers.authorization.split(" ")[1]
+          : null;
+      
+      const candidates = [];
+      if (headerToken) candidates.push(headerToken);
+      
+      const order = ["adminToken", "vendorToken", "providerToken", "token"];
+      for (const k of order) {
+        const t = cookies[k];
+        if (t) candidates.push(t);
+      }
+      
+      let authed = null;
+      for (const t of candidates) {
+        try {
+          const p = jwt.verify(t, SECRET);
+          if (allowedRoles.length === 0 || allowedRoles.includes(p.role)) {
+            authed = p;
+            break;
+          }
+        } catch {}
+      }
+      
+      if (!authed) return res.status(401).json({ error: "Unauthorized" });
+      req.auth = authed;
+      next();
+    } catch {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+  };
+}

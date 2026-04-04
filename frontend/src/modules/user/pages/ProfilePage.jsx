@@ -6,7 +6,7 @@ import { useAuth } from "@/modules/user/contexts/AuthContext";
 
 import { api } from "@/modules/user/lib/api";
 
-import { ArrowLeft, ChevronRight, Wallet, MapPin, Gift, Ticket, HelpCircle, LogOut, User, Calendar, Edit2, ShieldCheck, Zap, Sparkles, Bell, History, Info, FileText, Phone } from "lucide-react";
+import { ArrowLeft, ChevronRight, Wallet, MapPin, Gift, Ticket, HelpCircle, LogOut, User, Calendar, Edit2, ShieldCheck, Zap, Sparkles, Bell, History, Info, FileText, Phone, Trash2 } from "lucide-react";
 import NotificationDropdown from "@/modules/user/components/salon/NotificationDropdown";
 
 /**
@@ -21,6 +21,8 @@ const ProfilePage = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [menEnabled, setMenEnabled] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const subscription = user?.subscription || null;
   const plusDiscount = Number(subscription?.discountPercentage || 0);
   const plusExpiry = user?.plusExpiry || subscription?.currentPeriodEnd || null;
@@ -67,6 +69,34 @@ const ProfilePage = () => {
     console.log("[User] logout clicked");
     logout();
     navigate("/home");
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiBaseUrl}/users/me/account`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Failed to delete account' }));
+        alert(data.error || 'Failed to delete account');
+        setIsDeleting(false);
+        setShowDeleteConfirm(false);
+        return;
+      }
+      
+      // Account deleted successfully
+      logout();
+      navigate('/home');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      alert('Failed to delete account. Please try again.');
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   const menuItems = [
@@ -254,7 +284,55 @@ const ProfilePage = () => {
           </div>
           <span className="text-sm font-bold">Logout</span>
         </button>
+
+        {/* Delete Account Button */}
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="w-full glass-strong rounded-[20px] p-3 flex items-center gap-4 text-red-600 hover:bg-red-50 transition-all border border-red-200 group active:scale-[0.98]"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+            <Trash2 className="w-6 h-6" />
+          </div>
+          <span className="text-sm font-bold">Delete Account</span>
+        </button>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-background rounded-2xl p-6 max-w-sm w-full border border-border shadow-xl"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold">Delete Account?</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">
+              This action cannot be undone. All your data including bookings history, addresses, and wallet balance will be permanently deleted.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 py-3 rounded-xl bg-accent text-accent-foreground font-bold hover:bg-accent/80 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+                className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-all disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       <div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center p-4">
         <div className="pointer-events-auto">

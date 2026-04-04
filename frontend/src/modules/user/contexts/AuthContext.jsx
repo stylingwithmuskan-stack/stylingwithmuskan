@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from "@/modules/user/lib/api";
+import { safeStorage } from "@/modules/user/lib/safeStorage";
 import { ensurePushRegistration, requestPushPermission } from "@/modules/user/lib/firebasePush";
 
 export const AuthContext = createContext();
@@ -16,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     // Initial hydration from localStorage
     useEffect(() => {
         try {
-            const raw = localStorage.getItem(STORAGE_KEY);
+            const raw = safeStorage.getItem(STORAGE_KEY);
             if (raw) {
                 const data = JSON.parse(raw);
                 if (data.isLoggedIn && data.user) {
@@ -34,9 +35,9 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         try {
             if (isLoggedIn && user) {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify({ isLoggedIn, user }));
+                safeStorage.setItem(STORAGE_KEY, JSON.stringify({ isLoggedIn, user }));
             } else if (!isLoggedIn && !loading) {
-                localStorage.removeItem(STORAGE_KEY);
+                safeStorage.removeItem(STORAGE_KEY);
             }
         } catch (err) {
             console.error("[Auth] Persistence failed", err);
@@ -116,7 +117,7 @@ export const AuthProvider = ({ children }) => {
             setIsLoggedIn(false);
             setUser(null);
             setHasAddress(false);
-            localStorage.removeItem(STORAGE_KEY);
+            safeStorage.removeItem(STORAGE_KEY);
             throw error;
         }
     };
@@ -128,7 +129,7 @@ export const AuthProvider = ({ children }) => {
             setIsLoggedIn(false);
             setUser(null);
             setHasAddress(false);
-            localStorage.removeItem(STORAGE_KEY);
+            safeStorage.removeItem(STORAGE_KEY);
             window.location.href = "/home";
         });
     };
@@ -168,7 +169,7 @@ export const AuthProvider = ({ children }) => {
             const { user: freshUser } = await api.me();
             if (freshUser) {
                 setUser(freshUser);
-                localStorage.setItem('smd_user', JSON.stringify(freshUser));
+                safeStorage.setItem('smd_user', JSON.stringify(freshUser));
                 return freshUser;
             }
         } catch {}

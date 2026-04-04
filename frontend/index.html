@@ -3,25 +3,77 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <!-- TODO: Set the document title to the name of your application -->
+  
+  <!-- Enhanced Viewport for iOS and WebView -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  
+  <!-- iOS Specific Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SWM" />
+  <meta name="format-detection" content="telephone=no" />
+  
+  <!-- WebView Compatibility -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  
+  <!-- Safe Content Security Policy for WebView -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https: http://localhost:* wss: ws:; frame-src 'self' https:;" />
+  
   <title>Styling with Muskan App</title>
-  <meta name="description" content=" Generated Project" />
+  <meta name="description" content="Beauty services at your doorstep" />
 
-
-  <!-- TODO: Update og:title to match your application name -->
-  <!-- <meta property="og:title" content=" Styling with MuskanApp" />
-  <meta property="og:description" content=" Generated Project" />
+  <!-- Social Media Meta Tags -->
+  <meta property="og:title" content="Styling with Muskan App" />
+  <meta property="og:description" content="Beauty services at your doorstep" />
   <meta property="og:type" content="website" />
-
-
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:site" content="@" /> -->
 
+  <!-- Loading Styles -->
+  <style>
+    #app-loader {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    #app-loader-content {
+      text-align: center;
+      color: white;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #app-loader p {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 500;
+    }
+  </style>
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <!-- Fallback loader shown while app initializes -->
+    <div id="app-loader">
+      <div id="app-loader-content">
+        <div class="spinner"></div>
+        <p>Loading SWM...</p>
+      </div>
+    </div>
+  </div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 

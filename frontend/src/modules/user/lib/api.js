@@ -1,8 +1,10 @@
+import { safeStorage } from "@/modules/user/lib/safeStorage";
+
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
 function getToken() {
   try {
-    return localStorage.getItem("swm_token") || "";
+    return safeStorage.getItem("swm_token") || "";
   } catch {
     return "";
   }
@@ -10,7 +12,7 @@ function getToken() {
 
 function getProviderToken() {
   try {
-    return localStorage.getItem("swm_provider_token") || "";
+    return safeStorage.getItem("swm_provider_token") || "";
   } catch {
     return "";
   }
@@ -18,7 +20,7 @@ function getProviderToken() {
 
 function getAdminToken() {
   try {
-    return localStorage.getItem("swm_admin_token") || "";
+    return safeStorage.getItem("swm_admin_token") || "";
   } catch {
     return "";
   }
@@ -26,7 +28,7 @@ function getAdminToken() {
 
 function getVendorToken() {
   try {
-    return localStorage.getItem("swm_vendor_token") || "";
+    return safeStorage.getItem("swm_vendor_token") || "";
   } catch {
     return "";
   }
@@ -41,17 +43,17 @@ function getTokenByRole(role) {
 
 function clearTokenByRole(role) {
   try {
-    if (role === "provider") localStorage.removeItem("swm_provider_token");
-    else if (role === "vendor") localStorage.removeItem("swm_vendor_token");
-    else if (role === "admin") localStorage.removeItem("swm_admin_token");
+    if (role === "provider") safeStorage.removeItem("swm_provider_token");
+    else if (role === "vendor") safeStorage.removeItem("swm_vendor_token");
+    else if (role === "admin") safeStorage.removeItem("swm_admin_token");
     else setToken("");
   } catch {}
 }
 
 function setToken(token) {
   try {
-    if (token) localStorage.setItem("swm_token", token);
-    else localStorage.removeItem("swm_token");
+    if (token) safeStorage.setItem("swm_token", token);
+    else safeStorage.removeItem("swm_token");
   } catch {}
 }
 
@@ -159,9 +161,9 @@ async function request(path, options = {}) {
       } catch {}
     }
     if (res.status === 401) {
-      if (isAdminPath) localStorage.removeItem("swm_admin_token");
-      else if (isVendorPath) localStorage.removeItem("swm_vendor_token");
-      else if (isProviderPath) localStorage.removeItem("swm_provider_token");
+      if (isAdminPath) safeStorage.removeItem("swm_admin_token");
+      else if (isVendorPath) safeStorage.removeItem("swm_vendor_token");
+      else if (isProviderPath) safeStorage.removeItem("swm_provider_token");
       else setToken("");
       
       // Dispatch global 401 event

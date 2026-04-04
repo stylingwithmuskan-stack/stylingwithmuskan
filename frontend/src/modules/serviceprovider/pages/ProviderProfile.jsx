@@ -27,7 +27,12 @@ import {
     Plus,
     Check,
     X,
-    Loader2
+    Loader2,
+    Trash2,
+    History,
+    Info,
+    FileText,
+    ShieldCheck
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/modules/user/components/ui/avatar";
 import {
@@ -51,6 +56,7 @@ import { AnimatePresence, motion } from "framer-motion";
 const menuItems = [
     { icon: Trophy, label: "Weekly performance", path: "/provider/performance" },
     { icon: Bell, label: "Notifications", path: "/provider/notifications", isNotificationTab: true },
+    { icon: History, label: "Activity", path: "/provider/activity" },
     { icon: Crown, label: "SWM Pro Partner", path: "/provider/subscription", color: "text-amber-500 font-bold" },
     { icon: Calendar, label: "Calendar", path: "/provider/availability" },
     { icon: Map, label: "My Hub", path: "/provider/hub" },
@@ -60,6 +66,10 @@ const menuItems = [
     { icon: UserPlus, label: "Invite a friend with stylingwithmuskan", path: "/provider/profile" },
     { icon: ShoppingBag, label: "stylingwithmuskan shop", path: "/provider/shop" },
     { icon: LifeBuoy, label: "stylingwithmuskan support", path: "/provider/support" },
+    { icon: Info, label: "About Us", path: "/provider/about-us" },
+    { icon: Phone, label: "Contact Us", path: "/provider/contact-us" },
+    { icon: ShieldCheck, label: "Privacy Policy", path: "/provider/privacy-policy" },
+    { icon: FileText, label: "Terms & Conditions", path: "/provider/terms-conditions" },
     { icon: AlertTriangle, label: "SOS", path: "/provider/sos", color: "text-red-500 font-bold" },
     { icon: RefreshCw, label: "Check for updates", path: "#", version: "v2.1.0" },
 ];
@@ -75,6 +85,8 @@ export default function ProviderProfile() {
     const [customZone, setCustomZone] = useState("");
     const [loadingZones, setLoadingZones] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     
     const [summary, setSummary] = useState(null);
 
@@ -121,6 +133,34 @@ export default function ProviderProfile() {
     const handleLogout = () => {
         logout();
         navigate("/provider/login");
+    };
+
+    const handleDeleteAccount = async () => {
+        setIsDeleting(true);
+        try {
+            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiBaseUrl}/provider/me/account`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({ error: 'Failed to delete account' }));
+                toast.error(data.error || 'Failed to delete account');
+                setIsDeleting(false);
+                setShowDeleteConfirm(false);
+                return;
+            }
+            
+            toast.success('Account deleted successfully');
+            logout();
+            navigate('/provider/login');
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            toast.error('Failed to delete account. Please try again.');
+            setIsDeleting(false);
+            setShowDeleteConfirm(false);
+        }
     };
 
     const toggleZone = (name) => {
@@ -398,7 +438,62 @@ export default function ProviderProfile() {
                     </div>
                     <ChevronRight className="h-5 w-5 text-red-400" />
                 </button>
+
+                {/* Delete Account Button */}
+                <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full flex items-center justify-between p-5 border-b border-gray-50 active:bg-red-50 transition-colors group"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="bg-red-50 p-2 rounded-lg group-active:bg-red-100 transition-colors">
+                            <Trash2 className="h-5 w-5 text-red-600 stroke-[2px]" />
+                        </div>
+                        <span className="text-[17px] font-bold text-red-600 tracking-tight">Delete Account</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-red-400" />
+                </button>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="bg-white rounded-[32px] p-6 max-w-sm w-full shadow-2xl"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                    <Trash2 className="w-6 h-6 text-red-600" />
+                                </div>
+                                <h3 className="text-lg font-bold">Delete Account?</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-6">
+                                This action cannot be undone. All your provider data including bookings history, zones, availability, and account information will be permanently deleted.
+                            </p>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    disabled={isDeleting}
+                                    className="flex-1 h-12 rounded-xl font-bold"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleDeleteAccount}
+                                    disabled={isDeleting}
+                                    className="flex-1 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold"
+                                >
+                                    {isDeleting ? 'Deleting...' : 'Delete'}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* Hub Request Modal */}
             <AnimatePresence>

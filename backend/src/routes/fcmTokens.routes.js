@@ -1,7 +1,7 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
-import { requireRole } from "../middleware/roles.js";
+import { requireRole, requireAnyRole } from "../middleware/roles.js";
 import User from "../models/User.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import Vendor from "../models/Vendor.js";
@@ -205,6 +205,52 @@ router.post("/admins/fcm-tokens/remove", requireRole("admin"), async (req, res) 
     await removeRoleToken(AdminAccount, { adminId }, token);
     await deactivatePushDevice(adminId, "admin", token);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Server error" });
+  }
+});
+
+// Common endpoint for both vendor and provider
+router.post("/business/fcm-tokens/save", requireAnyRole(["vendor", "provider"]), async (req, res) => {
+  try {
+    const token = normalizeToken(req.body?.token);
+    const platform = normalizePlatform(req.body?.platform);
+    if (!token) return res.status(400).json({ error: "token is required" });
+
+    const role = req.auth?.role;
+    const userId = String(req.auth?.sub || "");
+
+    if (role === "vendor") {
+      await upsertRoleToken(Vendor, { _id: userId }, token, platform);
+      await upsertPushDevice(userId, "vendor", token, platform);
+    } else if (role === "provider") {
+      await upsertRoleToken(ProviderAccount, { _id: userId }, token, platform);
+      await upsertPushDevice(userId, "provider", token, platform);
+    }
+
+    res.json({ success: true, role });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Server error" });
+  }
+});
+
+router.post("/business/fcm-tokens/remove", requireAnyRole(["vendor", "provider"]), async (req, res) => {
+  try {
+    const token = normalizeToken(req.body?.token);
+    if (!token) return res.status(400).json({ error: "token is required" });
+
+    const role = req.auth?.role;
+    const userId = String(req.auth?.sub || "");
+
+    if (role === "vendor") {
+      await removeRoleToken(Vendor, { _id: userId }, token);
+      await deactivatePushDevice(userId, "vendor", token);
+    } else if (role === "provider") {
+      await removeRoleToken(ProviderAccount, { _id: userId }, token);
+      await deactivatePushDevice(userId, "provider", token);
+    }
+
+    res.json({ success: true, role });
   } catch (err) {
     res.status(500).json({ error: err.message || "Server error" });
   }

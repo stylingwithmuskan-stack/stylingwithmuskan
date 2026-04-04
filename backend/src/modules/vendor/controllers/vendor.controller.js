@@ -216,6 +216,40 @@ export async function getMe(req, res) {
   res.json({ vendor: { ...v, subscription } });
 }
 
+export async function deleteAccount(req, res) {
+  try {
+    const vendorId = req.auth.sub;
+    
+    // Check for active bookings in vendor's zones
+    const vendor = await Vendor.findById(vendorId).lean();
+    if (!vendor) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+    
+    const activeBookings = await Booking.countDocuments({
+      "address.zone": { $in: vendor.zones || [] },
+      status: { $in: ["pending", "assigned", "accepted", "in_progress"] }
+    });
+    
+    if (activeBookings > 0) {
+      return res.status(400).json({ 
+        error: "Cannot delete account with active bookings in your zones. Please ensure all bookings are completed first." 
+      });
+    }
+    
+    // Delete vendor account
+    await Vendor.findByIdAndDelete(vendorId);
+    
+    // Clear auth cookie
+    res.clearCookie("vendorToken");
+    
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting vendor account:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+}
+
 export async function logout(_req, res) {
   res.clearCookie("vendorToken").json({ success: true });
 }
