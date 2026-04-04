@@ -25,19 +25,24 @@ function deviceKeyFromToken(token) {
 
 async function upsertRoleToken(Model, filter, token, platform) {
   const now = new Date();
+  
+  // Try to update existing token WITH THE SAME PLATFORM
   const updateExisting = await Model.updateOne(
-    { ...filter, "fcmTokens.token": token },
+    { ...filter, "fcmTokens.token": token, "fcmTokens.platform": platform },
     {
       $set: {
-        "fcmTokens.$.platform": platform,
         "fcmTokens.$.lastSeenAt": now,
         "fcmTokens.$.isActive": true,
       },
     }
   );
 
-  if (updateExisting?.matchedCount > 0) return;
+  if (updateExisting?.matchedCount > 0) {
+    console.log('[FCM] Updated existing token for platform:', platform);
+    return;
+  }
 
+  // If token+platform combination doesn't exist, add it as new
   await Model.updateOne(
     filter,
     {
@@ -51,6 +56,7 @@ async function upsertRoleToken(Model, filter, token, platform) {
       },
     }
   );
+  console.log('[FCM] Added new token for platform:', platform);
 }
 
 async function removeRoleToken(Model, filter, token) {
@@ -92,15 +98,49 @@ async function deactivatePushDevice(recipientId, recipientRole, token) {
 
 router.post("/users/fcm-tokens/save", requireAuth, async (req, res) => {
   try {
+    console.log('[FCM] 📱 Save FCM token request received');
+    console.log('[FCM] User ID:', req.user?._id);
+    console.log('[FCM] Request body:', {
+      hasToken: !!req.body?.token,
+      tokenPreview: req.body?.token ? `${req.body.token.substring(0, 30)}...` : 'null',
+      platform: req.body?.platform
+    });
+    
     const token = normalizeToken(req.body?.token);
     const platform = normalizePlatform(req.body?.platform);
-    if (!token) return res.status(400).json({ error: "token is required" });
+    if (!token) {
+      console.error('[FCM] ❌ No token provided in request');
+      return res.status(400).json({ error: "token is required" });
+    }
 
     const userId = String(req.user?._id || "");
+    console.log('[FCM] Saving to User model for platform:', platform);
     await upsertRoleToken(User, { _id: userId }, token, platform);
+    console.log('[FCM] ✅ Saved to User.fcmTokens');
+    
+    console.log('[FCM] Saving to PushDevice collection...');
     await upsertPushDevice(userId, "user", token, platform);
-    res.json({ success: true });
+    console.log('[FCM] ✅ Saved to PushDevice');
+    
+    // Verify the save
+    const user = await User.findById(userId).select('fcmTokens');
+    const tokensByPlatform = user?.fcmTokens?.reduce((acc, t) => {
+      acc[t.platform] = (acc[t.platform] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('[FCM] Verification - User has', user?.fcmTokens?.length || 0, 'FCM tokens:', tokensByPlatform);
+    
+    const pushDevice = await PushDevice.findOne({ recipientId: userId, fcmToken: token, platform });
+    console.log('[FCM] Verification - PushDevice found for platform', platform, ':', !!pushDevice);
+    
+    res.json({ 
+      success: true, 
+      saved: true, 
+      tokensCount: user?.fcmTokens?.length || 0,
+      tokensByPlatform 
+    });
   } catch (err) {
+    console.error('[FCM] ❌ Error saving FCM token:', err);
     res.status(500).json({ error: err.message || "Server error" });
   }
 });

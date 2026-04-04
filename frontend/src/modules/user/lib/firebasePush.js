@@ -106,6 +106,28 @@ function setStoredFcmToken(token) {
   } catch {}
 }
 
+/**
+ * Detect platform from user agent
+ * @returns {"web" | "android" | "ios"}
+ */
+function detectPlatform() {
+  if (typeof navigator === 'undefined' || !navigator.userAgent) {
+    return "web";
+  }
+  
+  const ua = navigator.userAgent;
+  
+  if (/android/i.test(ua)) {
+    return "android";
+  }
+  
+  if (/iPad|iPhone|iPod/.test(ua)) {
+    return "ios";
+  }
+  
+  return "web";
+}
+
 async function deriveDeviceKeyFromToken(token) {
   if (!token || typeof window === "undefined") return "";
   try {
@@ -322,11 +344,19 @@ export async function ensurePushRegistration(role) {
     const deviceKey = derivedKey || getPushDeviceKey();
     console.log('[Push] Device Key:', deviceKey);
 
+    // Detect platform from user agent
+    const platform = detectPlatform();
+
     console.log('[Push] Registering with backend API...');
-    const response = await api.fcmTokens.save(role, token, "web");
+    console.log('[Push] Role:', role);
+    console.log('[Push] Token to save:', token ? `${token.substring(0, 30)}...` : 'null');
+    console.log('[Push] Detected Platform:', platform);
+    console.log('[Push] User Agent:', typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A');
+    
+    const response = await api.fcmTokens.save(role, token, platform);
     
     console.log('[Push] ✅ Backend registration successful:', response);
-    return { registered: true, token, deviceKey, response };
+    return { registered: true, token, deviceKey, response, platform };
   } catch (error) {
     console.error('[Push] ❌ Error during registration:', error);
     if (error && typeof error === 'object') {
@@ -342,8 +372,12 @@ export async function ensurePushRegistration(role) {
 export async function revokePushRegistration(role) {
   const token = getStoredFcmToken();
   if (!token) return { success: true };
+  
+  // Detect platform from user agent
+  const platform = detectPlatform();
+  
   try {
-    const res = await api.fcmTokens.remove(role, token, "web");
+    const res = await api.fcmTokens.remove(role, token, platform);
     setStoredFcmToken("");
     return res;
   } catch {

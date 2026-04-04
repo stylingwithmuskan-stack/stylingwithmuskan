@@ -9,6 +9,7 @@
     "lint": "echo \"No linter configured for backend\"",
     "smoke": "node scripts/smoke.mjs",
     "seed:booking-flow": "node scripts/seed-booking-flow.mjs",
+    "cleanup:fcm": "node scripts/cleanup-duplicate-fcm-tokens.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

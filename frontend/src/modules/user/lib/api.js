@@ -620,6 +620,14 @@ export const api = {
   fcmTokens: {
     save: (role, tokenValue, platform = "web") => {
       const token = getTokenByRole(role);
+      
+      console.log('[API] 🔐 FCM Token Save Request:', {
+        role,
+        hasAuthToken: !!token,
+        authTokenPreview: token ? `${token.substring(0, 20)}...` : 'null',
+        fcmTokenPreview: tokenValue ? `${tokenValue.substring(0, 30)}...` : 'null',
+        platform: platform
+      });
       const base =
         role === "provider"
           ? "/api/providers/fcm-tokens"
@@ -628,7 +636,8 @@ export const api = {
           : role === "admin"
           ? "/api/admins/fcm-tokens"
           : "/api/users/fcm-tokens";
-      return requestWithToken(`${base}/save`, { method: "POST", body: { token: tokenValue, platform } }, token, role);
+      console.log('[API] Endpoint:', `${base}/save`);
+      return requestWithToken(`${base}/save`, { method: "POST", body: { token: tokenValue, platform: platform } }, token, role);
     },
     remove: (role, tokenValue, platform = "web") => {
       const token = getTokenByRole(role);
