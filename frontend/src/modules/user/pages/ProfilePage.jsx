@@ -6,7 +6,7 @@ import { useAuth } from "@/modules/user/contexts/AuthContext";
 
 import { api } from "@/modules/user/lib/api";
 
-import { ArrowLeft, ChevronRight, Wallet, MapPin, Gift, Ticket, HelpCircle, LogOut, User, Calendar, Edit2, ShieldCheck, Zap, Sparkles, Bell } from "lucide-react";
+import { ArrowLeft, ChevronRight, Wallet, MapPin, Gift, Ticket, HelpCircle, LogOut, User, Calendar, Edit2, ShieldCheck, Zap, Sparkles, Bell, History, Info, FileText, Phone } from "lucide-react";
 import NotificationDropdown from "@/modules/user/components/salon/NotificationDropdown";
 
 /**
@@ -72,10 +72,15 @@ const ProfilePage = () => {
   const menuItems = [
     { icon: Calendar, label: "My Bookings", desc: "View past & upcoming bookings", path: "/bookings" },
     { icon: Wallet, label: "Wallet", desc: walletBalance !== null ? `₹${walletBalance} balance` : "Loading balance...", path: "/wallet" },
+    { icon: History, label: "Activity", desc: "View recent activity", path: "/activity" },
     { icon: MapPin, label: "Addresses", desc: "Manage saved addresses", path: "/addresses" },
     { icon: Gift, label: "Referral", desc: "Invite friends & earn", path: "/referral" },
     { icon: Ticket, label: "Coupons", desc: "Available offers", path: "/coupons" },
     { icon: Bell, label: "Notifications", desc: "Alerts & updates", path: "/notifications" },
+    { icon: Info, label: "About Us", desc: "Learn more about Styling With Muskan", path: "/about-us" },
+    { icon: Phone, label: "Contact Us", desc: "Reach out for help", path: "/contact-us" },
+    { icon: ShieldCheck, label: "Privacy Policy", desc: "How we protect your data", path: "/privacy-policy" },
+    { icon: FileText, label: "Terms & Conditions", desc: "Platform usage terms", path: "/terms-conditions" },
     { icon: HelpCircle, label: "Help & Support", desc: "FAQs, chat, call", path: "/support" },
   ];
 

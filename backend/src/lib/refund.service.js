@@ -6,6 +6,23 @@ import { notify } from "./notify.js";
 import { getSubscriptionSnapshot } from "./subscriptions.js";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../config.js";
 
+function pickServiceName(list = []) {
+  if (!Array.isArray(list) || list.length === 0) return "";
+  const first = list.find(Boolean);
+  if (!first) return "";
+  if (typeof first === "string") return first;
+  return first.name || first.serviceName || first.title || first.service || "";
+}
+
+function getBookingServiceName(booking) {
+  if (!booking) return "";
+  return (
+    pickServiceName(booking.services) ||
+    pickServiceName(booking.items) ||
+    ""
+  );
+}
+
 /**
  * Calculate refund policy based on booking status, timing, and subscription
  */
@@ -344,7 +361,9 @@ async function notifyUserAboutRefund(user, booking, refunds) {
   const walletAmount = walletRefunds.reduce((sum, r) => sum + r.amount, 0);
   const onlineAmount = onlineRefunds.reduce((sum, r) => sum + r.amount, 0);
   
-  let message = `Your booking #${booking._id.toString().slice(-6)} has been cancelled. `;
+  const serviceName = getBookingServiceName(booking);
+  const bookingLabel = serviceName ? `${serviceName} booking` : "booking";
+  let message = `Your ${bookingLabel} has been cancelled. `;
   
   if (walletAmount > 0 && onlineAmount > 0) {
     message += `Refund breakdown: ₹${walletAmount} credited to wallet (instant), ₹${onlineAmount} will be credited to your bank account in 5-7 business days.`;

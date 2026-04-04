@@ -119,12 +119,10 @@ export async function autoExpireBooking(booking) {
       await notify({
         recipientId: booking.customerId,
         recipientRole: "user",
-        title: "Booking Cancelled",
-        message: isVendorRebook ? rebookMessage : defaultMessage,
         type: "booking_cancel",
         meta: { 
           bookingId: booking._id.toString(), 
-          reason: "auto_expired",
+          reason: isVendorRebook ? "no provider was free, please rebook" : "no professional could be assigned in time",
           refunded 
         },
       });

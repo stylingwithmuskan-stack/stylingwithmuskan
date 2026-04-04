@@ -9,6 +9,19 @@ import { notify } from "../lib/notify.js";
 import { processQueuedPushNotifications } from "../lib/push.js";
 import { processAutoExpiredBookings } from "../lib/bookingExpiry.js";
 
+function pickServiceName(list = []) {
+  if (!Array.isArray(list) || list.length === 0) return "";
+  const first = list.find(Boolean);
+  if (!first) return "";
+  if (typeof first === "string") return first;
+  return first.name || first.serviceName || first.title || first.service || "";
+}
+
+function getBookingServiceName(booking) {
+  if (!booking) return "";
+  return pickServiceName(booking.services) || pickServiceName(booking.items) || "";
+}
+
 function withinWindow(now, startTime, endTime) {
   const [startH, startM] = String(startTime || "07:00").split(":").map(Number);
   const [endH, endM] = String(endTime || "22:00").split(":").map(Number);
@@ -99,9 +112,11 @@ export function startCron() {
           await b.save();
           try {
             const io = getIO();
+            const serviceName = getBookingServiceName(b);
+            const bookingLabel = serviceName ? `${serviceName} booking` : "booking";
             io?.of("/vendor").emit("notification:reminder", {
               id: b._id.toString(),
-              message: `Reminder: Booking #${b._id.toString().slice(-6)} is still unassigned and starts in 3 hours. Please assign a provider.`,
+              message: `Reminder: ${bookingLabel} is still unassigned and starts in 3 hours. Please assign a provider.`,
               city: b.address?.city
             });
 
@@ -135,10 +150,12 @@ export function startCron() {
           await b.save();
           try {
             const io = getIO();
+            const serviceName = getBookingServiceName(b);
+            const bookingLabel = serviceName ? `${serviceName} booking` : "booking";
             io?.of("/bookings").emit("notification:reminder", {
               id: b._id.toString(),
               providerId: b.assignedProvider,
-              message: `Reminder: You have a booking #${b._id.toString().slice(-6)} in 2 hours at ${b.slot?.time}.`
+              message: `Reminder: You have a ${bookingLabel} in 2 hours at ${b.slot?.time}.`
             });
 
             await notify({

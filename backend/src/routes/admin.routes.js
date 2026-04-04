@@ -430,8 +430,6 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
       await notify({
         recipientId: b.assignedProvider,
         recipientRole: "provider",
-        title: "New Booking Assigned",
-        message: `A booking #${b._id.toString().slice(-6)} has been assigned to you.`,
         type: "booking_assigned",
         meta: { bookingId: b._id.toString() },
         respectProviderQuietHours: true,
@@ -441,8 +439,6 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
       await notify({
         recipientId: b.customerId,
         recipientRole: "user",
-        title: "Professional Assigned",
-        message: `A professional has been assigned to booking #${b._id.toString().slice(-6)}.`,
         type: "booking_assigned",
         meta: { bookingId: b._id.toString() },
       });

@@ -1145,6 +1145,9 @@ export default function ProviderRegisterPage() {
                                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none">
                                     Already a partner? <Link to="/provider/login" className="text-violet-600">Login Here</Link>
                                 </p>
+                                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none mt-2">
+                                    Want to be a Vendor? <Link to="/join" className="text-emerald-600">Switch Role</Link>
+                                </p>
                             </div>
                         )}
                     </CardContent>

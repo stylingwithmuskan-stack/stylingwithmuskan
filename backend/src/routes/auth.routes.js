@@ -6,6 +6,7 @@ import { redis } from "../startup/redis.js";
 import { issueToken } from "../middleware/auth.js";
 import { issueOtp, OTP_LENGTH, verifyOtpValue } from "../lib/otpService.js";
 import { getSubscriptionSnapshot } from "../lib/subscriptions.js";
+import { notify } from "../lib/notify.js";
 
 const router = Router();
 
@@ -129,6 +130,18 @@ router.post(
     const isNew = !exists;
     const token = issueToken(user._id);
     const subscription = await getSubscriptionSnapshot(user._id.toString(), "customer");
+
+    try {
+      await notify({
+        recipientId: user._id.toString(),
+        recipientRole: "user",
+        type: "system",
+        title: isNew ? "Welcome to Styling With Muskan" : "Login Successful",
+        message: isNew
+          ? "Your account is created successfully. Welcome aboard!"
+          : "You are logged in successfully.",
+      });
+    } catch {}
     
     console.log('[Auth] ✅ Sending response with token and user data');
     
@@ -244,6 +257,18 @@ router.get("/me", async (req, res) => {
     );
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     const subscription = await getSubscriptionSnapshot(user._id.toString(), "customer");
+
+    try {
+      await notify({
+        recipientId: user._id.toString(),
+        recipientRole: "user",
+        type: "system",
+        title: isNew ? "Welcome to Styling With Muskan" : "Login Successful",
+        message: isNew
+          ? "Your account is created successfully. Welcome aboard!"
+          : "You are logged in successfully.",
+      });
+    } catch {}
     res.json({
       user: {
         _id: user._id,

@@ -24,6 +24,9 @@ const CANONICAL_TYPES = new Set([
   "payment_required",
   "payment_success",
   "payment_refund",
+  "booking_cancelled_refund",
+  "refund_processed",
+  "refund_failed",
   "wallet_topup",
   "commission_hold",
   "commission_refund",
@@ -71,6 +74,68 @@ function formatAmount(amount) {
   }
 }
 
+function pickServiceName(list) {
+  if (!Array.isArray(list) || list.length === 0) return "";
+  const first = list.find(Boolean);
+  if (!first) return "";
+  if (typeof first === "string") return first;
+  return (
+    first.name ||
+    first.serviceName ||
+    first.title ||
+    first.service ||
+    ""
+  );
+}
+
+function normalizeServiceName(meta = {}) {
+  return (
+    meta.serviceName ||
+    meta.service ||
+    meta.serviceType ||
+    pickServiceName(meta.items) ||
+    pickServiceName(meta.services) ||
+    pickServiceName(meta.selectedServices) ||
+    ""
+  );
+}
+
+async function enrichMeta(meta = {}) {
+  const safe = { ...(meta || {}) };
+  if (!safe.serviceName && safe.bookingId) {
+    try {
+      const Booking = (await import("../models/Booking.js")).default;
+      const booking = await Booking.findById(safe.bookingId).lean();
+      if (booking) {
+        safe.serviceName =
+          pickServiceName(booking.items) ||
+          pickServiceName(booking.services) ||
+          safe.serviceName ||
+          "";
+        if (!safe.city && booking.address?.city) safe.city = booking.address.city;
+        if (!safe.time && booking.slot?.time) safe.time = booking.slot.time;
+        if (!safe.date && booking.slot?.date) safe.date = booking.slot.date;
+      }
+    } catch {}
+  }
+  if (!safe.serviceName && safe.enquiryId) {
+    try {
+      const CustomEnquiry = (await import("../models/CustomEnquiry.js")).default;
+      const enquiry = await CustomEnquiry.findById(safe.enquiryId).lean();
+      if (enquiry) {
+        safe.serviceName =
+          pickServiceName(enquiry.selectedServices) ||
+          pickServiceName(enquiry.services) ||
+          enquiry.eventType ||
+          safe.serviceName ||
+          "";
+        if (!safe.city && enquiry.address?.city) safe.city = enquiry.address.city;
+      }
+    } catch {}
+  }
+  return safe;
+}
+
 function buildRef(meta = {}) {
   if (meta?.bookingId) return { label: "Booking", id: `#${shortId(meta.bookingId)}` };
   if (meta?.enquiryId) return { label: "Enquiry", id: `#${shortId(meta.enquiryId)}` };
@@ -97,6 +162,10 @@ function formatNotification({ recipientRole, type, meta = {} }) {
 
   const { label, id } = buildRef(safeMeta);
   const ref = id ? `${label} ${id}` : label;
+  const serviceName = normalizeServiceName(safeMeta);
+  const servicePlain = serviceName || "service";
+  const yourBooking = serviceName ? `your ${serviceName} booking` : "your booking";
+  const aBooking = serviceName ? `a ${serviceName} booking` : "a booking";
   const amountText = formatAmount(safeMeta.amount);
   const statusText = titleCase(safeMeta.status);
   const cityText = safeMeta.city ? ` in ${safeMeta.city}` : "";
@@ -106,78 +175,97 @@ function formatNotification({ recipientRole, type, meta = {} }) {
   switch (canonical) {
     case "booking_created":
       return {
-        title: "Booking Created",
-        message: `${ref} created successfully. We'll assign a professional shortly.`,
+        title: "Booking Confirmed",
+        message: `Your booking${serviceName ? ` for ${serviceName}` : ""} has been created successfully. We'll assign the best professional shortly.`,
       };
     case "booking_assigned":
       if (recipientRole === "provider") {
         return {
           title: "New Booking Assigned",
-          message: `You have a new ${ref}. Please accept or reject.`,
+          message: `You've received ${aBooking}. Please accept or reject.`,
         };
       }
       if (recipientRole === "user") {
         return {
-          title: "Provider Assigned",
-          message: `A professional has been assigned for your ${ref}.`,
+          title: "Professional Assigned",
+          message: `A professional has been assigned for ${yourBooking}.`,
         };
       }
       return {
         title: "Booking Assigned",
-        message: `${ref} has been assigned to a provider.`,
+        message: `${aBooking} has been assigned to a provider.`,
       };
     case "booking_reassigned":
       if (recipientRole === "provider") {
         return {
           title: "Booking Reassigned",
-          message: `A ${ref} has been reassigned to you.`,
+          message: `${aBooking} has been reassigned to you.`,
         };
       }
       if (recipientRole === "user") {
         return {
           title: "Provider Reassigned",
-          message: `Your ${ref} has been reassigned to a new professional.`,
+          message: `Your ${serviceName ? `${serviceName} booking` : "booking"} has been reassigned to another professional for faster service.`,
         };
       }
       return {
         title: "Booking Reassigned",
-        message: `${ref} has been reassigned to a different provider.`,
+        message: `${aBooking} has been reassigned to a different provider.`,
       };
     case "booking_status":
       if (recipientRole === "user") {
         return {
           title: statusText ? `Booking ${statusText}` : "Booking Update",
-          message: statusText ? `Your ${ref} status is ${statusText}.` : `Your ${ref} status was updated.`,
+          message: statusText ? `Your ${serviceName ? `${serviceName} booking` : "booking"} is now ${statusText}.` : `Your booking status was updated.`,
         };
       }
       return {
         title: statusText ? `Booking ${statusText}` : "Booking Update",
-        message: statusText ? `${ref} status updated to ${statusText}.` : `${ref} status was updated.`,
+        message: statusText ? `${aBooking} status updated to ${statusText}.` : `Booking status was updated.`,
       };
     case "booking_cancelled":
       return {
         title: "Booking Cancelled",
-        message: reasonHuman ? `${ref} was cancelled (${reasonHuman}).` : `${ref} was cancelled.`,
+        message: reasonHuman ? `${yourBooking} was cancelled (${reasonHuman}).` : `${yourBooking} was cancelled.`,
       };
     case "booking_escalated":
       return {
         title: "Booking Escalated",
-        message: `${ref}${cityText} needs attention${reasonHuman ? `: ${reasonHuman}` : "."}`,
+        message: `${aBooking}${cityText} needs attention${reasonHuman ? `: ${reasonHuman}` : "."}`,
       };
     case "payment_required":
       return {
         title: "Payment Required",
-        message: amountText ? `Please complete payment of ${amountText} for ${ref}.` : `Please complete the pending payment for ${ref}.`,
+        message: amountText ? `Please complete payment of ${amountText} for ${yourBooking}.` : `Please complete the payment for ${yourBooking} to continue.`,
       };
     case "payment_success":
       return {
         title: "Payment Successful",
-        message: amountText ? `Payment of ${amountText} received for ${ref}.` : `Payment received for ${ref}.`,
+        message: amountText ? `Your payment of ${amountText} for ${servicePlain} was successful. Thank you!` : `Your payment for ${servicePlain} was successful. Thank you!`,
       };
     case "payment_refund":
       return {
         title: "Refund Initiated",
-        message: amountText ? `Refund of ${amountText} initiated for ${ref}.` : `Refund initiated for ${ref}.`,
+        message: amountText ? `Refund of ${amountText} initiated for ${servicePlain}.` : `Refund initiated for ${servicePlain}.`,
+      };
+    case "booking_cancelled_refund":
+      return {
+        title: "Refund Update",
+        message: amountText
+          ? `Your ${servicePlain} booking was cancelled. A refund of ${amountText} is being processed.`
+          : `Your ${servicePlain} booking was cancelled. Your refund is being processed.`,
+      };
+    case "refund_processed":
+      return {
+        title: "Refund Processed",
+        message: amountText
+          ? `Your refund of ${amountText} for ${servicePlain} has been processed and will reflect soon.`
+          : `Your refund for ${servicePlain} has been processed and will reflect soon.`,
+      };
+    case "refund_failed":
+      return {
+        title: "Refund Failed",
+        message: `We couldn't process your refund for ${servicePlain}. Please contact support.`,
       };
     case "wallet_topup":
       return {
@@ -187,12 +275,12 @@ function formatNotification({ recipientRole, type, meta = {} }) {
     case "commission_hold":
       return {
         title: "Commission Held",
-        message: amountText ? `Commission of ${amountText} held for ${ref}.` : `Commission held for ${ref}.`,
+        message: amountText ? `Commission hold of ${amountText} applied for ${servicePlain}.` : `Commission hold applied for ${servicePlain}.`,
       };
     case "commission_refund":
       return {
         title: "Commission Refunded",
-        message: amountText ? `Commission refund of ${amountText} processed for ${ref}.` : `Commission refund processed for ${ref}.`,
+        message: amountText ? `Commission refund of ${amountText} processed for ${servicePlain}.` : `Commission refund processed for ${servicePlain}.`,
       };
     case "provider_vendor_approved":
       return {
@@ -220,24 +308,30 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         message: reasonHuman ? `Your vendor account was rejected: ${reasonHuman}.` : "Your vendor account was rejected.",
       };
     case "custom_quote_submitted":
+      if (recipientRole === "user") {
+        return {
+          title: "Quote Ready",
+          message: `Your custom quote for ${servicePlain} is ready. Please review and confirm.`,
+        };
+      }
       return {
-        title: "Custom Quote Submitted",
-        message: amountText ? `Quote for ${ref} is ${amountText}. Please review and approve.` : `Quote submitted for ${ref}.`,
+        title: "New Custom Enquiry",
+        message: `A new custom enquiry for ${servicePlain} is waiting for quote.`,
       };
     case "custom_approved":
       return {
-        title: "Custom Enquiry Approved",
-        message: `Your ${ref} has been approved.`,
+        title: "Booking Approved",
+        message: `Your custom booking for ${servicePlain} has been approved and is now active.`,
       };
     case "custom_advance_paid":
       return {
-        title: "Advance Paid",
-        message: `Advance payment received for ${ref}.`,
+        title: "Advance Payment Received",
+        message: `Advance payment received for ${servicePlain}.`,
       };
     case "sos_alert":
       return {
         title: "SOS Alert",
-        message: `SOS raised for ${ref}${cityText}. Immediate attention required.`,
+        message: `SOS received for ${servicePlain} booking${cityText}. Immediate attention required.`,
       };
     case "leave_requested":
       return {
@@ -257,7 +351,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
     case "reminder":
       return {
         title: "Booking Reminder",
-        message: `Reminder: ${ref} is coming up soon${safeMeta.time ? ` at ${safeMeta.time}` : ""}.`,
+        message: `Reminder: ${yourBooking} is coming up soon${safeMeta.time ? ` at ${safeMeta.time}` : ""}.`,
       };
     case "marketing_campaign":
       return {
@@ -308,7 +402,7 @@ export async function notify({
   respectProviderQuietHours = true,
 }) {
   if (!recipientId || !recipientRole) return null;
-  const safeMeta = { ...(meta || {}) };
+  const safeMeta = await enrichMeta(meta || {});
   const templated = formatNotification({ recipientRole, type, meta: safeMeta });
   const payload = {
     recipientId: String(recipientId),

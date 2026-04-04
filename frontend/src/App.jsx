@@ -36,6 +36,11 @@ import UserLoginPage from "@/modules/user/pages/UserLoginPage";
 import SubscriptionPage from "@/modules/user/pages/SubscriptionPage";
 import SubscriptionPlans from "@/modules/user/pages/SubscriptionPlans";
 import NotificationsPage from "@/modules/user/pages/NotificationsPage";
+import ActivityPage from "@/modules/user/pages/ActivityPage";
+import PrivacyPolicyPage from "@/modules/user/pages/PrivacyPolicyPage";
+import ContactUsPage from "@/modules/user/pages/ContactUsPage";
+import AboutUsPage from "@/modules/user/pages/AboutUsPage";
+import TermsConditionsPage from "@/modules/user/pages/TermsConditionsPage";
 import FloatingCart from "@/modules/user/components/salon/FloatingCart";
 import BottomNav from "@/modules/user/components/salon/BottomNav";
 import ExpressCheckout from "@/modules/user/components/salon/ExpressCheckout";
@@ -106,6 +111,9 @@ import TrainingManagement from "@/modules/admin/pages/TrainingManagement";
 import GalleryManagement from "@/modules/admin/pages/GalleryManagement";
 import SubscriptionManagement from "@/modules/admin/pages/SubscriptionManagement";
 
+// Common Pages
+import RoleSelectionPage from "@/modules/common/pages/RoleSelectionPage";
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -149,8 +157,16 @@ const App = () => {
                                 <Route path="/support" element={<SupportPage />} />
                                 <Route path="/wishlist" element={<WishlistPage />} />
                                 <Route path="/notifications" element={<NotificationsPage />} />
+                                <Route path="/activity" element={<ActivityPage />} />
+                                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                                <Route path="/contact-us" element={<ContactUsPage />} />
+                                <Route path="/about-us" element={<AboutUsPage />} />
+                                <Route path="/terms-conditions" element={<TermsConditionsPage />} />
                                 <Route path="/subscription" element={<SubscriptionPage />} />
                                 <Route path="/plus-subscription" element={<SubscriptionPlans />} />
+
+                                {/* Role Selection for Vendor/Provider */}
+                                <Route path="/role-selection" element={<RoleSelectionPage />} />
 
                                 {/* Service Provider Module */}
                                 <Route path="/provider/login" element={<ProviderLoginPage />} />

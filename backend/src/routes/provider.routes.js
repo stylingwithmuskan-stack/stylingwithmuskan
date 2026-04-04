@@ -138,6 +138,16 @@ router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLeng
   } catch {}
   const token = issueRoleToken("provider", acc._id.toString());
   const subscription = await getSubscriptionSnapshot(acc._id.toString(), "provider");
+  try {
+    await notify({
+      recipientId: acc._id.toString(),
+      recipientRole: "provider",
+      type: "system",
+      title: "Login Successful",
+      message: "You are logged in successfully.",
+      respectProviderQuietHours: true,
+    });
+  } catch {}
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
   res.json({
     provider: {
@@ -493,6 +503,17 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
     registrationComplete: true,
   };
   const acc = await ProviderAccount.findOneAndUpdate({ phone: req.body.phone }, update, { new: true, upsert: true });
+
+  try {
+    await notify({
+      recipientId: acc._id.toString(),
+      recipientRole: "provider",
+      type: "system",
+      title: "Registration Submitted",
+      message: "Your provider profile has been submitted and is pending approval.",
+      respectProviderQuietHours: true,
+    });
+  } catch {}
 
   // Notify relevant vendor if zones are specified
   const zones = Array.isArray(req.body.zones) ? req.body.zones : (req.body.zone ? [req.body.zone] : []);
@@ -993,10 +1014,8 @@ router.post("/bookings/:id/request-payment", requireRole("provider"), param("id"
         await notify({
           recipientId: b.customerId,
           recipientRole: "user",
-          title: "Payment Required",
-          message: `Please complete the payment for booking #${b._id.toString().slice(-6)} to proceed.`,
           type: "payment_required",
-          meta: { bookingId: b._id.toString() },
+          meta: { bookingId: b._id.toString(), amount: balance },
         });
       }
     } catch {}
@@ -1072,8 +1091,6 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         await notify({
           recipientId: picked.providerId,
           recipientRole: "provider",
-          title: "Booking Reassigned",
-          message: `A booking #${b._id.toString().slice(-6)} has been reassigned to you.`,
           type: "booking_reassigned",
           meta: { bookingId: b._id.toString(), reason: "accept_expired" },
           respectProviderQuietHours: true,
@@ -1082,10 +1099,8 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         await notify({
           recipientId: "ADMIN001",
           recipientRole: "admin",
-          title: "Booking Escalated",
-          message: `Booking #${b._id.toString().slice(-6)} could not be reassigned after acceptance expiry.`,
           type: "booking_escalated",
-          meta: { bookingId: b._id.toString() },
+          meta: { bookingId: b._id.toString(), reason: "acceptance expiry" },
         });
         const city = b.address?.city || "";
         if (city) {
@@ -1094,10 +1109,8 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
             await notify({
               recipientId: vendor._id?.toString(),
               recipientRole: "vendor",
-              title: "Booking Escalated",
-              message: `Booking #${b._id.toString().slice(-6)} in ${city} needs manual assignment.`,
               type: "booking_escalated",
-              meta: { bookingId: b._id.toString(), city },
+              meta: { bookingId: b._id.toString(), city, reason: "acceptance expiry" },
             });
           }
         }
@@ -1136,8 +1149,6 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         await notify({
           recipientId: picked.providerId,
           recipientRole: "provider",
-          title: "Booking Reassigned",
-          message: `A booking #${b._id.toString().slice(-6)} has been reassigned to you.`,
           type: "booking_reassigned",
           meta: { bookingId: b._id.toString(), reason: "rejected" },
           respectProviderQuietHours: true,
@@ -1152,10 +1163,8 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         await notify({
           recipientId: "ADMIN001",
           recipientRole: "admin",
-          title: "Booking Escalated",
-          message: `Booking #${b._id.toString().slice(-6)} could not be reassigned after provider rejection.`,
           type: "booking_escalated",
-          meta: { bookingId: b._id.toString() },
+          meta: { bookingId: b._id.toString(), reason: "provider rejection" },
         });
         const city = b.address?.city || "";
         if (city) {
@@ -1164,10 +1173,8 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
             await notify({
               recipientId: vendor._id?.toString(),
               recipientRole: "vendor",
-              title: "Booking Escalated",
-              message: `Booking #${b._id.toString().slice(-6)} in ${city} needs manual assignment.`,
               type: "booking_escalated",
-              meta: { bookingId: b._id.toString(), city },
+              meta: { bookingId: b._id.toString(), city, reason: "provider rejection" },
             });
           }
         }
@@ -1206,8 +1213,6 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         await notify({
           recipientId: pId,
           recipientRole: "provider",
-          title: "Commission Hold",
-          message: `A commission hold of ₹${required} has been applied for booking #${b._id.toString().slice(-6)}.`,
           type: "commission_hold",
           meta: { bookingId: b._id.toString(), amount: required },
           respectProviderQuietHours: true,
@@ -1281,8 +1286,6 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           await notify({
             recipientId: pId,
             recipientRole: "provider",
-            title: "Commission Refunded",
-            message: `Commission refund of ₹${b.commissionAmount} issued for booking #${b._id.toString().slice(-6)}.`,
             type: "commission_refund",
             meta: { bookingId: b._id.toString(), amount: b.commissionAmount },
             respectProviderQuietHours: true,
@@ -1319,10 +1322,8 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           await notify({
             recipientId: b.customerId,
             recipientRole: "user",
-            title: "Booking Cancelled",
-            message: `Your booking #${b._id.toString().slice(-6)} has been cancelled due to professional unavailability.`,
             type: "booking_cancelled",
-            meta: { bookingId: b._id.toString() },
+            meta: { bookingId: b._id.toString(), reason: "professional unavailable" },
           });
         } catch {}
       }
@@ -1334,10 +1335,8 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         await notify({
           recipientId: "ADMIN001",
           recipientRole: "admin",
-          title: "Provider Cancelled Booking",
-          message: `Booking #${b._id.toString().slice(-6)} was cancelled by the provider.`,
           type: "booking_cancelled",
-          meta: { bookingId: b._id.toString(), city: b.address?.city || "", isCritical },
+          meta: { bookingId: b._id.toString(), city: b.address?.city || "", isCritical, reason: "cancelled by provider" },
         });
         const city = b.address?.city || "";
         if (city) {
@@ -1346,10 +1345,8 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
             await notify({
               recipientId: vendor._id?.toString(),
               recipientRole: "vendor",
-              title: "Provider Cancelled Booking",
-              message: `Booking #${b._id.toString().slice(-6)} in ${city} was cancelled by the provider.`,
               type: "booking_cancelled",
-              meta: { bookingId: b._id.toString(), city, isCritical },
+              meta: { bookingId: b._id.toString(), city, isCritical, reason: "cancelled by provider" },
             });
           }
         }
@@ -1432,8 +1429,6 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         await notify({
           recipientId: pId,
           recipientRole: "provider",
-          title: "Commission Refunded",
-          message: `Commission refund of ₹${Number(b.commissionAmount || 0)} issued for booking #${b._id.toString().slice(-6)}.`,
           type: "commission_refund",
           meta: { bookingId: b._id.toString(), amount: Number(b.commissionAmount || 0) },
           respectProviderQuietHours: true,
@@ -1453,16 +1448,14 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
   } catch {}
   try {
     const notifyStatuses = new Set(["accepted", "travelling", "arrived", "in_progress", "completed", "payment_pending"]);
-    if (b.customerId && notifyStatuses.has(next)) {
-      await notify({
-        recipientId: b.customerId,
-        recipientRole: "user",
-        title: "Booking Update",
-        message: `Your booking #${b._id.toString().slice(-6)} is now ${String(next).replace("_", " ")}.`,
-        type: "booking_status",
-        meta: { bookingId: b._id.toString(), status: next },
-      });
-    }
+      if (b.customerId && notifyStatuses.has(next)) {
+        await notify({
+          recipientId: b.customerId,
+          recipientRole: "user",
+          type: "booking_status",
+          meta: { bookingId: b._id.toString(), status: next },
+        });
+      }
   } catch {}
   res.json({ booking: b });
 });

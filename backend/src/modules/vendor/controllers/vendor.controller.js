@@ -131,6 +131,16 @@ export async function verifyRegistrationOtp(req, res) {
       status: "pending",
     });
 
+    try {
+      await notify({
+        recipientId: v._id.toString(),
+        recipientRole: "vendor",
+        type: "system",
+        title: "Registration Submitted",
+        message: "Your vendor account has been created and is pending admin approval.",
+      });
+    } catch {}
+
     console.log('[Vendor Registration] SUCCESS - Vendor created:', { 
       id: v._id.toString(), 
       name: v.name, 
@@ -180,6 +190,15 @@ export async function login(req, res) {
   if (v.status !== "approved") return res.status(403).json({ error: "Your account is pending admin approval" });
   const token = issueRoleToken("vendor", v._id?.toString() || v.email);
   const subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");
+  try {
+    await notify({
+      recipientId: v._id.toString(),
+      recipientRole: "vendor",
+      type: "system",
+      title: "Login Successful",
+      message: "You are logged in successfully.",
+    });
+  } catch {}
   const isProd = process.env.NODE_ENV === "production";
   res.cookie("vendorToken", token, {
     httpOnly: true,
@@ -244,6 +263,15 @@ export async function verifyOtp(req, res) {
   if (v.status !== "approved") return res.status(403).json({ error: "Your account is pending admin approval" });
   const token = issueRoleToken("vendor", v._id?.toString() || v.email);
   const subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");
+  try {
+    await notify({
+      recipientId: v._id.toString(),
+      recipientRole: "vendor",
+      type: "system",
+      title: "Login Successful",
+      message: "You are logged in successfully.",
+    });
+  } catch {}
   const isProd = process.env.NODE_ENV === "production";
   res.cookie("vendorToken", token, {
     httpOnly: true,
@@ -618,29 +646,25 @@ export async function assignBooking(req, res) {
     },
     { new: true }
   );
-  try {
-    if (b?.assignedProvider) {
-      await notify({
-        recipientId: b.assignedProvider,
-        recipientRole: "provider",
-        title: "New Booking Assigned",
-        message: `A booking #${b._id.toString().slice(-6)} has been assigned to you.`,
-        type: "booking_assigned",
-        meta: { bookingId: b._id.toString() },
-        respectProviderQuietHours: true,
-      });
-    }
-    if (b?.customerId) {
-      await notify({
-        recipientId: b.customerId,
-        recipientRole: "user",
-        title: "Professional Assigned",
-        message: `A professional has been assigned to booking #${b._id.toString().slice(-6)}.`,
-        type: "booking_assigned",
-        meta: { bookingId: b._id.toString() },
-      });
-    }
-  } catch {}
+    try {
+      if (b?.assignedProvider) {
+        await notify({
+          recipientId: b.assignedProvider,
+          recipientRole: "provider",
+          type: "booking_assigned",
+          meta: { bookingId: b._id.toString() },
+          respectProviderQuietHours: true,
+        });
+      }
+      if (b?.customerId) {
+        await notify({
+          recipientId: b.customerId,
+          recipientRole: "user",
+          type: "booking_assigned",
+          meta: { bookingId: b._id.toString() },
+        });
+      }
+    } catch {}
   res.json({ booking: b });
 }
 
@@ -657,29 +681,25 @@ export async function reassignBooking(req, res) {
     },
     { new: true }
   );
-  try {
-    if (b?.assignedProvider) {
-      await notify({
-        recipientId: b.assignedProvider,
-        recipientRole: "provider",
-        title: "Booking Reassigned",
-        message: `A booking #${b._id.toString().slice(-6)} has been reassigned to you.`,
-        type: "booking_reassigned",
-        meta: { bookingId: b._id.toString() },
-        respectProviderQuietHours: true,
-      });
-    }
-    if (b?.customerId) {
-      await notify({
-        recipientId: b.customerId,
-        recipientRole: "user",
-        title: "Provider Reassigned",
-        message: `Your booking #${b._id.toString().slice(-6)} has been reassigned to another provider.`,
-        type: "booking_reassigned",
-        meta: { bookingId: b._id.toString() },
-      });
-    }
-  } catch {}
+    try {
+      if (b?.assignedProvider) {
+        await notify({
+          recipientId: b.assignedProvider,
+          recipientRole: "provider",
+          type: "booking_reassigned",
+          meta: { bookingId: b._id.toString() },
+          respectProviderQuietHours: true,
+        });
+      }
+      if (b?.customerId) {
+        await notify({
+          recipientId: b.customerId,
+          recipientRole: "user",
+          type: "booking_reassigned",
+          meta: { bookingId: b._id.toString() },
+        });
+      }
+    } catch {}
   res.json({ booking: b });
 }
 
@@ -702,18 +722,16 @@ export async function expireBooking(req, res) {
   } catch (err) {
     console.error("Socket notification failed:", err);
   }
-  try {
-    if (b?.customerId) {
-      await notify({
-        recipientId: b.customerId,
-        recipientRole: "user",
-        title: "Booking Cancelled",
-        message: `Your booking #${b._id.toString().slice(-6)} was cancelled. Please rebook.`,
-        type: "booking_cancelled",
-        meta: { bookingId: b._id.toString() },
-      });
-    }
-  } catch {}
+    try {
+      if (b?.customerId) {
+        await notify({
+          recipientId: b.customerId,
+          recipientRole: "user",
+          type: "booking_cancelled",
+          meta: { bookingId: b._id.toString(), reason: "cancelled by vendor" },
+        });
+      }
+    } catch {}
 
   res.json({ booking: b });
 }
@@ -770,8 +788,6 @@ export async function priceQuoteCustomEnquiry(req, res) {
     await notify({
       recipientId: enq.userId,
       recipientRole: "user",
-      title: "Custom Quote Ready",
-      message: `Your custom enquiry quote is ready. Please review and confirm.`,
       type: "custom_quote_submitted",
       meta: { enquiryId: enq._id?.toString?.() },
     });
@@ -893,8 +909,6 @@ export async function assignTeamCustomEnquiry(req, res) {
       await notify({
         recipientId: enq.maintainerProvider,
         recipientRole: "provider",
-        title: "Custom Booking Assigned",
-        message: `A custom booking #${(enq.bookingId || "").slice(-6)} has been assigned to you.`,
         type: "booking_assigned",
         meta: { bookingId: enq.bookingId || "", enquiryId: enq._id?.toString?.() },
         respectProviderQuietHours: true,
@@ -903,8 +917,6 @@ export async function assignTeamCustomEnquiry(req, res) {
     await notify({
       recipientId: enq.userId,
       recipientRole: "user",
-      title: "Custom Booking Confirmed",
-      message: `Your custom booking has been confirmed and a provider is assigned.`,
       type: "custom_approved",
       meta: { bookingId: enq.bookingId || "", enquiryId: enq._id?.toString?.() },
     });

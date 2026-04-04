@@ -69,8 +69,6 @@ export function startAssignmentScheduler() {
               await notify({
                 recipientId: picked.providerId,
                 recipientRole: "provider",
-                title: "New Booking Assigned",
-                message: `A booking #${b._id.toString().slice(-6)} has been assigned to you.`,
                 type: "booking_assigned",
                 meta: { bookingId: b._id.toString() },
                 respectProviderQuietHours: true,
@@ -78,8 +76,6 @@ export function startAssignmentScheduler() {
               await notify({
                 recipientId: b.customerId,
                 recipientRole: "user",
-                title: "Professional Assigned",
-                message: `A professional has been assigned to booking #${b._id.toString().slice(-6)}.`,
                 type: "booking_assigned",
                 meta: { bookingId: b._id.toString() },
               });
@@ -107,18 +103,14 @@ export function startAssignmentScheduler() {
               await notify({
                 recipientId: vendor._id?.toString(),
                 recipientRole: "vendor",
-                title: "Booking Escalated",
-                message: `Booking #${b._id.toString().slice(-6)} in ${city} needs manual assignment.`,
                 type: "booking_escalated",
-                meta: { bookingId: b._id.toString(), city },
+                meta: { bookingId: b._id.toString(), city, reason: "manual assignment needed" },
               });
               await notify({
                 recipientId: "ADMIN001",
                 recipientRole: "admin",
-                title: "Booking Escalated to Vendor",
-                message: `Booking #${b._id.toString().slice(-6)} escalated to vendor in ${city}.`,
                 type: "booking_escalated",
-                meta: { bookingId: b._id.toString(), city, vendorId: vendor._id?.toString() },
+                meta: { bookingId: b._id.toString(), city, vendorId: vendor._id?.toString(), reason: "escalated to vendor" },
               });
             } catch {}
           } else {
@@ -131,10 +123,8 @@ export function startAssignmentScheduler() {
               await notify({
                 recipientId: "ADMIN001",
                 recipientRole: "admin",
-                title: "Booking Escalated",
-                message: `Booking #${b._id.toString().slice(-6)} could not be auto-assigned. No vendor found for ${city}.`,
                 type: "booking_escalated",
-                meta: { bookingId: b._id.toString(), city },
+                meta: { bookingId: b._id.toString(), city, reason: "no vendor found" },
               });
             } catch {}
           }
@@ -198,8 +188,6 @@ export function startAssignmentScheduler() {
             await notify({
               recipientId: picked.providerId,
               recipientRole: "provider",
-              title: "Booking Reassigned",
-              message: `A booking #${b._id.toString().slice(-6)} has been reassigned to you.`,
               type: "booking_reassigned",
               meta: { bookingId: b._id.toString(), reason: "timeout" },
               respectProviderQuietHours: true,
@@ -231,20 +219,16 @@ export function startAssignmentScheduler() {
                 await notify({
                   recipientId: vendor._id?.toString(),
                   recipientRole: "vendor",
-                  title: "Booking Escalated",
-                  message: `Booking #${b._id.toString().slice(-6)} in ${city} needs manual assignment.`,
                   type: "booking_escalated",
-                  meta: { bookingId: b._id.toString(), city },
+                  meta: { bookingId: b._id.toString(), city, reason: "manual assignment needed" },
                 });
 
                 // Also notify admin (as copy)
                 await notify({
                   recipientId: "ADMIN001",
                   recipientRole: "admin",
-                  title: "Booking Escalated to Vendor",
-                  message: `Booking #${b._id.toString().slice(-6)} escalated to vendor in ${city}.`,
                   type: "booking_escalated",
-                  meta: { bookingId: b._id.toString(), city, vendorId: vendor._id?.toString() },
+                  meta: { bookingId: b._id.toString(), city, vendorId: vendor._id?.toString(), reason: "escalated to vendor" },
                 });
               } catch {}
             } else {
@@ -260,10 +244,8 @@ export function startAssignmentScheduler() {
                 await notify({
                   recipientId: "ADMIN001",
                   recipientRole: "admin",
-                  title: "Booking Escalated",
-                  message: `Booking #${b._id.toString().slice(-6)} could not be auto-assigned. No vendor found for ${city}.`,
                   type: "booking_escalated",
-                  meta: { bookingId: b._id.toString(), city },
+                  meta: { bookingId: b._id.toString(), city, reason: "no vendor found" },
                 });
               } catch {}
             }

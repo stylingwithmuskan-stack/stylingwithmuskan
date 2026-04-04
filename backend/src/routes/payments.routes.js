@@ -232,8 +232,6 @@ router.post(
         await notify({
           recipientId: req.user._id.toString(),
           recipientRole: "user",
-          title: "Payment Successful",
-          message: `Your payment for booking #${bookingId.slice(-6)} was successful.`,
           type: "payment_success",
           meta: { bookingId, amount },
         });
@@ -256,8 +254,6 @@ router.post(
         await notify({
           recipientId: req.user._id.toString(),
           recipientRole: "user",
-          title: "Advance Payment Successful",
-          message: `Your advance payment for enquiry #${enquiryId.slice(-6)} was successful.`,
           type: "custom_advance_paid",
           meta: { enquiryId, amount },
         });

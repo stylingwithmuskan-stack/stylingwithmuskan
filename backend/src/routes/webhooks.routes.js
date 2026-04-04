@@ -128,11 +128,10 @@ router.post("/razorpay", async (req, res) => {
           await notify({
             recipientId: user._id.toString(),
             recipientRole: "user",
-            title: "Refund Processed",
-            message: `Your refund of ₹${refundAmount} for booking #${booking._id.toString().slice(-6)} has been processed and will be credited to your account in 5-7 business days.`,
             type: "refund_processed",
             meta: {
               bookingId: booking._id.toString(),
+              amount: refundAmount,
               refundAmount,
               refundId
             }
@@ -144,11 +143,10 @@ router.post("/razorpay", async (req, res) => {
           await notify({
             recipientId: user._id.toString(),
             recipientRole: "user",
-            title: "Refund Failed",
-            message: `Your refund for booking #${booking._id.toString().slice(-6)} has failed. Please contact support.`,
             type: "refund_failed",
             meta: {
               bookingId: booking._id.toString(),
+              amount: refundAmount,
               refundAmount,
               refundId
             }

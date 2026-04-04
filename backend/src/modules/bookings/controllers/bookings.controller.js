@@ -499,8 +499,6 @@ export async function create(req, res) {
     await notify({
       recipientId: req.user._id.toString(),
       recipientRole: "user",
-      title: "Booking Created",
-      message: `Your booking #${bookingId.slice(-6)} has been created successfully.`,
       type: "booking_created",
       meta: { bookingId },
     });
@@ -512,8 +510,6 @@ export async function create(req, res) {
       await notify({
         recipientId: assignedProvider,
         recipientRole: "provider",
-        title: "New Booking Assigned",
-        message: `You have a new booking #${bookingId.slice(-6)} from ${req.user.name}.`,
         type: "booking_assigned",
         meta: { bookingId },
         respectProviderQuietHours: true,
@@ -521,8 +517,6 @@ export async function create(req, res) {
       await notify({
         recipientId: req.user._id.toString(),
         recipientRole: "user",
-        title: "Professional Assigned",
-        message: `A professional has been assigned to booking #${bookingId.slice(-6)}.`,
         type: "booking_assigned",
         meta: { bookingId },
       });
@@ -612,8 +606,6 @@ export async function createCustomEnquiry(req, res) {
     await notify({
       recipientId: "ADMIN001",
       recipientRole: "admin",
-      title: "New Custom Enquiry",
-      message: `A new custom enquiry #${doc._id.toString().slice(-6)} was submitted.`,
       type: "custom_quote_submitted",
       meta: { enquiryId: doc._id.toString() },
     });
@@ -624,8 +616,6 @@ export async function createCustomEnquiry(req, res) {
         await notify({
           recipientId: vendor._id?.toString(),
           recipientRole: "vendor",
-          title: "New Custom Enquiry",
-          message: `A new custom enquiry #${doc._id.toString().slice(-6)} is waiting for quote.`,
           type: "custom_quote_submitted",
           meta: { enquiryId: doc._id.toString(), city },
         });
@@ -779,8 +769,6 @@ export async function adminFinalApprove(req, res) {
         await notify({
           recipientId: booking.assignedProvider,
           recipientRole: "provider",
-          title: "New Custom Booking Assigned",
-          message: `You have a new custom booking #${booking._id.toString().slice(-6)} from ${enq.name}.`,
           type: "booking_assigned",
           meta: { bookingId: booking._id.toString() },
           respectProviderQuietHours: true,
@@ -795,8 +783,6 @@ export async function adminFinalApprove(req, res) {
     await notify({
       recipientId: enq.userId,
       recipientRole: "user",
-      title: "Custom Enquiry Approved",
-      message: `Your custom enquiry has been approved. Booking #${(booking?._id?.toString?.() || "").slice(-6)} is now active.`,
       type: "custom_approved",
       meta: { enquiryId: enq._id?.toString?.(), bookingId: booking?._id?.toString?.() || "" },
     });
@@ -899,10 +885,8 @@ export async function cancel(req, res) {
       await notify({
         recipientId: booking.assignedProvider,
         recipientRole: "provider",
-        title: "Booking Cancelled",
-        message: `Booking #${booking._id.toString().slice(-6)} has been cancelled by the customer.`,
         type: "booking_cancelled",
-        meta: { bookingId: booking._id.toString() },
+        meta: { bookingId: booking._id.toString(), reason: "cancelled by customer" },
         respectProviderQuietHours: true,
       });
     }
@@ -910,10 +894,8 @@ export async function cancel(req, res) {
       await notify({
         recipientId: "ADMIN001",
         recipientRole: "admin",
-        title: "Booking Cancelled",
-        message: `Booking #${booking._id.toString().slice(-6)} was cancelled by the customer.`,
         type: "booking_cancelled",
-        meta: { bookingId: booking._id.toString(), city: booking.address?.city || "" },
+        meta: { bookingId: booking._id.toString(), city: booking.address?.city || "", reason: "cancelled by customer" },
       });
       const city = booking.address?.city || "";
       if (city) {
@@ -922,10 +904,8 @@ export async function cancel(req, res) {
           await notify({
             recipientId: vendor._id?.toString(),
             recipientRole: "vendor",
-            title: "Booking Cancelled",
-            message: `Booking #${booking._id.toString().slice(-6)} in ${city} was cancelled by the customer.`,
             type: "booking_cancelled",
-            meta: { bookingId: booking._id.toString(), city },
+            meta: { bookingId: booking._id.toString(), city, reason: "cancelled by customer" },
           });
         }
       }
