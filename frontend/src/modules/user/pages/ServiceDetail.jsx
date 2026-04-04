@@ -40,6 +40,7 @@ const ServiceDetail = () => {
   }, [service, userCity, selectedDate, selectedSlot, checkAvailability]);
 
   const { realRating, realReviews } = useMemo(() => {
+    if (!service) return { realRating: 0, realReviews: 0 };
     const allFeedback = JSON.parse(localStorage.getItem('muskan-feedback') || '[]');
     const serviceReviews = allFeedback.filter(f => f.serviceName === service.name && f.type === 'customer_to_provider');
     if (serviceReviews.length === 0) return { realRating: service.rating, realReviews: service.reviews };
@@ -110,7 +111,7 @@ const ServiceDetail = () => {
   return (
     <div className="min-h-screen bg-background pb-32">
       {/* Hero Image */}
-      <div className="relative h-64 md:h-80 lg:h-[420px]">
+      <div className="relative h-56 md:h-80 lg:h-[420px]">
         <img
           src={service.image}
           alt={service.name}
@@ -146,16 +147,7 @@ const ServiceDetail = () => {
           </div>
         </div>
 
-        {/* Discount Badge */}
-        {discountPercent > 0 && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="absolute bottom-6 right-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg"
-          >
-            {discountPercent}% OFF
-          </motion.div>
-        )}
+        {/* Discount Badge - Removed from here, moved to card below */}
       </div>
 
       <div className="px-4 md:px-8 lg:px-0 max-w-4xl mx-auto -mt-10 relative z-10">
@@ -163,8 +155,14 @@ const ServiceDetail = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-strong rounded-2xl p-5 md:p-6 shadow-elevated"
+          className="glass-strong rounded-2xl p-4 md:p-6 shadow-elevated relative overflow-hidden"
         >
+          {/* Discount Badge - Moved here for visibility */}
+          {discountPercent > 0 && (
+            <div className="absolute top-0 right-0 bg-gradient-to-l from-green-500 to-emerald-600 text-white px-4 py-1.5 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest shadow-lg z-20">
+              {discountPercent}% OFF
+            </div>
+          )}
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <h1 className={`text-xl md:text-2xl lg:text-3xl font-bold ${gender === "women" ? "font-display" : "font-heading-men"}`}>
@@ -180,23 +178,23 @@ const ServiceDetail = () => {
                 </span>
               </div>
             </div>
-            <div className="text-right flex-shrink-0">
-              <p className={`text-2xl md:text-3xl font-bold ${isAvailable ? "text-primary" : "text-muted-foreground/50"}`}>₹{service.price.toLocaleString()}</p>
+            <div className="text-right flex-shrink-0 pt-2">
+              <p className={`text-xl md:text-3xl font-bold ${isAvailable ? "text-primary" : "text-muted-foreground/50"}`}>₹{service.price.toLocaleString()}</p>
               {service.originalPrice && (
-                <p className="text-sm text-muted-foreground line-through">₹{service.originalPrice.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground line-through">₹{service.originalPrice.toLocaleString()}</p>
               )}
               {!isAvailable && (
-                <p className="text-[10px] text-red-500 font-bold mt-1 max-w-[120px]">Not available at selected location/time</p>
+                <p className="text-[9px] text-red-500 font-bold mt-1 max-w-[100px]">Not available</p>
               )}
             </div>
           </div>
 
           <p className="mt-4 text-sm text-muted-foreground leading-relaxed">{service.description}</p>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-3 flex justify-end">
             <Button
               onClick={handleBookingAction}
-              className="h-10 px-5 rounded-xl bg-primary text-primary-foreground font-bold"
+              className="h-9 px-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm"
             >
               <ShoppingCart className="w-4 h-4 mr-2" />
               Add
@@ -204,17 +202,17 @@ const ServiceDetail = () => {
           </div>
 
           {/* What's Included */}
-          <div className="mt-5">
-            <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" /> What's Included
+          <div className="mt-4">
+            <h3 className="font-semibold text-xs mb-2 flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-primary" /> What's Included
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {(service.includes || []).map((item) => (
                 <span
                   key={item}
-                  className="text-xs px-3 py-1.5 rounded-full bg-accent text-accent-foreground flex items-center gap-1"
+                  className="text-[10px] px-2.5 py-1 rounded-full bg-accent text-accent-foreground flex items-center gap-1 shadow-sm border border-border/20"
                 >
-                  <Check className="w-3 h-3 text-primary" />
+                  <Check className="w-2.5 h-2.5 text-primary" />
                   {item}
                 </span>
               ))}
@@ -233,7 +231,7 @@ const ServiceDetail = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="mt-5"
+            className="mt-4"
           >
             <h3 className={`font-semibold text-base mb-4 px-1 flex items-center gap-2 ${gender === "women" ? "font-display" : "font-heading-men"}`}>
               <Timer className="w-5 h-5 text-primary" />
@@ -386,7 +384,7 @@ const ServiceDetail = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="mt-5 glass-strong rounded-2xl p-4 md:p-5"
+          className="mt-4 glass-strong rounded-2xl p-4 md:p-5"
         >
           <div className="flex items-center justify-between">
             <div>

@@ -191,12 +191,6 @@ export default function ProviderLoginPage() {
                                         Register as Partner
                                     </Link>
                                 </p>
-                                <p className="text-gray-500 text-sm font-medium mt-2">
-                                    Want to be a Vendor?{" "}
-                                    <Link to="/join" className="text-emerald-600 font-black hover:underline">
-                                        Switch Role
-                                    </Link>
-                                </p>
                             </div>
                         </div>
                     ) : (

@@ -14,7 +14,8 @@ import {
     X,
     Plus,
     AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    User
 } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
@@ -32,6 +33,7 @@ import { Checkbox } from "@/modules/user/components/ui/checkbox";
 import { Label } from "@/modules/user/components/ui/label";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { api } from "@/modules/user/lib/api";
+import { motion, AnimatePresence } from "framer-motion";
 
 const steps = [
     { title: "Personal", icon: CheckCircle2 },
@@ -82,6 +84,8 @@ export default function ProviderRegisterPage() {
         accountNumber: "",
         ifscCode: "",
         upiId: "",
+        lat: null,
+        lng: null,
         agreed: false
     });
 
@@ -352,76 +356,88 @@ export default function ProviderRegisterPage() {
     };
 
     const nextStep = () => {
+        setStepError("");
+        setOtpError("");
+
         if (currentStep === 1) {
             if (!otpVerified) {
                 setOtpError("Please verify your mobile number with OTP");
                 return;
             }
             if (!formData.name.trim()) {
-                setOtpError("Please enter your full name");
+                setStepError("Please enter your full name as per Aadhar");
                 return;
             }
             if (!formData.email.trim() || !/^\S+@\S+\.\S+$/.test(formData.email)) {
-                setOtpError("Please enter a valid email address");
+                setStepError("Please enter a valid email address");
                 return;
             }
             if (!formData.dob) {
-                setOtpError("Please enter your date of birth");
+                setStepError("Please enter your date of birth");
                 return;
             }
             if (!formData.experience) {
-                setOtpError("Please select your experience");
+                setStepError("Please select your professional experience");
                 return;
             }
             if (!formData.city) {
-                setOtpError("Please select your city");
+                setStepError("Please select your base city");
                 return;
             }
             if (formData.zones.length === 0 && !formData.customZone.trim()) {
-                setOtpError("Please select at least one hub zone");
+                setStepError("Please select at least one hub zone");
                 return;
             }
             if (!formData.addressLine1.trim() || !formData.area.trim()) {
-                setOtpError("Please complete your address details");
+                setStepError("Please complete your full address details");
                 return;
             }
         }
 
         if (currentStep === 2) {
-            if (!formData.aadharFront || !formData.aadharBack || !formData.panCard) {
-                setOtpError("Please upload all required KYC documents");
+            if (!formData.aadharFront) {
+                setStepError("Please upload Aadhar Card Front view");
+                return;
+            }
+            if (!formData.aadharBack) {
+                setStepError("Please upload Aadhar Card Back view");
+                return;
+            }
+            if (!formData.panCard) {
+                setStepError("Please upload your PAN Card");
                 return;
             }
         }
 
         if (currentStep === 3) {
             if (formData.primaryCategory.length === 0) {
-                setOtpError("Please select at least one primary category");
+                setStepError("Please select at least one primary category");
                 return;
             }
             if (formData.services.length === 0) {
-                setOtpError("Please select at least one service");
+                setStepError("Please select at least one service from catalog");
                 return;
             }
         }
 
         if (currentStep === 4) {
             if (!formData.bankName.trim() || !formData.accountNumber.trim() || !formData.ifscCode.trim()) {
-                setStepError("Please complete your bank details");
+                setStepError("Please complete your bank account details");
                 return;
             }
             if (formData.ifscCode.length !== 11) {
-                setStepError("IFSC code must be 11 characters");
+                setStepError("IFSC code must be exactly 11 characters");
                 return;
             }
         }
 
-        setStepError("");
         if (currentStep < 5) setCurrentStep(currentStep + 1);
         else handleSubmit();
     };
 
     const prevStep = () => {
+        setStepError("");
+        setOtpError("");
         if (currentStep > 1) setCurrentStep(currentStep - 1);
     };
 
@@ -707,27 +723,32 @@ export default function ProviderRegisterPage() {
                                         </div>
                                         <Button
                                             type="button"
-                                            variant="outline"
-                                            className="h-12 mt-2 whitespace-nowrap"
+                                            variant={formData.lat ? "default" : "outline"}
+                                            className={`h-12 mt-2 whitespace-nowrap transition-all ${formData.lat ? "bg-green-600 hover:bg-green-700 text-white border-green-600 shadow-lg shadow-green-100" : ""}`}
                                             onClick={() => {
                                                 if (!navigator.geolocation) return alert("Geolocation not supported");
                                                 navigator.geolocation.getCurrentPosition(
-                                                    async (pos) => {
-                                                        try {
-                                                            await import("@/modules/user/lib/api").then(({ api }) =>
-                                                                api.provider.updateLocation(pos.coords.latitude, pos.coords.longitude)
-                                                            );
-                                                            alert("Location updated");
-                                                        } catch (e) {
-                                                            alert(e?.message || "Failed to update location");
-                                                        }
+                                                    (pos) => {
+                                                        setFormData(prev => ({ 
+                                                            ...prev, 
+                                                            lat: pos.coords.latitude, 
+                                                            lng: pos.coords.longitude 
+                                                        }));
+                                                        alert("Location captured successfully! We will use this to verify your hub zones.");
                                                     },
-                                                    () => alert("Permission denied or location unavailable"),
+                                                    () => alert("Permission denied or location unavailable. Please ensure GPS is enabled."),
                                                     { enableHighAccuracy: true, timeout: 8000 }
                                                 );
                                             }}
                                         >
-                                            Use Current Location
+                                            {formData.lat ? (
+                                                <div className="flex items-center gap-2">
+                                                    <Check className="h-4 w-4 stroke-[3px]" />
+                                                    <span className="font-black uppercase text-[10px] tracking-widest">Location Captured</span>
+                                                </div>
+                                            ) : (
+                                                "Use Current Location"
+                                            )}
                                         </Button>
                                     </div>
                                     <div className="space-y-2">
@@ -1028,10 +1049,6 @@ export default function ProviderRegisterPage() {
                                         Used for weekly payouts only. We do not store PINs or passwords.
                                     </p>
                                 </div>
-
-                                {stepError && (
-                                    <p className="text-sm font-bold text-red-600 text-center">{stepError}</p>
-                                )}
                             </div>
                         )}
 
@@ -1044,54 +1061,56 @@ export default function ProviderRegisterPage() {
                                 </div>
 
                                 <div className="space-y-4">
-                                    <div className="border border-gray-100 rounded-2xl overflow-hidden">
-                                        <div className="bg-gray-50 p-3 px-4 flex justify-between items-center">
-                                            <span className="text-[10px] font-black uppercase text-gray-400">Profile Summary</span>
-                                            <button onClick={() => setCurrentStep(1)} className="text-[10px] font-black uppercase text-violet-600">Edit</button>
+                                    <div className="border border-gray-100 rounded-3xl overflow-hidden bg-white shadow-sm">
+                                        <div className="bg-slate-50 p-4 px-6 flex justify-between items-center border-b border-gray-100">
+                                            <div className="flex items-center gap-2">
+                                                <User className="h-4 w-4 text-violet-600" />
+                                                <span className="text-xs font-black uppercase text-gray-400 tracking-[0.1em]">Profile Review</span>
+                                            </div>
+                                            <button 
+                                                onClick={() => setCurrentStep(1)} 
+                                                className="text-[10px] font-black uppercase text-violet-600 hover:bg-violet-50 px-3 py-1 rounded-full transition-colors"
+                                            >
+                                                Edit
+                                            </button>
                                         </div>
-                                        <div className="p-4 flex gap-4">
-                                            {formData.profilePhoto && (
-                                                <img src={formData.profilePhoto} className="h-20 w-16 rounded-xl object-cover border" alt="Preview" />
-                                            )}
-                                            <div className="flex-1 space-y-2">
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-500">Name</span>
-                                                    <span className="font-bold">{formData.name || "Muskan Poswal"}</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-500">KYC Status</span>
-                                                    <span className={`font-bold ${formData.aadharFront && formData.panCard ? "text-green-600" : "text-amber-600"}`}>
-                                                        {formData.aadharFront && formData.panCard ? "Verified" : "Pending Uploads"}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-500">Categories</span>
-                                                    <span className="font-bold">
-                                                        {formData.primaryCategory.length > 0 ? formData.primaryCategory.join(", ") : "None"}
-                                                    </span>
-                                                </div>
-                                                {formData.specializations.length > 0 && (
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Specializations</span>
-                                                        <span className="font-bold">
-                                                            {formData.specializations.join(", ")}
-                                                        </span>
+                                        <div className="p-6">
+                                            <div className="flex flex-col sm:flex-row gap-6">
+                                                {formData.profilePhoto && (
+                                                    <div className="shrink-0 flex justify-center sm:block">
+                                                        <img src={formData.profilePhoto} className="h-32 w-28 rounded-2xl object-cover border-4 border-white shadow-md ring-1 ring-slate-100" alt="Preview" />
                                                     </div>
                                                 )}
-                                                {formData.services.length > 0 && (
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Services</span>
-                                                        <span className="font-bold">
-                                                            {formData.services.join(", ")}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {formData.certifications.length > 0 && (
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-500">Certificates</span>
-                                                        <span className="font-bold text-green-600">{formData.certifications.length} Files</span>
-                                                    </div>
-                                                )}
+                                                <div className="flex-1 space-y-3">
+                                                    {[
+                                                        { label: "Name", value: formData.name, bold: true },
+                                                        { label: "City", value: formData.city, bold: true },
+                                                        { 
+                                                            label: "KYC Status", 
+                                                            value: (formData.aadharFront && formData.panCard) ? "Verified" : "Pending Documents",
+                                                            color: (formData.aadharFront && formData.panCard) ? "text-green-600" : "text-amber-600"
+                                                        },
+                                                        { label: "Categories", value: formData.primaryCategory.join(", ") },
+                                                        { label: "Services", value: formData.services.join(", ") },
+                                                        { label: "Hubs", value: [formData.zones, formData.customZone].flat().filter(Boolean).join(", ") },
+                                                    ].filter(i => i.value).map((item, idx) => (
+                                                        <div key={idx} className="flex flex-col gap-0.5 border-b border-slate-50 pb-2 last:border-0">
+                                                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider font-sans">{item.label}</span>
+                                                            <span className={`text-[13px] leading-snug ${item.bold ? 'font-bold' : 'font-semibold'} ${item.color || 'text-slate-700'}`}>
+                                                                {item.value}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                    {formData.certifications.length > 0 && (
+                                                        <div className="flex flex-col gap-0.5 border-b border-slate-50 pb-2 last:border-0">
+                                                            <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Certificates</span>
+                                                            <div className="flex items-center gap-1.5 text-[13px] font-bold text-green-600">
+                                                                <FileText className="h-3.5 w-3.5" />
+                                                                {formData.certifications.length} Files Attached
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1120,6 +1139,17 @@ export default function ProviderRegisterPage() {
                             </div>
                         )}
 
+                        {stepError && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-6 p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3"
+                            >
+                                <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+                                <p className="text-sm font-bold text-red-700">{stepError}</p>
+                            </motion.div>
+                        )}
+
                         <div className="flex gap-4 mt-10">
                             {currentStep > 1 && (
                                 <Button
@@ -1144,9 +1174,6 @@ export default function ProviderRegisterPage() {
                             <div className="text-center pt-6">
                                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none">
                                     Already a partner? <Link to="/provider/login" className="text-violet-600">Login Here</Link>
-                                </p>
-                                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none mt-2">
-                                    Want to be a Vendor? <Link to="/join" className="text-emerald-600">Switch Role</Link>
                                 </p>
                             </div>
                         )}

@@ -103,6 +103,8 @@ export const ProviderAuthProvider = ({ children }) => {
                 accountNumber: payload.accountNumber,
                 ifscCode: payload.ifscCode,
                 upiId: payload.upiId,
+                lat: payload.lat,
+                lng: payload.lng,
             };
             
             const { provider: regProvider, providerToken } = await api.provider.register(safe);

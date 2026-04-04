@@ -64,19 +64,42 @@ const UserRegisterPage = () => {
         }
     };
 
+    const handleVerifyInternal = async (code) => {
+        try {
+            const res = await loginWithOtp({ phone, otp: code });
+            const isNewUser = !!res?.user?.isNew;
+            if (!isNewUser) {
+                // Existing user - loginWithOtp already navigated or is handling it
+                // But just in case, manual navigation
+                navigate("/home");
+            } else {
+                setStep(3);
+            }
+        } catch (err) {
+            console.error("[UserRegister] verify error", err);
+            toast.error(err.message || "OTP verification failed");
+        }
+    };
+
     const handleOtpChange = (index, value) => {
-        if (isNaN(value)) return;
+        if (value && isNaN(value)) return;
         const newOtp = [...otp];
         newOtp[index] = value.slice(-1);
         setOtp(newOtp);
-  
-          if (value && index < 5) {
-              const nextInput = document.getElementById(`otp-${index + 1}`);
-              nextInput?.focus();
-          }
+
+        if (value && index < 5) {
+            const nextInput = document.getElementById(`otp-${index + 1}`);
+            nextInput?.focus();
+        }
 
         if (newOtp.every(v => v !== "")) {
-            setTimeout(() => setStep(3), 500);
+            handleVerifyInternal(newOtp.join(""));
+        }
+    };
+
+    const handleOtpKeyDown = (index, e) => {
+        if (e.key === "Backspace" && !otp[index] && index > 0) {
+            document.getElementById(`otp-${index - 1}`)?.focus();
         }
     };
 
@@ -149,14 +172,14 @@ const UserRegisterPage = () => {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="w-full max-w-lg bg-white/50 backdrop-blur-xl rounded-[40px] border border-white p-8 lg:p-12 shadow-2xl relative overflow-hidden"
+                className="w-full max-w-lg bg-white/50 backdrop-blur-xl rounded-[24px] sm:rounded-[40px] border border-white p-5 sm:p-8 lg:p-12 shadow-2xl relative overflow-hidden"
             >
                 {/* Decorative Elements */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl px-12 pt-12" />
 
                 <div className="relative">
                     {/* Back Button */}
-                    {step > 1 && (
+                    {step === 2 && (
                         <button onClick={() => setStep(step - 1)} className="absolute -left-2 -top-1 w-8 h-8 rounded-full hover:bg-black/5 flex items-center justify-center transition-colors">
                             <ArrowLeft className="w-5 h-5" />
                         </button>
@@ -212,17 +235,19 @@ const UserRegisterPage = () => {
                                     </p>
                                 </div>
 
-                                <div className="flex justify-center gap-4 mb-8">
+                                <div className="flex justify-center gap-2 sm:gap-4 mb-8">
                                     {otp.map((digit, idx) => (
                                         <input
                                             key={idx}
                                             id={`otp-${idx}`}
-                                            type="text"
+                                            type="tel"
                                             maxLength={1}
                                             value={digit}
                                             autoFocus={idx === 0}
+                                            autoComplete={idx === 0 ? "one-time-code" : "off"}
                                             onChange={(e) => handleOtpChange(idx, e.target.value)}
-                                            className="w-14 h-16 text-center text-2xl font-black bg-accent/40 rounded-2xl border-2 border-transparent focus:border-primary/20 focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all shadow-inner"
+                                            onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                                            className="w-10 h-12 sm:w-14 sm:h-16 text-center text-xl sm:text-2xl font-black bg-accent/40 rounded-xl sm:rounded-2xl border-2 border-transparent focus:border-primary/20 focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all shadow-inner text-foreground"
                                         />
                                     ))}
                                 </div>
@@ -240,8 +265,13 @@ const UserRegisterPage = () => {
                         ) : (
                             <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                                 <div className="mb-8 pt-4">
-                                    <h2 className="text-2xl font-black text-foreground">Personalize Profile</h2>
-                                    <p className="text-sm text-muted-foreground mt-2 font-medium">Help us know you better for a tailored experience.</p>
+                                    <div className="flex items-center gap-2 mb-2 -ml-2">
+                                        <button onClick={() => setStep(2)} className="w-10 h-10 rounded-full hover:bg-black/5 flex items-center justify-center transition-colors">
+                                            <ArrowLeft className="w-6 h-6" />
+                                        </button>
+                                        <h2 className="text-2xl font-black text-foreground">Personalize Profile</h2>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mt-0 ml-10 font-medium">Help us know you better for a tailored experience.</p>
                                 </div>
 
                                 <form onSubmit={handleProfileSubmit} className="space-y-6">

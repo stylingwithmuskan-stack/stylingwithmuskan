@@ -69,22 +69,42 @@ const LoginModal = () => {
         }
     };
 
+    const handleVerifyInternal = async (code) => {
+        try {
+            const res = await loginWithOtp({ phone, otp: code });
+            const isNewUser = !!res?.user?.isNew;
+            if (!isNewUser) {
+                // If existing user, we're already logged in by loginWithOtp
+                setIsLoginModalOpen(false);
+            } else {
+                // If new user, move to profile step to get name
+                setStep(3);
+            }
+        } catch (err) {
+            console.error("[LoginModal] verify error", err);
+            toast.error(err.message || "OTP verification failed");
+        }
+    };
+
     const handleOtpChange = (index, value) => {
-        if (isNaN(value)) return;
+        if (value && isNaN(value)) return;
         const newOtp = [...otp];
         newOtp[index] = value.slice(-1);
         setOtp(newOtp);
-  
-          // Auto focus next
-          if (value && index < 5) {
-              const nextInput = document.getElementById(`otp-${index + 1}`);
-              nextInput?.focus();
-          }
+
+        if (value && index < 5) {
+            const nextInput = document.getElementById(`otp-${index + 1}`);
+            nextInput?.focus();
+        }
 
         if (newOtp.every(v => v !== "")) {
-            setTimeout(() => {
-                setStep(3);
-            }, 300);
+            handleVerifyInternal(newOtp.join(""));
+        }
+    };
+
+    const handleOtpKeyDown = (index, e) => {
+        if (e.key === "Backspace" && !otp[index] && index > 0) {
+            document.getElementById(`otp-${index - 1}`)?.focus();
         }
     };
 
@@ -196,16 +216,19 @@ const LoginModal = () => {
                                         </p>
                                     </div>
 
-                                    <div className="flex justify-center gap-3 mb-8">
+                                    <div className="flex justify-center gap-2 sm:gap-3 mb-8">
                                         {otp.map((digit, idx) => (
                                             <input
                                                 key={idx}
                                                 id={`otp-${idx}`}
-                                                type="text"
+                                                type="tel"
                                                 maxLength={1}
                                                 value={digit}
+                                                autoFocus={idx === 0}
+                                                autoComplete={idx === 0 ? "one-time-code" : "off"}
                                                 onChange={(e) => handleOtpChange(idx, e.target.value)}
-                                                className="w-12 h-14 text-center text-xl font-bold bg-accent rounded-xl border-2 border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                                                onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                                                className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold bg-accent rounded-xl border-2 border-transparent focus:border-primary focus:bg-white text-foreground transition-all"
                                             />
                                         ))}
                                     </div>
@@ -267,9 +290,9 @@ const LoginModal = () => {
                                 form="phone-form"
                                 type="submit"
                                 disabled={phone.length !== 10}
-                                className="w-full h-14 rounded-2xl text-base font-bold shadow-xl shadow-primary/20 bg-black text-white hover:bg-black/90"
+                                className="w-full h-14 rounded-2xl text-base font-bold shadow-xl shadow-primary/20 bg-black text-white hover:bg-black/90 tracking-widest uppercase"
                             >
-                                CONTINUE
+                                Get OTP / Login <ChevronRight className="ml-1 w-5 h-5" />
                             </Button>
                         )}
                         {step === 3 && (
@@ -286,7 +309,7 @@ const LoginModal = () => {
                             <Button
                                 type="button"
                                 disabled={otp.some(d => d === "")}
-                                onClick={() => setStep(3)}
+                                onClick={() => handleVerifyInternal(otp.join(""))}
                                 className="w-full h-14 rounded-2xl text-base font-bold shadow-xl shadow-primary/20 bg-black text-white hover:bg-black/90"
                             >
                                 VERIFY OTP
