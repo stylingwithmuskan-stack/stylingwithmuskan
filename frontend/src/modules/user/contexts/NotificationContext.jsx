@@ -7,6 +7,7 @@ import { VenderAuthContext } from "@/modules/vender/contexts/VenderAuthContext";
 import { AdminAuthContext } from "@/modules/admin/contexts/AdminAuthContext";
 import { AuthContext } from "@/modules/user/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
+import { setupForegroundHandler } from "@/services/pushNotificationService";
 
 const NotificationContext = createContext();
 
@@ -94,6 +95,11 @@ export const NotificationProvider = ({ children, role }) => {
                 setNotifications((prev) => insertUniqueNotification(prev, payload.notification));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));
             }
+        });
+
+        // Wire FCM foreground handler — refreshes notification list on foreground push
+        setupForegroundHandler(() => {
+            fetchNotifications();
         });
 
         return () => {

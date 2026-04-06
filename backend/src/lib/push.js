@@ -1,9 +1,48 @@
+import admin from "firebase-admin";
 import Notification from "../models/Notification.js";
+import PushDevice from "../models/PushDevice.js";
 import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
 import {
+  FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY,
   PUSH_DEFAULT_CLICK_BASE_URL,
+  PUSH_BATCH_SIZE,
+  PUSH_RETRY_LIMIT,
 } from "../config.js";
+
+// ---------------------------------------------------------------------------
+// Firebase init (singleton)
+// ---------------------------------------------------------------------------
+
+export let pushEnabled = false;
+
+(function initFirebase() {
+  if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
+    console.warn("[push] Firebase credentials missing — push notifications disabled");
+    return;
+  }
+  try {
+    if (admin.apps.length === 0) {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: FIREBASE_PROJECT_ID,
+          clientEmail: FIREBASE_CLIENT_EMAIL,
+          privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+        }),
+      });
+    }
+    pushEnabled = true;
+  } catch (err) {
+    console.error("[push] Firebase init error:", err);
+    pushEnabled = false;
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function withinWindow(now, startTime, endTime) {
   const [startH, startM] = String(startTime || "07:00").split(":").map(Number);
@@ -71,35 +110,210 @@ export function buildNotificationLink({ recipientRole, type, meta = {} }) {
   return "/notifications";
 }
 
-// Firebase push notification functions removed
-// Notifications are now delivered only via Socket.io
-export async function sendPushForNotification(notification) {
-  // Mark as delivered via Socket.io only
-  await Notification.updateOne(
-    { _id: notification._id },
-    {
-      $set: {
-        "delivery.push.status": "socket_only",
-        "delivery.push.lastError": "Push notifications disabled - using Socket.io only",
-      },
-    }
+async function deactivateToken(fcmToken, error) {
+  await PushDevice.updateOne(
+    { fcmToken },
+    { $set: { isActive: false, lastError: String(error) } }
   );
-  return { sent: 0, failed: 0 };
 }
 
-export async function queuePushForNotification(notification, reason = "Socket.io delivery only") {
+// ---------------------------------------------------------------------------
+// buildFCMPayload (Task 2.3)
+// ---------------------------------------------------------------------------
+
+export function buildFCMPayload(notification) {
+  const title = String(notification.title || "").slice(0, 100);
+  const body = String(notification.message || "").slice(0, 200);
+  const link = normalizeLink(notification.link);
+
+  return {
+    notification: { title, body },
+    data: {
+      notificationId: String(notification._id),
+      link: String(link),
+      type: String(notification.type),
+      role: String(notification.recipientRole),
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// sendPushForNotification (Tasks 3.1, 3.2, 4.3)
+// ---------------------------------------------------------------------------
+
+export async function sendPushForNotification(notification) {
+  // Disabled guard
+  if (!pushEnabled) {
+    await Notification.updateOne(
+      { _id: notification._id },
+      { $set: { "delivery.push.status": "disabled" } }
+    );
+    return { sent: 0, failed: 0 };
+  }
+
+  // Retry limit guard
+  if ((notification.delivery?.push?.failureCount ?? 0) >= PUSH_RETRY_LIMIT) {
+    await Notification.updateOne(
+      { _id: notification._id },
+      { $set: { "delivery.push.status": "failed" } }
+    );
+    return { sent: 0, failed: 0 };
+  }
+
+  // Provider quiet hours guard
+  if (notification.recipientRole === "provider") {
+    const inWindow = await isWithinProviderPushWindow();
+    if (!inWindow) {
+      await queuePushForNotification(notification, "Provider quiet hours");
+      return { sent: 0, failed: 0 };
+    }
+  }
+
+  // Find active, enabled devices
+  const devices = await PushDevice.find({
+    recipientId: notification.recipientId,
+    isActive: true,
+    "preferences.enabled": true,
+  }).lean();
+
+  if (!devices.length) {
+    await Notification.updateOne(
+      { _id: notification._id },
+      {
+        $set: {
+          "delivery.push.status": "failed",
+          "delivery.push.lastAttemptAt": new Date(),
+        },
+        $inc: { "delivery.push.failureCount": 1 },
+      }
+    );
+    return { sent: 0, failed: 0 };
+  }
+
+  const payload = buildFCMPayload(notification);
+  const tokens = devices.map((d) => d.fcmToken);
+
+  let totalSent = 0;
+  let totalFailed = 0;
+
+  // Batch sends
+  for (let i = 0; i < tokens.length; i += PUSH_BATCH_SIZE) {
+    const batch = tokens.slice(i, i + PUSH_BATCH_SIZE);
+    try {
+      const response = await admin.messaging().sendEachForMulticast({
+        ...payload,
+        tokens: batch,
+      });
+
+      for (let j = 0; j < response.responses.length; j++) {
+        const res = response.responses[j];
+        if (res.success) {
+          totalSent++;
+        } else {
+          totalFailed++;
+          const code = res.error?.code;
+          if (
+            code === "messaging/registration-token-not-registered" ||
+            code === "messaging/invalid-registration-token"
+          ) {
+            await deactivateToken(batch[j], code);
+          }
+        }
+      }
+    } catch (err) {
+      totalFailed += batch.length;
+      console.error("[push] sendEachForMulticast error:", err);
+    }
+  }
+
+  // Update delivery status
+  const now = new Date();
+  const statusUpdate = {
+    "delivery.push.status": totalSent > 0 ? "sent" : "failed",
+    "delivery.push.lastAttemptAt": now,
+    "delivery.push.failureCount": (notification.delivery?.push?.failureCount ?? 0) + totalFailed,
+  };
+  if (totalSent > 0) {
+    statusUpdate["delivery.push.sentAt"] = now;
+  }
+  if (totalSent === 0 && totalFailed > 0) {
+    statusUpdate["delivery.push.lastError"] = "All tokens failed";
+  }
+
+  await Notification.updateOne({ _id: notification._id }, { $set: statusUpdate });
+
+  return { sent: totalSent, failed: totalFailed };
+}
+
+// ---------------------------------------------------------------------------
+// queuePushForNotification (Task 4.1)
+// ---------------------------------------------------------------------------
+
+export async function queuePushForNotification(notification, reason = "") {
   await Notification.updateOne(
     { _id: notification._id },
     {
       $set: {
-        "delivery.push.status": "socket_only",
+        "delivery.push.status": "queued",
         "delivery.push.lastError": reason,
       },
     }
   );
 }
 
+// ---------------------------------------------------------------------------
+// processQueuedPushNotifications (Task 4.2)
+// ---------------------------------------------------------------------------
+
 export async function processQueuedPushNotifications() {
-  // No-op: Firebase push removed, Socket.io handles all notifications
-  return;
+  if (!pushEnabled) return;
+  const inWindow = await isWithinProviderPushWindow();
+  if (!inWindow) return;
+
+  const queued = await Notification.find({
+    "delivery.push.status": "queued",
+    recipientRole: "provider",
+  })
+    .limit(50)
+    .lean();
+
+  for (const notification of queued) {
+    await sendPushForNotification(notification);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// enforceDeviceLimit (Task 5.1)
+// ---------------------------------------------------------------------------
+
+export async function enforceDeviceLimit(recipientId, recipientRole) {
+  const devices = await PushDevice.find(
+    { recipientId, recipientRole, isActive: true },
+    { _id: 1, lastSeenAt: 1 }
+  )
+    .sort({ lastSeenAt: 1 })
+    .lean();
+
+  if (devices.length <= 10) return;
+
+  const excess = devices.length - 10;
+  const oldestIds = devices.slice(0, excess).map((d) => d._id);
+
+  await PushDevice.updateMany(
+    { _id: { $in: oldestIds } },
+    { $set: { isActive: false } }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// isDuplicatePush (Task 5.3)
+// ---------------------------------------------------------------------------
+
+export async function isDuplicatePush(recipientId, dedupeKey, windowMs) {
+  const doc = await Notification.findOne({
+    recipientId,
+    "meta.dedupeKey": dedupeKey,
+    createdAt: { $gte: new Date(Date.now() - windowMs) },
+  }).lean();
+  return doc !== null;
 }

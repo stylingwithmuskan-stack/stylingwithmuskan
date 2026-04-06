@@ -118,6 +118,7 @@ export async function broadcast(req, res) {
     });
 
     let notificationsCreated = 0;
+    let pushSent = 0;
     for (const recipient of audience) {
       // eslint-disable-next-line no-await-in-loop
       const created = await notify({
@@ -135,11 +136,16 @@ export async function broadcast(req, res) {
           filters: history.filters,
         },
       });
-      if (created) notificationsCreated += 1;
+      if (created) {
+        notificationsCreated += 1;
+        if (created.delivery?.push?.status === "sent") {
+          pushSent += 1;
+        }
+      }
     }
 
     history.stats.notificationsCreated = notificationsCreated;
-    history.stats.pushSent = notificationsCreated;
+    history.stats.pushSent = pushSent;
     await history.save();
 
     res.json({

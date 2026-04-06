@@ -35,4 +35,6 @@ const NotificationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+NotificationSchema.index({ "meta.dedupeKey": 1 }, { sparse: true });
+
 export default mongoose.model("Notification", NotificationSchema);

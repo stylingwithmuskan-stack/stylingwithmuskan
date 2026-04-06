@@ -1,12 +1,14 @@
+import { useEffect, useContext } from "react";
 import { Toaster } from "@/modules/user/components/ui/toaster";
 import { Toaster as Sonner } from "@/modules/user/components/ui/sonner";
 import { TooltipProvider } from "@/modules/user/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ErrorBoundary from "./ErrorBoundary.jsx";
+import { initPushNotifications, unregisterPush } from "@/services/pushNotificationService";
 import { GenderThemeProvider } from "@/modules/user/contexts/GenderThemeContext";
 import { CartProvider } from "@/modules/user/contexts/CartContext";
-import { AuthProvider } from "@/modules/user/contexts/AuthContext";
+import { AuthProvider, AuthContext } from "@/modules/user/contexts/AuthContext";
 import { BookingProvider } from "@/modules/user/contexts/BookingContext";
 import { WishlistProvider } from "@/modules/user/contexts/WishlistContext";
 import { UserModuleDataProvider } from "@/modules/user/contexts/UserModuleDataContext";
@@ -64,7 +66,7 @@ import TicketRaise from "@/modules/serviceprovider/pages/TicketRaise";
 import MyHub from "@/modules/serviceprovider/pages/MyHub";
 import SWMShop from "@/modules/serviceprovider/pages/SWMShop";
 import { ProviderBookingProvider } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
-import { ProviderAuthProvider } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
+import { ProviderAuthProvider, ProviderAuthContext } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 
 // Service Provider Auth
 import ProviderLoginPage from "@/modules/serviceprovider/pages/auth/ProviderLoginPage";
@@ -79,7 +81,7 @@ import ProviderAboutUsPage from "@/modules/serviceprovider/pages/ProviderAboutUs
 import ProviderTermsConditionsPage from "@/modules/serviceprovider/pages/ProviderTermsConditionsPage";
 
 // Vendor Module
-import { VenderAuthProvider } from "@/modules/vender/contexts/VenderAuthContext";
+import { VenderAuthProvider, VenderAuthContext } from "@/modules/vender/contexts/VenderAuthContext";
 import VenderLayout from "@/modules/vender/components/VenderLayout";
 import VenderLoginPage from "@/modules/vender/pages/auth/VenderLoginPage";
 import VenderRegisterPage from "@/modules/vender/pages/auth/VenderRegisterPage";
@@ -103,7 +105,7 @@ import VenderAboutUsPage from "@/modules/vender/pages/VenderAboutUsPage";
 import VenderTermsConditionsPage from "@/modules/vender/pages/VenderTermsConditionsPage";
 
 // Admin Module
-import { AdminAuthProvider } from "@/modules/admin/contexts/AdminAuthContext";
+import { AdminAuthProvider, AdminAuthContext } from "@/modules/admin/contexts/AdminAuthContext";
 import AdminLayout from "@/modules/admin/components/AdminLayout";
 import AdminLoginPage from "@/modules/admin/pages/AdminLoginPage";
 import AdminDashboard from "@/modules/admin/pages/AdminDashboard";
@@ -130,6 +132,57 @@ import RoleSelectionPage from "@/modules/common/pages/RoleSelectionPage";
 
 const queryClient = new QueryClient();
 
+// PushNotificationManager: handles push init/unregister for all roles
+function PushNotificationManager() {
+  const userCtx = useContext(AuthContext);
+  const providerCtx = useContext(ProviderAuthContext);
+  const vendorCtx = useContext(VenderAuthContext);
+  const adminCtx = useContext(AdminAuthContext);
+
+  // User push
+  useEffect(() => {
+    const token = localStorage.getItem("swm_token");
+    if (userCtx?.isLoggedIn && token) {
+      initPushNotifications(token, "user");
+    } else if (!userCtx?.isLoggedIn) {
+      const token = localStorage.getItem("swm_token");
+      unregisterPush(token, "user");
+    }
+  }, [userCtx?.isLoggedIn]);
+
+  // Provider push
+  useEffect(() => {
+    const token = localStorage.getItem("swm_provider_token");
+    if (providerCtx?.isLoggedIn && token) {
+      initPushNotifications(token, "provider");
+    } else if (!providerCtx?.isLoggedIn) {
+      unregisterPush(token, "provider");
+    }
+  }, [providerCtx?.isLoggedIn]);
+
+  // Vendor push
+  useEffect(() => {
+    const token = localStorage.getItem("swm_vendor_token");
+    if (vendorCtx?.isLoggedIn && token) {
+      initPushNotifications(token, "vendor");
+    } else if (!vendorCtx?.isLoggedIn) {
+      unregisterPush(token, "vendor");
+    }
+  }, [vendorCtx?.isLoggedIn]);
+
+  // Admin push
+  useEffect(() => {
+    const token = localStorage.getItem("swm_admin_token");
+    if (adminCtx?.isLoggedIn && token) {
+      initPushNotifications(token, "admin");
+    } else if (!adminCtx?.isLoggedIn) {
+      unregisterPush(token, "admin");
+    }
+  }, [adminCtx?.isLoggedIn]);
+
+  return null;
+}
+
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
@@ -146,6 +199,7 @@ const App = () => {
                           <VenderAuthProvider>
                             <AdminAuthProvider>
                               <NotificationProvider role="any">
+                                <PushNotificationManager />
                                 <ErrorBoundary>
                                   <Toaster />
                                   <Sonner />
