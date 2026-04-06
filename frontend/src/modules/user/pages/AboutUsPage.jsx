@@ -66,7 +66,7 @@ const AboutUsPage = () => {
             <h3 className="text-2xl font-black mb-2 relative z-10">Join Our Mission</h3>
             <p className="text-sm text-slate-400 mb-6 relative z-10 font-medium">Be a part of the most convenient beauty service platform.</p>
             <button 
-                onClick={() => navigate("/register")}
+                onClick={() => navigate("/login")}
                 className="bg-primary text-primary-foreground font-black px-8 py-3 rounded-2xl relative z-10 active:scale-95 transition-all shadow-xl shadow-primary/20"
             >
                 Get Started

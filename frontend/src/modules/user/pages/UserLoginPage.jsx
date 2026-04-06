@@ -143,8 +143,8 @@ const UserLoginPage = () => {
                             <Button type="submit" disabled={phone.length !== 10} className="w-full h-12 rounded-2xl font-bold">
                                 Send OTP <ChevronRight className="ml-2 w-4 h-4" />
                             </Button>
-                            <p className="text-xs text-center text-muted-foreground">
-                                New here? <button type="button" className="text-primary font-bold hover:underline" onClick={() => navigate("/register")}>Register</button>
+                            <p className="text-xs text-center text-muted-foreground font-medium">
+                                Don't have an account? <button type="button" className="text-primary font-black hover:underline ml-1" onClick={() => navigate("/register")}>Sign up</button>
                             </p>
                         </motion.form>
                     ) : (

@@ -17,8 +17,8 @@ const CategoryGrid = () => {
 
   const handleCustomizeClick = () => {
     if (!isLoggedIn) {
-      // Redirect to register if not authenticated
-      navigate("/register", { state: { from: "/home", openCustomize: true } });
+      // Redirect to login if not authenticated
+      navigate("/login", { state: { from: "/home", openCustomize: true } });
       return;
     }
     setIsCustomizeOpen(true);

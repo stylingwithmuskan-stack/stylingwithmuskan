@@ -14,7 +14,7 @@ import { toast } from "sonner";
 const UserRegisterPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { isLoggedIn, loginWithOtp } = useAuth();
+    const { loginWithOtp, isLoggedIn, updateProfile } = useAuth();
     const [step, setStep] = useState(1); // 1: Phone, 2: OTP, 3: Profile Setup
     const [phone, setPhone] = useState("");
     const [name, setName] = useState("");
@@ -24,12 +24,12 @@ const UserRegisterPage = () => {
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
-        if (isLoggedIn) {
+        if (isLoggedIn && step !== 3) {
             const from = location.state?.from || "/home";
             const extraState = location.state || {};
             navigate(from, { state: extraState, replace: true });
         }
-    }, [isLoggedIn, navigate, location.state]);
+    }, [isLoggedIn, navigate, location.state, step]);
 
     useEffect(() => {
         let interval;
@@ -66,7 +66,7 @@ const UserRegisterPage = () => {
 
     const handleVerifyInternal = async (code) => {
         try {
-            const res = await loginWithOtp({ phone, otp: code });
+            const res = await loginWithOtp({ phone, otp: code, intent: "register" });
             const isNewUser = !!res?.user?.isNew;
             if (!isNewUser) {
                 // Existing user - loginWithOtp already navigated or is handling it
@@ -82,18 +82,20 @@ const UserRegisterPage = () => {
     };
 
     const handleOtpChange = (index, value) => {
-        if (value && isNaN(value)) return;
-        const newOtp = [...otp];
-        newOtp[index] = value.slice(-1);
-        setOtp(newOtp);
+        if (/^\d*$/.test(value)) {
+            const newOtp = [...otp];
+            newOtp[index] = value.substring(value.length - 1);
+            setOtp(newOtp);
 
-        if (value && index < 5) {
-            const nextInput = document.getElementById(`otp-${index + 1}`);
-            nextInput?.focus();
-        }
+            // Auto-focus next
+            if (value && index < 5) {
+                document.getElementById(`otp-${index + 1}`)?.focus();
+            }
 
-        if (newOtp.every(v => v !== "")) {
-            handleVerifyInternal(newOtp.join(""));
+            // Auto-verify
+            if (newOtp.every(v => v !== "")) {
+                handleVerifyInternal(newOtp.join(""));
+            }
         }
     };
 
@@ -117,15 +119,13 @@ const UserRegisterPage = () => {
 
     const handleProfileSubmit = async (e) => {
         e.preventDefault();
-        const enteredOtp = otp.join("");
         try {
-            await loginWithOtp({ phone, otp: enteredOtp, name, referralCode, intent: "register" });
-            console.log("[UserRegister] login success", { phone });
+            await updateProfile({ name: name.trim(), referralCode: referralCode.trim() });
+            console.log("[UserRegister] profile update success", { phone });
             navigate("/home");
         } catch (err) {
-            console.error("[UserRegister] login error", err);
-            alert(err.message || "Verification failed");
-            setStep(2);
+            console.error("[UserRegister] profile update error", err);
+            toast.error(err.message || "Failed to complete profile");
         }
     };
 

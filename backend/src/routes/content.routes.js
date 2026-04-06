@@ -28,12 +28,12 @@ router.get("/service-types", async (_req, res) => {
     data = await cached("content:service-types", () => ServiceType.find().lean());
   } catch {
     data = [];
-    /* Fallback disabled for production
-    data = [
-      { id: "skin", label: "Skin" },
-      { id: "hair", label: "Hair" },
-    ];
-    */
+  }
+  // Fallback to fresh DB query if cache is empty but DB has data
+  if (!Array.isArray(data) || data.length === 0) {
+    try {
+      data = await ServiceType.find().lean();
+    } catch {}
   }
   res.json({ data });
 });
@@ -44,12 +44,12 @@ router.get("/booking-types", async (_req, res) => {
     data = await cached("content:booking-types", () => BookingType.find().lean());
   } catch {
     data = [];
-    /* Fallback disabled for production
-    data = [
-      { id: "instant", label: "Instant" },
-      { id: "scheduled", label: "Scheduled" },
-    ];
-    */
+  }
+  // Fallback
+  if (!Array.isArray(data) || data.length === 0) {
+    try {
+      data = await BookingType.find().lean();
+    } catch {}
   }
   res.json({ data });
 });

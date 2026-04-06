@@ -37,7 +37,7 @@ const ProfilePage = () => {
 
   useEffect(() => {
     if (!loading && !isLoggedIn) {
-      navigate("/register", { replace: true });
+      navigate("/login", { replace: true });
     }
   }, [loading, isLoggedIn, navigate]);
 
