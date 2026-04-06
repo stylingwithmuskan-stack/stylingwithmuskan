@@ -6,8 +6,10 @@ import { useAuth } from "@/modules/user/contexts/AuthContext";
 
 import { api } from "@/modules/user/lib/api";
 
-import { ArrowLeft, ChevronRight, Wallet, MapPin, Gift, Ticket, HelpCircle, LogOut, User, Calendar, Edit2, ShieldCheck, Zap, Sparkles, Bell, History, Info, FileText, Phone, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, Wallet, MapPin, Gift, Ticket, HelpCircle, LogOut, User, Calendar, Edit2, ShieldCheck, Zap, Sparkles, Bell, History, Info, FileText, Phone, Trash2, BellRing } from "lucide-react";
 import NotificationDropdown from "@/modules/user/components/salon/NotificationDropdown";
+import { safeStorage } from "@/modules/user/lib/safeStorage";
+import { API_BASE_URL } from "@/modules/user/lib/api";
 
 /**
  * ProfilePage Component
@@ -23,6 +25,7 @@ const ProfilePage = () => {
   const [menEnabled, setMenEnabled] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pushStatus, setPushStatus] = useState(""); // "", "sending", "sent", "error"
   const subscription = user?.subscription || null;
   const plusDiscount = Number(subscription?.discountPercentage || 0);
   const plusExpiry = user?.plusExpiry || subscription?.currentPeriodEnd || null;
@@ -69,6 +72,29 @@ const ProfilePage = () => {
     console.log("[User] logout clicked");
     logout();
     navigate("/home");
+  };
+
+  const handleTestPush = async () => {
+    setPushStatus("sending");
+    try {
+      const token = safeStorage.getItem("swm_token") || "";
+      const res = await fetch(`${API_BASE_URL}/notifications/push/test-self`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      if (res.ok) {
+        setPushStatus("sent");
+      } else {
+        setPushStatus("error");
+      }
+    } catch {
+      setPushStatus("error");
+    }
+    setTimeout(() => setPushStatus(""), 3000);
   };
 
   const handleDeleteAccount = async () => {
@@ -121,7 +147,23 @@ const ProfilePage = () => {
         <button onClick={() => navigate("/home")} className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h1 className={`text-lg font-semibold ${gender === "women" ? "font-display" : "font-heading-men"}`}>Profile</h1>
+        <h1 className={`text-lg font-semibold flex-1 ${gender === "women" ? "font-display" : "font-heading-men"}`}>Profile</h1>
+        <button
+          onClick={handleTestPush}
+          disabled={pushStatus === "sending"}
+          title="Test Push Notification"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border
+            ${pushStatus === "sent" ? "bg-green-500/10 text-green-600 border-green-500/30" :
+              pushStatus === "error" ? "bg-red-500/10 text-red-500 border-red-500/30" :
+              pushStatus === "sending" ? "bg-primary/10 text-primary border-primary/20 animate-pulse" :
+              "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 active:scale-95"}`}
+        >
+          <BellRing className="w-3.5 h-3.5" />
+          {pushStatus === "sending" ? "Sending..." :
+           pushStatus === "sent" ? "Sent ✓" :
+           pushStatus === "error" ? "Failed" :
+           "Test Push"}
+        </button>
       </div>
 
       <div className="px-4 md:px-8 lg:px-0 max-w-2xl mx-auto mt-3 space-y-3">
