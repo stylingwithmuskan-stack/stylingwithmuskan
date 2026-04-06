@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from "@/modules/user/lib/api";
 import { safeStorage } from "@/modules/user/lib/safeStorage";
+import { initPushNotifications, unregisterPush } from "@/services/pushNotificationService";
 
 export const AuthContext = createContext();
 const STORAGE_KEY = "swm_user_auth_state";
@@ -86,12 +87,18 @@ export const AuthProvider = ({ children }) => {
                 setUser(updated);
                 setHasAddress((updated.addresses || []).length > 0);
                 setIsLoggedIn(true);
+                // Register FCM token after login
+                const token = safeStorage.getItem("swm_token") || "";
+                if (token) initPushNotifications(token, "user").catch(() => {});
                 return profileRes;
             }
             
             setUser(u);
             setHasAddress((u.addresses || []).length > 0);
             setIsLoggedIn(true);
+            // Register FCM token after login
+            const token = safeStorage.getItem("swm_token") || "";
+            if (token) initPushNotifications(token, "user").catch(() => {});
             return res;
         } catch (error) {
             // Clear any stale data on error
@@ -104,6 +111,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        const token = safeStorage.getItem("swm_token") || "";
+        unregisterPush(token, "user").catch(() => {});
         api.logout().then((res) => {
             console.log("[Auth] logout response", res);
         }).finally(() => {

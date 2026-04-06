@@ -80,16 +80,16 @@ router.post("/push/register", requireAnyAuth, async (req, res) => {
   try {
     const recipientId = String(req.auth.sub);
     const recipientRole = req.auth.role || "user";
-    const {
-      fcmToken = "",
-      platform = "web",
-      deviceKey = "",
-      permission = "granted",
-      enabled = true,
-    } = req.body || {};
+    const body = req.body || {};
+    // Accept both { token, platform } (SOP style) and { fcmToken, deviceKey } (internal style)
+    const fcmToken = body.fcmToken || body.token || "";
+    const platform = body.platform || "web";
+    const deviceKey = body.deviceKey || body.token || "";  // fall back to token as deviceKey if not provided
+    const permission = body.permission || "granted";
+    const enabled = body.enabled !== false;
 
-    if (!fcmToken || !deviceKey) {
-      return res.status(400).json({ error: "fcmToken and deviceKey are required" });
+    if (!fcmToken) {
+      return res.status(400).json({ error: "token (or fcmToken) is required" });
     }
 
     const device = await PushDevice.findOneAndUpdate(

@@ -89,6 +89,8 @@ export function startCron() {
               recipientRole: "user",
               type: "booking_cancel",
               meta: { bookingId: b._id.toString(), reason: "reassignment_deadline_exceeded" },
+              dedupeKey: `escalation:${b._id}`,
+              dedupeWindowMs: 23 * 60 * 60 * 1000,
             });
           } catch {}
         }
@@ -127,6 +129,8 @@ export function startCron() {
               recipientRole: "vendor",
               type: "reminder",
               meta: { bookingId: b._id.toString(), city: b.address?.city, time: b.slot?.time },
+              dedupeKey: `vendor_reminder:${b._id}`,
+              dedupeWindowMs: 23 * 60 * 60 * 1000,
             });
           } catch {}
         }
@@ -163,6 +167,8 @@ export function startCron() {
               recipientRole: "provider",
               type: "reminder",
               meta: { bookingId: b._id.toString(), time: b.slot?.time },
+              dedupeKey: `reminder:${b._id}`,
+              dedupeWindowMs: 23 * 60 * 60 * 1000,
             });
           } catch {}
         }

@@ -2,7 +2,7 @@ import Notification from "../models/Notification.js";
 import { getIO } from "../startup/socket.js";
 import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
-import { buildNotificationLink, queuePushForNotification, sendPushForNotification } from "./push.js";
+import { buildNotificationLink, queuePushForNotification, sendPushForNotification, isDuplicatePush } from "./push.js";
 
 const TYPE_ALIASES = {
   new_booking: "booking_assigned",
@@ -400,8 +400,21 @@ export async function notify({
   meta = {},
   emit = true,
   respectProviderQuietHours = true,
+  dedupeKey = "",
+  dedupeWindowMs = 0,
 }) {
   if (!recipientId || !recipientRole) return null;
+
+  // Deduplication guard for cron-triggered notifications
+  if (dedupeKey && dedupeWindowMs > 0) {
+    try {
+      const isDup = await isDuplicatePush(String(recipientId), dedupeKey, dedupeWindowMs);
+      if (isDup) return null;
+    } catch (err) {
+      console.error("[Notify] Dedup check failed (fail-open):", err.message);
+    }
+  }
+
   const safeMeta = await enrichMeta(meta || {});
   const templated = formatNotification({ recipientRole, type, meta: safeMeta });
   const payload = {
@@ -411,7 +424,7 @@ export async function notify({
     message: templated?.message || message || "You have a new notification.",
     type,
     link: link || buildNotificationLink({ recipientRole, type, meta: safeMeta }),
-    meta: safeMeta,
+    meta: dedupeKey ? { ...safeMeta, dedupeKey } : safeMeta,
   };
   const notification = await Notification.create(payload);
 
@@ -430,18 +443,20 @@ export async function notify({
     } catch {}
   }
 
+  // Send FCM push notification
   try {
     if (recipientRole === "provider" && respectProviderQuietHours) {
       const ok = await isWithinProviderWindow();
       if (!ok) {
-        // Queue notification but don't send push (Firebase removed)
-        await queuePushForNotification(notification, "Provider quiet hours - Socket.io will deliver when online");
+        await queuePushForNotification(notification, "Provider quiet hours");
+      } else {
+        await sendPushForNotification(notification);
       }
+    } else {
+      await sendPushForNotification(notification);
     }
-    // Firebase push removed - notifications delivered via Socket.io only
   } catch (error) {
-    // Log error but don't fail notification creation
-    console.error('[Notify] Push notification skipped (Firebase removed):', error.message);
+    console.error("[Notify] Push notification error:", error.message);
   }
   return notification;
 }
