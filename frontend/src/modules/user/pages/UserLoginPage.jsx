@@ -80,21 +80,27 @@ const UserLoginPage = () => {
         }
     };
 
-    const handleOtpChange = (i, v) => {
-        if (v && isNaN(v)) return;
-        const n = [...otp];
-        n[i] = v.slice(-1);
-        setOtp(n);
-        if (v && i < 5) document.getElementById(`login-otp-${i + 1}`)?.focus();
-        if (v && i === 5 && n.every(d => d !== "")) {
-            // Optional: Auto-verify if needed, or just focus the button
-            // document.getElementById('login-verify-btn')?.focus();
+    const handleOtpChange = (index, value) => {
+        const char = value.slice(-1);
+        if (char && !/^\d$/.test(char)) return;
+
+        const newOtp = [...otp];
+        newOtp[index] = char;
+        setOtp(newOtp);
+
+        // Auto-focus next field if a value was entered
+        if (char && index < 5) {
+            const nextInput = document.getElementById(`login-otp-${index + 1}`);
+            if (nextInput) nextInput.focus();
         }
     };
 
-    const handleOtpKeyDown = (i, e) => {
-        if (e.key === "Backspace" && !otp[i] && i > 0) {
-            document.getElementById(`login-otp-${i - 1}`)?.focus();
+    const handleOtpKeyDown = (index, e) => {
+        if (e.key === "Backspace") {
+            if (!otp[index] && index > 0) {
+                const prevInput = document.getElementById(`login-otp-${index - 1}`);
+                if (prevInput) prevInput.focus();
+            }
         }
     };
 
@@ -154,19 +160,20 @@ const UserLoginPage = () => {
                                     ? `Enter the 6-digit OTP for +91 ${phone}`
                                     : `Enter the 6-digit code sent to +91 ${phone}`}
                             </p>
-                            <div className="flex justify-center gap-2 sm:gap-3">
+                             <div className="flex justify-center gap-2 sm:gap-3 w-full max-w-sm mx-auto">
                                 {otp.map((d, i) => (
                                     <input 
                                         key={i} 
                                         id={`login-otp-${i}`} 
                                         type="tel" 
+                                        inputMode="numeric"
                                         maxLength={1} 
                                         value={d} 
                                         autoFocus={i === 0}
                                         autoComplete={i === 0 ? "one-time-code" : "off"}
                                         onChange={(e) => handleOtpChange(i, e.target.value)} 
                                         onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                                        className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold bg-accent rounded-xl border-2 border-transparent focus:border-primary focus:bg-white text-foreground" 
+                                        className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold bg-accent rounded-xl border-2 border-transparent focus:border-primary focus:bg-white text-foreground flex-shrink-0" 
                                     />
                                 ))}
                             </div>

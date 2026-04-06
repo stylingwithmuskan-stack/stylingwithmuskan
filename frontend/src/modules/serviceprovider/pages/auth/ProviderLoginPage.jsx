@@ -85,14 +85,27 @@ export default function ProviderLoginPage() {
     };
 
     const handleOtpChange = (index, value) => {
-        if (/^\d*$/.test(value)) {
-            const newOtp = [...otp];
-            newOtp[index] = value.substring(value.length - 1);
-            setOtp(newOtp);
+        const char = value.slice(-1);
+        if (char && !/^\d$/.test(char)) return;
 
-            // Auto-focus next
-            if (value && index < 5) {
-                document.getElementById(`otp-${index + 1}`).focus();
+        const newOtp = [...otp];
+        newOtp[index] = char;
+        setOtp(newOtp);
+
+        // Auto-focus next
+        if (char && index < 5) {
+            const nextInput = document.getElementById(`otp-${index + 1}`);
+            if (nextInput) nextInput.focus();
+        }
+    };
+
+    const handleOtpKeyDown = (index, e) => {
+        if (e.key === "Backspace") {
+            if (!otp[index] && index > 0) {
+                const prevInput = document.getElementById(`otp-${index - 1}`);
+                if (prevInput) {
+                    prevInput.focus();
+                }
             }
         }
     };
@@ -195,16 +208,19 @@ export default function ProviderLoginPage() {
                         </div>
                     ) : (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="flex justify-between gap-2 max-w-xs mx-auto">
+                            <div className="flex justify-center gap-2 sm:gap-3 w-full max-w-sm mx-auto overflow-x-hidden">
                                 {otp.map((digit, i) => (
                                     <input
                                         key={i}
                                         id={`otp-${i}`}
                                         type="tel"
+                                        inputMode="numeric"
                                         maxLength={1}
                                         value={digit}
+                                        autoFocus={i === 0}
                                         onChange={(e) => handleOtpChange(i, e.target.value)}
-                                        className="w-10 h-14 sm:w-12 sm:h-16 text-center text-xl font-bold bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-violet-600 focus:bg-white outline-none transition-all shadow-sm"
+                                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                                        className="w-10 h-12 sm:w-12 sm:h-14 md:w-14 md:h-16 text-center text-xl font-bold bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-violet-600 focus:bg-white focus:ring-0 outline-none transition-all shadow-sm flex-shrink-0"
                                     />
                                 ))}
                             </div>

@@ -114,14 +114,31 @@ export default function VenderLoginPage() {
                                         ? `Enter the 6-digit OTP for ${phone}`
                                         : `Enter the 6-digit code sent to ${phone}`}
                                 </p>
-                                <div className="grid grid-cols-6 gap-2">
+                                <div className="grid grid-cols-6 gap-2 sm:gap-3 w-full max-w-sm mx-auto">
                                     {otp.map((d, i) => (
-                                        <Input key={i} id={`otp-${i}`} value={d} onChange={e => {
-                                            if (/^\d*$/.test(e.target.value)) {
-                                                const n = [...otp]; n[i] = e.target.value.slice(-1); setOtp(n);
-                                                if (e.target.value && i < 5) document.getElementById(`otp-${i + 1}`)?.focus();
-                                            }
-                                        }} className="h-12 text-center font-bold" maxLength={1} />
+                                        <Input 
+                                            key={i} 
+                                            id={`otp-${i}`} 
+                                            type="tel"
+                                            inputMode="numeric"
+                                            value={d} 
+                                            onChange={e => {
+                                                const val = e.target.value.slice(-1);
+                                                if (/^\d*$/.test(val)) {
+                                                    const n = [...otp]; 
+                                                    n[i] = val; 
+                                                    setOtp(n);
+                                                    if (val && i < 5) document.getElementById(`otp-${i + 1}`)?.focus();
+                                                }
+                                            }}
+                                            onKeyDown={e => {
+                                                if (e.key === "Backspace" && !otp[i] && i > 0) {
+                                                    document.getElementById(`otp-${i - 1}`)?.focus();
+                                                }
+                                            }}
+                                            className="h-10 sm:h-12 text-center font-bold rounded-xl flex-shrink-0" 
+                                            maxLength={1} 
+                                        />
                                     ))}
                                 </div>
                             </div>
