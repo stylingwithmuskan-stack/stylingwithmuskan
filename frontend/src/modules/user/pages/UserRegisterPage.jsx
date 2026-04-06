@@ -82,14 +82,17 @@ const UserRegisterPage = () => {
     };
 
     const handleOtpChange = (index, value) => {
-        if (value && isNaN(value)) return;
+        const char = value.slice(-1);
+        if (char && !/^\d$/.test(char)) return;
+
         const newOtp = [...otp];
-        newOtp[index] = value.slice(-1);
+        newOtp[index] = char;
         setOtp(newOtp);
 
-        if (value && index < 5) {
+        // Auto-focus next field if a value was entered
+        if (char && index < 5) {
             const nextInput = document.getElementById(`otp-${index + 1}`);
-            nextInput?.focus();
+            if (nextInput) nextInput.focus();
         }
 
         if (newOtp.every(v => v !== "")) {
@@ -98,8 +101,11 @@ const UserRegisterPage = () => {
     };
 
     const handleOtpKeyDown = (index, e) => {
-        if (e.key === "Backspace" && !otp[index] && index > 0) {
-            document.getElementById(`otp-${index - 1}`)?.focus();
+        if (e.key === "Backspace") {
+            if (!otp[index] && index > 0) {
+                const prevInput = document.getElementById(`otp-${index - 1}`);
+                if (prevInput) prevInput.focus();
+            }
         }
     };
 
@@ -235,19 +241,20 @@ const UserRegisterPage = () => {
                                     </p>
                                 </div>
 
-                                <div className="flex justify-center gap-2 sm:gap-4 mb-8">
+                                 <div className="flex justify-center gap-2 sm:gap-3 w-full max-w-sm mx-auto">
                                     {otp.map((digit, idx) => (
                                         <input
                                             key={idx}
                                             id={`otp-${idx}`}
                                             type="tel"
+                                            inputMode="numeric"
                                             maxLength={1}
                                             value={digit}
                                             autoFocus={idx === 0}
                                             autoComplete={idx === 0 ? "one-time-code" : "off"}
                                             onChange={(e) => handleOtpChange(idx, e.target.value)}
                                             onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                                            className="w-10 h-12 sm:w-14 sm:h-16 text-center text-xl sm:text-2xl font-black bg-accent/40 rounded-xl sm:rounded-2xl border-2 border-transparent focus:border-primary/20 focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all shadow-inner text-foreground"
+                                            className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-black bg-accent/40 rounded-xl sm:rounded-2xl border-2 border-transparent focus:border-primary/20 focus:bg-white focus:ring-4 focus:ring-primary/5 transition-all shadow-inner text-foreground flex-shrink-0"
                                         />
                                     ))}
                                 </div>
