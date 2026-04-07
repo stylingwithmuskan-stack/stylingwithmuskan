@@ -226,10 +226,15 @@ export default function VenderRegisterPage() {
                             {loading ? "Sending OTP..." : "Register"} <ArrowRight className="h-4 w-4" />
                         </Button>
                     </form>
-                    <div className="text-center pt-4 mt-4 border-t border-gray-100">
-                        <p className="text-xs text-gray-500 font-medium">
+                    <div className="space-y-4 pt-4 mt-4 border-t border-gray-100">
+                        <p className="text-center text-xs text-gray-500 font-medium">
                             Already registered? <Link to="/vender/login" className="text-emerald-600 font-bold hover:underline">Login here</Link>
                         </p>
+                        <div className="flex items-center justify-center gap-4 text-[10px] text-gray-400 font-bold uppercase tracking-wider pt-2">
+                            <Link to="/vendor/contact-us" className="hover:text-emerald-600 transition-colors">Contact Support</Link>
+                            <span className="h-1 w-1 rounded-full bg-gray-300"></span>
+                            <Link to="/vender/about-us" className="hover:text-emerald-600 transition-colors">About Us</Link>
+                        </div>
                     </div>
                 </motion.div>
             </motion.div>

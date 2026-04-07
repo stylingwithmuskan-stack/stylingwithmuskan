@@ -278,6 +278,7 @@ const App = () => {
                                 {/* Public Vendor Info Pages (Accessible without login) */}
                                 <Route path="/vender/privacy-policy" element={<VenderPrivacyPolicyPage />} />
                                 <Route path="/vender/contact-us" element={<VenderContactUsPage />} />
+                                <Route path="/vendor/contact-us" element={<VenderContactUsPage />} />
                                 <Route path="/vender/about-us" element={<VenderAboutUsPage />} />
                                 <Route path="/vender/terms-conditions" element={<VenderTermsConditionsPage />} />
 
