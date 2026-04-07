@@ -641,7 +641,7 @@ export default function BookingManagement() {
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl">
                                         {providers.length > 0 ? providers.map(p => (
-                                            <SelectItem key={p.id || p.phone} value={String(p.id || p.phone)} className="rounded-lg">
+                                            <SelectItem key={p._id || p.id || p.phone} value={String(p._id || p.id || p.phone)} className="rounded-lg">
                                                 <div className="flex flex-col py-0.5">
                                                     <span className="font-bold text-sm">{p.name}</span>
                                                     <span className="text-[10px] text-muted-foreground">{p.phone} {p.specialties ? `• ${p.specialties.join(", ")}` : ""}</span>
