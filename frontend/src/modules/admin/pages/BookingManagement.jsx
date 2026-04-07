@@ -48,6 +48,7 @@ export default function BookingManagement() {
     const [reviewData, setReviewData] = useState({ price: 0, discountPrice: 0 });
     // Admin team review modal for final approval (Step 6)
     const [adminTeamReviewModal, setAdminTeamReviewModal] = useState(null);
+    const [detailModal, setDetailModal] = useState(null);
     const [updating, setUpdating] = useState(false);
 
     useEffect(() => {
@@ -247,8 +248,8 @@ export default function BookingManagement() {
                         ) : (
                             <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
                                 {filtered.map((b, idx) => (
-                                    <motion.div key={b._id || b.id || `${b.customerName || "booking"}-${idx}`} variants={item}>
-                                        <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all">
+                                    <motion.div key={b._id || b.id || `${b.customerName || "booking"}-${idx}`} variants={item} onClick={() => setDetailModal(b)}>
+                                        <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all cursor-pointer">
                                             <CardContent className="p-4 flex flex-col md:flex-row md:items-center gap-3">
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -358,9 +359,9 @@ export default function BookingManagement() {
                                                             <CheckCircle className="h-3 w-3" /> Approve Team
                                                         </Button>
                                                     ) : (
-                                                        /* Only show Assign button for customize bookings - normal bookings are handled by vendor panel */
-                                                        (b.bookingType === "customized" || b.eventType) && ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected"].includes(b.status) && (
-                                                            <Button size="sm" className="h-8 text-[10px] font-bold bg-primary rounded-lg gap-1" onClick={() => setAssignModal(b)}>
+                                                        /* Enable Assign toggle for any unassigned or pending booking in Admin panel */
+                                                        ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected"].includes(b.status) && (
+                                                            <Button size="sm" className="h-8 text-[10px] font-bold bg-primary rounded-lg gap-1" onClick={(e) => { e.stopPropagation(); setAssignModal(b); }}>
                                                                 <Users className="h-3 w-3" />{b.assignedProvider ? "Re-assign" : "Assign"}
                                                             </Button>
                                                         )
@@ -741,6 +742,137 @@ export default function BookingManagement() {
                                 >
                                     {updating ? "Updating..." : "Update Business Settings"}
                                 </Button>
+                            </div>
+                        </motion.div>
+                    </div>,
+                    document.body
+                )}
+
+                {/* ═══════ BOOKING DETAIL MODAL ═══════ */}
+                {detailModal && createPortal(
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDetailModal(null)} />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                            className="relative w-full max-w-2xl bg-card rounded-[32px] border border-border p-6 md:p-8 space-y-6 shadow-2xl max-h-[92vh] overflow-y-auto scrollbar-hide">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <h3 className="text-xl font-black italic uppercase tracking-tighter">Booking Details</h3>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">ID: #{detailModal.id}</p>
+                                </div>
+                                <button onClick={() => setDetailModal(null)} className="w-10 h-10 rounded-full bg-muted flex items-center justify-center transition-colors"><X className="h-5 w-5" /></button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Left Side: Customer & Service Info */}
+                                <div className="space-y-6">
+                                    <div className="bg-muted/30 rounded-2xl p-4 border border-border/50">
+                                        <h4 className="text-[10px] font-black uppercase text-secondary-foreground/60 tracking-widest mb-3 flex items-center gap-2"><User className="h-3.5 w-3.5" /> Customer Info</h4>
+                                        <div className="space-y-2">
+                                            <p className="text-lg font-black">{detailModal.customerName}</p>
+                                            <p className="text-sm font-bold text-muted-foreground flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> {detailModal.phone || "Not available"}</p>
+                                            <div className="pt-2 border-t border-border/30 mt-2">
+                                                <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Service Address</p>
+                                                <p className="text-xs font-bold leading-relaxed">{detailModal.address?.fullAddress || "N/A"}</p>
+                                                <p className="text-[10px] font-bold text-primary mt-1">{detailModal.address?.area}, {detailModal.address?.city}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-muted/30 rounded-2xl p-4 border border-border/50">
+                                        <h4 className="text-[10px] font-black uppercase text-secondary-foreground/60 tracking-widest mb-3 flex items-center gap-2"><Zap className="h-3.5 w-3.5" /> Service Details</h4>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-muted-foreground">Status</span>
+                                                <Badge variant="outline" className={`text-[10px] font-black px-2 py-0.5 border-0 ${statusColors[detailModal.status] || ""}`}>
+                                                    {getStatusLabel(detailModal.status)}
+                                                </Badge>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-muted-foreground">Category</span>
+                                                <span className="text-xs font-black">{detailModal.serviceType}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-muted-foreground">Type</span>
+                                                <Badge variant="outline" className="text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-200">{detailModal.bookingType}</Badge>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-muted-foreground">Scheduled Time</span>
+                                                <span className="text-xs font-black flex items-center gap-2">
+                                                    <Clock className="h-3.5 w-3.5 text-primary" /> {detailModal.slot?.time}, {detailModal.slot?.date}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Cart, Pricing & Assignment */}
+                                <div className="space-y-6">
+                                    <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+                                        <h4 className="text-[10px] font-black uppercase text-primary tracking-widest mb-3 flex items-center gap-2"><LayoutGrid className="h-3.5 w-3.5" /> Bill Summary</h4>
+                                        <div className="space-y-2">
+                                            {detailModal.items?.map((it, i) => (
+                                                <div key={i} className="flex justify-between text-xs py-1 border-b border-primary/5 last:border-0">
+                                                    <span className="font-bold">{it.serviceName} <span className="text-muted-foreground px-1">x{it.quantity}</span></span>
+                                                    <span className="font-black">₹{it.price * it.quantity}</span>
+                                                </div>
+                                            ))}
+                                            <div className="pt-2 mt-2 border-t border-primary/20 space-y-1">
+                                                <div className="flex justify-between text-xs">
+                                                    <span className="text-muted-foreground font-bold">Total Amount</span>
+                                                    <span className="font-bold">₹{detailModal.totalAmount}</span>
+                                                </div>
+                                                {detailModal.discountPrice > 0 && (
+                                                    <div className="flex justify-between text-xs text-green-600">
+                                                        <span className="font-bold">Discount</span>
+                                                        <span className="font-bold">-₹{detailModal.discountPrice}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between text-base pt-1 font-black text-primary">
+                                                    <span>Payable</span>
+                                                    <span>₹{(detailModal.totalAmount - (detailModal.discountPrice || 0)).toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-muted/30 rounded-2xl p-4 border border-border/50">
+                                        <h4 className="text-[10px] font-black uppercase text-secondary-foreground/60 tracking-widest mb-3 flex items-center gap-2"><Users className="h-3.5 w-3.5" /> Professional Info</h4>
+                                        <div className="space-y-4">
+                                            {detailModal.assignedProvider ? (
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary">
+                                                        {providers.find(p => (p.id || p.phone) === detailModal.assignedProvider)?.name?.charAt(0) || "P"}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-black">{providers.find(p => (p.id || p.phone) === detailModal.assignedProvider)?.name || "Assigned Provider"}</p>
+                                                        <p className="text-[10px] font-bold text-muted-foreground">{detailModal.assignedProvider}</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-2">
+                                                    <p className="text-xs font-bold text-muted-foreground italic mb-3">No professional assigned yet</p>
+                                                </div>
+                                            )}
+                                            
+                                            {["incoming", "pending", "unassigned", "rejected"].includes(detailModal.status?.toLowerCase()) && (
+                                                <Button className="w-full h-10 rounded-xl font-bold bg-primary" onClick={() => { setAssignModal(detailModal); setDetailModal(null); }}>
+                                                    {detailModal.assignedProvider ? "Change Provider" : "Assign Now"}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {detailModal.notes && (
+                                <div className="bg-pink-50 rounded-2xl p-4 border border-pink-100">
+                                    <h4 className="text-[10px] font-black uppercase text-pink-700 tracking-widest mb-1 flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5" /> Customer Notes</h4>
+                                    <p className="text-xs font-medium text-pink-900 leading-relaxed italic">"{detailModal.notes}"</p>
+                                </div>
+                            )}
+
+                            <div className="pt-2">
+                                <Button variant="outline" className="w-full h-12 rounded-2xl font-bold" onClick={() => setDetailModal(null)}>Close Window</Button>
                             </div>
                         </motion.div>
                     </div>,
