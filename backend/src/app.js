@@ -28,7 +28,7 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(helmet());
 app.use(morgan("dev"));
-const allowedOrigins = (ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:4173").split(",").map(s => s.trim()).filter(Boolean);
+const allowedOrigins = (ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:4173,http://192.168.1.38:5173").split(",").map(s => s.trim()).filter(Boolean);
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);

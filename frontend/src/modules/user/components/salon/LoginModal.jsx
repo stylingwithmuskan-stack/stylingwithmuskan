@@ -46,7 +46,7 @@ const LoginModal = () => {
         }
 
         try {
-            const res = await api.requestOtp(phone, "login");
+            const res = await api.requestOtp(phone, "auto");
             console.log("[User] request-otp response", res);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
@@ -58,7 +58,7 @@ const LoginModal = () => {
     };
     const handleResend = async () => {
         try {
-            const res = await api.requestOtp(phone, "login");
+            const res = await api.requestOtp(phone, "auto");
             console.log("[User] resend-otp response", res);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setTimer(30);
@@ -71,7 +71,7 @@ const LoginModal = () => {
 
     const handleVerifyInternal = async (code) => {
         try {
-            const res = await loginWithOtp({ phone, otp: code });
+            const res = await loginWithOtp({ phone, otp: code, intent: "auto" });
             const isNewUser = !!res?.user?.isNew;
             if (!isNewUser) {
                 // If existing user, we're already logged in by loginWithOtp
@@ -110,15 +110,13 @@ const LoginModal = () => {
 
     const handleProfileSubmit = async (e) => {
         e.preventDefault();
-        const enteredOtp = otp.join("");
         try {
-            await loginWithOtp({ phone, otp: enteredOtp, name, referralCode });
-            console.log("[User] login success", { phone });
+            await updateProfile({ name: name.trim(), referralCode: referralCode.trim() });
+            console.log("[User] profile update success", { phone });
             setIsLoginModalOpen(false);
         } catch (err) {
-            console.error("[User] login error", err);
-            alert(err.message || "Login failed");
-            setStep(2);
+            console.error("[User] profile update error", err);
+            alert(err.message || "Failed to complete profile");
         }
     };
 
@@ -187,6 +185,10 @@ const LoginModal = () => {
                                                 className="w-full h-14 pl-24 pr-4 rounded-2xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all font-medium"
                                             />
                                         </div>
+
+                                        <p className="text-[11px] font-bold text-primary flex justify-center items-center gap-1.5 bg-primary/5 py-3 rounded-2xl animate-pulse">
+                                            <span>✨</span> New users? Just enter your number to register
+                                        </p>
 
                                         <div className="flex items-start gap-3">
                                             <input type="checkbox" id="terms" defaultChecked className="mt-1 accent-primary rounded" />
@@ -292,7 +294,7 @@ const LoginModal = () => {
                                 disabled={phone.length !== 10}
                                 className="w-full h-14 rounded-2xl text-base font-bold shadow-xl shadow-primary/20 bg-black text-white hover:bg-black/90 tracking-widest uppercase"
                             >
-                                Get OTP / Login <ChevronRight className="ml-1 w-5 h-5" />
+                                 Get OTP / Proceed <ChevronRight className="ml-1 w-5 h-5" />
                             </Button>
                         )}
                         {step === 3 && (

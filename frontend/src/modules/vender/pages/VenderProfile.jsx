@@ -117,31 +117,31 @@ export default function VenderProfile() {
     ];
 
     return (
-        <div className="space-y-6 max-w-2xl mx-auto pb-20">
+        <div className="space-y-4 md:space-y-6 max-w-2xl mx-auto pb-20 px-2 md:px-0">
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-                <h1 className="text-2xl md:text-3xl font-black tracking-tight">Profile</h1>
-                <p className="text-sm text-muted-foreground font-medium mt-1">Your vendor account details</p>
+                <h1 className="text-xl md:text-3xl font-black tracking-tight">Profile</h1>
+                <p className="text-[9px] md:text-sm text-muted-foreground font-medium mt-0.5">Your vendor account details</p>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                <Card className="shadow-sm overflow-hidden border-none bg-white">
-                    <div className="h-24 bg-gradient-to-r from-emerald-500 to-teal-400 relative">
-                        <div className="absolute -bottom-10 left-6">
-                            <div className="h-20 w-20 rounded-2xl bg-card border-4 border-white shadow-lg flex items-center justify-center bg-white">
-                                <span className="text-3xl font-black text-emerald-600">{vendor?.name?.charAt(0) || "V"}</span>
+                <Card className="shadow-sm overflow-hidden border-none bg-white rounded-xl md:rounded-2xl">
+                    <div className="h-16 md:h-24 bg-gradient-to-r from-emerald-500 to-teal-400 relative">
+                        <div className="absolute -bottom-6 md:-bottom-10 left-4 md:left-6">
+                            <div className="h-14 w-14 md:h-20 md:w-20 rounded-xl md:rounded-2xl bg-card border-2 md:border-4 border-white shadow-lg flex items-center justify-center bg-white">
+                                <span className="text-xl md:text-3xl font-black text-emerald-600">{vendor?.name?.charAt(0) || "V"}</span>
                             </div>
                         </div>
                     </div>
-                    <div className="pt-14 px-6 pb-6">
+                    <div className="pt-10 md:pt-14 px-4 md:px-6 pb-4 md:pb-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h2 className="text-xl font-black">{vendor?.name || "Vendor"}</h2>
-                                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[9px] font-black px-2">
-                                        <Shield className="h-2.5 w-2.5 mr-1" /> Verified
+                                <div className="flex items-center gap-1.5 md:gap-2 mb-0.5 md:mb-1">
+                                    <h2 className="text-lg md:text-xl font-black">{vendor?.name || "Vendor"}</h2>
+                                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[8px] md:text-[9px] font-black px-1.5 py-0">
+                                        <Shield className="h-2 w-2 md:h-2.5 md:w-2.5 mr-0.5 md:mr-1" /> Verified
                                     </Badge>
                                 </div>
-                                <p className="text-xs text-muted-foreground font-medium">ID: {vendor?._id?.toString().slice(-8).toUpperCase()}</p>
+                                <p className="text-[10px] md:text-xs text-muted-foreground font-medium">ID: {vendor?._id?.toString().slice(-8).toUpperCase()}</p>
                             </div>
                         </div>
                     </div>
@@ -150,34 +150,34 @@ export default function VenderProfile() {
 
             {/* Zones Section */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-                <Card className="shadow-sm border-none bg-white overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between bg-emerald-50/30">
+                <Card className="shadow-sm border-none bg-white overflow-hidden rounded-xl md:rounded-2xl">
+                    <CardHeader className="flex flex-row items-center justify-between bg-emerald-50/30 p-3 md:p-6 pb-3 md:pb-6">
                         <div>
-                            <CardTitle className="text-lg font-bold">Managed Zones</CardTitle>
-                            <CardDescription className="text-xs">Areas where you operate</CardDescription>
+                            <CardTitle className="text-sm md:text-lg font-bold">Managed Zones</CardTitle>
+                            <CardDescription className="text-[9px] md:text-xs">Areas where you operate</CardDescription>
                         </div>
-                        <Button size="sm" variant="outline" className="h-8 rounded-lg font-bold text-xs gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => setIsZoneModalOpen(true)}>
-                            <Plus className="h-3.5 w-3.5" /> Request Zone
+                        <Button size="sm" variant="outline" className="h-7 md:h-8 px-2 md:px-3 rounded-md md:rounded-lg font-bold text-[10px] md:text-xs gap-1 md:gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => setIsZoneModalOpen(true)}>
+                            <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" /> <span className="hidden sm:inline">Request Zone</span><span className="sm:hidden">Request</span>
                         </Button>
                     </CardHeader>
-                    <CardContent className="pt-6">
-                        <div className="flex flex-wrap gap-2">
+                    <CardContent className="p-3 pt-3 md:p-6 md:pt-6">
+                        <div className="flex flex-wrap gap-1.5 md:gap-2">
                             {(vendor?.zones || []).map(z => (
-                                <Badge key={z} className="bg-white border-emerald-100 text-emerald-700 text-xs font-bold py-1.5 px-3 rounded-xl flex items-center gap-2">
-                                    <MapPin className="h-3 w-3 text-emerald-400" /> {z}
+                                <Badge key={z} className="bg-white border-emerald-100 text-emerald-700 text-[10px] md:text-xs font-bold py-1 md:py-1.5 px-2 md:px-3 rounded-lg md:rounded-xl flex items-center gap-1 md:gap-2">
+                                    <MapPin className="h-2.5 w-2.5 md:h-3 md:w-3 text-emerald-400" /> {z}
                                 </Badge>
                             ))}
                             {(vendor?.zones || []).length === 0 && (
-                                <p className="text-sm text-muted-foreground font-medium italic">No zones assigned</p>
+                                <p className="text-[10px] md:text-sm text-muted-foreground font-medium italic">No zones assigned</p>
                             )}
                         </div>
 
                         {vendor?.pendingZones?.length > 0 && (
-                            <div className="mt-6 p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-3">Pending Approval</p>
-                                <div className="flex flex-wrap gap-2">
+                            <div className="mt-3 md:mt-6 p-2 md:p-4 bg-amber-50 rounded-lg md:rounded-2xl border border-amber-100">
+                                <p className="text-[9px] md:text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1.5 md:mb-3">Pending Approval</p>
+                                <div className="flex flex-wrap gap-1.5 md:gap-2">
                                     {vendor.pendingZones.map(z => (
-                                        <Badge key={z} variant="outline" className="bg-white/50 border-amber-200 text-amber-700 text-[11px] font-bold py-1 px-2.5 rounded-lg italic">
+                                        <Badge key={z} variant="outline" className="bg-white/50 border-amber-200 text-amber-700 text-[9px] md:text-[11px] font-bold py-0.5 md:py-1 px-1.5 md:px-2.5 rounded-md md:rounded-lg italic">
                                             {z}
                                         </Badge>
                                     ))}
@@ -189,11 +189,11 @@ export default function VenderProfile() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                <Card className="shadow-sm border-none bg-white">
-                    <CardHeader>
-                        <CardTitle className="text-lg font-bold">Account Details</CardTitle>
+                <Card className="shadow-sm border-none bg-white rounded-xl md:rounded-2xl">
+                    <CardHeader className="p-3 md:p-6 pb-0 md:pb-0">
+                        <CardTitle className="text-sm md:text-lg font-bold">Account Details</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-0">
+                    <CardContent className="p-2 pt-0 md:p-6 md:pt-0 space-y-0">
                         {fields.map((field, i) => {
                             const Icon = field.icon;
                             return (
@@ -202,14 +202,14 @@ export default function VenderProfile() {
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: 0.3 + i * 0.05 }}
-                                    className="flex items-center gap-4 py-3.5 border-b border-border/30 last:border-0"
+                                    className="flex items-center gap-3 md:gap-4 py-2.5 md:py-3.5 border-b border-border/30 last:border-0"
                                 >
-                                    <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center flex-shrink-0 group-hover:bg-white transition-colors">
-                                        <Icon className="h-4 w-4 text-muted-foreground" />
+                                    <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl bg-muted/50 flex items-center justify-center flex-shrink-0 group-hover:bg-white transition-colors">
+                                        <Icon className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
                                     </div>
-                                    <div>
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{field.label}</p>
-                                        <p className="text-sm font-bold mt-0.5">{field.value}</p>
+                                    <div className="min-w-0">
+                                        <p className="text-[8px] md:text-[9px] font-black text-muted-foreground uppercase tracking-widest">{field.label}</p>
+                                        <p className="text-xs md:text-sm font-bold mt-0.5 truncate">{field.value}</p>
                                     </div>
                                 </motion.div>
                             );
@@ -218,16 +218,16 @@ export default function VenderProfile() {
                 </Card>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="space-y-3">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="space-y-2 md:space-y-3">
                 <Button 
                     variant="outline" 
-                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm"
+                    className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-2 md:gap-3 shadow-sm"
                     onClick={() => navigate("/vender/notifications")}
                 >
-                    <Bell className="h-5 w-5" />
+                    <Bell className="h-4 w-4 md:h-5 md:w-5" />
                     Notifications
                     {unreadCount > 0 && (
-                        <Badge className="ml-auto bg-emerald-600 text-white text-[10px] h-6 min-w-[24px] flex items-center justify-center rounded-full border-none">
+                        <Badge className="ml-auto bg-emerald-600 text-white text-[9px] md:text-[10px] h-5 md:h-6 min-w-[20px] md:min-w-[24px] flex items-center justify-center rounded-full border-none px-1">
                             {unreadCount}
                         </Badge>
                     )}
@@ -235,59 +235,59 @@ export default function VenderProfile() {
 
                 <Button 
                     variant="outline" 
-                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-2 md:gap-3 shadow-sm justify-start"
                     onClick={() => navigate("/vender/activity")}
                 >
-                    <History className="h-5 w-5" />
+                    <History className="h-4 w-4 md:h-5 md:w-5" />
                     Activity
                 </Button>
 
                 <Button 
                     variant="outline" 
-                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-2 md:gap-3 shadow-sm justify-start"
                     onClick={() => navigate("/vender/about-us")}
                 >
-                    <Info className="h-5 w-5" />
+                    <Info className="h-4 w-4 md:h-5 md:w-5" />
                     About Us
                 </Button>
 
                 <Button 
                     variant="outline" 
-                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-2 md:gap-3 shadow-sm justify-start"
                     onClick={() => navigate("/vender/contact-us")}
                 >
-                    <Phone className="h-5 w-5" />
+                    <Phone className="h-4 w-4 md:h-5 md:w-5" />
                     Contact Us
                 </Button>
 
                 <Button 
                     variant="outline" 
-                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-2 md:gap-3 shadow-sm justify-start"
                     onClick={() => navigate("/vender/privacy-policy")}
                 >
-                    <ShieldCheck className="h-5 w-5" />
+                    <ShieldCheck className="h-4 w-4 md:h-5 md:w-5" />
                     Privacy Policy
                 </Button>
 
                 <Button 
                     variant="outline" 
-                    className="w-full h-14 rounded-2xl font-bold text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-3 shadow-sm justify-start"
+                    className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-2 md:gap-3 shadow-sm justify-start"
                     onClick={() => navigate("/vender/terms-conditions")}
                 >
-                    <FileText className="h-5 w-5" />
+                    <FileText className="h-4 w-4 md:h-5 md:w-5" />
                     Terms & Conditions
                 </Button>
                 
-                <Button variant="outline" className="w-full h-14 rounded-2xl font-bold text-red-600 border-red-100 hover:bg-red-50 gap-3 shadow-sm" onClick={handleLogout}>
-                    <LogOut className="h-5 w-5" /> Logout
+                <Button variant="outline" className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-red-600 border-red-100 hover:bg-red-50 gap-2 md:gap-3 shadow-sm" onClick={handleLogout}>
+                    <LogOut className="h-4 w-4 md:h-5 md:w-5" /> Logout
                 </Button>
 
                 <Button 
                     variant="outline" 
-                    className="w-full h-14 rounded-2xl font-bold text-red-600 border-red-200 hover:bg-red-50 gap-3 shadow-sm"
+                    className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-red-600 border-red-200 hover:bg-red-50 gap-2 md:gap-3 shadow-sm"
                     onClick={() => setShowDeleteConfirm(true)}
                 >
-                    <Trash2 className="h-5 w-5" />
+                    <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
                     Delete Account
                 </Button>
             </motion.div>

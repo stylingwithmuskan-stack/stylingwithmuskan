@@ -230,9 +230,6 @@ export default function VenderRegisterPage() {
                         <p className="text-xs text-gray-500 font-medium">
                             Already registered? <Link to="/vender/login" className="text-emerald-600 font-bold hover:underline">Login here</Link>
                         </p>
-                        <p className="text-xs text-gray-500 font-medium mt-2">
-                            Want to be a Service Provider? <Link to="/join" className="text-blue-600 font-bold hover:underline">Switch Role</Link>
-                        </p>
                     </div>
                 </motion.div>
             </motion.div>

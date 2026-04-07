@@ -38,27 +38,27 @@ export default function VenderCityVendors() {
     }, [vendors, search]);
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
-                        <Users className="h-7 w-7 text-primary" /> City Vendors
+        <div className="space-y-4 md:space-y-6">
+            <div className="flex flex-row flex-wrap items-center justify-between gap-3">
+                <div className="flex-1 min-w-[150px]">
+                    <h1 className="text-xl md:text-3xl font-black tracking-tight flex items-center gap-1.5 md:gap-2">
+                        <Users className="h-5 w-5 md:h-7 md:w-7 text-primary" /> City Vendors
                     </h1>
-                    <p className="text-sm text-muted-foreground font-medium mt-1">
+                    <p className="text-[9px] md:text-sm text-muted-foreground font-medium mt-0.5">
                         Vendors operating in {vendor?.city || "your city"}
                     </p>
                 </div>
-                <Button onClick={loadVendors} variant="outline" className="gap-2 rounded-xl font-bold">
-                    <RefreshCw className="h-4 w-4" /> Refresh
+                <Button onClick={loadVendors} variant="outline" size="sm" className="gap-1.5 rounded-lg font-bold text-xs h-8 shrink-0">
+                    <RefreshCw className="h-3 w-3" /> <span className="hidden sm:inline">Refresh</span>
                 </Button>
             </div>
 
-            <div className="flex items-center gap-3 max-w-sm">
+            <div className="flex items-center gap-3 w-full md:max-w-sm">
                 <Input
                     placeholder="Search by name, email, phone"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="rounded-xl h-10"
+                    className="rounded-xl h-9 text-[11px] md:text-sm font-medium border-emerald-100"
                 />
             </div>
 
@@ -75,29 +75,31 @@ export default function VenderCityVendors() {
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid gap-3">
+                <div className="grid gap-2 md:gap-3">
                     {filtered.map(v => (
                         <Card key={v._id || v.id || v.email} className="shadow-sm hover:shadow-md transition-all">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-base font-bold flex items-center gap-2">
-                                    <Users className="h-4 w-4 text-primary" /> {v.name || "Vendor"}
-                                    <Badge variant="outline" className="text-[9px] font-black px-1.5 h-4 bg-emerald-100 text-emerald-700 border-emerald-200">
-                                        Approved
-                                    </Badge>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="text-sm text-muted-foreground space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <MapPin className="h-4 w-4" />
-                                    <span>{v.city || "-"}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Phone className="h-4 w-4" />
-                                    <span>{v.phone || "-"}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Mail className="h-4 w-4" />
-                                    <span>{v.email || "-"}</span>
+                            <CardContent className="p-3 md:p-5">
+                                <div className="flex flex-col gap-2">
+                                    <h3 className="text-sm md:text-base font-bold flex items-center gap-1.5 md:gap-2 text-foreground">
+                                        <Users className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary shrink-0" /> <span className="truncate">{v.name || "Vendor"}</span>
+                                        <Badge variant="outline" className="text-[8px] md:text-[9px] font-black px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200 shrink-0 ml-auto sm:ml-0">
+                                            Approved
+                                        </Badge>
+                                    </h3>
+                                    <div className="flex flex-col gap-1.5 mt-0.5 md:mt-1">
+                                        <div className="flex items-center gap-2 text-[11px] md:text-sm text-muted-foreground">
+                                            <MapPin className="h-3 w-3 md:h-4 w-4 shrink-0" />
+                                            <span className="truncate">{v.city || "-"}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[11px] md:text-sm text-muted-foreground">
+                                            <Phone className="h-3 w-3 md:h-4 w-4 shrink-0" />
+                                            <span>{v.phone || "-"}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[11px] md:text-sm text-muted-foreground">
+                                            <Mail className="h-3 w-3 md:h-4 w-4 shrink-0" />
+                                            <span className="truncate">{v.email || "-"}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>

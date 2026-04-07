@@ -314,16 +314,16 @@ export default function VenderBookings() {
     };
 
     return (
-        <div className="space-y-6">
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
-                        <CalendarRange className="h-7 w-7 text-primary" /> Booking Management
+        <div className="space-y-4 md:space-y-6 pb-20">
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-row flex-wrap items-center justify-between gap-3">
+                <div className="flex-1 min-w-[200px]">
+                    <h1 className="text-xl md:text-3xl font-black tracking-tight flex items-center gap-1.5 md:gap-2">
+                        <CalendarRange className="h-5 w-5 md:h-7 md:w-7 text-primary" /> Booking Management
                     </h1>
-                    <p className="text-sm text-muted-foreground font-medium mt-1">Track and manage all bookings with service type info</p>
+                    <p className="text-[9px] md:text-sm text-muted-foreground font-medium mt-0.5">Track and manage all bookings with service type info</p>
                 </div>
-                <Button onClick={load} variant="outline" className="gap-2 rounded-xl font-bold">
-                    <RefreshCw className="h-4 w-4" /> Refresh
+                <Button onClick={load} variant="outline" size="sm" className="gap-1.5 rounded-lg font-bold text-xs h-8 shrink-0">
+                    <RefreshCw className="h-3 w-3" /> <span className="hidden sm:inline">Refresh</span>
                 </Button>
             </motion.div>
 
@@ -346,31 +346,62 @@ export default function VenderBookings() {
 
             {/* Tabs + Search */}
             <Tabs value={tab} onValueChange={setTab}>
-                <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
-                    <TabsList className="bg-muted/50 rounded-xl p-1 flex-wrap h-auto">
-                        <TabsTrigger value="all" className="rounded-lg text-xs font-bold">All</TabsTrigger>
-                        <TabsTrigger value="pending" className="rounded-lg text-xs font-bold">Pending</TabsTrigger>
-                        <TabsTrigger value="active" className="rounded-lg text-xs font-bold">Active</TabsTrigger>
-                        <TabsTrigger value="completed" className="rounded-lg text-xs font-bold">Done</TabsTrigger>
-                        <TabsTrigger value="cancelled" className="rounded-lg text-xs font-bold">Cancelled</TabsTrigger>
-                        <TabsTrigger value="provider_cancelled" className="rounded-lg text-xs font-bold data-[state=active]:bg-red-500 data-[state=active]:text-white flex gap-1.5 items-center">
-                            <AlertTriangle className="w-3.5 h-3.5" /> Reassign
-                        </TabsTrigger>
-                    </TabsList>
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                        <SelectTrigger className="w-[160px] h-10 rounded-xl">
-                            <SelectValue placeholder="Booking Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
-                            <SelectItem value="instant">Booked</SelectItem>
-                            <SelectItem value="prebooking">Pre-booking</SelectItem>
-                            <SelectItem value="customized">Customized</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search by name, ID, or service type..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 rounded-xl h-10" />
+                {/* Mobile Dropdowns */}
+                <div className="flex md:hidden flex-row gap-2 mb-3 w-full">
+                    <select
+                        value={tab}
+                        onChange={(e) => setTab(e.target.value)}
+                        className="block w-1/2 flex-1 p-2.5 text-[11px] font-bold text-gray-700 bg-gray-50 border border-emerald-100 rounded-lg outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                    >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Done</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="provider_cancelled">⚠️ Reassign Needed</option>
+                    </select>
+
+                    <select
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                        className="block w-1/2 flex-1 p-2.5 text-[11px] font-bold text-gray-700 bg-gray-50 border border-emerald-100 rounded-lg outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                    >
+                        <option value="all">All Types</option>
+                        <option value="instant">Standard</option>
+                        <option value="prebooking">Pre-booking</option>
+                        <option value="customized">Customized</option>
+                    </select>
+                </div>
+
+                <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4 w-full">
+                    <div className="hidden md:flex">
+                        <TabsList className="bg-muted/50 rounded-xl p-1 flex-wrap h-auto">
+                            <TabsTrigger value="all" className="rounded-lg text-xs font-bold">All</TabsTrigger>
+                            <TabsTrigger value="pending" className="rounded-lg text-xs font-bold">Pending</TabsTrigger>
+                            <TabsTrigger value="active" className="rounded-lg text-xs font-bold">Active</TabsTrigger>
+                            <TabsTrigger value="completed" className="rounded-lg text-xs font-bold">Done</TabsTrigger>
+                            <TabsTrigger value="cancelled" className="rounded-lg text-xs font-bold">Cancelled</TabsTrigger>
+                            <TabsTrigger value="provider_cancelled" className="rounded-lg text-xs font-bold data-[state=active]:bg-red-500 data-[state=active]:text-white flex gap-1.5 items-center">
+                                <AlertTriangle className="w-3.5 h-3.5" /> Reassign
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
+                    <div className="hidden md:flex">
+                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                            <SelectTrigger className="w-[160px] h-10 rounded-xl">
+                                <SelectValue placeholder="Booking Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Types</SelectItem>
+                                <SelectItem value="instant">Standard</SelectItem>
+                                <SelectItem value="prebooking">Pre-booking</SelectItem>
+                                <SelectItem value="customized">Customized</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="relative flex-1 w-full md:max-w-sm shrink-0">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input placeholder="Search by name, ID, or type..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 rounded-xl h-9 text-[11px] md:text-sm font-medium border-emerald-100" />
                     </div>
                 </div>
 
@@ -387,44 +418,44 @@ export default function VenderBookings() {
                             {filtered.map((booking) => (
                                 <motion.div key={booking.id} variants={item}>
                                     <Card className="shadow-sm hover:shadow-md transition-all duration-200">
-                                        <CardContent className="p-4 md:p-5">
-                                            <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                        <CardContent className="p-3 md:p-5">
+                                            <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
                                                 {/* Booking Info */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">#{booking.id}</span>
-                                                        <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 border ${statusColors[booking.status] || ""}`}>
+                                                <div className="flex-1 min-w-0 w-full">
+                                                    <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2">
+                                                        <span className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest truncate max-w-full sm:max-w-[100px]">#{booking.id.slice(-8)}</span>
+                                                        <Badge variant="outline" className={`text-[8px] md:text-[9px] font-black px-1.5 py-0 h-4 border shrink-0 ${statusColors[booking.status] || ""}`}>
                                                             {(booking.status || "").replace(/_/g, " ")}
                                                         </Badge>
                                                         {booking.serviceType && (
-                                                            <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 h-4 bg-purple-50 text-purple-600 border-purple-200">
-                                                                <Tag className="h-2.5 w-2.5 mr-0.5" />{booking.serviceType}
+                                                            <Badge variant="outline" className="text-[8px] md:text-[9px] font-bold px-1.5 py-0 h-4 bg-purple-50 text-purple-600 border-purple-200 shrink-0">
+                                                                <Tag className="h-2 w-2 md:h-2.5 md:w-2.5 mr-0.5" />{booking.serviceType}
                                                             </Badge>
                                                         )}
                                                         {booking.bookingType && (
-                                                            <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 h-4 bg-blue-50 text-blue-600 border-blue-200">
-                                                                <Tag className="h-2.5 w-2.5 mr-0.5" />{booking.bookingType}
+                                                            <Badge variant="outline" className="text-[8px] md:text-[9px] font-bold px-1.5 py-0 h-4 bg-blue-50 text-blue-600 border-blue-200 shrink-0">
+                                                                <Tag className="h-2 w-2 md:h-2.5 md:w-2.5 mr-0.5" />{booking.bookingType}
                                                             </Badge>
                                                         )}
                                                         {booking.notificationStatus === "queued" && (
-                                                            <Badge variant="outline" className="text-[8px] font-bold px-1.5 py-0 h-4 bg-yellow-50 text-yellow-600 border-yellow-200">
-                                                                <BellOff className="h-2.5 w-2.5 mr-0.5" />Queued
+                                                            <Badge variant="outline" className="text-[8px] md:text-[9px] font-bold px-1.5 py-0 h-4 bg-yellow-50 text-yellow-600 border-yellow-200 shrink-0">
+                                                                <BellOff className="h-2 w-2 md:h-2.5 md:w-2.5 mr-0.5" />Queued
                                                             </Badge>
                                                         )}
                                                     </div>
-                                                    <h3 className="text-sm font-bold flex items-center gap-2">
-                                                        <User className="h-3.5 w-3.5 text-muted-foreground" /> {booking.customerName || "Customer"}
+                                                    <h3 className="text-sm md:text-base font-bold flex items-center gap-1.5 md:gap-2">
+                                                        <User className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground shrink-0" /> <span className="truncate">{booking.customerName || "Customer"}</span>
                                                     </h3>
-                                                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-muted-foreground font-medium">
-                                                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {booking.slot?.time} • {booking.slot?.date}</span>
-                                                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {booking.address?.area || "N/A"}</span>
+                                                    <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-1 sm:gap-x-4 mt-1 md:mt-2 text-[10px] md:text-[11px] text-muted-foreground font-medium w-full">
+                                                        <span className="flex items-center gap-1 min-w-0"><Clock className="h-3 w-3 shrink-0" /> <span className="truncate">{booking.slot?.time} • {booking.slot?.date}</span></span>
+                                                        <span className="flex items-center gap-1 min-w-0"><MapPin className="h-3 w-3 shrink-0" /> <span className="truncate max-w-full">{booking.address?.area || "N/A"}</span></span>
                                                     </div>
-                                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                                    <div className="flex flex-wrap gap-1 md:gap-1.5 mt-1.5 md:mt-2">
                                                         {booking.items?.map((s, i) => (
-                                                            <span key={i} className="text-[10px] font-semibold bg-muted px-2 py-0.5 rounded-md">{s.name}</span>
+                                                            <span key={i} className="text-[9px] md:text-[10px] font-semibold bg-muted px-1.5 py-0.5 rounded-md truncate max-w-full sm:max-w-[120px]">{s.name}</span>
                                                         ))}
                                                         {booking.services?.map((s, i) => (
-                                                            <span key={i} className="text-[10px] font-semibold bg-muted px-2 py-0.5 rounded-md">{s.name}</span>
+                                                            <span key={i} className="text-[9px] md:text-[10px] font-semibold bg-muted px-1.5 py-0.5 rounded-md truncate max-w-full sm:max-w-[120px]">{s.name}</span>
                                                         ))}
                                                     </div>
 

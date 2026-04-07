@@ -20,28 +20,12 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
     const [isLocating, setIsLocating] = useState(false);
     const [mapsReady, setMapsReady] = useState(false);
     const [cities, setCities] = useState([]);
-    const [zones, setZones] = useState([]);
-    const [zonesLoading, setZonesLoading] = useState(false);
     const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
     useEffect(() => {
         api.content.cities().then(res => setCities(res.cities || [])).catch(() => {});
     }, []);
 
-    useEffect(() => {
-        if (address.city) {
-            setZonesLoading(true);
-            api.content.zones({ cityName: address.city }).then(res => {
-                setZones(res.zones || []);
-            }).catch(() => {
-                setZones([]);
-            }).finally(() => {
-                setZonesLoading(false);
-            });
-        } else {
-            setZones([]);
-        }
-    }, [address.city]);
 
     React.useEffect(() => {
         if (initialAddress) {
@@ -80,22 +64,32 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
         if (!isOpen || !mapsReady || !areaInputRef.current || !window.google?.maps?.places) return;
         try {
             const autocomplete = new window.google.maps.places.Autocomplete(areaInputRef.current, {
-                types: ["geocode"],
-                componentRestrictions: {}
+                types: ["geocode"]
             });
             autocomplete.addListener("place_changed", () => {
                 const place = autocomplete.getPlace();
                 if (!place || !place.geometry) return;
+                
                 const lat = place.geometry.location.lat();
                 const lng = place.geometry.location.lng();
-                const formatted = place.formatted_address || place.name || address.area;
-                let city = address.city || "";
-                if (Array.isArray(place.address_components)) {
-                    const cityComp = place.address_components.find(c => c.types.includes("locality")) ||
-                        place.address_components.find(c => c.types.includes("administrative_area_level_2"));
-                    if (cityComp) city = cityComp.long_name;
-                }
-                setAddress(prev => ({ ...prev, area: formatted, city, lat, lng }));
+                const comp = place.address_components || [];
+                
+                const getComp = (types) => comp.find(c => types.some(t => c.types.includes(t)))?.long_name || "";
+
+                const houseNo = getComp(["street_number", "premise", "subpremise"]);
+                const landmark = getComp(["neighborhood", "sublocality_level_2", "sublocality_level_3"]);
+                const area = place.formatted_address || place.name || address.area;
+                const city = getComp(["locality", "administrative_area_level_2"]);
+                
+                setAddress(prev => ({ 
+                    ...prev, 
+                    houseNo: houseNo || prev.houseNo,
+                    landmark: landmark || prev.landmark,
+                    area, 
+                    city: city || prev.city, 
+                    lat, 
+                    lng 
+                }));
             });
         } catch {
             // silent fallback
@@ -121,17 +115,33 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                     try {
                         const geocoder = new window.google.maps.Geocoder();
                         geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
-                            if (status === "OK" && results && results[0]) {
-                                const formatted = results[0].formatted_address;
-                                let city = "";
-                                const comp = results[0].address_components || [];
-                                const cityComp = comp.find(c => c.types.includes("locality")) ||
-                                    comp.find(c => c.types.includes("administrative_area_level_2"));
-                                if (cityComp) city = cityComp.long_name;
-                                apply(formatted, city);
-                            } else {
-                                apply("Current Location", "");
-                            }
+                                if (status === "OK" && results && results[0]) {
+                                    const res = results[0];
+                                    const comp = res.address_components || [];
+                                    
+                                    const getComp = (types) => comp.find(c => types.some(t => c.types.includes(t)))?.long_name || "";
+
+                                    const houseNo = getComp(["street_number", "premise", "subpremise"]);
+                                    const landmark = getComp(["neighborhood", "sublocality_level_2", "sublocality_level_3"]);
+                                    const area = res.formatted_address;
+                                    const city = getComp(["locality", "administrative_area_level_2"]);
+                                    
+                                    setAddress(prev => ({ 
+                                        ...prev, 
+                                        houseNo: houseNo || prev.houseNo,
+                                        landmark: landmark || prev.landmark,
+                                        area: area, 
+                                        city: city || prev.city, 
+                                        lat: latitude, 
+                                        lng: longitude 
+                                    }));
+                                    setIsLocating(false);
+                                } else {
+                                    if (status === "REQUEST_DENIED") {
+                                        alert("Google Maps Geocoding API is not enabled. Please enable it in your Google Cloud Console.");
+                                    }
+                                    apply("Current Location", "");
+                                }
                         });
                     } catch {
                         apply("Current Location", "");
@@ -150,7 +160,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
 
     const handleSave = (e) => {
         e.preventDefault();
-        if (address.houseNo && address.area && address.city && address.zone) {
+        if (address.houseNo && address.area && address.city) {
             if (address._id) {
                 updateExistingAddress(address._id, {
                     houseNo: address.houseNo,
@@ -259,32 +269,17 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">City*</label>
-                                        <select
-                                            required
-                                            value={address.city || ""}
-                                            onChange={e => setAddress({ ...address, city: e.target.value, zone: "" })}
-                                            className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
-                                        >
-                                            <option value="" disabled>Select City</option>
-                                            {cities.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Zone / Hub*</label>
-                                        <select
-                                            required
-                                            disabled={!address.city || zonesLoading}
-                                            value={address.zone || ""}
-                                            onChange={e => setAddress({ ...address, zone: e.target.value })}
-                                            className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none disabled:opacity-50"
-                                        >
-                                            <option value="" disabled>{zonesLoading ? "Loading..." : "Select Zone"}</option>
-                                            {zones.map(z => <option key={z._id} value={z.name}>{z.name}</option>)}
-                                        </select>
-                                    </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">City*</label>
+                                    <select
+                                        required
+                                        value={address.city || ""}
+                                        onChange={e => setAddress({ ...address, city: e.target.value, zone: "" })}
+                                        className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
+                                    >
+                                        <option value="" disabled>Select City</option>
+                                        {cities.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                                    </select>
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-3 pt-2">

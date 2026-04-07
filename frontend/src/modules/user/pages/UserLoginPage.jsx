@@ -146,8 +146,8 @@ const UserLoginPage = () => {
                                 <input type="tel" autoFocus maxLength={10} value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} placeholder="Mobile Number*" className="w-full h-14 pl-20 pr-4 rounded-2xl bg-accent focus:bg-white focus:ring-2 focus:ring-primary/20" />
                             </div>
                             {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
-                            <Button type="submit" disabled={phone.length !== 10} className="w-full h-12 rounded-2xl font-bold">
-                                Send OTP <ChevronRight className="ml-2 w-4 h-4" />
+                            <Button type="submit" disabled={phone.length !== 10} className="w-full h-14 rounded-2xl font-bold uppercase tracking-widest">
+                                Send OTP / Proceed <ChevronRight className="ml-2 w-4 h-4" />
                             </Button>
                             <p className="text-xs text-center text-muted-foreground font-medium">
                                 Don't have an account? <button type="button" className="text-primary font-black hover:underline ml-1" onClick={() => navigate("/register")}>Sign up</button>

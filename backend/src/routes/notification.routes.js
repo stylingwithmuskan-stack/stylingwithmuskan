@@ -208,6 +208,27 @@ router.patch("/push/preferences", requireAnyAuth, async (req, res) => {
   }
 });
 
+// Send a test push notification to the current user's own devices
+router.post("/push/test-self", requireAnyAuth, async (req, res) => {
+  try {
+    const recipientId = String(req.auth.sub);
+    const recipientRole = req.auth.role || "user";
+    const { notify } = await import("../lib/notify.js");
+    const notification = await notify({
+      recipientId,
+      recipientRole,
+      type: "marketing_campaign",
+      title: "🔔 Test Push Notification",
+      message: "Push notifications are working correctly on your device!",
+      link: "/notifications",
+      meta: { title: "Test Push", message: "Push notifications are working!" },
+    });
+    res.json({ success: true, notification });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete a notification
 router.delete("/:id", requireAnyAuth, async (req, res) => {
   try {

@@ -991,7 +991,8 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
   if (req.params.providerId !== req.auth?.sub) return res.status(403).json({ error: "Forbidden" });
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const q = { assignedProvider: req.params.providerId };
+  const acc = await ProviderAccount.findById(req.params.providerId).lean();
+  const q = { assignedProvider: { $in: [req.params.providerId, acc?.phone].filter(Boolean) } };
   let total = await Booking.countDocuments(q);
   const items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
   const bookings = (items || []).map((b) => ({ ...b, id: b._id?.toString?.() || b.id }));
