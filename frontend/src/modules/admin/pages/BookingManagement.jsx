@@ -95,16 +95,23 @@ export default function BookingManagement() {
         return ms && tabMatch && typeMatch;
     });
 
-    const handleAssign = () => {
+    const handleAssign = async () => {
         if (assignModal && selectedSP) {
-            assignSPToBooking(assignModal.id, selectedSP);
-            load();
-            setAssignModal(null);
-            setSelectedSP("");
+            try {
+                setUpdating(true);
+                await assignSPToBooking(assignModal._id || assignModal.id, selectedSP);
+                await load();
+                setAssignModal(null);
+                setSelectedSP("");
+            } catch (e) {
+                alert(e.message || "Failed to assign provider");
+            } finally {
+                setUpdating(false);
+            }
         }
     };
 
-    const handleAdminPriceApprove = () => {
+    const handleAdminPriceApprove = async () => {
         if (!adminReviewModal) return;
 
         const payload = {
@@ -115,12 +122,19 @@ export default function BookingManagement() {
             status: "admin_approved"
         };
 
-        assignTeamToBooking(adminReviewModal.id, payload);
-        load();
-        setAdminReviewModal(null);
+        try {
+            setUpdating(true);
+            await assignTeamToBooking(adminReviewModal._id || adminReviewModal.id, payload);
+            await load();
+            setAdminReviewModal(null);
+        } catch (e) {
+            alert(e.message || "Failed to approve price");
+        } finally {
+            setUpdating(false);
+        }
     };
 
-    const handleAdminFinalApprove = () => {
+    const handleAdminFinalApprove = async () => {
         if (!adminTeamReviewModal) return;
 
         const payload = {
@@ -131,9 +145,16 @@ export default function BookingManagement() {
             status: "final_approved"
         };
 
-        assignTeamToBooking(adminTeamReviewModal.id, payload);
-        load();
-        setAdminTeamReviewModal(null);
+        try {
+            setUpdating(true);
+            await assignTeamToBooking(adminTeamReviewModal._id || adminTeamReviewModal.id, payload);
+            await load();
+            setAdminTeamReviewModal(null);
+        } catch (e) {
+            alert(e.message || "Failed to finalize assignment");
+        } finally {
+            setUpdating(false);
+        }
     };
 
     useEffect(() => {
@@ -632,8 +653,8 @@ export default function BookingManagement() {
                             </div>
                             <div className="flex gap-3 pt-2">
                                 <Button variant="outline" className="flex-1 h-12 rounded-2xl font-bold border-border/50" onClick={() => setAssignModal(null)}>Cancel</Button>
-                                <Button className="flex-2 h-12 rounded-2xl font-bold gap-2 bg-black text-white hover:bg-black/90 shadow-xl shadow-black/10" onClick={handleAssign} disabled={!selectedSP}>
-                                    <CheckCircle className="h-5 w-5" />Confirm Assignment
+                                <Button className="flex-2 h-12 rounded-2xl font-bold gap-2 bg-black text-white hover:bg-black/90 shadow-xl shadow-black/10" onClick={handleAssign} disabled={!selectedSP || updating}>
+                                    {updating ? "Assigning..." : <><CheckCircle className="h-5 w-5" />Confirm Assignment</>}
                                 </Button>
                             </div>
                         </motion.div>
