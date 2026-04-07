@@ -50,16 +50,16 @@ const VenderLayout = () => {
     }
 
     const navLinks = [
-        { name: "Dashboard", path: "/vender/dashboard", icon: LayoutDashboard },
-        { name: "SP Management", path: "/vender/service-providers", icon: Users },
-        { name: "City Vendors", path: "/vender/vendors", icon: Store },
-        { name: "Zone Requests", path: "/vender/zone-requests", icon: MapPin }, // NEW
-        { name: "Bookings", path: "/vender/bookings", icon: CalendarRange },
-        { name: "Payouts", path: "/vender/payouts", icon: Wallet },
-        { name: "Subscription", path: "/vender/subscription", icon: CreditCard },
-        { name: "SOS Monitor", path: "/vender/sos", icon: ShieldAlert },
-        { name: "Feedback", path: "/vender/feedback", icon: MessageSquare },
-        { name: "Profile", path: "/vender/profile", icon: User },
+        { name: "Dashboard", shortName: "Home", path: "/vender/dashboard", icon: LayoutDashboard },
+        { name: "SP Management", shortName: "SPs", path: "/vender/service-providers", icon: Users },
+        { name: "City Vendors", shortName: "Vendors", path: "/vender/vendors", icon: Store },
+        { name: "Zone Requests", shortName: "Zones", path: "/vender/zone-requests", icon: MapPin },
+        { name: "Bookings", shortName: "Bookings", path: "/vender/bookings", icon: CalendarRange },
+        { name: "Payouts", shortName: "Payouts", path: "/vender/payouts", icon: Wallet },
+        { name: "Subscription", shortName: "Plan", path: "/vender/subscription", icon: CreditCard },
+        { name: "SOS Monitor", shortName: "SOS", path: "/vender/sos", icon: ShieldAlert },
+        { name: "Feedback", shortName: "Feedback", path: "/vender/feedback", icon: MessageSquare },
+        { name: "Profile", shortName: "Profile", path: "/vender/profile", icon: User },
     ];
 
     const isActive = (path) => location.pathname === path;
@@ -70,7 +70,7 @@ const VenderLayout = () => {
     };
 
     return (
-        <div className="flex min-h-screen w-full bg-background">
+        <div className="flex min-h-[100dvh] w-full bg-background overflow-x-hidden">
             {/* Desktop Sidebar */}
             <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] flex-col bg-sidebar md:flex">
                 {/* Logo */}
@@ -139,7 +139,7 @@ const VenderLayout = () => {
                 </div>
             </aside>
 
-            {/* Mobile Sidebar Overlay */}
+        {/* Mobile Sidebar Overlay */}
             <AnimatePresence>
                 {sidebarOpen && (
                     <>
@@ -147,7 +147,7 @@ const VenderLayout = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+                            className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm md:hidden"
                             onClick={() => setSidebarOpen(false)}
                         />
                         <motion.aside
@@ -155,9 +155,9 @@ const VenderLayout = () => {
                             animate={{ x: 0 }}
                             exit={{ x: "-100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="fixed inset-y-0 left-0 z-50 w-[280px] bg-sidebar flex flex-col md:hidden shadow-2xl"
+                            className="fixed inset-y-0 left-0 z-[90] w-[280px] bg-sidebar flex flex-col md:hidden shadow-2xl pb-safe"
                         >
-                            <div className="flex h-[70px] items-center justify-between border-b border-sidebar-border px-5">
+                            <div className="flex h-[70px] shrink-0 items-center justify-between border-b border-sidebar-border px-5">
                                 <div className="flex items-center gap-3">
                                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-green-500 flex items-center justify-center">
                                         <Store className="h-5 w-5 text-white" />
@@ -194,7 +194,7 @@ const VenderLayout = () => {
                                     })}
                                 </nav>
                             </div>
-                            <div className="p-4 border-t border-sidebar-border">
+                            <div className="p-4 mb-4 border-t border-sidebar-border shrink-0">
                                 <button onClick={handleLogout} className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-emerald-100/70 hover:text-red-400 hover:bg-red-500/10 transition-all">
                                     <div className="h-8 w-8 rounded-lg bg-black/20 text-emerald-200/70 flex items-center justify-center">
                                         <LogOut className="h-4 w-4" />
@@ -247,7 +247,7 @@ const VenderLayout = () => {
                     </div>
                 </header>
 
-                <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8">
+                <main className="flex-1 p-4 md:p-8 pb-28 md:pb-8 w-full max-w-[100vw] overflow-x-hidden">
                     <div className="mx-auto w-full max-w-7xl">
                         <AnimatePresence mode="wait">
                             <motion.div
@@ -265,8 +265,8 @@ const VenderLayout = () => {
             </div>
 
             {/* Mobile Bottom Nav */}
-            <nav className="fixed bottom-0 z-50 w-full border-t border-border bg-background/95 backdrop-blur-xl px-2 pb-safe pt-1 md:hidden">
-                <div className="flex items-center justify-between">
+            <nav className="fixed bottom-0 z-[70] w-full border-t border-border bg-background/95 backdrop-blur-xl px-1 pb-safe pt-1 md:hidden">
+                <div className="flex items-center justify-between gap-1 w-full max-w-full">
                     {navLinks.slice(0, 5).map((link) => {
                         const Icon = link.icon;
                         const active = isActive(link.path);
@@ -274,7 +274,7 @@ const VenderLayout = () => {
                             <Link
                                 key={link.path}
                                 to={link.path}
-                                className="flex flex-col items-center justify-center py-1.5 px-2 flex-1"
+                                className="flex flex-col items-center justify-center py-1.5 px-0.5 flex-1 w-0 min-w-0"
                             >
                                 <motion.div
                                     whileTap={{ scale: 0.85 }}
@@ -286,10 +286,10 @@ const VenderLayout = () => {
                                     <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
                                 </motion.div>
                                 <span className={cn(
-                                    "text-[9px] font-bold mt-0.5",
+                                    "text-[10px] w-full text-center truncate font-bold mt-0.5 px-0.5",
                                     active ? "text-primary" : "text-muted-foreground"
                                 )}>
-                                    {link.name}
+                                    {link.shortName || link.name}
                                 </span>
                             </Link>
                         );

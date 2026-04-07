@@ -99,22 +99,47 @@ export default function ZoneRequests() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Zone Requests</h1>
-        <p className="text-gray-600">Manage provider zone access requests</p>
+    <div className="container mx-auto px-4 py-6 md:py-8">
+      <div className="mb-4 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">Zone Requests</h1>
+        <p className="text-xs md:text-sm text-gray-600">Manage provider zone access requests</p>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div className="flex flex-wrap gap-4">
+      <div className="bg-white rounded-xl shadow-sm p-3 md:p-4 mb-4 md:mb-6">
+        {/* Mobile View: Dropdowns */}
+        <div className="flex md:hidden flex-row gap-2 w-full">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="block w-1/2 p-2.5 text-[11px] font-bold text-gray-700 bg-gray-50 border border-emerald-100 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+          >
+            <option value="pending">Pending ({pendingCount})</option>
+            <option value="approved">Approved ({approvedCount})</option>
+            <option value="rejected">Rejected ({rejectedCount})</option>
+            <option value="all">All ({requests.length})</option>
+          </select>
+
+          <select
+            value={zoneTypeFilter}
+            onChange={(e) => setZoneTypeFilter(e.target.value)}
+            className="block w-1/2 p-2.5 text-[11px] font-bold text-gray-700 bg-gray-50 border border-emerald-100 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+          >
+            <option value="all">All Zones</option>
+            <option value="new">🆕 New Zones</option>
+            <option value="existing">Existing</option>
+          </select>
+        </div>
+
+        {/* Desktop View: Buttons */}
+        <div className="hidden md:flex flex-wrap gap-4">
           {/* Status Filter */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFilter('pending')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                 filter === 'pending'
-                  ? 'bg-yellow-500 text-white'
+                  ? 'bg-amber-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -122,9 +147,9 @@ export default function ZoneRequests() {
             </button>
             <button
               onClick={() => setFilter('approved')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                 filter === 'approved'
-                  ? 'bg-green-500 text-white'
+                  ? 'bg-emerald-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -132,7 +157,7 @@ export default function ZoneRequests() {
             </button>
             <button
               onClick={() => setFilter('rejected')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                 filter === 'rejected'
                   ? 'bg-red-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -142,7 +167,7 @@ export default function ZoneRequests() {
             </button>
             <button
               onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                 filter === 'all'
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -153,10 +178,10 @@ export default function ZoneRequests() {
           </div>
 
           {/* Zone Type Filter */}
-          <div className="flex gap-2 ml-auto">
+          <div className="flex flex-wrap gap-2 ml-auto">
             <button
               onClick={() => setZoneTypeFilter('all')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                 zoneTypeFilter === 'all'
                   ? 'bg-purple-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -166,7 +191,7 @@ export default function ZoneRequests() {
             </button>
             <button
               onClick={() => setZoneTypeFilter('new')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                 zoneTypeFilter === 'new'
                   ? 'bg-purple-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -176,7 +201,7 @@ export default function ZoneRequests() {
             </button>
             <button
               onClick={() => setZoneTypeFilter('existing')}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                 zoneTypeFilter === 'existing'
                   ? 'bg-purple-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -201,50 +226,50 @@ export default function ZoneRequests() {
               key={request._id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
+              className="bg-white rounded-xl shadow-sm p-4 md:p-6 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex-1 w-full min-w-0">
                   {/* Zone Name with Badge */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <h3 className="text-xl font-bold text-gray-900">
+                  <div className="flex flex-wrap items-center gap-2 mb-2 md:mb-3">
+                    <h3 className="text-lg md:text-xl font-bold text-gray-900 truncate max-w-full">
                       {request.zoneName}
                     </h3>
                     {request.isNewZone && (
-                      <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full">
+                      <span className="px-2 py-0.5 md:px-3 md:py-1 bg-purple-100 text-purple-700 text-[10px] md:text-sm font-semibold rounded-md">
                         🆕 NEW ZONE
                       </span>
                     )}
                     {request.vendorStatus === 'approved' && (
-                      <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-semibold rounded-full flex items-center gap-1">
-                        <CheckCircle className="w-4 h-4" />
+                      <span className="px-2 py-0.5 md:px-3 md:py-1 bg-green-100 text-green-700 text-[10px] md:text-sm font-semibold rounded-md flex items-center gap-1 shrink-0">
+                        <CheckCircle className="w-3 h-3 md:w-4 md:h-4" />
                         Approved
                       </span>
                     )}
                     {request.vendorStatus === 'rejected' && (
-                      <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-semibold rounded-full flex items-center gap-1">
-                        <XCircle className="w-4 h-4" />
+                      <span className="px-2 py-0.5 md:px-3 md:py-1 bg-red-100 text-red-700 text-[10px] md:text-sm font-semibold rounded-md flex items-center gap-1 shrink-0">
+                        <XCircle className="w-3 h-3 md:w-4 md:h-4" />
                         Rejected
                       </span>
                     )}
                   </div>
 
                   {/* Provider Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-4">
                     <div>
-                      <p className="text-sm text-gray-500">Provider</p>
-                      <p className="font-medium text-gray-900">{request.providerName}</p>
-                      <p className="text-sm text-gray-600">{request.providerPhone}</p>
+                      <p className="text-[10px] md:text-sm text-gray-500 uppercase font-black tracking-widest">Provider</p>
+                      <p className="font-semibold text-sm md:text-base text-gray-900 truncate">{request.providerName}</p>
+                      <p className="text-[11px] md:text-sm text-gray-600 mt-0.5">{request.providerPhone}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Address</p>
-                      <p className="text-sm text-gray-900">{request.providerAddress || 'Not provided'}</p>
+                      <p className="text-[10px] md:text-sm text-gray-500 uppercase font-black tracking-widest">Address</p>
+                      <p className="text-[11px] md:text-sm text-gray-900 mt-0.5">{request.providerAddress || 'Not provided'}</p>
                     </div>
                   </div>
 
                   {/* Timestamp */}
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Clock className="w-4 h-4" />
+                  <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-sm text-gray-500">
+                    <Clock className="w-3 h-3 md:w-4 md:h-4" />
                     <span>
                       Requested {new Date(request.requestedAt).toLocaleString()}
                     </span>
@@ -271,7 +296,7 @@ export default function ZoneRequests() {
 
                 {/* Actions */}
                 {request.vendorStatus === 'pending' && (
-                  <div className="flex flex-col gap-2 ml-4">
+                  <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto mt-4 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-gray-100">
                     {request.isNewZone && request.providerLocation?.lat && (
                       <button
                         onClick={() => {

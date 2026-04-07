@@ -115,16 +115,16 @@ export default function VenderDashboard() {
     return (
         <div className="space-y-8 pb-20">
             {/* Header */}
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-emerald-50">
-                <div className="space-y-1">
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">Dashboard</h1>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg py-1 px-3">
-                            <MapPin className="h-3 w-3 mr-1" /> {vendor?.city || "Your City"}
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-emerald-50">
+                <div className="flex flex-row flex-wrap items-center gap-2 md:gap-4 w-full md:w-auto">
+                    <h1 className="text-xl md:text-3xl font-black tracking-tight">Dashboard</h1>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md py-0.5 px-2 text-[10px] md:text-xs h-6 flex items-center">
+                            <MapPin className="h-3 w-3 mr-1 shrink-0" /> <span className="truncate max-w-[100px]">{vendor?.city || "Your City"}</span>
                         </Badge>
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap gap-1">
                             {(vendor?.zones || []).map(z => (
-                                <Badge key={z} variant="outline" className="text-emerald-600 border-emerald-200 bg-white rounded-lg">
+                                <Badge key={z} variant="outline" className="text-emerald-600 border-emerald-200 bg-white rounded-md truncate max-w-[100px] text-[10px] md:text-xs h-6 flex items-center">
                                     {z}
                                 </Badge>
                             ))}
@@ -132,11 +132,11 @@ export default function VenderDashboard() {
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                    <div className="flex items-center gap-2 bg-muted/50 p-1.5 rounded-xl border border-border/50">
-                        <Filter className="h-4 w-4 text-muted-foreground ml-2" />
+                <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+                    <div className="flex flex-1 md:flex-none items-center gap-2 bg-muted/50 p-1.5 rounded-xl border border-border/50 overflow-hidden">
+                        <Filter className="h-4 w-4 text-muted-foreground ml-2 shrink-0" />
                         <Select value={selectedZone} onValueChange={setSelectedZone}>
-                            <SelectTrigger className="w-[160px] h-9 border-none bg-transparent focus:ring-0 font-bold text-xs">
+                            <SelectTrigger className="w-full md:w-[160px] h-9 border-none bg-transparent focus:ring-0 font-bold text-xs truncate">
                                 <SelectValue placeholder="All Zones" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-emerald-100">
@@ -147,14 +147,14 @@ export default function VenderDashboard() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <Button variant="outline" size="icon" className={`rounded-xl h-12 w-12 transition-all ${loading ? 'animate-spin border-emerald-500 text-emerald-600' : 'hover:border-emerald-500 hover:text-emerald-600'}`} onClick={() => load()}>
+                    <Button variant="outline" size="icon" className={`shrink-0 rounded-xl h-12 w-12 transition-all ${loading ? 'animate-spin border-emerald-500 text-emerald-600' : 'hover:border-emerald-500 hover:text-emerald-600'}`} onClick={() => load()}>
                         <RefreshCw className="h-4 w-4" />
                     </Button>
                 </div>
             </motion.div>
 
             {/* Stats Grid */}
-            <motion.div variants={container} initial="hidden" animate="show" className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            <motion.div variants={container} initial="hidden" animate="show" className="grid gap-2 md:gap-4 grid-cols-2 lg:grid-cols-4">
                 {statCards.map((stat) => {
                     const Icon = stat.icon;
                     const colors = colorMap[stat.color];
@@ -162,17 +162,17 @@ export default function VenderDashboard() {
                         <motion.div key={stat.title} variants={item}>
                             <Link to={stat.link}>
                                 <Card className={`border-none shadow-sm hover:shadow-md transition-all duration-300 bg-gradient-to-br ${colors.gradient} cursor-pointer group`}>
-                                    <CardContent className="p-4 md:p-6">
-                                        <div className="flex flex-col gap-3">
-                                            <div className={`h-10 w-10 rounded-xl ${colors.bg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                                                <Icon className={`h-5 w-5 ${colors.text}`} />
+                                    <CardContent className="p-3 md:p-6">
+                                        <div className="flex flex-col gap-2 md:gap-3">
+                                            <div className={`h-8 w-8 md:h-10 md:w-10 shrink-0 rounded-lg md:rounded-xl ${colors.bg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                                                <Icon className={`h-4 w-4 md:h-5 md:w-5 ${colors.text}`} />
                                             </div>
-                                            <div>
-                                                <div className="text-xl md:text-2xl font-black tracking-tight">{stat.value}</div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{stat.title}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-lg md:text-2xl font-black tracking-tight">{stat.value}</div>
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 mt-0.5 md:mt-1 w-full">
+                                                    <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-widest break-words">{stat.title}</p>
                                                     {stat.badge && (
-                                                        <Badge variant="outline" className="text-[8px] font-black px-1.5 py-0 h-4 border-primary/30 text-primary">
+                                                        <Badge variant="outline" className="text-[8px] md:text-[9px] font-black px-1 py-0 h-auto border-primary/30 text-primary self-start sm:self-auto max-w-full text-center">
                                                             {stat.badge}
                                                         </Badge>
                                                     )}

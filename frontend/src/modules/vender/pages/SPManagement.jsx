@@ -96,33 +96,33 @@ export default function SPManagement() {
     };
 
     return (
-        <div className="space-y-6">
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
-                        <Users className="h-7 w-7 text-primary" /> SP Management
+        <div className="space-y-4 md:space-y-6">
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-row flex-wrap items-center justify-between gap-3">
+                <div className="flex-1 min-w-[150px]">
+                    <h1 className="text-xl md:text-3xl font-black tracking-tight flex items-center gap-1.5 md:gap-2">
+                        <Users className="h-5 w-5 md:h-7 md:w-7 text-primary" /> SP Management
                     </h1>
-                    <p className="text-sm text-muted-foreground font-medium mt-1">Manage service providers in your city</p>
+                    <p className="text-[9px] md:text-sm text-muted-foreground font-medium mt-0.5">Manage service providers in your city</p>
                 </div>
-                <Button onClick={loadProviders} variant="outline" className="gap-2 rounded-xl font-bold">
-                    <RefreshCw className="h-4 w-4" /> Refresh
+                <Button onClick={loadProviders} variant="outline" size="sm" className="gap-1.5 rounded-lg font-bold text-xs h-8 shrink-0">
+                    <RefreshCw className="h-3 w-3" /> <span className="hidden sm:inline">Refresh</span>
                 </Button>
             </motion.div>
 
             {/* Tabs + Search */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
-                        <TabsList className="bg-muted/50 rounded-xl p-1">
-                            <TabsTrigger value="all" className="rounded-lg text-xs font-bold">All ({providers.length})</TabsTrigger>
-                            <TabsTrigger value="pending" className="rounded-lg text-xs font-bold">Pending ({providers.filter(s => s.approvalStatus === "pending" || s.approvalStatus === "pending_vendor").length})</TabsTrigger>
-                            <TabsTrigger value="approved" className="rounded-lg text-xs font-bold">Approved ({providers.filter(s => s.approvalStatus === "approved").length})</TabsTrigger>
-                            <TabsTrigger value="blocked" className="rounded-lg text-xs font-bold">Blocked</TabsTrigger>
-                            <TabsTrigger value="rankings" className="rounded-lg text-xs font-bold bg-purple-100 text-purple-700">Rankings</TabsTrigger>
+                    <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4 w-full">
+                        <TabsList className="bg-muted/50 rounded-xl p-1 flex flex-nowrap h-auto justify-start max-w-full overflow-x-auto hide-scrollbar shrink-0 w-full md:w-auto">
+                            <TabsTrigger value="all" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1">All ({providers.length})</TabsTrigger>
+                            <TabsTrigger value="pending" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1">Pending ({providers.filter(s => s.approvalStatus === "pending" || s.approvalStatus === "pending_vendor").length})</TabsTrigger>
+                            <TabsTrigger value="approved" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1">Approved ({providers.filter(s => s.approvalStatus === "approved").length})</TabsTrigger>
+                            <TabsTrigger value="blocked" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1">Blocked</TabsTrigger>
+                            <TabsTrigger value="rankings" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1 bg-purple-100 text-purple-700">Rankings</TabsTrigger>
                         </TabsList>
-                        <div className="relative flex-1 max-w-sm">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="Search name or phone..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 rounded-xl h-10" />
+                        <div className="relative flex-1 w-full md:max-w-sm shrink-0">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input placeholder="Search name or phone..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 rounded-xl h-9 text-[11px] md:text-sm font-medium border-emerald-100" />
                         </div>
                     </div>
 
@@ -147,17 +147,18 @@ export default function SPManagement() {
 
                                     return (
                                         <motion.div key={sp._id || sp.id || sp.phone} variants={item}>
-                                            <Card className={`shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group ${isUnderperforming ? 'border-red-500' : ''}`} onClick={() => setSelectedSP(sp)}>                                                <CardContent className="p-4 md:p-5">
-                                                    <div className="flex items-center gap-4">
+                                            <Card className={`shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group ${isUnderperforming ? 'border-red-500' : ''}`} onClick={() => setSelectedSP(sp)}>
+                                                <CardContent className="p-3 md:p-5 flex flex-col sm:flex-row gap-3 md:gap-4 sm:items-center w-full">
+                                                    <div className="flex flex-row items-center gap-3 w-full sm:flex-1 min-w-0">
                                                         {/* Avatar */}
-                                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
-                                                            <span className="text-lg font-black text-primary">{sp.name?.charAt(0) || "?"}</span>
+                                                        <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
+                                                            <span className="text-base md:text-lg font-black text-primary">{sp.name?.charAt(0) || "?"}</span>
                                                         </div>
                                                         {/* Info */}
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <h3 className="text-sm font-bold truncate">{sp.name || "Unknown"}</h3>
-                                                                <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 ${stConfig.color} border`}>
+                                                            <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                                                                <h3 className="text-sm md:text-base font-bold truncate max-w-[120px]">{sp.name || "Unknown"}</h3>
+                                                                <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 ${stConfig.color} border shrink-0`}>
                                                                     {stConfig.label}
                                                                 </Badge>
                                                             </div>
@@ -192,8 +193,9 @@ export default function SPManagement() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        {/* Actions */}
-                                                        <div className="flex items-center gap-2">
+                                                    </div>
+                                                    {/* Actions */}
+                                                    <div className="flex flex-row flex-wrap items-center gap-2 mt-1 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-emerald-50 shrink-0 w-full sm:w-auto justify-end sm:justify-start">
                                                             {(sp.approvalStatus === "pending" || sp.approvalStatus === "pending_vendor") && (
                                                                 <>
                                                                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -229,7 +231,6 @@ export default function SPManagement() {
                                                             )}
                                                             <ChevronRight className="h-4 w-4 text-muted-foreground/40 hidden md:block" />
                                                         </div>
-                                                    </div>
                                                 </CardContent>
                                             </Card>
                                         </motion.div>

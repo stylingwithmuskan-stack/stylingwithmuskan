@@ -132,17 +132,17 @@ export default function VenderPayouts() {
                                 const sc = statusConfig[payout.status];
                                 const SIcon = sc.icon;
                                 return (
-                                    <motion.div key={payout.id} variants={item} className="flex items-center justify-between p-3 rounded-xl border border-border/50 hover:bg-muted/30 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center">
+                                    <motion.div key={payout.id} variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border border-border/50 hover:bg-muted/30 transition-colors">
+                                        <div className="flex items-center gap-3 w-full md:w-auto">
+                                            <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
                                                 <span className="text-sm font-black text-primary">{payout.spName.charAt(0)}</span>
                                             </div>
-                                            <div>
-                                                <p className="text-sm font-bold">{payout.spName}</p>
-                                                <p className="text-[10px] text-muted-foreground font-medium">{payout.date} • #{payout.id}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-bold truncate">{payout.spName}</p>
+                                                <p className="text-[10px] text-muted-foreground font-medium truncate">{payout.date} • #{payout.id}</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                                             <span className="text-sm font-black">₹{payout.amount.toLocaleString()}</span>
                                             <Badge variant="outline" className={`text-[8px] font-black ${sc.color} border gap-1`}>
                                                 <SIcon className="h-2.5 w-2.5" /> {sc.label}
