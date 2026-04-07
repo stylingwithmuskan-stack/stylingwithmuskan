@@ -240,6 +240,14 @@ const App = () => {
                                 <Route path="/provider/login" element={<ProviderLoginPage />} />
                                 <Route path="/provider/register" element={<ProviderRegisterPage />} />
                                 <Route path="/provider/status" element={<ProviderStatusPage />} />
+                                
+                                {/* Public Provider Info Pages (Accessible without login) */}
+                                <Route path="/provider/privacy-policy" element={<ProviderPrivacyPolicyPage />} />
+                                <Route path="/provider/contact-us" element={<ProviderContactUsPage />} />
+                                <Route path="/provider/about-us" element={<ProviderAboutUsPage />} />
+                                <Route path="/provider/terms-conditions" element={<ProviderTermsConditionsPage />} />
+                                <Route path="/provider/support" element={<SWMSupport />} />
+
                                 <Route path="/provider" element={<ProviderLayout />}>
                                   <Route index element={<Navigate to="/provider/dashboard" replace />} />
                                   <Route path="dashboard" element={<ProviderDashboard />} />
@@ -260,16 +268,19 @@ const App = () => {
                                   <Route path="shop" element={<SWMShop />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
                                   <Route path="activity" element={<ProviderActivityPage />} />
-                                  <Route path="privacy-policy" element={<ProviderPrivacyPolicyPage />} />
-                                  <Route path="contact-us" element={<ProviderContactUsPage />} />
-                                  <Route path="about-us" element={<ProviderAboutUsPage />} />
-                                  <Route path="terms-conditions" element={<ProviderTermsConditionsPage />} />
                                 </Route>
 
                                 {/* Vendor Module */}
                                 <Route path="/vender/login" element={<VenderLoginPage />} />
                                 <Route path="/vender/register" element={<VenderRegisterPage />} />
                                 <Route path="/vender/status" element={<VenderStatusPage />} />
+
+                                {/* Public Vendor Info Pages (Accessible without login) */}
+                                <Route path="/vender/privacy-policy" element={<VenderPrivacyPolicyPage />} />
+                                <Route path="/vender/contact-us" element={<VenderContactUsPage />} />
+                                <Route path="/vender/about-us" element={<VenderAboutUsPage />} />
+                                <Route path="/vender/terms-conditions" element={<VenderTermsConditionsPage />} />
+
                                 <Route path="/vender" element={<VenderLayout />}>
                                   <Route index element={<Navigate to="/vender/dashboard" replace />} />
                                   <Route path="dashboard" element={<VenderDashboard />} />
@@ -284,10 +295,6 @@ const App = () => {
                                   <Route path="profile" element={<VenderProfile />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
                                   <Route path="activity" element={<VenderActivityPage />} />
-                                  <Route path="privacy-policy" element={<VenderPrivacyPolicyPage />} />
-                                  <Route path="contact-us" element={<VenderContactUsPage />} />
-                                  <Route path="about-us" element={<VenderAboutUsPage />} />
-                                  <Route path="terms-conditions" element={<VenderTermsConditionsPage />} />
                                 </Route>
 
                                 {/* Admin Module */}
