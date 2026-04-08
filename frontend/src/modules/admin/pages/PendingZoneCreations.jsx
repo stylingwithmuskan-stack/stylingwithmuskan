@@ -14,6 +14,8 @@ import ZoneDrawingModal from "@/modules/admin/components/ZoneDrawingModal";
 const PendingZoneCreations = () => {
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [cityZones, setCityZones] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [isZoneDrawingOpen, setIsZoneDrawingOpen] = useState(false);
@@ -23,6 +25,7 @@ const PendingZoneCreations = () => {
 
   useEffect(() => {
     fetchRequests();
+    api.admin.listCities().then((res) => setCities(res.cities || [])).catch(() => {});
   }, []);
 
   const redirectToAdminLogin = () => {
@@ -60,6 +63,12 @@ const PendingZoneCreations = () => {
 
   const handleCreateZone = (request) => {
     setSelectedRequest(request);
+    const cityId = request.providerCityId;
+    if (cityId && !cityZones[cityId]) {
+      api.admin.listZones(cityId).then((res) => {
+        setCityZones((prev) => ({ ...prev, [cityId]: res.zones || [] }));
+      }).catch(() => {});
+    }
     setIsZoneDrawingOpen(true);
   };
 
@@ -284,12 +293,14 @@ const PendingZoneCreations = () => {
             setIsZoneDrawingOpen(false);
             setSelectedRequest(null);
           }}
-          city={{
-            _id: selectedRequest.providerCity, // This will need to be mapped to actual city ID
+          city={cities.find((city) => city._id === selectedRequest.providerCityId) || {
+            _id: selectedRequest.providerCityId,
             name: selectedRequest.providerCity,
-            lat: selectedRequest.providerLocation?.lat || 23.0225,
-            lng: selectedRequest.providerLocation?.lng || 77.4126
+            mapCenterLat: selectedRequest.providerLocation?.lat || 23.0225,
+            mapCenterLng: selectedRequest.providerLocation?.lng || 77.4126,
+            mapZoom: 12,
           }}
+          existingZones={selectedRequest.providerCityId ? (cityZones[selectedRequest.providerCityId] || []) : []}
           providerLocation={selectedRequest.providerLocation}
           initialZoneName={selectedRequest.zoneName}
           onSave={handleSaveZone}

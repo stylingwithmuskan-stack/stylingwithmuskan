@@ -24,6 +24,7 @@ import crypto from "crypto";
 import { notify } from "../lib/notify.js";
 import Vendor from "../models/Vendor.js";
 import { issueOtp, OTP_LENGTH, verifyOtpValue } from "../lib/otpService.js";
+import { ensureCityAndZoneNames, locationOutOfZoneMessage, resolveServiceLocation } from "../lib/locationResolution.js";
 import {
   createLedgerEntry,
   getActiveSubscription,
@@ -33,6 +34,23 @@ import {
 } from "../lib/subscriptions.js";
 
 const router = Router();
+
+async function normalizeProviderZoneSelection({ city = "", cityId = "", zones = [], zoneIds = [] } = {}) {
+  const normalizedZones = Array.from(new Set((Array.isArray(zones) ? zones : []).map((z) => String(z || "").trim()).filter(Boolean)));
+  const normalizedZoneIds = Array.from(new Set((Array.isArray(zoneIds) ? zoneIds : []).map((z) => String(z || "").trim()).filter(Boolean)));
+  const resolved = [];
+  for (const zoneName of normalizedZones) {
+    // eslint-disable-next-line no-await-in-loop
+    const names = await ensureCityAndZoneNames({ cityName: city, cityId, zoneName });
+    resolved.push(names);
+  }
+  return {
+    city: (resolved[0]?.cityName || city || "").trim(),
+    cityId: (resolved[0]?.cityId || cityId || "").trim(),
+    zones: Array.from(new Set([...normalizedZones, ...resolved.map((r) => r.zoneName).filter(Boolean)])),
+    zoneIds: Array.from(new Set([...normalizedZoneIds, ...resolved.map((r) => r.zoneId).filter(Boolean)])),
+  };
+}
 
 function ensureFourHourLeadTime(req, res, next) {
   try {
@@ -374,13 +392,19 @@ router.post(
       return res.status(404).json({ error: "Provider not found" });
     }
 
+    const requestCity = String(req.body.city || p.city || "").trim();
+    const requestCityId = String(req.body.cityId || p.cityId || "").trim();
+
     // Get all existing zones in provider's city for validation
     const cityZones = await (await import("../models/CityZone.js")).Zone.find({
       status: "active"
     }).populate('city').lean();
     
     const cityZoneNames = cityZones
-      .filter(z => z.city?.name?.toLowerCase() === p.city?.toLowerCase())
+      .filter(z => (
+        (requestCityId && z.city?._id?.toString?.() === requestCityId)
+        || (!requestCityId && z.city?.name?.toLowerCase() === requestCity?.toLowerCase())
+      ))
       .map(z => z.name.toLowerCase());
 
     // Enhanced zone request tracking (Phase 4)
@@ -392,6 +416,10 @@ router.post(
         isNewZone,
         requestedAt: new Date(),
         providerAddress: p.address || "",
+        cityId: requestCityId || p.cityId || "",
+        cityName: requestCity || p.city || "",
+        resolvedZoneId: "",
+        resolvedZoneName: "",
         providerLocation: {
           lat: p.currentLocation?.lat || null,
           lng: p.currentLocation?.lng || null
@@ -444,9 +472,9 @@ router.post(
               providerId: p._id.toString(), 
               pendingZones: zones,
               newZoneCount,
-              existingZoneCount,
-              providerLocation: p.currentLocation
-            },
+        existingZoneCount,
+        providerLocation: p.currentLocation
+      },
           });
         }
       }
@@ -474,12 +502,49 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
     return res.status(403).json({ error: "OTP verification required before registration" });
   }
   await redis.del(`sp:reg:verified:${req.body.phone}`);
+  const selectedZones = Array.isArray(req.body.zones) ? req.body.zones : (req.body.zone ? [req.body.zone] : []);
+  const selectedZoneIds = Array.isArray(req.body.zoneIds) ? req.body.zoneIds.map((z) => String(z || "").trim()).filter(Boolean) : [];
+  const lat = req.body.lat !== undefined ? Number(req.body.lat) : null;
+  const lng = req.body.lng !== undefined ? Number(req.body.lng) : null;
+  const selectedCity = String(req.body.city || "").trim();
+  const selectedCityId = String(req.body.cityId || "").trim();
+  const hasManualSelection = !!(selectedCityId || selectedCity) && (selectedZones.length > 0 || selectedZoneIds.length > 0);
+  let resolvedLocation = null;
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    resolvedLocation = await resolveServiceLocation({
+      lat,
+      lng,
+      cityId: selectedCityId,
+      cityName: selectedCity,
+    });
+    if (!resolvedLocation.insideServiceArea && !String(req.body.customZone || "").trim() && !hasManualSelection) {
+      return res.status(400).json({
+        error: locationOutOfZoneMessage(),
+        code: "OUT_OF_ZONE",
+        location: resolvedLocation,
+      });
+    }
+  }
+  const effectiveLocation = resolvedLocation?.insideServiceArea ? resolvedLocation : null;
+  const normalizedSelection = await normalizeProviderZoneSelection({
+    city: effectiveLocation?.cityName || selectedCity,
+    cityId: effectiveLocation?.cityId || selectedCityId,
+    zones: selectedZones.length > 0
+      ? selectedZones
+      : (effectiveLocation?.zoneName ? [effectiveLocation.zoneName] : []),
+    zoneIds: selectedZoneIds.length > 0 ? selectedZoneIds : (effectiveLocation?.zoneId ? [effectiveLocation.zoneId] : []),
+  });
+  const customZone = String(req.body.customZone || "").trim();
   const update = {
     name: req.body.name,
     email: req.body.email || "",
     address: req.body.address || "",
-    city: String(req.body.city || "").trim(),
-    zones: Array.isArray(req.body.zones) ? req.body.zones : (req.body.zone ? [req.body.zone] : []),
+    city: normalizedSelection.city,
+    cityId: normalizedSelection.cityId,
+    zones: customZone ? Array.from(new Set([...normalizedSelection.zones, customZone])) : normalizedSelection.zones,
+    zoneIds: normalizedSelection.zoneIds,
+    baseZoneId: effectiveLocation?.zoneId || normalizedSelection.zoneIds[0] || "",
+    serviceZoneIds: normalizedSelection.zoneIds,
     gender: req.body.gender || "",
     dob: req.body.dob || "",
     experience: req.body.experience || "0-1",
@@ -501,10 +566,29 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
     vendorApprovalStatus: "pending",
     adminApprovalStatus: "pending",
     registrationComplete: true,
-    currentLocation: (req.body.lat && req.body.lng) ? { lat: Number(req.body.lat), lng: Number(req.body.lng) } : undefined,
-    lastLocationUpdate: (req.body.lat && req.body.lng) ? new Date() : undefined,
+    currentLocation: (Number.isFinite(lat) && Number.isFinite(lng)) ? { lat, lng } : undefined,
+    lastLocationUpdate: (Number.isFinite(lat) && Number.isFinite(lng)) ? new Date() : undefined,
   };
   const acc = await ProviderAccount.findOneAndUpdate({ phone: req.body.phone }, update, { new: true, upsert: true });
+
+  if (!resolvedLocation?.insideServiceArea && customZone) {
+    acc.pendingZoneRequests = acc.pendingZoneRequests || [];
+    acc.pendingZoneRequests.push({
+      zoneName: customZone,
+      isNewZone: true,
+      requestedAt: new Date(),
+      providerAddress: acc.address || "",
+      cityId: normalizedSelection.cityId,
+      cityName: normalizedSelection.city,
+      resolvedZoneId: "",
+      resolvedZoneName: "",
+      providerLocation: { lat, lng },
+      vendorStatus: "pending",
+      adminStatus: "pending",
+    });
+    acc.pendingZones = Array.from(new Set([...(acc.pendingZones || []), customZone]));
+    await acc.save();
+  }
 
   try {
     await notify({
@@ -518,13 +602,15 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
   } catch {}
 
   // Notify relevant vendor if zones are specified
-  const zones = Array.isArray(req.body.zones) ? req.body.zones : (req.body.zone ? [req.body.zone] : []);
+  const zones = customZone ? Array.from(new Set([...(normalizedSelection.zones || []), customZone])) : (normalizedSelection.zones || []);
   if (zones.length > 0) {
     try {
-      const city = String(req.body.city || "").trim();
+      const city = normalizedSelection.city;
       const vendors = await Vendor.find({ 
-        city: new RegExp(`^${city}$`, "i"),
-        zones: { $in: zones.map(z => new RegExp(`^${z}$`, "i")) },
+        $or: [
+          ...(normalizedSelection.cityId ? [{ cityId: normalizedSelection.cityId }] : []),
+          { city: new RegExp(`^${city}$`, "i") },
+        ],
         status: "approved"
       }).lean();
 
@@ -928,7 +1014,28 @@ router.patch("/me/location",
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
-    const acc = await ProviderAccount.findByIdAndUpdate(req.auth.sub, { currentLocation: { lat: req.body.lat, lng: req.body.lng } }, { new: true });
+    const existing = await ProviderAccount.findById(req.auth.sub);
+    if (!existing) return res.status(404).json({ error: "Provider not found" });
+    existing.currentLocation = { lat: req.body.lat, lng: req.body.lng };
+    existing.lastLocationUpdate = new Date();
+    const resolved = await resolveServiceLocation({
+      lat: Number(req.body.lat),
+      lng: Number(req.body.lng),
+      cityId: String(existing.cityId || ""),
+      cityName: String(existing.city || ""),
+    });
+    if (resolved.insideServiceArea) {
+      existing.city = resolved.cityName || existing.city;
+      existing.cityId = resolved.cityId || existing.cityId;
+      existing.baseZoneId = resolved.zoneId || existing.baseZoneId;
+      if (resolved.zoneName && !(existing.zones || []).includes(resolved.zoneName)) {
+        existing.zones = Array.from(new Set([...(existing.zones || []), resolved.zoneName]));
+      }
+      if (resolved.zoneId && !(existing.zoneIds || []).includes(resolved.zoneId)) {
+        existing.zoneIds = Array.from(new Set([...(existing.zoneIds || []), resolved.zoneId]));
+      }
+    }
+    const acc = await existing.save();
     res.json({ provider: acc });
   }
 );
@@ -1069,6 +1176,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
   let b = await Booking.findById(req.params.id);
   if (!b) return res.status(404).json({ error: "Not found" });
   if ((b.assignedProvider || "") !== (pId || "")) return res.status(403).json({ error: "Forbidden" });
+  const originalAssignedProvider = String(b.assignedProvider || "");
 
   if ((b.bookingType || "").toLowerCase() === "customized" && (next === "rejected" || next === "cancelled")) {
     return res.status(403).json({ error: "Customized bookings cannot be cancelled by provider." });
@@ -1472,7 +1580,14 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
 
   await b.save();
   try {
-    if (b?.slot?.date) await invalidateProviderSlots(pId, b.slot.date);
+    if (b?.slot?.date) {
+      const ids = Array.from(new Set([originalAssignedProvider, String(b.assignedProvider || ""), pId].filter(Boolean)));
+      for (const id of ids) {
+        // Keep slot cache in sync for old and current assignees.
+        // eslint-disable-next-line no-await-in-loop
+        await invalidateProviderSlots(id, b.slot.date);
+      }
+    }
   } catch {}
   await BookingLog.create({ action: "booking:status", userId: pId, bookingId: req.params.id, meta: { status: next } });
   try {

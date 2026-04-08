@@ -3,8 +3,9 @@
  * Provides polygon-based zone matching and distance-based provider sorting
  */
 
-import { Zone } from "../models/CityZone.js";
+import { City, Zone } from "../models/CityZone.js";
 import ProviderAccount from "../models/ProviderAccount.js";
+import { pointInPolygon } from "./locationResolution.js";
 
 /**
  * Find zones that contain a given point using polygon boundaries
@@ -21,20 +22,16 @@ export async function findZonesContainingPoint(lat, lng, city) {
       return [];
     }
 
-    const point = {
-      type: "Point",
-      coordinates: [lng, lat]
-    };
+    let cityId = "";
+    if (city) {
+      const cityDoc = await City.findOne({ name: new RegExp(`^${city}$`, "i"), status: "active" }).lean();
+      cityId = cityDoc?._id?.toString?.() || "";
+    }
 
-    const zones = await Zone.find({
-      city: city ? { $regex: new RegExp(`^${city}`, "i") } : { $exists: true },
-      geometry: {
-        $geoWithin: {
-          $geometry: point
-        }
-      },
+    const zones = (await Zone.find({
+      ...(cityId ? { city: cityId } : {}),
       status: "active"
-    }).select('name').lean();
+    }).select('name coordinates').lean()).filter((zone) => pointInPolygon(lat, lng, zone.coordinates || []));
 
     const zoneNames = zones.map(z => z.name);
     console.log(`[GeoMatching] Found ${zoneNames.length} zones containing point (${lat}, ${lng}):`, zoneNames);

@@ -15,7 +15,7 @@ import { api } from "@/modules/user/lib/api";
 export default function VenderRegisterPage() {
     const { registerRequest, verifyRegistrationOtp, isLoggedIn } = useVenderAuth();
     const navigate = useNavigate();
-    const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", zones: [], customZone: "" });
+    const [form, setForm] = useState({ name: "", email: "", phone: "", city: "", cityId: "", zones: [], zoneIds: [], customZone: "", lat: null, lng: null });
     const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
@@ -24,6 +24,13 @@ export default function VenderRegisterPage() {
     const [cities, setCities] = useState([]);
     const [zones, setZones] = useState([]);
     const [zonesLoading, setZonesLoading] = useState(false);
+
+    const syncSelectedZoneIds = (selectedZoneNames, nextZones = zones) => {
+        const nextZoneIds = nextZones
+            .filter((zone) => selectedZoneNames.includes(zone.name))
+            .map((zone) => zone._id);
+        setForm((prev) => ({ ...prev, zones: selectedZoneNames, zoneIds: nextZoneIds }));
+    };
 
     useEffect(() => {
         document.documentElement.classList.remove("theme-women", "theme-men", "theme-beautician", "theme-admin");
@@ -39,8 +46,15 @@ export default function VenderRegisterPage() {
         if (form.city) {
             setZonesLoading(true);
             api.content.zones({ cityName: form.city }).then(res => {
-                setZones(res.zones || []);
-                setForm(prev => ({ ...prev, zones: [] }));
+                const nextZones = res.zones || [];
+                setZones(nextZones);
+                setForm(prev => {
+                    const nextSelectedZones = prev.zones.filter((zoneName) => nextZones.some((zone) => zone.name === zoneName));
+                    const nextSelectedZoneIds = nextZones
+                        .filter((zone) => nextSelectedZones.includes(zone.name))
+                        .map((zone) => zone._id);
+                    return { ...prev, zones: nextSelectedZones, zoneIds: nextSelectedZoneIds };
+                });
             }).catch(() => {
                 setZones([]);
             }).finally(() => {
@@ -120,21 +134,74 @@ export default function VenderRegisterPage() {
     const update = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
     const toggleZone = (zoneName) => {
-        setForm(prev => {
-            const current = [...prev.zones];
-            const idx = current.indexOf(zoneName);
-            if (idx > -1) current.splice(idx, 1);
-            else current.push(zoneName);
-            return { ...prev, zones: current };
-        });
+        const current = [...form.zones];
+        const idx = current.indexOf(zoneName);
+        if (idx > -1) current.splice(idx, 1);
+        else current.push(zoneName);
+        syncSelectedZoneIds(current);
     };
 
     const selectAllZones = () => {
         if (form.zones.length === zones.length) {
-            update("zones", []);
+            setForm(prev => ({ ...prev, zones: [], zoneIds: [] }));
         } else {
-            update("zones", zones.map(z => z.name));
+            syncSelectedZoneIds(zones.map(z => z.name));
         }
+    };
+
+    const handleUseCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            toast.error("Geolocation is not supported by your browser");
+            return;
+        }
+        setLoading(true);
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                try {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const res = await api.content.resolveLocation({ lat: String(lat), lng: String(lng) });
+                    const location = res?.location || {};
+                    if (location.insideServiceArea && location.cityName && location.zoneName) {
+                        const matchedCity = cities.find((city) => city._id === location.cityId || city.name === location.cityName);
+                        const nextCity = matchedCity?.name || location.cityName;
+                        const nextCityId = matchedCity?._id || location.cityId || "";
+                        let nextZones = [];
+                        try {
+                            const zonesRes = await api.content.zones({ cityName: nextCity });
+                            nextZones = zonesRes?.zones || [];
+                            setZones(nextZones);
+                        } catch {
+                            nextZones = [];
+                            setZones([]);
+                        }
+                        const resolvedZone = nextZones.find((zone) => zone._id === location.zoneId || zone.name === location.zoneName);
+                        setForm((prev) => ({
+                            ...prev,
+                            city: nextCity,
+                            cityId: nextCityId,
+                            zones: resolvedZone ? [resolvedZone.name] : (location.zoneName ? [location.zoneName] : prev.zones),
+                            zoneIds: resolvedZone ? [resolvedZone._id] : (location.zoneId ? [location.zoneId] : prev.zoneIds),
+                            lat,
+                            lng,
+                        }));
+                        toast.success(`Detected zone: ${location.zoneName}`);
+                    } else {
+                        setForm((prev) => ({ ...prev, lat, lng, zones: [], zoneIds: [] }));
+                        toast.error("Your current location is out of zone, apply for the custom zone.");
+                    }
+                } catch (err) {
+                    toast.error(err?.message || "Unable to resolve your current location");
+                } finally {
+                    setLoading(false);
+                }
+            },
+            () => {
+                setLoading(false);
+                toast.error("Unable to retrieve your location");
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
     };
 
     return (
@@ -176,7 +243,16 @@ export default function VenderRegisterPage() {
                             </div>
                             <div className="space-y-2 col-span-2">
                                 <Label className="text-xs font-bold text-gray-600">City</Label>
-                                <Select value={form.city} onValueChange={val => update("city", val)}>
+                                <Select value={form.city} onValueChange={val => {
+                                    const selectedCity = cities.find((c) => c.name === val);
+                                    setForm((prev) => ({
+                                        ...prev,
+                                        city: val,
+                                        cityId: selectedCity?._id || "",
+                                        zones: [],
+                                        zoneIds: [],
+                                    }));
+                                }}>
                                     <SelectTrigger className="h-11 rounded-xl">
                                         <SelectValue placeholder="Select city" />
                                     </SelectTrigger>
@@ -185,6 +261,19 @@ export default function VenderRegisterPage() {
                                         {cities.length === 0 && <SelectItem value="indore" disabled>Loading cities...</SelectItem>}
                                     </SelectContent>
                                 </Select>
+                            </div>
+
+                            <div className="col-span-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleUseCurrentLocation}
+                                    disabled={loading}
+                                    className="w-full h-11 rounded-xl font-bold"
+                                >
+                                    <MapPin className="h-4 w-4 mr-2" />
+                                    {form.lat && form.lng ? "Location Captured" : "Use Current Location"}
+                                </Button>
                             </div>
                             
                             {form.city && (

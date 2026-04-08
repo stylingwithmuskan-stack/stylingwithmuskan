@@ -13,13 +13,17 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
         landmark: "",
         area: "",
         city: "",
+        cityId: "",
         zone: "",
+        zoneId: "",
         type: "home",
         _id: undefined
     });
     const [isLocating, setIsLocating] = useState(false);
     const [mapsReady, setMapsReady] = useState(false);
     const [cities, setCities] = useState([]);
+    const [zones, setZones] = useState([]);
+    const [zonesLoading, setZonesLoading] = useState(false);
     const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
     useEffect(() => {
@@ -34,14 +38,34 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                 landmark: initialAddress.landmark || "",
                 area: initialAddress.area || "",
                 city: initialAddress.city || "",
+                cityId: initialAddress.cityId || "",
                 zone: initialAddress.zone || "",
+                zoneId: initialAddress.zoneId || "",
                 type: initialAddress.type || "home",
                 _id: initialAddress._id || initialAddress.id
             });
         } else {
-            setAddress({ houseNo: "", landmark: "", area: "", city: "", zone: "", type: "home", _id: undefined });
+            setAddress({ houseNo: "", landmark: "", area: "", city: "", cityId: "", zone: "", zoneId: "", type: "home", _id: undefined });
         }
     }, [initialAddress, isOpen]);
+
+    useEffect(() => {
+        if (!address.city) {
+            setZones([]);
+            return;
+        }
+        let cancelled = false;
+        setZonesLoading(true);
+        api.content.zones({ cityName: address.city }).then((res) => {
+            if (cancelled) return;
+            setZones(res.zones || []);
+        }).catch(() => {
+            if (!cancelled) setZones([]);
+        }).finally(() => {
+            if (!cancelled) setZonesLoading(false);
+        });
+        return () => { cancelled = true; };
+    }, [address.city]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -111,6 +135,28 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                     setAddress(prev => ({ ...prev, area: areaStr, city: cityStr || prev.city, lat: latitude, lng: longitude }));
                     setIsLocating(false);
                 };
+                const resolveZone = async (nextCity) => {
+                    try {
+                        const res = await api.content.resolveLocation({
+                            lat: String(latitude),
+                            lng: String(longitude),
+                            cityName: nextCity || address.city || "",
+                        });
+                        const location = res?.location || {};
+                        setAddress(prev => ({
+                            ...prev,
+                            city: location.cityName || nextCity || prev.city,
+                            cityId: location.cityId || prev.cityId,
+                            zone: location.zoneName || prev.zone,
+                            zoneId: location.zoneId || prev.zoneId,
+                        }));
+                        if (location.insideServiceArea && location.zoneName) {
+                            alert(`Location captured!\nDetected zone: ${location.zoneName}`);
+                        } else if (location.reason === "out_of_zone") {
+                            alert("Service is not available at your current location yet.");
+                        }
+                    } catch {}
+                };
                 if (window.google?.maps && googleKey) {
                     try {
                         const geocoder = new window.google.maps.Geocoder();
@@ -132,22 +178,27 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                         landmark: landmark || prev.landmark,
                                         area: area, 
                                         city: city || prev.city, 
+                                        zone: prev.zone || "",
                                         lat: latitude, 
                                         lng: longitude 
                                     }));
+                                    resolveZone(city || "");
                                     setIsLocating(false);
                                 } else {
                                     if (status === "REQUEST_DENIED") {
                                         alert("Google Maps Geocoding API is not enabled. Please enable it in your Google Cloud Console.");
                                     }
                                     apply("Current Location", "");
+                                    resolveZone("");
                                 }
                         });
                     } catch {
                         apply("Current Location", "");
+                        resolveZone("");
                     }
                 } else {
                     apply("Current Location", "");
+                    resolveZone("");
                 }
             },
             (error) => {
@@ -167,7 +218,9 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                     area: address.area,
                     landmark: address.landmark,
                     city: address.city,
+                    cityId: address.cityId,
                     zone: address.zone,
+                    zoneId: address.zoneId,
                     type: address.type,
                     lat: address.lat,
                     lng: address.lng
@@ -178,7 +231,9 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                     area: address.area,
                     landmark: address.landmark,
                     city: address.city,
+                    cityId: address.cityId,
                     zone: address.zone,
+                    zoneId: address.zoneId,
                     type: address.type,
                     lat: address.lat,
                     lng: address.lng
@@ -274,11 +329,43 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                     <select
                                         required
                                         value={address.city || ""}
-                                        onChange={e => setAddress({ ...address, city: e.target.value, zone: "" })}
+                                        onChange={e => {
+                                            const selectedCity = cities.find((c) => c.name === e.target.value);
+                                            setAddress({
+                                                ...address,
+                                                city: e.target.value,
+                                                cityId: selectedCity?._id || "",
+                                                zone: "",
+                                                zoneId: "",
+                                            });
+                                        }}
                                         className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
                                     >
                                         <option value="" disabled>Select City</option>
                                         {cities.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Zone*</label>
+                                    <select
+                                        required
+                                        value={address.zoneId || ""}
+                                        onChange={e => {
+                                            const selectedZone = zones.find((z) => z._id === e.target.value);
+                                            setAddress({
+                                                ...address,
+                                                zone: selectedZone?.name || "",
+                                                zoneId: selectedZone?._id || "",
+                                            });
+                                        }}
+                                        className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
+                                        disabled={!address.city || zonesLoading}
+                                    >
+                                        <option value="" disabled>
+                                            {zonesLoading ? "Loading zones..." : address.city ? "Select Zone" : "Select city first"}
+                                        </option>
+                                        {zones.map((z) => <option key={z._id} value={z._id}>{z.name}</option>)}
                                     </select>
                                 </div>
 

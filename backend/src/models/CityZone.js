@@ -57,6 +57,8 @@ const ZoneSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+ZoneSchema.index({ city: 1, name: 1 }, { unique: true });
+
 // Pre-save hook: Auto-generate GeoJSON geometry from coordinates (Phase 1)
 ZoneSchema.pre('save', function(next) {
   if (this.coordinates && Array.isArray(this.coordinates) && this.coordinates.length === 5) {
@@ -105,6 +107,10 @@ const CitySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
+    mapCenterLat: { type: Number, default: null },
+    mapCenterLng: { type: Number, default: null },
+    mapZoom: { type: Number, default: 12 },
+    activeVendorId: { type: String, default: "" },
   },
   { timestamps: true }
 );

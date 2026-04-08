@@ -165,7 +165,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         if (isOpen) {
             fetchSlots();
         }
-    }, [isOpen, tempDate, selectedProvider]);
+    }, [isOpen, tempDate, selectedProvider, totalDurationMinutes, serviceTypes, address?.city, address?.zone]);
 
     const dates = useMemo(() => {
         let maxDays = 7; // Default
@@ -202,16 +202,17 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     }, [cartItems, categories, bookingTypeConfig]);
 
     const slots = useMemo(() => {
-        if (!officeSettings?.startTime || !officeSettings?.endTime) return availableSlots;
-
-        const startMin = timeToMinutes(officeSettings.startTime);
-        const endMin = timeToMinutes(officeSettings.endTime);
+        const startMin = officeSettings?.startTime ? timeToMinutes(officeSettings.startTime) : 0;
+        const endMin = officeSettings?.endTime ? timeToMinutes(officeSettings.endTime) : (24 * 60);
+        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
 
         return availableSlots.filter(s => {
             const currentMin = timeToMinutes(s);
-            return currentMin >= startMin && currentMin <= endMin;
+            if (currentMin < startMin || currentMin > endMin) return false;
+            if (tempDate === getLocalDateKey() && currentMin <= nowMin) return false;
+            return true;
         });
-    }, [availableSlots, officeSettings]);
+    }, [availableSlots, officeSettings, tempDate]);
 
     const todayKey = getLocalDateKey();
     const isToday = tempDate === todayKey;

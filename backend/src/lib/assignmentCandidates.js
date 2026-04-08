@@ -75,17 +75,31 @@ async function resolveSettings(settings) {
 
 async function findProvidersZoneStrict(address, filters = {}) {
   const city = norm(address?.city);
+  const cityId = norm(address?.cityId);
   const zone = norm(address?.zone || address?.area);
+  const zoneId = norm(address?.zoneId);
   const lat = address?.lat;
   const lng = address?.lng;
 
-  if (!city) return [];
+  if (!city && !cityId) return [];
 
   const baseQuery = {
     approvalStatus: filters.approvalStatus || "approved",
     registrationComplete: filters.registrationComplete !== undefined ? filters.registrationComplete : true,
-    city: { $regex: new RegExp(`^${escapeRegex(city)}$`, "i") },
+    isOnline: filters.isOnline !== undefined ? filters.isOnline : true,
+    ...(cityId ? { cityId } : { city: { $regex: new RegExp(`^${escapeRegex(city)}$`, "i") } }),
   };
+
+  if (zoneId) {
+    return ProviderAccount.find({
+      ...baseQuery,
+      $or: [
+        { serviceZoneIds: zoneId },
+        { zoneIds: zoneId },
+        { baseZoneId: zoneId },
+      ],
+    }).lean();
+  }
 
   if (zone) {
     if (typeof lat === "number" && typeof lng === "number") {
@@ -93,14 +107,20 @@ async function findProvidersZoneStrict(address, filters = {}) {
       if (zonesContainingPoint.length > 0) {
         return ProviderAccount.find({
           ...baseQuery,
-          zones: { $in: zonesContainingPoint },
+          $or: [
+            { zones: { $in: zonesContainingPoint } },
+            { pendingZones: { $in: zonesContainingPoint } },
+          ],
         }).lean();
       }
     }
 
     return ProviderAccount.find({
       ...baseQuery,
-      zones: { $in: [new RegExp(`^${escapeRegex(zone)}`, "i")] },
+      $or: [
+        { zones: { $in: [new RegExp(`^${escapeRegex(zone)}$`, "i")] } },
+        { pendingZones: { $in: [new RegExp(`^${escapeRegex(zone)}$`, "i")] } },
+      ],
     }).lean();
   }
 
@@ -116,10 +136,13 @@ export async function buildAssignmentCandidates({
   customerId,
   subscriptionSnapshot,
   requestedDurationMinutes,
+  useCache = true,
 } = {}) {
   const resolvedSettings = await resolveSettings(settings);
   const bookingCity = norm(address?.city);
+  const bookingCityId = norm(address?.cityId);
   const bookingZone = norm(address?.zone || address?.area);
+  const bookingZoneId = norm(address?.zoneId);
 
   const wantCats = new Set((items || []).map((it) => String(it?.category || "")).filter(Boolean));
   const wantTypes = new Set((items || []).map((it) => String(it?.serviceType || "")).filter(Boolean));
@@ -138,8 +161,8 @@ export async function buildAssignmentCandidates({
   }
 
   let providers = await findProvidersZoneStrict(
-    { ...address, city: bookingCity, zone: bookingZone },
-    { approvalStatus: "approved", registrationComplete: true }
+    { ...address, city: bookingCity, cityId: bookingCityId, zone: bookingZone, zoneId: bookingZoneId },
+    { approvalStatus: "approved", registrationComplete: true, isOnline: true }
   );
 
   providers = providers.filter((p) => matchesSpecialty(p, wantCats, wantTypes, wantCatLabels, wantTypeLabels));
@@ -182,6 +205,7 @@ export async function buildAssignmentCandidates({
     if (!wantsKnownSlot || !wantsKnownDate) return true;
     const avail = await computeAvailableSlots(providerId, requestedDate, resolvedSettings, {
       requestedDurationMinutes,
+      useCache,
     });
     return avail?.slotMap?.[requestedTime] === true;
   };
@@ -196,11 +220,12 @@ export async function buildAssignmentCandidates({
     }
   }
 
-  const limit = Math.max(Number(resolvedSettings?.providerSearchLimit || 0), 0);
+  const configuredLimit = Math.max(Number(resolvedSettings?.providerSearchLimit || 0), 0);
+  const limit = configuredLimit > 0 ? Math.min(configuredLimit, 5) : 5;
   const candidateProviders = limit > 0 ? candidates.slice(0, limit) : candidates;
 
   return {
     candidateProviders,
-    meta: { bookingCity, bookingZone },
+    meta: { bookingCity, bookingCityId, bookingZone, bookingZoneId },
   };
 }

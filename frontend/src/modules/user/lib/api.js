@@ -267,6 +267,10 @@ export const api = {
       const q = new URLSearchParams(params).toString();
       return request(`/content/zones${q ? `?${q}` : ""}`);
     },
+    resolveLocation: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/content/resolve-location${q ? `?${q}` : ""}`);
+    },
   },
 
   // Customer bookings + enquiries

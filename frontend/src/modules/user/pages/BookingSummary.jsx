@@ -260,6 +260,8 @@ const BookingSummary = () => {
       setIsProcessing(false);
       if (e.code === "PREFERRED_PROVIDER_BUSY") {
         setIsBusyModalOpen(true);
+      } else if (e.code === "SLOT_UNAVAILABLE") {
+        toast.error("Selected slot is no longer available. Please choose another slot.");
       } else {
         toast.error(e.message || "Payment initiation failed");
       }

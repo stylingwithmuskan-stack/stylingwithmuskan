@@ -8,6 +8,7 @@ import Booking from "../models/Booking.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import { ReferralSettings } from "../models/Settings.js";
 import { getSubscriptionSnapshot, isEliteProvider } from "../lib/subscriptions.js";
+import { ensureCityAndZoneNames, resolveServiceLocation } from "../lib/locationResolution.js";
 
 const router = Router();
 
@@ -28,6 +29,51 @@ function providerCard(p) {
 
 function escapeRegex(s) {
   return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function normalizeResolvedAddress(input = {}) {
+  const addr = {
+    houseNo: input.houseNo,
+    area: input.area,
+    landmark: input.landmark || "",
+    city: String(input.city || "").trim(),
+    cityId: String(input.cityId || "").trim(),
+    zone: String(input.zone || "").trim(),
+    zoneId: String(input.zoneId || "").trim(),
+    type: input.type || "home",
+    lat: input.lat !== undefined ? Number(input.lat) : null,
+    lng: input.lng !== undefined ? Number(input.lng) : null,
+    insideServiceArea: true,
+    resolvedAt: null,
+  };
+
+  if (Number.isFinite(addr.lat) && Number.isFinite(addr.lng)) {
+    const resolved = await resolveServiceLocation({
+      lat: addr.lat,
+      lng: addr.lng,
+      cityId: addr.cityId,
+      cityName: addr.city,
+    });
+    addr.city = resolved.cityName || addr.city;
+    addr.cityId = resolved.cityId || addr.cityId;
+    addr.zone = resolved.zoneName || addr.zone;
+    addr.zoneId = resolved.zoneId || addr.zoneId;
+    addr.insideServiceArea = !!resolved.insideServiceArea;
+    addr.resolvedAt = new Date();
+  } else {
+    const byName = await ensureCityAndZoneNames({
+      cityId: addr.cityId,
+      cityName: addr.city,
+      zoneId: addr.zoneId,
+      zoneName: addr.zone,
+    });
+    addr.city = byName.cityName || addr.city;
+    addr.cityId = byName.cityId || addr.cityId;
+    addr.zone = byName.zoneName || addr.zone;
+    addr.zoneId = byName.zoneId || addr.zoneId;
+  }
+
+  return addr;
 }
 
 router.get("/me", requireAuth, async (req, res) => {
@@ -104,12 +150,22 @@ router.post(
       area: req.body.area,
       landmark: req.body.landmark || "",
       city: String(req.body.city || "").trim(),
+      cityId: String(req.body.cityId || "").trim(),
       zone: String(req.body.zone || "").trim(),
+      zoneId: String(req.body.zoneId || "").trim(),
       type: req.body.type || "home",
       lat: req.body.lat !== undefined ? Number(req.body.lat) : null,
       lng: req.body.lng !== undefined ? Number(req.body.lng) : null,
     };
-    req.user.addresses.push(addr);
+    const normalizedAddr = await normalizeResolvedAddress(addr);
+    if (Number.isFinite(normalizedAddr.lat) && Number.isFinite(normalizedAddr.lng) && !normalizedAddr.insideServiceArea) {
+      return res.status(400).json({
+        error: "Service is not available at your current location yet.",
+        code: "OUT_OF_ZONE",
+        address: normalizedAddr,
+      });
+    }
+    req.user.addresses.push(normalizedAddr);
     await req.user.save();
     res.status(201).json({ address: req.user.addresses[req.user.addresses.length - 1], addresses: req.user.addresses });
   }
@@ -147,8 +203,21 @@ router.patch(
     if (req.body.area !== undefined) addr.area = req.body.area;
     if (req.body.landmark !== undefined) addr.landmark = req.body.landmark;
     if (req.body.city !== undefined) addr.city = String(req.body.city || "").trim();
+    if (req.body.cityId !== undefined) addr.cityId = String(req.body.cityId || "").trim();
     if (req.body.zone !== undefined) addr.zone = String(req.body.zone || "").trim();
+    if (req.body.zoneId !== undefined) addr.zoneId = String(req.body.zoneId || "").trim();
     if (req.body.type !== undefined) addr.type = req.body.type;
+    if (req.body.lat !== undefined) addr.lat = Number(req.body.lat);
+    if (req.body.lng !== undefined) addr.lng = Number(req.body.lng);
+    const normalizedAddr = await normalizeResolvedAddress(addr.toObject ? addr.toObject() : addr);
+    Object.assign(addr, normalizedAddr);
+    if (Number.isFinite(addr.lat) && Number.isFinite(addr.lng) && !addr.insideServiceArea) {
+      return res.status(400).json({
+        error: "Service is not available at your current location yet.",
+        code: "OUT_OF_ZONE",
+        address: normalizedAddr,
+      });
+    }
     await req.user.save();
     res.json({ address: addr, addresses: req.user.addresses });
   }

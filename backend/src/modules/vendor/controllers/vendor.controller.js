@@ -16,11 +16,16 @@ import { issueOtp, OTP_LENGTH, verifyOtpValue } from "../../../lib/otpService.js
 import { getMarketingCreditsBalance, getSubscriptionSnapshot } from "../../../lib/subscriptions.js";
 import ProviderDayAvailability from "../../../models/ProviderDayAvailability.js";
 import { defaultSlotsMap } from "../../../lib/slots.js";
+import { OfficeSettings } from "../../../models/Content.js";
+import { canAssignProviderToBooking } from "../../../lib/assignment.js";
+import { invalidateProviderSlots } from "../../../lib/availability.js";
+import { belongsToCity, ensureCityAndZoneNames, locationOutOfZoneMessage, resolveServiceLocation } from "../../../lib/locationResolution.js";
 
 // Helper function to create default availability for provider (30 days)
 async function createDefaultProviderAvailability(providerId) {
   try {
-    const defaultSlots = defaultSlotsMap("07:00", "22:00");
+    const office = await OfficeSettings.findOne().lean();
+    const defaultSlots = defaultSlotsMap(office?.providerStartTime || "07:00", office?.providerEndTime || "22:00");
     const availableSlots = Object.keys(defaultSlots).filter(slot => defaultSlots[slot] === true);
     
     // Create availability for next 30 days
@@ -52,6 +57,10 @@ function escapeRegex(s) {
 
 function normCity(s) {
   return String(s || "").trim();
+}
+
+function sameText(a, b) {
+  return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 }
 
 async function withinNotificationWindow() {
@@ -108,7 +117,7 @@ export async function registerRequest(req, res) {
 }
 
 export async function verifyRegistrationOtp(req, res) {
-  const { phone, otp, name, email, city, zones } = req.body;
+  const { phone, otp, name, email, city, cityId, zones, zoneIds, lat, lng, customZone } = req.body;
   const valid = await verifyOtpValue({
     redis,
     key: `v:reg:otp:${phone}`,
@@ -122,12 +131,47 @@ export async function verifyRegistrationOtp(req, res) {
   console.log('[Vendor Registration] Starting registration:', { phone, name, email, city, zones });
 
   try {
+    const requestedZones = Array.isArray(zones) ? zones : [zones];
+    const requestedZoneNames = requestedZones.map((z) => String(z || "").trim()).filter(Boolean);
+    const requestedZoneIds = Array.isArray(zoneIds) ? zoneIds.map((z) => String(z || "").trim()).filter(Boolean) : [];
+    const hasManualSelection = !!(String(cityId || city || "").trim()) && (requestedZoneNames.length > 0 || requestedZoneIds.length > 0);
+    let resolvedLocation = null;
+    if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+      resolvedLocation = await resolveServiceLocation({
+        lat: Number(lat),
+        lng: Number(lng),
+        cityId: String(cityId || "").trim(),
+        cityName: normCity(city),
+      });
+      if (!resolvedLocation.insideServiceArea && !String(customZone || "").trim() && !hasManualSelection) {
+        return res.status(400).json({ error: locationOutOfZoneMessage(), code: "OUT_OF_ZONE", location: resolvedLocation });
+      }
+    }
+    const effectiveLocation = resolvedLocation?.insideServiceArea ? resolvedLocation : null;
+    const normalized = await ensureCityAndZoneNames({
+      cityId: effectiveLocation?.cityId || cityId,
+      cityName: effectiveLocation?.cityName || city,
+      zoneId: effectiveLocation?.zoneId || requestedZoneIds[0] || "",
+      zoneName: effectiveLocation?.zoneName || requestedZoneNames[0] || "",
+    });
+    const finalZones = Array.from(new Set([
+      ...requestedZoneNames,
+      ...(normalized.zoneName ? [normalized.zoneName] : []),
+      ...(String(customZone || "").trim() ? [String(customZone || "").trim()] : []),
+    ]));
+    const finalZoneIds = Array.from(new Set([
+      ...requestedZoneIds,
+      ...(normalized.zoneId ? [normalized.zoneId] : []),
+    ]));
     const v = await Vendor.create({
       name,
       email,
       phone,
-      city: normCity(city),
-      zones: Array.isArray(zones) ? zones : [zones],
+      city: normalized.cityName || normCity(city),
+      cityId: normalized.cityId || "",
+      zones: finalZones,
+      zoneIds: finalZoneIds,
+      baseZoneId: effectiveLocation?.zoneId || normalized.zoneId || finalZoneIds[0] || "",
       status: "pending",
     });
 
@@ -319,7 +363,9 @@ export async function verifyOtp(req, res) {
 export async function listProviders(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
+  if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   const city = normCity(vendor?.city) || "";
+  const cityId = String(vendor?.cityId || "").trim();
   const zones = vendor?.zones || [];
   
   console.log('[Vendor] listProviders called:', { vendorId, vendorCity: vendor?.city, normalizedCity: city, zones });
@@ -349,6 +395,7 @@ export async function listProviders(req, res) {
   console.log('[Vendor] Query:', JSON.stringify(q, null, 2));
   
   let items = await ProviderAccount.find(q).sort({ createdAt: -1 }).lean();
+  items = items.filter((item) => belongsToCity(item, cityId, city));
   
   console.log('[Vendor] Found providers:', items.length);
   if (items.length > 0) {
@@ -364,11 +411,12 @@ export async function listVendors(req, res) {
   const vendor = await Vendor.findById(vendorId).lean();
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   const city = normCity(vendor?.city) || "";
+  const cityId = String(vendor?.cityId || "").trim();
   if (!city) return res.json({ vendors: [] });
   const items = await Vendor.find({
-    city: new RegExp(`^${escapeRegex(city)}$`, "i"),
     status: "approved",
-    _id: { $ne: vendorId }
+    _id: { $ne: vendorId },
+    ...(cityId ? { cityId } : { city: new RegExp(`^${escapeRegex(city)}$`, "i") }),
   }).sort({ createdAt: -1 }).lean();
   res.json({ vendors: items });
 }
@@ -614,7 +662,9 @@ export async function rejectSPZones(req, res) {
 export async function listBookings(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
+  if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   const city = normCity(vendor?.city) || "";
+  const cityId = String(vendor?.cityId || "").trim();
   const zones = vendor?.zones || [];
 
   if (!city && zones.length === 0) {
@@ -635,7 +685,8 @@ export async function listBookings(req, res) {
     pQuery = { city: new RegExp(`^${escapeRegex(city)}$`, "i") };
   }
 
-  const providers = await ProviderAccount.find(pQuery).select("_id").lean();
+  const providers = (await ProviderAccount.find(pQuery).select("_id city cityId").lean())
+    .filter((provider) => belongsToCity(provider, cityId, city));
   const providerIds = providers.map((p) => p._id?.toString());
 
   // Bookings assigned to these providers
@@ -659,6 +710,10 @@ export async function listBookings(req, res) {
   const byAddress = await Booking.find(bQuery).sort({ createdAt: -1 }).lean();
   
   let combined = [...byProvider, ...byAddress];
+  combined = combined.filter((booking) => {
+    if (cityId && String(booking?.address?.cityId || "") === cityId) return true;
+    return !cityId ? sameText(String(booking?.address?.city || ""), city) : false;
+  });
   
   const map = new Map();
   combined.forEach((b) => map.set(b._id.toString(), b));
@@ -668,18 +723,29 @@ export async function listBookings(req, res) {
 
 export async function assignBooking(req, res) {
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes window for manual assignment too
-  const b = await Booking.findByIdAndUpdate(
-    req.params.id,
-    { 
-      assignedProvider: req.body.providerId, 
-      status: "vendor_assigned", 
-      lastAssignedAt: now,
-      expiresAt: null, // Manual vendor assignment should not expire automatically
-      adminEscalated: false
-    },
-    { new: true }
-  );
+  const existing = await Booking.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: "Not found" });
+  const providerId = String(req.body.providerId || "").trim();
+  const allowed = await canAssignProviderToBooking(providerId, existing.toObject());
+  if (!allowed) {
+    return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
+  }
+  const previousProviderId = String(existing.assignedProvider || "").trim();
+  existing.assignedProvider = providerId;
+  existing.status = "vendor_assigned";
+  existing.lastAssignedAt = now;
+  existing.expiresAt = null;
+  existing.adminEscalated = false;
+  const b = await existing.save();
+  try {
+    if (b?.slot?.date) {
+      const ids = Array.from(new Set([previousProviderId, providerId].filter(Boolean)));
+      for (const id of ids) {
+        // eslint-disable-next-line no-await-in-loop
+        await invalidateProviderSlots(id, b.slot.date);
+      }
+    }
+  } catch {}
     try {
       if (b?.assignedProvider) {
         await notify({
@@ -704,17 +770,29 @@ export async function assignBooking(req, res) {
 
 export async function reassignBooking(req, res) {
   const now = new Date();
-  const b = await Booking.findByIdAndUpdate(
-    req.params.id,
-    { 
-      assignedProvider: req.body.providerId, 
-      status: "vendor_reassigned", // Mandatory status
-      lastAssignedAt: now,
-      expiresAt: null, // Mandatory, so no expiry for acceptance
-      adminEscalated: false
-    },
-    { new: true }
-  );
+  const existing = await Booking.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: "Not found" });
+  const providerId = String(req.body.providerId || "").trim();
+  const allowed = await canAssignProviderToBooking(providerId, existing.toObject());
+  if (!allowed) {
+    return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
+  }
+  const previousProviderId = String(existing.assignedProvider || "").trim();
+  existing.assignedProvider = providerId;
+  existing.status = "vendor_reassigned";
+  existing.lastAssignedAt = now;
+  existing.expiresAt = null;
+  existing.adminEscalated = false;
+  const b = await existing.save();
+  try {
+    if (b?.slot?.date) {
+      const ids = Array.from(new Set([previousProviderId, providerId].filter(Boolean)));
+      for (const id of ids) {
+        // eslint-disable-next-line no-await-in-loop
+        await invalidateProviderSlots(id, b.slot.date);
+      }
+    }
+  } catch {}
     try {
       if (b?.assignedProvider) {
         await notify({
@@ -977,6 +1055,7 @@ export async function stats(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
   const city = normCity(vendor?.city) || "";
+  const cityId = String(vendor?.cityId || "").trim();
   const zones = vendor?.zones || [];
 
   let pQuery = {};
@@ -996,7 +1075,7 @@ export async function stats(req, res) {
     pQuery = { city: new RegExp(`^${escapeRegex(city)}$`, "i") };
   }
 
-  const providers = await ProviderAccount.find(pQuery).lean();
+  const providers = (await ProviderAccount.find(pQuery).lean()).filter((provider) => belongsToCity(provider, cityId, city));
   const providerIds = providers.map((p) => p._id?.toString());
 
   let bQuery = {};
@@ -1011,14 +1090,17 @@ export async function stats(req, res) {
     };
   }
 
-  const bookings = (zones.length > 0 || city)
+  const bookings = ((zones.length > 0 || city)
     ? await Booking.find({ 
         $or: [
           { assignedProvider: { $in: providerIds } },
           bQuery
         ]
       }).lean()
-    : await Booking.find().lean();
+    : await Booking.find().lean()).filter((booking) => {
+      if (cityId && String(booking?.address?.cityId || "") === cityId) return true;
+      return !cityId ? sameText(String(booking?.address?.city || ""), city) : false;
+    });
 
   const revenue = bookings
     .filter((b) => b.status === "completed")
@@ -1150,15 +1232,16 @@ export async function listZoneRequests(req, res) {
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   
   const city = normCity(vendor?.city) || "";
+  const cityId = String(vendor?.cityId || "").trim();
   if (!city) {
     return res.json({ requests: [] });
   }
   
   // Find all providers in vendor's city with pending zone requests
   const providers = await ProviderAccount.find({
-    city: new RegExp(`^${escapeRegex(city)}$`, "i"),
+    ...(cityId ? { cityId } : { city: new RegExp(`^${escapeRegex(city)}$`, "i") }),
     pendingZoneRequests: { $exists: true, $ne: [] }
-  }).select('name phone address currentLocation pendingZoneRequests').lean();
+  }).select('name phone address currentLocation city cityId pendingZoneRequests').lean();
   
   // Flatten and format zone requests
   const requests = [];
@@ -1173,6 +1256,8 @@ export async function listZoneRequests(req, res) {
         providerPhone: provider.phone,
         providerAddress: provider.address,
         providerLocation: provider.currentLocation,
+        providerCity: provider.city || "",
+        providerCityId: provider.cityId || "",
         zoneName: request.zoneName,
         isNewZone: request.isNewZone,
         requestedAt: request.requestedAt,

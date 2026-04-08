@@ -23,8 +23,12 @@ const ProviderAccountSchema = new mongoose.Schema(
     name: String,
     email: String,
     city: { type: String, default: "" },
+    cityId: { type: String, default: "" },
     zones: { type: [String], default: [] },
+    zoneIds: { type: [String], default: [] },
     pendingZones: { type: [String], default: [] },
+    baseZoneId: { type: String, default: "" },
+    serviceZoneIds: { type: [String], default: [] },
     
     // Enhanced zone request tracking (Phase 4)
     pendingZoneRequests: [{
@@ -32,6 +36,10 @@ const ProviderAccountSchema = new mongoose.Schema(
       isNewZone: { type: Boolean, default: false },
       requestedAt: { type: Date, default: Date.now },
       providerAddress: { type: String, default: "" },
+      cityId: { type: String, default: "" },
+      cityName: { type: String, default: "" },
+      resolvedZoneId: { type: String, default: "" },
+      resolvedZoneName: { type: String, default: "" },
       providerLocation: {
         lat: { type: Number, default: null },
         lng: { type: Number, default: null }

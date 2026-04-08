@@ -6,9 +6,13 @@ const AddressSchema = new mongoose.Schema(
     landmark: String,
     area: String,
     city: { type: String, default: "" },
+    cityId: { type: String, default: "" },
     zone: { type: String, default: "" },
+    zoneId: { type: String, default: "" },
     lat: { type: Number, default: null },
     lng: { type: Number, default: null },
+    insideServiceArea: { type: Boolean, default: true },
+    resolvedAt: { type: Date, default: null },
     type: { type: String, enum: ["home", "work", "other"], default: "home" },
   },
   { _id: true, timestamps: true }

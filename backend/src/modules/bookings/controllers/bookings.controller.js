@@ -23,6 +23,7 @@ import {
 } from "../../../lib/subscriptions.js";
 import { calculateRefundPolicy, processSmartRefund } from "../../../lib/refund.service.js";
 import { buildAssignmentCandidates } from "../../../lib/assignmentCandidates.js";
+import { invalidateProviderSlots } from "../../../lib/availability.js";
 
 async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
   // Logic: Instant bookings never require advance payment.
@@ -206,7 +207,9 @@ export async function create(req, res) {
     area: address?.area || fallbackAddr.area || "",
     landmark: address?.landmark || fallbackAddr.landmark || "",
     city: address?.city || address?.area || fallbackAddr.city || fallbackAddr.area || "",
+    cityId: address?.cityId || fallbackAddr.cityId || "",
     zone: address?.zone || fallbackAddr.zone || address?.area || fallbackAddr.area || "",
+    zoneId: address?.zoneId || fallbackAddr.zoneId || "",
     lat: address?.lat ?? fallbackAddr.lat ?? null,
     lng: address?.lng ?? fallbackAddr.lng ?? null,
   };
@@ -263,6 +266,7 @@ export async function create(req, res) {
     customerId: req.user._id.toString(),
     subscriptionSnapshot: customerSubscription.snapshot,
     requestedDurationMinutes,
+    useCache: false,
   });
   let candidateProviders = initialCandidates;
 
@@ -295,9 +299,9 @@ export async function create(req, res) {
   const providerIsCandidate = (pid) => !!pid && candidateProviders.includes(pid);
   
   // LOGIC CHANGE: Check if preferred provider is busy
-  if (preferredProviderId && !providerIsCandidate(preferredProviderId) && !allowAutoFallback) {
+  if (preferredProviderId && !providerIsCandidate(preferredProviderId)) {
     return res.status(409).json({
-      error: "Your selected provider is booked for the selected time slot. Do you want to auto allocation booking to the next provider?",
+      error: "Your selected provider is booked for the selected time slot.",
       code: "PREFERRED_PROVIDER_BUSY"
     });
   }
@@ -335,10 +339,11 @@ export async function create(req, res) {
   //
   // FUTURE IMPROVEMENT: Pass candidateProvidersBySlot from frontend to backend
   // so we can use the same providers that were shown as available during slot selection
-  if (!assignedProvider && autoAssignAllowed && candidateProviders.length === 0) {
-    console.log(`[Booking] No providers found for slot ${requestedTime} on ${requestedDate}. Creating unassigned booking for manual assignment.`);
-    // Don't return error - let booking be created as unassigned
-    // It will remain in the auto-assign pool until it reaches escalation window
+  if (!assignedProvider && candidateProviders.length === 0) {
+    return res.status(409).json({
+      error: "Selected slot is no longer available. Please choose another slot.",
+      code: "SLOT_UNAVAILABLE",
+    });
   }
   // candidateProviders already limited in buildAssignmentCandidates
 
@@ -404,8 +409,13 @@ export async function create(req, res) {
     assignmentIndex,
     lastAssignedAt,
     expiresAt,
-    adminEscalated: autoAssignAllowed ? !assignedProvider : true,
+    adminEscalated: false,
   });
+  try {
+    if (assignedProvider && booking?.slot?.date) {
+      await invalidateProviderSlots(assignedProvider, booking.slot.date);
+    }
+  } catch {}
   let order = null;
   if (advanceAmount > 0 && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
     try {

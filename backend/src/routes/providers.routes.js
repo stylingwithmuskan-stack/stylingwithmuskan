@@ -49,7 +49,7 @@ router.get(
     const approvalOk = allowPending
       ? (provider.approvalStatus === "approved" || pendingStatuses.has(provider.approvalStatus))
       : provider.approvalStatus === "approved";
-    if (!approvalOk || !provider.registrationComplete) {
+    if (!approvalOk || !provider.registrationComplete || provider.isOnline !== true) {
       return res.status(404).json({ error: "Provider not available" });
     }
 
@@ -201,6 +201,14 @@ router.get(
     if (providerId && providerId !== "null" && mongoose.isValidObjectId(providerId)) {
       const provider = await ProviderAccount.findById(providerId).lean();
       if (!provider) return res.status(404).json({ error: "Provider not found" });
+      if (provider.approvalStatus !== "approved" || provider.registrationComplete !== true || provider.isOnline !== true) {
+        return res.json({
+          date,
+          slots: [],
+          slotMap: {},
+          provider: providerCard(provider),
+        });
+      }
 
       const result = await computeAvailableSlots(providerId, date, settings, { requestedDurationMinutes: durationMinutes });
       return res.json({
@@ -215,15 +223,21 @@ router.get(
     const addrList = Array.isArray(req.user?.addresses) ? req.user.addresses : [];
     const addrWithZone = addrList.find(a => (a?.zone || a?.city)) || addrList[0] || {};
     const zoneGuess = zone || String(addrWithZone.zone || "").trim();
+    const zoneIdGuess = String(req.query.zoneId || addrWithZone.zoneId || "").trim();
     const rawCity = city || String(addrWithZone.city || "").trim();
+    const cityIdGuess = String(req.query.cityId || addrWithZone.cityId || "").trim();
     const cityGuess = rawCity || (zoneGuess ? "" : String(addrWithZone.area || "").trim());
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[Slots] Address fallback debug:", {
         queryCity: city,
+        queryCityId: req.query.cityId,
         queryZone: zone,
+        queryZoneId: req.query.zoneId,
         addrCity: addrWithZone.city,
+        addrCityId: addrWithZone.cityId,
         addrZone: addrWithZone.zone,
+        addrZoneId: addrWithZone.zoneId,
         addrArea: addrWithZone.area,
         cityGuess,
         zoneGuess,
@@ -234,17 +248,29 @@ router.get(
     const pendingStatuses = ["pending", "pending_vendor", "pending_admin"];
     const baseQ = {
       approvalStatus: allowPending ? { $in: ["approved", ...pendingStatuses] } : "approved",
-      registrationComplete: true
+      registrationComplete: true,
+      isOnline: true,
     };
 
     // Filter by city and zone
     let q = { ...baseQ };
-    if (cityGuess) {
+    if (cityIdGuess) {
+      q.cityId = cityIdGuess;
+    } else if (cityGuess) {
       q.city = new RegExp(`^${escapeRegex(cityGuess)}$`, "i");
     }
-    if (zoneGuess) {
+    if (zoneIdGuess) {
+      q.$or = [
+        { serviceZoneIds: zoneIdGuess },
+        { zoneIds: zoneIdGuess },
+        { baseZoneId: zoneIdGuess },
+      ];
+    } else if (zoneGuess) {
       // FIXED: Use zones array (plural) to match booking API logic
-      q.zones = { $in: [new RegExp(`^${escapeRegex(zoneGuess)}$`, "i")] };
+      q.$or = [
+        { zones: { $in: [new RegExp(`^${escapeRegex(zoneGuess)}$`, "i")] } },
+        { pendingZones: { $in: [new RegExp(`^${escapeRegex(zoneGuess)}$`, "i")] } },
+      ];
     }
 
     let providers = await ProviderAccount.find(q).lean();
@@ -301,7 +327,7 @@ router.get(
     }
 
     const slots = DEFAULT_TIME_SLOTS.filter((s) => slotMap[s]);
-    res.json({ date, slots, slotMap, candidateProvidersBySlot, city: cityGuess });
+    res.json({ date, slots, slotMap, candidateProvidersBySlot, city: cityGuess, cityId: cityIdGuess, zoneId: zoneIdGuess });
   }
 );
 

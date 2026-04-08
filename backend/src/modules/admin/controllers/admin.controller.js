@@ -7,6 +7,7 @@ import { uploadBuffer } from "../../../startup/cloudinary.js";
 import SOSAlert from "../../../models/SOSAlert.js";
 import { CommissionSettings } from "../../../models/Settings.js";
 import { City, Zone } from "../../../models/CityZone.js";
+import { syncCityCenterFromZone } from "../../../lib/locationResolution.js";
 
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 
@@ -507,15 +508,21 @@ export async function listCities(_req, res) {
 }
 
 export async function createCity(req, res) {
-  const { name } = req.body;
+  const { name, mapCenterLat, mapCenterLng, mapZoom, activeVendorId } = req.body;
   if (!name) return res.status(400).json({ error: "Name is required" });
-  const city = await City.create({ name });
+  const city = await City.create({
+    name,
+    mapCenterLat: Number.isFinite(Number(mapCenterLat)) ? Number(mapCenterLat) : null,
+    mapCenterLng: Number.isFinite(Number(mapCenterLng)) ? Number(mapCenterLng) : null,
+    mapZoom: Number.isFinite(Number(mapZoom)) ? Number(mapZoom) : 12,
+    activeVendorId: String(activeVendorId || "").trim(),
+  });
   res.json({ city });
 }
 
 export async function listZones(req, res) {
   const { cityId } = req.params;
-  const zones = await Zone.find({ city: cityId }).sort({ name: 1 }).lean();
+  const zones = await Zone.find({ city: cityId }).populate("city").sort({ name: 1 }).lean();
   res.json({ zones });
 }
 
@@ -559,15 +566,22 @@ export async function createZone(req, res) {
     city: cityId,
     ...(coordinates && { coordinates }) // Only include if provided
   });
+  if (coordinates) await syncCityCenterFromZone(cityId, coordinates);
   
   res.json({ zone });
 }
 
 export async function updateCity(req, res) {
   const { cityId } = req.params;
-  const { name } = req.body;
+  const { name, mapCenterLat, mapCenterLng, mapZoom, activeVendorId } = req.body;
   if (!name) return res.status(400).json({ error: "Name is required" });
-  const city = await City.findByIdAndUpdate(cityId, { name }, { new: true });
+  const city = await City.findByIdAndUpdate(cityId, {
+    name,
+    ...(mapCenterLat !== undefined ? { mapCenterLat: Number.isFinite(Number(mapCenterLat)) ? Number(mapCenterLat) : null } : {}),
+    ...(mapCenterLng !== undefined ? { mapCenterLng: Number.isFinite(Number(mapCenterLng)) ? Number(mapCenterLng) : null } : {}),
+    ...(mapZoom !== undefined ? { mapZoom: Number.isFinite(Number(mapZoom)) ? Number(mapZoom) : 12 } : {}),
+    ...(activeVendorId !== undefined ? { activeVendorId: String(activeVendorId || "").trim() } : {}),
+  }, { new: true });
   if (!city) return res.status(404).json({ error: "City not found" });
   res.json({ city });
 }
@@ -611,6 +625,7 @@ export async function updateZone(req, res) {
   
   const zone = await Zone.findByIdAndUpdate(zoneId, updates, { new: true });
   if (!zone) return res.status(404).json({ error: "Zone not found" });
+  if (updates.coordinates) await syncCityCenterFromZone(zone.city?.toString?.() || zone.city, updates.coordinates);
   
   res.json({ zone });
 }
@@ -957,7 +972,7 @@ export async function listPendingZoneCreations(req, res) {
           adminStatus: "pending"
         }
       }
-    }).select('name phone address currentLocation city pendingZoneRequests').lean();
+    }).select('name phone address currentLocation city cityId pendingZoneRequests').lean();
 
     // Flatten and format pending zone creation requests
     const requests = [];
@@ -975,6 +990,7 @@ export async function listPendingZoneCreations(req, res) {
             providerAddress: provider.address,
             providerLocation: provider.currentLocation,
             providerCity: provider.city,
+            providerCityId: provider.cityId || "",
             zoneName: request.zoneName,
             requestedAt: request.requestedAt,
             vendorReviewedAt: request.vendorReviewedAt,
@@ -1040,6 +1056,7 @@ export async function createZoneFromRequest(req, res) {
       status: 'active',
       coordinates
     });
+    await syncCityCenterFromZone(cityId, coordinates);
 
     // Update request status
     request.adminStatus = 'approved';
@@ -1050,6 +1067,11 @@ export async function createZoneFromRequest(req, res) {
     if (!provider.zones.includes(zoneName)) {
       provider.zones.push(zoneName);
     }
+    if (!provider.zoneIds?.includes(zone._id.toString())) {
+      provider.zoneIds = Array.isArray(provider.zoneIds) ? provider.zoneIds : [];
+      provider.zoneIds.push(zone._id.toString());
+    }
+    provider.cityId = String(cityId || provider.cityId || "");
 
     await provider.save();
 

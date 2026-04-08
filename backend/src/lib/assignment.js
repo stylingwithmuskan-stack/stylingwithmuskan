@@ -2,7 +2,10 @@ import Booking from "../models/Booking.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
-import { DEFAULT_TIME_SLOTS, defaultSlotsMap, isIsoDate } from "./slots.js";
+import { BookingSettings } from "../models/Settings.js";
+import { OfficeSettings } from "../models/Content.js";
+import { computeAvailableSlots } from "./availability.js";
+import { DEFAULT_TIME_SLOTS, defaultSlotsMap, isIsoDate, parseDurationToMinutes } from "./slots.js";
 import { isoDateToLocalEnd, isoDateToLocalStart } from "./isoDateTime.js";
 
 export function getAcceptWindowMs() {
@@ -52,17 +55,47 @@ async function isProviderEligibleForBooking(providerId, booking) {
     if (base[time] !== true) return false;
   }
 
-  // Booking conflict check.
-  const conflict = await Booking.findOne({
-    _id: { $ne: booking._id },
-    assignedProvider: String(providerId),
-    "slot.date": date,
-    "slot.time": time,
-    status: { $ne: "cancelled" },
-  }).lean();
-  if (conflict) return false;
+  const requestedDurationMinutes = getBookingRequestedDurationMinutes(booking);
+  const settings = await loadAssignmentSettings();
+  const avail = await computeAvailableSlots(providerId, date, settings, {
+    requestedDurationMinutes,
+    useCache: false,
+  });
+  if (avail?.slotMap?.[time] !== true) return false;
 
   return true;
+}
+
+async function loadAssignmentSettings() {
+  const [bookingSettings, officeSettings] = await Promise.all([
+    BookingSettings.findOne().lean(),
+    OfficeSettings.findOne().lean(),
+  ]);
+  return { ...(bookingSettings || {}), ...(officeSettings || {}) };
+}
+
+export function getBookingRequestedDurationMinutes(booking) {
+  const services = Array.isArray(booking?.services)
+    ? booking.services
+    : Array.isArray(booking?.items)
+      ? booking.items
+      : [];
+  return services.reduce((sum, it) => {
+    const per = parseDurationToMinutes(it?.duration, 60);
+    const qty = Number(it?.quantity || 1);
+    return sum + (per * (Number.isFinite(qty) ? qty : 1));
+  }, 0);
+}
+
+export async function canAssignProviderToBooking(providerId, booking, opts = {}) {
+  if (!providerId || !booking) return false;
+  const overrideSlot = opts.slot || booking.slot || {};
+  const bookingForCheck = {
+    ...booking,
+    slot: overrideSlot,
+    services: Array.isArray(booking.services) ? booking.services : booking.items,
+  };
+  return isProviderEligibleForBooking(providerId, bookingForCheck);
 }
 
 export async function pickNextProviderForBooking(booking, startIndex = 0) {

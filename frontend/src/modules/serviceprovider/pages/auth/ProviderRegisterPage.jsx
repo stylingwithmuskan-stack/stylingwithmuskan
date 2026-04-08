@@ -70,7 +70,9 @@ export default function ProviderRegisterPage() {
         addressLine1: "",
         area: "",
         city: "",
+        cityId: "",
         zones: [],
+        zoneIds: [],
         customZone: "",
         profilePhoto: null,
         aadharFront: null,
@@ -120,8 +122,15 @@ export default function ProviderRegisterPage() {
         if (formData.city) {
             setZonesLoading(true);
             api.content.zones({ cityName: formData.city }).then(res => {
-                setZones(res.zones || []);
-                setFormData(prev => ({ ...prev, zone: "" }));
+                const nextZones = res.zones || [];
+                setZones(nextZones);
+                setFormData(prev => {
+                    const nextSelectedZones = prev.zones.filter((zoneName) => nextZones.some((zone) => zone.name === zoneName));
+                    const nextSelectedZoneIds = nextZones
+                        .filter((zone) => nextSelectedZones.includes(zone.name))
+                        .map((zone) => zone._id);
+                    return { ...prev, zones: nextSelectedZones, zoneIds: nextSelectedZoneIds };
+                });
             }).catch(() => {
                 setZones([]);
             }).finally(() => {
@@ -131,6 +140,13 @@ export default function ProviderRegisterPage() {
             setZones([]);
         }
     }, [formData.city]);
+
+    const syncSelectedZoneIds = (selectedZoneNames, availableZones = zones) => {
+        const nextZoneIds = availableZones
+            .filter((zone) => selectedZoneNames.includes(zone.name))
+            .map((zone) => zone._id);
+        setFormData((prev) => ({ ...prev, zones: selectedZoneNames, zoneIds: nextZoneIds }));
+    };
 
     const {
         serviceTypeOptions,
@@ -642,106 +658,222 @@ export default function ProviderRegisterPage() {
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                         />
                                     </div>
-                                    <div className="space-y-2 sm:col-span-2">
+                                    <div className="space-y-4 sm:col-span-2">
                                         <Label className="text-xs font-black uppercase text-gray-400">Address & Hub Location</Label>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-bold text-gray-500">CITY</Label>
-                                                <Select value={formData.city} onValueChange={v => setFormData({ ...formData, city: v })}>
-                                                    <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600">
-                                                        <SelectValue placeholder="Select City" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {cities.map(c => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hub Zones (Multiple)</Label>
-                                                <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                                    {zonesLoading ? (
-                                                        <div className="flex items-center gap-2 py-2">
-                                                            <Loader2 className="h-4 w-4 text-violet-600 animate-spin" />
-                                                            <span className="text-xs font-bold text-gray-400">Fetching zones...</span>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <span className="text-[10px] font-black text-gray-400 uppercase">Available Hubs</span>
-                                                                <Button type="button" variant="ghost" size="sm" onClick={() => {
-                                                                    if (formData.zones.length === zones.length) setFormData({ ...formData, zones: [] });
-                                                                    else setFormData({ ...formData, zones: zones.map(z => z.name) });
-                                                                }} className="h-6 text-[9px] font-black text-violet-600 hover:bg-violet-50">
-                                                                    {formData.zones.length === zones.length ? "Deselect All" : "Select All"}
-                                                                </Button>
-                                                            </div>
-                                                            <div className="grid grid-cols-1 gap-2">
-                                                                {zones.map(z => (
-                                                                    <div key={z._id} onClick={() => {
-                                                                        const current = [...formData.zones];
-                                                                        const idx = current.indexOf(z.name);
-                                                                        if (idx > -1) current.splice(idx, 1);
-                                                                        else current.push(z.name);
-                                                                        setFormData({ ...formData, zones: current });
-                                                                    }} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.zones.includes(z.name) ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100' : 'bg-white border-gray-100 text-gray-600 hover:border-violet-200'}`}>
-                                                                        <div className={`h-5 w-5 rounded flex items-center justify-center ${formData.zones.includes(z.name) ? 'bg-white text-violet-600' : 'bg-gray-100'}`}>
-                                                                            {formData.zones.includes(z.name) && <Check className="h-3 w-3" />}
-                                                                        </div>
-                                                                        <span className="text-xs font-black truncate">{z.name}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                    
-                                                    <div className="pt-2 mt-2 border-t border-slate-200">
-                                                        <Label className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Custom Hub (If not listed)</Label>
-                                                        <Input
-                                                            placeholder="Enter custom area name"
-                                                            className="h-10 rounded-xl bg-white border-gray-100 font-bold text-xs"
-                                                            value={formData.customZone}
-                                                            onChange={(e) => setFormData({ ...formData, customZone: e.target.value })}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            <Input
-                                                placeholder="Flat/Building/Landmark"
-                                                className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                                value={formData.addressLine1}
-                                                onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
-                                            />
-                                            <Input
-                                                placeholder="Area/Colony"
-                                                className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                                value={formData.area}
-                                                onChange={(e) => setFormData({ ...formData, area: e.target.value })}
-                                            />
-                                        </div>
+                                        
+                                        {/* Use Current Location Button - First for easy access */}
                                         <Button
                                             type="button"
                                             variant={formData.lat ? "default" : "outline"}
-                                            className={`h-12 mt-2 whitespace-nowrap transition-all ${formData.lat ? "bg-green-600 hover:bg-green-700 text-white border-green-600 shadow-lg shadow-green-100" : ""}`}
-                                            onClick={() => {
+                                            className={`w-full h-12 transition-all ${formData.lat ? "bg-green-600 hover:bg-green-700 text-white border-green-600 shadow-lg shadow-green-100" : ""}`}
+                                            disabled={isLoading}
+                                            onClick={async () => {
                                                 if (!navigator.geolocation) return alert("Geolocation not supported");
+                                                
+                                                setIsLoading(true);
                                                 navigator.geolocation.getCurrentPosition(
-                                                    (pos) => {
-                                                        setFormData(prev => ({ 
-                                                            ...prev, 
-                                                            lat: pos.coords.latitude, 
-                                                            lng: pos.coords.longitude 
-                                                        }));
-                                                        alert("Location captured successfully! We will use this to verify your hub zones.");
+                                                    async (pos) => {
+                                                        const lat = pos.coords.latitude;
+                                                        const lng = pos.coords.longitude;
+                                                        try {
+                                                            const res = await api.content.resolveLocation({
+                                                                lat: String(lat),
+                                                                lng: String(lng),
+                                                            });
+                                                            const location = res?.location || {};
+                                                            if (location.insideServiceArea && location.cityName && location.zoneName) {
+                                                                const matchedCity = cities.find((city) => city._id === location.cityId || city.name === location.cityName);
+                                                                const nextCity = matchedCity?.name || location.cityName;
+                                                                const nextCityId = matchedCity?._id || location.cityId || "";
+                                                                let nextZones = [];
+                                                                try {
+                                                                    const zonesRes = await api.content.zones({ cityName: nextCity });
+                                                                    nextZones = zonesRes?.zones || [];
+                                                                    setZones(nextZones);
+                                                                } catch {
+                                                                    nextZones = [];
+                                                                    setZones([]);
+                                                                }
+                                                                const resolvedZone = nextZones.find((zone) => zone._id === location.zoneId || zone.name === location.zoneName);
+                                                                setFormData((prev) => ({
+                                                                    ...prev,
+                                                                    lat,
+                                                                    lng,
+                                                                    city: nextCity,
+                                                                    cityId: nextCityId,
+                                                                    zones: resolvedZone ? [resolvedZone.name] : (location.zoneName ? [location.zoneName] : prev.zones),
+                                                                    zoneIds: resolvedZone ? [resolvedZone._id] : (location.zoneId ? [location.zoneId] : prev.zoneIds),
+                                                                }));
+                                                                alert(`Location captured!\nDetected zone: ${location.zoneName}`);
+                                                            } else {
+                                                                setFormData((prev) => ({
+                                                                    ...prev,
+                                                                    lat,
+                                                                    lng,
+                                                                    zones: [],
+                                                                    zoneIds: [],
+                                                                }));
+                                                                alert("Your current location is out of zone, apply for the custom zone.");
+                                                            }
+                                                        } catch (error) {
+                                                            console.error("Location resolution error:", error);
+                                                            setFormData(prev => ({ 
+                                                                ...prev, 
+                                                                lat, 
+                                                                lng 
+                                                            }));
+                                                            alert("Location captured! Please complete city and zone manually.");
+                                                        } finally {
+                                                            setIsLoading(false);
+                                                        }
+                                                        return;
+                                                        
+                                                        console.log("📍 Current Location Coordinates:");
+                                                        console.log("  - Latitude:", lat);
+                                                        console.log("  - Longitude:", lng);
+                                                        
+                                                        try {
+                                                            // Reverse geocoding using Nominatim (OpenStreetMap)
+                                                            const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
+                                                            console.log("🌐 Geocoding API URL:", geocodeUrl);
+                                                            
+                                                            const response = await fetch(
+                                                                geocodeUrl,
+                                                                {
+                                                                    headers: {
+                                                                        'Accept-Language': 'en'
+                                                                    }
+                                                                }
+                                                            );
+                                                            
+                                                            console.log("📡 API Response Status:", response.status, response.statusText);
+                                                            
+                                                            if (response.ok) {
+                                                                const data = await response.json();
+                                                                console.log("🌍 Full Geocoding Response:", data);
+                                                                
+                                                                const address = data.address || {};
+                                                                console.log("📍 Address Object:", address);
+                                                                
+                                                                // Extract address components with multiple fallbacks
+                                                                const extractedArea = address.suburb || 
+                                                                                     address.neighbourhood || 
+                                                                                     address.residential || 
+                                                                                     address.quarter || 
+                                                                                     address.hamlet ||
+                                                                                     address.locality || "";
+                                                                
+                                                                const extractedCity = address.city || 
+                                                                                     address.town || 
+                                                                                     address.village || 
+                                                                                     address.municipality ||
+                                                                                     address.county ||
+                                                                                     address.state_district || "";
+                                                                
+                                                                const extractedLandmark = address.house_number 
+                                                                    ? `${address.house_number} ${address.road || address.street || ""}`.trim()
+                                                                    : (address.road || address.street || address.building || "");
+                                                                
+                                                                console.log("📦 Extracted Values:");
+                                                                console.log("  - Area:", extractedArea);
+                                                                console.log("  - City:", extractedCity);
+                                                                console.log("  - Landmark:", extractedLandmark);
+                                                                
+                                                                // Try to match city with available cities in dropdown
+                                                                let matchedCity = "";
+                                                                if (extractedCity && cities.length > 0) {
+                                                                    const cityLower = extractedCity.toLowerCase();
+                                                                    const found = cities.find(c => 
+                                                                        c.name.toLowerCase() === cityLower || 
+                                                                        c.name.toLowerCase().includes(cityLower) ||
+                                                                        cityLower.includes(c.name.toLowerCase())
+                                                                    );
+                                                                    matchedCity = found ? found.name : extractedCity;
+                                                                    console.log("🏙️ City Matching:");
+                                                                    console.log("  - Extracted City:", extractedCity);
+                                                                    console.log("  - Matched City:", matchedCity);
+                                                                    console.log("  - Found in dropdown:", !!found);
+                                                                }
+                                                                
+                                                                console.log("📝 Current Form Data (before update):", {
+                                                                    area: formData.area,
+                                                                    city: formData.city,
+                                                                    addressLine1: formData.addressLine1
+                                                                });
+                                                                
+                                                                // Update form with location and address - always update if we have values
+                                                                const updatedData = { 
+                                                                    ...formData, 
+                                                                    lat: lat, 
+                                                                    lng: lng,
+                                                                    area: extractedArea ? extractedArea : formData.area,
+                                                                    city: matchedCity ? matchedCity : (extractedCity ? extractedCity : formData.city),
+                                                                    addressLine1: extractedLandmark ? extractedLandmark : formData.addressLine1
+                                                                };
+                                                                
+                                                                console.log("✅ Updated Form Data (after update):", {
+                                                                    area: updatedData.area,
+                                                                    city: updatedData.city,
+                                                                    addressLine1: updatedData.addressLine1
+                                                                });
+                                                                
+                                                                setFormData(updatedData);
+                                                                
+                                                                // Verify state update with a small delay
+                                                                setTimeout(() => {
+                                                                    console.log("🔄 Form Data After State Update:", {
+                                                                        area: updatedData.area,
+                                                                        city: updatedData.city,
+                                                                        addressLine1: updatedData.addressLine1
+                                                                    });
+                                                                }, 100);
+                                                                
+                                                                const addressParts = [];
+                                                                if (extractedLandmark) addressParts.push(`Landmark: ${extractedLandmark}`);
+                                                                if (extractedArea) addressParts.push(`Area: ${extractedArea}`);
+                                                                if (matchedCity || extractedCity) addressParts.push(`City: ${matchedCity || extractedCity}`);
+                                                                
+                                                                if (addressParts.length > 0) {
+                                                                    alert(`Location captured!\n${addressParts.join('\n')}`);
+                                                                } else {
+                                                                    alert("Location captured! Please verify and complete address details.");
+                                                                }
+                                                            } else {
+                                                                // Fallback: just save coordinates
+                                                                setFormData(prev => ({ 
+                                                                    ...prev, 
+                                                                    lat: lat, 
+                                                                    lng: lng 
+                                                                }));
+                                                                alert("Location captured! Please fill address details manually.");
+                                                            }
+                                                        } catch (error) {
+                                                            console.error("Reverse geocoding error:", error);
+                                                            // Fallback: just save coordinates
+                                                            setFormData(prev => ({ 
+                                                                ...prev, 
+                                                                lat: lat, 
+                                                                lng: lng 
+                                                            }));
+                                                            alert("Location captured! Please fill address details manually.");
+                                                        } finally {
+                                                            setIsLoading(false);
+                                                        }
                                                     },
-                                                    () => alert("Permission denied or location unavailable. Please ensure GPS is enabled."),
+                                                    () => {
+                                                        setIsLoading(false);
+                                                        alert("Permission denied or location unavailable. Please ensure GPS is enabled.");
+                                                    },
                                                     { enableHighAccuracy: true, timeout: 8000 }
                                                 );
                                             }}
                                         >
-                                            {formData.lat ? (
+                                            {isLoading ? (
+                                                <div className="flex items-center gap-2">
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    <span className="font-black uppercase text-[10px] tracking-widest">Getting Location...</span>
+                                                </div>
+                                            ) : formData.lat ? (
                                                 <div className="flex items-center gap-2">
                                                     <Check className="h-4 w-4 stroke-[3px]" />
                                                     <span className="font-black uppercase text-[10px] tracking-widest">Location Captured</span>
@@ -750,6 +882,108 @@ export default function ProviderRegisterPage() {
                                                 "Use Current Location"
                                             )}
                                         </Button>
+
+                                        {/* City Selection */}
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-bold text-gray-500 uppercase">City</Label>
+                                            <Select value={formData.city} onValueChange={v => {
+                                                const selectedCity = cities.find((city) => city.name === v);
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    city: v,
+                                                    cityId: selectedCity?._id || "",
+                                                    zones: [],
+                                                    zoneIds: [],
+                                                }));
+                                            }}>
+                                                <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600">
+                                                    <SelectValue placeholder="Select City" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {cities.map(c => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {/* Area and Landmark Fields */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-bold text-gray-500 uppercase">Area/Colony</Label>
+                                                <Input
+                                                    placeholder="Enter area or colony name"
+                                                    className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
+                                                    value={formData.area}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, area: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-bold text-gray-500 uppercase">Flat/Building/Landmark</Label>
+                                                <Input
+                                                    placeholder="Enter flat, building or landmark"
+                                                    className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
+                                                    value={formData.addressLine1}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, addressLine1: e.target.value }))}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Hub Zones Selection */}
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hub Zones (Multiple)</Label>
+                                            <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                                {zonesLoading ? (
+                                                    <div className="flex items-center gap-2 py-2">
+                                                        <Loader2 className="h-4 w-4 text-violet-600 animate-spin" />
+                                                        <span className="text-xs font-bold text-gray-400">Fetching zones...</span>
+                                                    </div>
+                                                ) : zones.length > 0 ? (
+                                                    <>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="text-[10px] font-black text-gray-400 uppercase">Available Hubs</span>
+                                                            <Button type="button" variant="ghost" size="sm" onClick={() => {
+                                                                if (formData.zones.length === zones.length) {
+                                                                    setFormData(prev => ({ ...prev, zones: [], zoneIds: [] }));
+                                                                } else {
+                                                                    syncSelectedZoneIds(zones.map(z => z.name));
+                                                                }
+                                                            }} className="h-6 text-[9px] font-black text-violet-600 hover:bg-violet-50">
+                                                                {formData.zones.length === zones.length ? "Deselect All" : "Select All"}
+                                                            </Button>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                                                            {zones.map(z => (
+                                                                <div key={z._id} onClick={() => {
+                                                                    const current = [...formData.zones];
+                                                                    const idx = current.indexOf(z.name);
+                                                                    if (idx > -1) current.splice(idx, 1);
+                                                                    else current.push(z.name);
+                                                                    syncSelectedZoneIds(current);
+                                                                }} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.zones.includes(z.name) ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100' : 'bg-white border-gray-100 text-gray-600 hover:border-violet-200'}`}>
+                                                                    <div className={`h-5 w-5 rounded flex items-center justify-center ${formData.zones.includes(z.name) ? 'bg-white text-violet-600' : 'bg-gray-100'}`}>
+                                                                        {formData.zones.includes(z.name) && <Check className="h-3 w-3" />}
+                                                                    </div>
+                                                                    <span className="text-xs font-black truncate">{z.name}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                ) : formData.city ? (
+                                                    <p className="text-xs font-semibold text-gray-400 py-2">No zones available for selected city</p>
+                                                ) : (
+                                                    <p className="text-xs font-semibold text-gray-400 py-2">Please select a city first</p>
+                                                )}
+                                                
+                                                <div className="pt-2 mt-2 border-t border-slate-200">
+                                                    <Label className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Custom Hub (If not listed)</Label>
+                                                    <Input
+                                                        placeholder="Enter custom area name"
+                                                        className="h-10 rounded-xl bg-white border-gray-100 font-bold text-xs"
+                                                        value={formData.customZone}
+                                                        onChange={(e) => setFormData(prev => ({ ...prev, customZone: e.target.value }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-black uppercase text-gray-400">Email Address</Label>

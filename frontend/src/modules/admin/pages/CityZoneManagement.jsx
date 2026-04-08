@@ -31,6 +31,9 @@ const CityZoneManagement = () => {
     const [isAddZoneOpen, setIsAddZoneOpen] = useState(false);
     const [selectedCityForZone, setSelectedCityForZone] = useState(null);
     const [newName, setNewName] = useState("");
+    const [cityMapCenterLat, setCityMapCenterLat] = useState("");
+    const [cityMapCenterLng, setCityMapCenterLng] = useState("");
+    const [cityMapZoom, setCityMapZoom] = useState("12");
     const [submitting, setSubmitting] = useState(false);
 
     // Zone Drawing Modal States
@@ -144,9 +147,17 @@ const CityZoneManagement = () => {
         }
         try {
             setSubmitting(true);
-            await api.admin.createCity({ name: newName });
+            await api.admin.createCity({
+                name: newName,
+                mapCenterLat: cityMapCenterLat,
+                mapCenterLng: cityMapCenterLng,
+                mapZoom: cityMapZoom,
+            });
             toast.success("City added successfully");
             setNewName("");
+            setCityMapCenterLat("");
+            setCityMapCenterLng("");
+            setCityMapZoom("12");
             setIsAddCityOpen(false);
             fetchCities();
         } catch (err) {
@@ -211,9 +222,17 @@ const CityZoneManagement = () => {
         if (!newName.trim() || !editingCity) return;
         try {
             setSubmitting(true);
-            await api.admin.updateCity(editingCity._id, { name: newName });
+            await api.admin.updateCity(editingCity._id, {
+                name: newName,
+                mapCenterLat: cityMapCenterLat,
+                mapCenterLng: cityMapCenterLng,
+                mapZoom: cityMapZoom,
+            });
             toast.success("City updated successfully");
             setNewName("");
+            setCityMapCenterLat("");
+            setCityMapCenterLng("");
+            setCityMapZoom("12");
             setEditingCity(null);
             fetchCities();
         } catch (err) {
@@ -290,7 +309,13 @@ const CityZoneManagement = () => {
                         </div>
                     </Card>
                     <Button 
-                        onClick={() => setIsAddCityOpen(true)}
+                        onClick={() => {
+                            setNewName("");
+                            setCityMapCenterLat("");
+                            setCityMapCenterLng("");
+                            setCityMapZoom("12");
+                            setIsAddCityOpen(true);
+                        }}
                         className="bg-primary hover:bg-primary/90 text-white rounded-xl px-6 h-11 font-bold shadow-none"
                     >
                         <Plus className="h-5 w-5 mr-2" /> Add New City
@@ -353,6 +378,9 @@ const CityZoneManagement = () => {
                                                     e.stopPropagation();
                                                     setEditingCity(city);
                                                     setNewName(city.name);
+                                                    setCityMapCenterLat(city.mapCenterLat ?? "");
+                                                    setCityMapCenterLng(city.mapCenterLng ?? "");
+                                                    setCityMapZoom(String(city.mapZoom ?? 12));
                                                 }}
                                                 className="h-8 w-8 text-muted-foreground hover:text-primary rounded-lg"
                                             >
@@ -584,6 +612,26 @@ const CityZoneManagement = () => {
                                 className="h-11 rounded-xl border-border/50 focus:ring-primary font-bold text-sm"
                             />
                         </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <Input
+                                placeholder="Lat"
+                                value={cityMapCenterLat}
+                                onChange={(e) => setCityMapCenterLat(e.target.value)}
+                                className="h-11 rounded-xl border-border/50 focus:ring-primary font-bold text-sm"
+                            />
+                            <Input
+                                placeholder="Lng"
+                                value={cityMapCenterLng}
+                                onChange={(e) => setCityMapCenterLng(e.target.value)}
+                                className="h-11 rounded-xl border-border/50 focus:ring-primary font-bold text-sm"
+                            />
+                            <Input
+                                placeholder="Zoom"
+                                value={cityMapZoom}
+                                onChange={(e) => setCityMapZoom(e.target.value)}
+                                className="h-11 rounded-xl border-border/50 focus:ring-primary font-bold text-sm"
+                            />
+                        </div>
                         <Button 
                             onClick={handleAddCity}
                             disabled={submitting || !newName.trim()}
@@ -635,6 +683,26 @@ const CityZoneManagement = () => {
                                 placeholder="e.g. Mumbai" 
                                 value={newName}
                                 onChange={(e) => setNewName(e.target.value)}
+                                className="h-11 rounded-xl border-border/50 focus:ring-primary font-bold text-sm"
+                            />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <Input
+                                placeholder="Lat"
+                                value={cityMapCenterLat}
+                                onChange={(e) => setCityMapCenterLat(e.target.value)}
+                                className="h-11 rounded-xl border-border/50 focus:ring-primary font-bold text-sm"
+                            />
+                            <Input
+                                placeholder="Lng"
+                                value={cityMapCenterLng}
+                                onChange={(e) => setCityMapCenterLng(e.target.value)}
+                                className="h-11 rounded-xl border-border/50 focus:ring-primary font-bold text-sm"
+                            />
+                            <Input
+                                placeholder="Zoom"
+                                value={cityMapZoom}
+                                onChange={(e) => setCityMapZoom(e.target.value)}
                                 className="h-11 rounded-xl border-border/50 focus:ring-primary font-bold text-sm"
                             />
                         </div>
@@ -734,6 +802,7 @@ const CityZoneManagement = () => {
                     setCityForDrawing(null);
                 }}
                 city={cityForDrawing}
+                existingZones={cityForDrawing?._id ? (zones[cityForDrawing._id] || []) : []}
                 onSave={handleSaveZoneWithCoordinates}
             />
         </div>

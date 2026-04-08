@@ -5,10 +5,11 @@ import { Input } from "@/modules/user/components/ui/input";
 import { toast } from "sonner";
 import useGoogleMaps from "../hooks/useGoogleMaps";
 
-const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, providerLocation = null, initialZoneName = "", onSave }) => {
+const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existingZones = [], providerLocation = null, initialZoneName = "", onSave }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const providerMarkerRef = useRef(null);
+  const existingPolygonsRef = useRef([]);
   const [markers, setMarkers] = useState([]);
   const markersRef = useRef([]);
   const [polygon, setPolygon] = useState(null);
@@ -35,6 +36,30 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, provider
     polygonRef.current = polygon;
   }, [markers, polygon]);
 
+  const clearExistingPolygons = () => {
+    existingPolygonsRef.current.forEach((shape) => shape.setMap(null));
+    existingPolygonsRef.current = [];
+  };
+
+  const renderExistingPolygons = () => {
+    if (!mapInstanceRef.current || !window.google?.maps) return;
+    clearExistingPolygons();
+    existingPolygonsRef.current = (Array.isArray(existingZones) ? existingZones : [])
+      .filter((zone) => Array.isArray(zone?.coordinates) && zone.coordinates.length >= 3)
+      .map((zone) => {
+        const shape = new window.google.maps.Polygon({
+          paths: zone.coordinates.map((point) => ({ lat: Number(point.lat), lng: Number(point.lng) })),
+          strokeColor: zone._id === existingZone?._id ? "#2563eb" : "#16a34a",
+          strokeOpacity: 0.85,
+          strokeWeight: zone._id === existingZone?._id ? 3 : 2,
+          fillColor: zone._id === existingZone?._id ? "#93c5fd" : "#86efac",
+          fillOpacity: zone._id === existingZone?._id ? 0.25 : 0.15,
+        });
+        shape.setMap(mapInstanceRef.current);
+        return shape;
+      });
+  };
+
   // Initialize map once when API loads
   useEffect(() => {
     if (!isMapLoaded || !mapRef.current || !window.google?.maps || mapInstanceRef.current) {
@@ -42,8 +67,8 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, provider
     }
 
     const mapInstance = new window.google.maps.Map(mapRef.current, {
-      center: { lat: 23.0225, lng: 77.4126 },
-      zoom: 12,
+      center: { lat: Number(city?.mapCenterLat || city?.lat || 23.0225), lng: Number(city?.mapCenterLng || city?.lng || 77.4126) },
+      zoom: Number(city?.mapZoom || 12),
       mapTypeId: "roadmap",
       zoomControl: true,
       mapTypeControl: false,
@@ -53,6 +78,7 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, provider
     });
 
     mapInstanceRef.current = mapInstance;
+    renderExistingPolygons();
 
     // Add click listener
     mapInstance.addListener("click", (event) => {
@@ -100,23 +126,49 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, provider
     if (!isOpen || !mapInstanceRef.current || !city) return;
 
     const mapCenter = {
-      lat: city.lat || 23.0225,
-      lng: city.lng || 77.4126
+      lat: Number(city.mapCenterLat || city.lat || 23.0225),
+      lng: Number(city.mapCenterLng || city.lng || 77.4126)
     };
 
     setTimeout(() => {
       window.google.maps.event.trigger(mapInstanceRef.current, 'resize');
       mapInstanceRef.current.setCenter(mapCenter);
-      mapInstanceRef.current.setZoom(12);
+      mapInstanceRef.current.setZoom(Number(city.mapZoom || 12));
+      renderExistingPolygons();
     }, 100);
 
-  }, [isOpen, city]);
+  }, [isOpen, city, existingZones]);
+
+  useEffect(() => {
+    if (!isOpen || !mapInstanceRef.current) return;
+    renderExistingPolygons();
+  }, [existingZones, existingZone, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !mapInstanceRef.current || !window.google?.maps) return;
+    if (providerMarkerRef.current) {
+      providerMarkerRef.current.setMap(null);
+      providerMarkerRef.current = null;
+    }
+    if (providerLocation?.lat && providerLocation?.lng) {
+      providerMarkerRef.current = new window.google.maps.Marker({
+        position: { lat: Number(providerLocation.lat), lng: Number(providerLocation.lng) },
+        map: mapInstanceRef.current,
+        title: "Requested location",
+      });
+    }
+  }, [providerLocation, isOpen]);
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       markers.forEach(marker => marker.setMap(null));
       if (polygon) polygon.setMap(null);
+      clearExistingPolygons();
+      if (providerMarkerRef.current) {
+        providerMarkerRef.current.setMap(null);
+        providerMarkerRef.current = null;
+      }
       
       setMarkers([]);
       setPolygon(null);

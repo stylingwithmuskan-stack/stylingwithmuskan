@@ -5,6 +5,7 @@ import { BookingSettings } from "../models/Settings.js";
 import { Spotlight, GalleryItem, Testimonial } from "../models/SiteContent.js";
 import { versionedKey } from "../lib/contentCache.js";
 import { City, Zone } from "../models/CityZone.js";
+import { resolveServiceLocation } from "../lib/locationResolution.js";
 
 const router = Router();
 
@@ -255,6 +256,15 @@ router.get("/zones", async (req, res) => {
   }
   const zones = await Zone.find(q).sort({ name: 1 }).lean();
   res.json({ zones });
+});
+
+router.get("/resolve-location", async (req, res) => {
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  const cityId = String(req.query.cityId || "").trim();
+  const cityName = String(req.query.cityName || "").trim();
+  const resolved = await resolveServiceLocation({ lat, lng, cityId, cityName });
+  res.json({ location: resolved });
 });
 
 router.get("/booking-settings", async (_req, res) => {

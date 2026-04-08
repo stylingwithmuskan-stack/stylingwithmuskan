@@ -13,21 +13,24 @@ import LeaveRequest from "../models/LeaveRequest.js";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../config.js";
 import { ServiceType, Category, Service, OfficeSettings, Banner, BookingType } from "../models/Content.js";
 import { Spotlight, GalleryItem, Testimonial } from "../models/SiteContent.js";
+import { City } from "../models/CityZone.js";
 import * as BookingsController from "../modules/bookings/controllers/bookings.controller.js";
-import { computeExpiresAt } from "../lib/assignment.js";
+import { canAssignProviderToBooking, computeExpiresAt } from "../lib/assignment.js";
 import { bumpContentVersion } from "../lib/contentCache.js";
 import { notify } from "../lib/notify.js";
 import * as AdminSubscriptionController from "../modules/subscriptions/controllers/adminSubscription.controller.js";
 import * as AdminPushController from "../modules/admin/controllers/adminPush.controller.js";
 import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import { defaultSlotsMap } from "../lib/slots.js";
+import { invalidateProviderSlots } from "../lib/availability.js";
 
 const router = Router();
 
 // Helper function to create default availability for provider (30 days)
 async function createDefaultProviderAvailability(providerId) {
   try {
-    const defaultSlots = defaultSlotsMap("07:00", "22:00");
+    const office = await OfficeSettings.findOne().lean();
+    const defaultSlots = defaultSlotsMap(office?.providerStartTime || "07:00", office?.providerEndTime || "22:00");
     const availableSlots = Object.keys(defaultSlots).filter(slot => defaultSlots[slot] === true);
     
     // Create availability for next 30 days
@@ -274,10 +277,33 @@ router.patch("/leaves/:id/reject", requireRole("admin"), async (req, res) => {
 router.patch("/vendors/:id/status", requireRole("admin"), param("id").isString(), body("status").isIn(["approved", "pending", "rejected", "blocked"]), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  const v = await Vendor.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+  const current = await Vendor.findById(req.params.id);
+  if (!current) return res.status(404).json({ error: "Vendor not found" });
+  const nextStatus = String(req.body.status || "").toLowerCase();
+  if (nextStatus === "approved") {
+    const cityId = String(current.cityId || "").trim();
+    const city = String(current.city || "").trim();
+    const duplicate = await Vendor.findOne({
+      _id: { $ne: current._id },
+      status: "approved",
+      $or: [
+        ...(cityId ? [{ cityId }] : []),
+        ...(city ? [{ city: new RegExp(`^${city}$`, "i") }] : []),
+      ],
+    }).lean();
+    if (duplicate) {
+      return res.status(409).json({ error: "An approved vendor already exists for this city." });
+    }
+  }
+  const v = await Vendor.findByIdAndUpdate(req.params.id, { status: nextStatus }, { new: true });
+  if (nextStatus === "approved" && v?.cityId) {
+    try {
+      await City.findByIdAndUpdate(v.cityId, { activeVendorId: v._id.toString() });
+    } catch {}
+  }
   try {
     if (v?._id) {
-      const st = String(req.body.status || "").toLowerCase();
+      const st = nextStatus;
       await notify({
         recipientId: v._id.toString(),
         recipientRole: "vendor",
@@ -414,17 +440,30 @@ router.get("/bookings", requireRole("admin"), AdminController.listBookings);
 
 router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(), body("providerId").isString().notEmpty(), async (req, res) => {
   const now = new Date();
-  const b = await Booking.findByIdAndUpdate(
-    req.params.id,
-    {
-      assignedProvider: req.body.providerId,
-      status: "pending",
-      adminEscalated: false,
-      lastAssignedAt: now,
-      expiresAt: computeExpiresAt(now),
-    },
-    { new: true }
-  );
+  const existing = await Booking.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: "Not found" });
+  const providerId = String(req.body.providerId || "").trim();
+  const allowed = await canAssignProviderToBooking(providerId, existing.toObject());
+  if (!allowed) {
+    return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
+  }
+  const previousProviderId = String(existing.assignedProvider || "").trim();
+  existing.assignedProvider = providerId;
+  existing.status = "pending";
+  existing.adminEscalated = false;
+  existing.lastAssignedAt = now;
+  existing.expiresAt = computeExpiresAt(now);
+  const b = await existing.save();
+  try {
+    if (b?.slot?.date) {
+      const ids = Array.from(new Set([previousProviderId, providerId].filter(Boolean)));
+      for (const id of ids) {
+        // Keep slot cache in sync for both old and new assignee.
+        // eslint-disable-next-line no-await-in-loop
+        await invalidateProviderSlots(id, b.slot.date);
+      }
+    }
+  } catch {}
   try {
     if (b?.assignedProvider) {
       await notify({

@@ -6,6 +6,7 @@ import { notify } from "../lib/notify.js";
 import Vendor from "../models/Vendor.js";
 import { slotLabelToLocalDateTime, parseDurationToMinutes } from "../lib/slots.js";
 import { buildAssignmentCandidates } from "../lib/assignmentCandidates.js";
+import { invalidateProviderSlots } from "../lib/availability.js";
 
 export function startAssignmentScheduler() {
   const ACCEPT_MS = getAcceptWindowMs();
@@ -38,6 +39,7 @@ export function startAssignmentScheduler() {
           items: b.services || [],
           customerId: b.customerId,
           requestedDurationMinutes,
+          useCache: false,
         });
 
         if (candidateProviders.length > 0) {
@@ -53,6 +55,9 @@ export function startAssignmentScheduler() {
             b.lastAssignedAt = now;
             b.expiresAt = computeExpiresAt(now);
             await b.save();
+            try {
+              if (b?.slot?.date) await invalidateProviderSlots(picked.providerId, b.slot.date);
+            } catch {}
 
             try {
               const io = getIO();
@@ -180,6 +185,15 @@ export function startAssignmentScheduler() {
           b.vendorEscalated = false;
           await b.save();
           try {
+            if (b?.slot?.date) {
+              const ids = Array.from(new Set([fromProvider, picked.providerId].filter(Boolean)));
+              for (const id of ids) {
+                // eslint-disable-next-line no-await-in-loop
+                await invalidateProviderSlots(id, b.slot.date);
+              }
+            }
+          } catch {}
+          try {
             const io = getIO();
             io?.of("/bookings").emit("assignment:changed", { id: b._id.toString(), fromProvider, toProvider: picked.providerId, reason: "timeout" });
             io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
@@ -214,6 +228,9 @@ export function startAssignmentScheduler() {
               b.adminEscalated = false;
               b.expiresAt = null;
               await b.save();
+              try {
+                if (b?.slot?.date && fromProvider) await invalidateProviderSlots(fromProvider, b.slot.date);
+              } catch {}
 
               try {
                 await notify({
@@ -239,6 +256,9 @@ export function startAssignmentScheduler() {
               b.vendorEscalated = false;
               b.expiresAt = null;
               await b.save();
+              try {
+                if (b?.slot?.date && fromProvider) await invalidateProviderSlots(fromProvider, b.slot.date);
+              } catch {}
 
               try {
                 await notify({
@@ -261,6 +281,9 @@ export function startAssignmentScheduler() {
             b.lastAssignedAt = null;
             b.assignmentIndex = -1;
             await b.save();
+            try {
+              if (b?.slot?.date && fromProvider) await invalidateProviderSlots(fromProvider, b.slot.date);
+            } catch {}
           }
         }
       }
