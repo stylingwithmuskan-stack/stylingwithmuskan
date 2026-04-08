@@ -134,15 +134,6 @@ const UserRegisterPage = () => {
         }
     };
 
-    const StoreButton = ({ icon: Icon, label, sublabel, dark }) => (
-        <button className={`flex items-center gap-3 px-6 py-3 rounded-2xl transition-all hover:scale-105 active:scale-95 ${dark ? 'bg-black text-white' : 'bg-white text-black border-border border shadow-sm'}`}>
-            <Icon className={`w-8 h-8 ${dark ? 'text-white' : 'text-primary'}`} />
-            <div className="text-left">
-                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 leading-none">{sublabel}</p>
-                <p className="text-lg font-black leading-tight mt-0.5">{label}</p>
-            </div>
-        </button>
-    );
 
     return (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 lg:p-8 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
@@ -219,7 +210,7 @@ const UserRegisterPage = () => {
                                     </Button>
 
                                     <p className="text-[11px] text-muted-foreground text-center leading-relaxed font-medium px-4">
-                                        By signing up, you agree to our <span className="text-primary font-bold cursor-pointer hover:underline">Terms of Service</span> and <span className="text-primary font-bold cursor-pointer hover:underline">Privacy Policy</span>.
+                                        By signing up, you agree to our <span className="text-primary font-bold cursor-pointer hover:underline" onClick={() => navigate("/terms-conditions")}>Terms of Service</span> and <span className="text-primary font-bold cursor-pointer hover:underline" onClick={() => navigate("/privacy-policy")}>Privacy Policy</span>.
                                     </p>
                                     <p className="text-[11px] text-muted-foreground text-center leading-relaxed font-medium px-4 mt-2">
                                         Already have an account?{" "}
@@ -314,44 +305,6 @@ const UserRegisterPage = () => {
                 </div>
             </motion.div>
 
-            {/* App Store Links Section */}
-            <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="mt-16 text-center"
-            >
-                <div className="flex items-center gap-4 justify-center mb-8">
-                    <div className="h-px w-12 bg-border" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Download Our Mobile App</p>
-                    <div className="h-px w-12 bg-border" />
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 px-4">
-                    <StoreButton icon={Smartphone} label="Google Play" sublabel="Get it on" />
-                    <StoreButton icon={Apple} label="App Store" sublabel="Download on" dark />
-                </div>
-
-                <div className="mt-8 flex items-center justify-center gap-6">
-                    <div className="flex -space-x-2">
-                        {[1, 2, 3, 4].map(i => (
-                            <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-accent flex items-center justify-center overflow-hidden">
-                                <img src={`https://i.pravatar.cc/100?u=${i}`} alt="user" className="w-full h-full object-cover" />
-                            </div>
-                        ))}
-                    </div>
-                    <div className="text-left">
-                        <div className="flex items-center gap-0.5 text-amber-500 mb-0.5">
-                            <Star className="w-3 h-3 fill-current" />
-                            <Star className="w-3 h-3 fill-current" />
-                            <Star className="w-3 h-3 fill-current" />
-                            <Star className="w-3 h-3 fill-current" />
-                            <Star className="w-3 h-3 fill-current" />
-                        </div>
-                        <p className="text-[10px] font-black text-muted-foreground">Trusted by <span className="text-foreground">10k+ Customers</span></p>
-                    </div>
-                </div>
-            </motion.div>
 
             {/* Bottom Credits */}
             <p className="mt-12 text-[10px] font-bold text-muted-foreground opacity-40 uppercase tracking-widest">

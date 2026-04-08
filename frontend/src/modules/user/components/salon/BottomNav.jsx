@@ -28,7 +28,9 @@ const BottomNav = () => {
     "/register", 
     "/booking/", 
     "/payment", 
-    "/service/"
+    "/service/",
+    "/terms-conditions",
+    "/privacy-policy"
   ];
   const isSplash = location.pathname === "/";
   if (isSplash || nonUserPrefixes.some(p => location.pathname.startsWith(p))) return null;
