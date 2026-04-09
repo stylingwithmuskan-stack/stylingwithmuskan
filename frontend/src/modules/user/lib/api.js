@@ -72,186 +72,6 @@ export function classifyApiPath(path) {
   return { isProviderPath, isAdminPath, isVendorPath, isNotificationPath };
 }
 
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-     method: options.method || "GET",
-     headers: {
-       "Content-Type": "application/json",
-       ...(options.headers || {}),
-       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-     },
-     credentials: "include",
-     body: options.body ? JSON.stringify(options.body) : undefined,
-   });
-   const data = await res.json().catch(() => ({}));
-   if (import.meta?.env?.DEV) {
-     try {
-       console.log("[API]", options.method || "GET", path, { status: res.status, ok: res.ok, data });
-     } catch {}
-   }
-   if (!res.ok) {
-     const err = data?.error || "Request failed";
-     const e = new Error(err);
-     e.status = res.status;
-     e.data = data;
-     if (import.meta?.env?.DEV) {
-       try {
-         console.error("[API ERROR]", options.method || "GET", path, { status: res.status, data });
-       } catch {}
-     }
-     if (res.status === 401) {
-       clearTokenByRole(role);
-     }
-     throw e;
-   }
-   return data;
- }
- 
- async function request(path, options = {}) {
-   const token = getToken();
-   const providerToken = getProviderToken();
-   const adminToken = getAdminToken();
-   const vendorToken = getVendorToken();
- 
-   const isProviderPath = typeof path === "string" && path.startsWith("/provider");
-   const isAdminPath = typeof path === "string" && path.startsWith("/admin");
-   const isVendorPath = typeof path === "string" && path.startsWith("/vendor") || path.startsWith("/vender");
-   const isNotificationPath = typeof path === "string" && path.startsWith("/notifications");
- 
-   let authToken = token;
-   if (isAdminPath) {
-     // For login, don't use a token even if it exists
-     if (path === "/admin/login") authToken = "";
-     else authToken = adminToken;
-   }
-   else if (isVendorPath) {
-     // For login, don't use a token
-     if (path === "/vendor/login" || path === "/vender/login") authToken = "";
-     else authToken = vendorToken;
-   }
-   else if (isProviderPath) {
-     // For login, don't use a token
-     if (path === "/provider/verify-otp" || path === "/provider/login") authToken = "";
-     else authToken = providerToken;
-   }
-   else if (isNotificationPath) {
-     authToken = providerToken || vendorToken || adminToken || token;
-   }
- 
-   // Debug: Log token status for authenticated endpoints
-   if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/content/")) {
-     console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path}`);
-     console.warn(`[API] Token status:`, { 
-       userToken: token ? '✓' : '✗', 
-       providerToken: providerToken ? '✓' : '✗',
-       adminToken: adminToken ? '✓' : '✗',
-       vendorToken: vendorToken ? '✓' : '✗'
-     });
-   }
- 
-   const res = await fetch(`${API_BASE_URL}${path}`, {
-     method: options.method || "GET",
-     headers: {
-       "Content-Type": "application/json",
-       ...(options.headers || {}),
-       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-     },
-     credentials: "include",
-     body: options.body ? JSON.stringify(options.body) : undefined,
-   });
-   const data = await res.json().catch(() => ({}));
-   if (import.meta?.env?.DEV) {
-     try {
-       console.log("[API]", options.method || "GET", path, { status: res.status, ok: res.ok, data });
-     } catch {}
-   }
-   if (!res.ok) {
-     const err = data?.error || "Request failed";
-     const e = new Error(err);
-     e.status = res.status;
-     e.data = data;
-     if (import.meta?.env?.DEV) {
-       try {
-         console.error("[API ERROR]", options.method || "GET", path, { status: res.status, data });
-       } catch {}
-     }
-     if (res.status === 401) {
-       if (isAdminPath) safeStorage.removeItem("swm_admin_token");
-       else if (isVendorPath) safeStorage.removeItem("swm_vendor_token");
-       else if (isProviderPath) safeStorage.removeItem("swm_provider_token");
-       else setToken("");
-       
-       // Dispatch global 401 event
-       window.dispatchEvent(new CustomEvent("swm-api-401", { 
-         detail: { status: 401, isAdminPath, isVendorPath, isProviderPath } 
-       }));
-     }
-     throw e;
-   }
-   return data;
- }
- 
- async function uploadAdminFile(path, fieldName, file) {
-   const token = getAdminToken();
-   const form = new FormData();
-   form.append(fieldName, file);
-   const res = await fetch(`${API_BASE_URL}${path}`, {
-     method: "POST",
-     headers: {
-       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-     },
-     credentials: "include",
-     body: form,
-   });
-   const data = await res.json().catch(() => ({}));
-   if (!res.ok) {
-     const err = data?.error || "Request failed";
-     const e = new Error(err);
-     e.status = res.status;
-     e.code = data?.code; // Include error code from server
-     e.data = data;
-     if (res.status === 401) setToken("");
-     throw e;
-   }
-   return data;
- }
- 
- export const api = {
-   // Customer auth
-   requestOtp: (phone, intent = "login") =>
-     request("/auth/request-otp", { method: "POST", body: { phone, intent } }),
-   verifyOtp: async (phone, otp, intent = "login") => {
-     const res = await request("/auth/verify-otp", {
-       method: "POST",
-       body: { phone, otp, intent },
-     });
-     if (res?.token) setToken(res.token);
-     return res;
-   },
-   me: () => request("/auth/me"),
-   logout: () => {
-     setToken("");
-     return request("/auth/logout", { method: "POST" });
-   },
- 
-   // Customer profile
-   activity: () => request("/users/activity"),
-   updateProfile: (payload) => request("/users/me", { method: "PATCH", body: payload }),
-  uploadAvatar: async (file) => {
-    const token = getToken();
-    const form = new FormData();
-    form.append("avatar", file);
-    const res = await fetch(`${API_BASE_URL}/users/me/avatar`, {
-      method: "POST",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      credentials: "include",
-      body: form,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || "Upload failed");
-    return data;
-  },
 async function requestWithToken(path, options = {}, token, role) {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || "GET",
@@ -315,6 +135,17 @@ async function request(path, options = {}) {
   }
   else if (isNotificationPath) {
     authToken = providerToken || vendorToken || adminToken || token;
+  }
+
+  // Debug: Log token status for authenticated endpoints
+  if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/content/")) {
+    console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path}`);
+    console.warn(`[API] Token status:`, { 
+      userToken: token ? '✓' : '✗', 
+      providerToken: providerToken ? '✓' : '✗',
+      adminToken: adminToken ? '✓' : '✗',
+      vendorToken: vendorToken ? '✓' : '✗'
+    });
   }
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -402,7 +233,24 @@ export const api = {
   },
 
   // Customer profile
+  activity: () => request("/users/activity"),
   updateProfile: (payload) => request("/users/me", { method: "PATCH", body: payload }),
+  uploadAvatar: async (file) => {
+    const token = getToken();
+    const form = new FormData();
+    form.append("avatar", file);
+    const res = await fetch(`${API_BASE_URL}/users/me/avatar`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: "include",
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Upload failed");
+    return data;
+  },
   getAddresses: () => request("/users/me/addresses"),
   addAddress: (payload) => request("/users/me/addresses", { method: "POST", body: payload }),
   updateAddress: (id, payload) => request(`/users/me/addresses/${id}`, { method: "PATCH", body: payload }),
@@ -542,11 +390,7 @@ export const api = {
     uploadBookingImages: async (bookingId, type, files) => {
       const token = getProviderToken();
       const formData = new FormData();
-      
-      // Add all files to FormData
-      for (const file of files) {
-        formData.append("images", file);
-      }
+      for (const file of files) formData.append("images", file);
       
       const res = await fetch(`${API_BASE_URL}/provider/bookings/${bookingId}/${type}`, {
         method: "POST",
@@ -588,7 +432,7 @@ export const api = {
     me: () => request("/vendor/me"),
     providers: () => request("/vendor/providers"),
     vendors: () => request("/vendor/vendors"),
-    listZoneRequests: () => request("/vendor/zone-requests"), // NEW: List zone requests
+    listZoneRequests: () => request("/vendor/zone-requests"),
     updateSPStatus: (id, status) => request(`/vendor/providers/${id}/status`, { method: "PATCH", body: { status } }),
     approveSPZones: (id, body) => request(`/vendor/providers/${id}/approve-zones`, { method: "PATCH", body: body || {} }),
     rejectSPZones: (id, body) => request(`/vendor/providers/${id}/reject-zones`, { method: "PATCH", body: body || {} }),
@@ -671,21 +515,18 @@ export const api = {
     deleteParent: (id) => request(`/admin/parents/${id}`, { method: "DELETE" }),
     getCategories: (params = {}) => {
       const query = new URLSearchParams(params).toString();
-      return request(`/admin/categories${query ? `?${query}` : ""}`);
+      return request(`/admin/categories${query ? `?query` : ""}`);
     },
     addCategory: (body) => request("/admin/categories", { method: "POST", body }),
     updateCategory: (id, body) => request(`/admin/categories/${id}`, { method: "PUT", body }),
     deleteCategory: (id) => request(`/admin/categories/${id}`, { method: "DELETE" }),
     getServices: (params = {}) => {
       const query = new URLSearchParams(params).toString();
-      return request(`/admin/services${query ? `?${query}` : ""}`);
+      return request(`/admin/services${query ? `?query` : ""}`);
     },
     addService: (body) => request("/admin/services", { method: "POST", body }),
     updateService: (id, body) => request(`/admin/services/${id}`, { method: "PUT", body }),
     deleteService: (id) => request(`/admin/services/${id}`, { method: "DELETE" }),
-    customEnquiries: () => request("/admin/custom-enquiries"),
-    customEnquiryPriceQuote: (id, body) => request(`/admin/custom-enquiries/${id}/price-quote`, { method: "PATCH", body }),
-    customEnquiryFinalApprove: (id) => request(`/admin/custom-enquiries/${id}/final-approve`, { method: "PATCH" }),
     updateOfficeSettings: (payload) => request("/admin/settings", { method: "PUT", body: payload }),
 
     // Payouts
@@ -875,9 +716,9 @@ export const api = {
   },
 };
 
-// Provider booking images upload (multipart)
+// Custom extensions
 api.provider.uploadBookingImages = async (bookingId, type, files) => {
-  const token = getToken();
+  const token = getTokenByRole("provider");
   const form = new FormData();
   for (const f of files) form.append("images", f);
 
