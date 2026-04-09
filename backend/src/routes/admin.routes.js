@@ -669,9 +669,16 @@ router.get("/referral", requireRole("admin"), async (_req, res) => {
   res.json({ settings: s || { referrerBonus: 100, refereeBonus: 50, maxReferrals: 10, isActive: true } });
 });
 
-router.put("/referral", requireRole("admin"), body("referrerBonus").isNumeric(), body("refereeBonus").isNumeric(), body("maxReferrals").isNumeric(), body("isActive").isBoolean(), async (req, res) => {
-  const s = await ReferralSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
-  res.json({ settings: s });
+router.put("/referral", 
+  requireRole("admin"), 
+  body("referrerBonus").isNumeric(), 
+  body("refereeBonus").isNumeric(), 
+  body("maxReferrals").isNumeric(), 
+  body("isActive").isBoolean(), 
+  body("adminManagedCodes").optional().isArray(),
+  async (req, res) => {
+    const s = await ReferralSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
+    res.json({ settings: s });
 });
 
 router.get("/commission", requireRole("admin"), async (_req, res) => {

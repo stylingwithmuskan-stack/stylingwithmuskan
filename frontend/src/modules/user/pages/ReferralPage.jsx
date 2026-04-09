@@ -11,15 +11,21 @@ import { shareContent } from "@/modules/user/lib/utils";
 const ReferralPage = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { gender } = useGenderTheme();
     const [settings, setSettings] = useState({ referrerBonus: 100, refereeBonus: 50, maxReferrals: 10, isActive: true });
+    const [stats, setStats] = useState({ totalReferrals: 0, totalEarnings: 0 });
+    
+    // referralCode is the user's OWN unique code to share
     const referralCode = user?.referralCode || "";
     const giveAmt = settings.refereeBonus;
     const getAmt = settings.referrerBonus;
+
     useEffect(() => {
         let cancelled = false;
-        api.referralInfo().then(({ settings }) => {
+        api.referralInfo().then(({ settings, stats }) => {
             if (cancelled) return;
             if (settings) setSettings(settings);
+            if (stats) setStats(stats);
         }).catch(() => {});
         return () => { cancelled = true; };
     }, []);
@@ -122,12 +128,12 @@ const ReferralPage = () => {
                         </div>
                         <div>
                             <p className="text-xs font-bold">Total Referrals</p>
-                            <p className="text-xl font-black">12</p>
+                            <p className="text-xl font-black">{stats.totalReferrals}</p>
                         </div>
                     </div>
                     <div className="text-right">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">Earned So Far</p>
-                        <p className="text-xl font-black text-green-600">₹1,800</p>
+                        <p className="text-xl font-black text-green-600">₹{stats.totalEarnings}</p>
                     </div>
                 </div>
             </div>

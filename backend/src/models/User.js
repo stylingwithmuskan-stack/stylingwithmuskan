@@ -21,8 +21,11 @@ const AddressSchema = new mongoose.Schema(
 const UserSchema = new mongoose.Schema(
   {
     phone: { type: String, unique: true, required: true },
+    email: { type: String, default: "" },
     name: { type: String, default: "" },
-    referralCode: { type: String, default: "" },
+    referralCode: { type: String, unique: true, sparse: true }, // Own code to share
+    appliedReferralCode: { type: String, default: "" }, // Code entered during signup
+    referredBy: { type: String, default: "" }, // ID of the person who referred them
     isVerified: { type: Boolean, default: false },
     avatar: { type: String, default: "" },
     addresses: [AddressSchema],
@@ -49,5 +52,15 @@ const UserSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+UserSchema.pre("save", function(next) {
+    if (!this.referralCode && this.phone) {
+        // Generate a referral code: SWM + last 4 digits of phone + 2 random characters
+        const last4 = this.phone.slice(-4);
+        const random = Math.random().toString(36).substring(2, 4).toUpperCase();
+        this.referralCode = `SWM${last4}${random}`;
+    }
+    next();
+});
 
 export default mongoose.models.User || mongoose.model("User", UserSchema);

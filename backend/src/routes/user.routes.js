@@ -6,6 +6,7 @@ import { uploadBuffer } from "../startup/cloudinary.js";
 import Coupon from "../models/Coupon.js";
 import Booking from "../models/Booking.js";
 import ProviderAccount from "../models/ProviderAccount.js";
+import User from "../models/User.js";
 import { ReferralSettings } from "../models/Settings.js";
 import { getSubscriptionSnapshot, isEliteProvider } from "../lib/subscriptions.js";
 import { ensureCityAndZoneNames, resolveServiceLocation } from "../lib/locationResolution.js";
@@ -83,7 +84,9 @@ router.get("/me", requireAuth, async (req, res) => {
     user: {
       id: u._id,
       phone: u.phone,
+      email: u.email || "",
       name: u.name,
+      avatar: u.avatar || "",
       referralCode: u.referralCode,
       isVerified: u.isVerified,
       addresses: u.addresses,
@@ -98,20 +101,22 @@ router.get("/me", requireAuth, async (req, res) => {
 router.patch(
   "/me",
   requireAuth,
-  body("name").optional().isString().isLength({ min: 1, max: 80 }),
-  body("referralCode").optional().isString().isLength({ max: 32 }),
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-    const { name, referralCode } = req.body;
-    if (name !== undefined) req.user.name = name;
-    if (referralCode !== undefined) req.user.referralCode = referralCode;
-    await req.user.save();
-    const subscription = await getSubscriptionSnapshot(req.user._id.toString(), "customer");
+    body("name").optional().isString().isLength({ min: 1, max: 80 }),
+    body("email").optional().isEmail().withMessage("Invalid email address"),
+    body("referralCode").optional().isString().isLength({ max: 32 }),
+    body("avatar").optional().isString(),
+    async (req, res) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+      
+
+    
+    await u.save();
+    const subscription = await getSubscriptionSnapshot(u._id.toString(), "customer");
     res.json({
       success: true,
       user: {
-        ...req.user.toObject(),
+        ...u.toObject(),
         subscription,
         isPlusMember: subscription.isPlusMember,
         plusExpiry: subscription.currentPeriodEnd,
@@ -345,7 +350,23 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
 router.get("/me/referral", requireAuth, async (_req, res) => {
   const u = _req.user;
   const s = await ReferralSettings.findOne().lean();
-  res.json({ referralCode: u.referralCode || "", settings: s || { referrerBonus: 100, refereeBonus: 50, maxReferrals: 10, isActive: true } });
+  
+  // Real Referral Stats
+  const User = (await import("../models/User.js")).default;
+  const totalReferrals = await User.countDocuments({ referredBy: u._id.toString() });
+  
+  const totalEarnings = (u.wallet?.transactions || [])
+    .filter(t => t.type === "credit" && (t.title || "").includes("Referral"))
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  res.json({ 
+    referralCode: u.referralCode || "", 
+    settings: s || { referrerBonus: 100, refereeBonus: 50, maxReferrals: 10, isActive: true },
+    stats: {
+        totalReferrals,
+        totalEarnings
+    }
+  });
 });
 
 // Delete account endpoint
@@ -432,6 +453,56 @@ router.post(
     } catch (error) {
       console.error("Error submitting feedback:", error);
       res.status(500).json({ error: "Could not submit feedback" });
+    }
+  }
+);
+
+router.get(
+  "/activity",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const u = req.user;
+      
+      // 1. Fetch recent bookings (last 10)
+      const bookings = await Booking.find({ customerId: u._id.toString() })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean();
+        
+      // 2. Extract wallet transactions (last 10)
+      const transactions = (u.wallet?.transactions || []).slice(0, 10);
+      
+      // 3. Map to common activity format
+      const activityFromBookings = bookings.map(b => ({
+        id: `booking-${b._id}`,
+        type: "booking",
+        title: b.services?.[0]?.name || "Service Booking",
+        status: b.status.charAt(0).toUpperCase() + b.status.slice(1),
+        date: b.createdAt,
+        rawDate: new Date(b.createdAt),
+        color: b.status === "completed" ? "text-emerald-500" : b.status === "cancelled" ? "text-red-500" : "text-primary"
+      }));
+      
+      const activityFromWallet = transactions.map(t => ({
+        id: `wallet-${t._id || Math.random()}`,
+        type: "wallet",
+        title: t.title || "Wallet Update",
+        status: t.type === "credit" ? "Credit" : "Debit",
+        date: t.at || new Date(),
+        rawDate: new Date(t.at || new Date()),
+        color: t.type === "credit" ? "text-emerald-500" : "text-amber-500"
+      }));
+      
+      // 4. Combine and Sort
+      const allActivity = [...activityFromBookings, ...activityFromWallet]
+        .sort((a, b) => b.rawDate - a.rawDate)
+        .slice(0, 20);
+        
+      res.json({ success: true, activities: allActivity });
+    } catch (error) {
+      console.error("[UserActivity] Error:", error);
+      res.status(500).json({ error: "Failed to fetch activity feed" });
     }
   }
 );

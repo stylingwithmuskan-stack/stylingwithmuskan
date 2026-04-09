@@ -137,6 +137,17 @@ async function request(path, options = {}) {
     authToken = providerToken || vendorToken || adminToken || token;
   }
 
+  // Debug: Log token status for authenticated endpoints
+  if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/content/")) {
+    console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path}`);
+    console.warn(`[API] Token status:`, { 
+      userToken: token ? '✓' : '✗', 
+      providerToken: providerToken ? '✓' : '✗',
+      adminToken: adminToken ? '✓' : '✗',
+      vendorToken: vendorToken ? '✓' : '✗'
+    });
+  }
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || "GET",
     headers: {
@@ -222,7 +233,24 @@ export const api = {
   },
 
   // Customer profile
+  activity: () => request("/users/activity"),
   updateProfile: (payload) => request("/users/me", { method: "PATCH", body: payload }),
+  uploadAvatar: async (file) => {
+    const token = getToken();
+    const form = new FormData();
+    form.append("avatar", file);
+    const res = await fetch(`${API_BASE_URL}/users/me/avatar`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: "include",
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Upload failed");
+    return data;
+  },
   getAddresses: () => request("/users/me/addresses"),
   addAddress: (payload) => request("/users/me/addresses", { method: "POST", body: payload }),
   updateAddress: (id, payload) => request(`/users/me/addresses/${id}`, { method: "PATCH", body: payload }),
@@ -362,11 +390,7 @@ export const api = {
     uploadBookingImages: async (bookingId, type, files) => {
       const token = getProviderToken();
       const formData = new FormData();
-      
-      // Add all files to FormData
-      for (const file of files) {
-        formData.append("images", file);
-      }
+      for (const file of files) formData.append("images", file);
       
       const res = await fetch(`${API_BASE_URL}/provider/bookings/${bookingId}/${type}`, {
         method: "POST",
@@ -408,7 +432,7 @@ export const api = {
     me: () => request("/vendor/me"),
     providers: () => request("/vendor/providers"),
     vendors: () => request("/vendor/vendors"),
-    listZoneRequests: () => request("/vendor/zone-requests"), // NEW: List zone requests
+    listZoneRequests: () => request("/vendor/zone-requests"),
     updateSPStatus: (id, status) => request(`/vendor/providers/${id}/status`, { method: "PATCH", body: { status } }),
     approveSPZones: (id, body) => request(`/vendor/providers/${id}/approve-zones`, { method: "PATCH", body: body || {} }),
     rejectSPZones: (id, body) => request(`/vendor/providers/${id}/reject-zones`, { method: "PATCH", body: body || {} }),
@@ -491,21 +515,18 @@ export const api = {
     deleteParent: (id) => request(`/admin/parents/${id}`, { method: "DELETE" }),
     getCategories: (params = {}) => {
       const query = new URLSearchParams(params).toString();
-      return request(`/admin/categories${query ? `?${query}` : ""}`);
+      return request(`/admin/categories${query ? `?query` : ""}`);
     },
     addCategory: (body) => request("/admin/categories", { method: "POST", body }),
     updateCategory: (id, body) => request(`/admin/categories/${id}`, { method: "PUT", body }),
     deleteCategory: (id) => request(`/admin/categories/${id}`, { method: "DELETE" }),
     getServices: (params = {}) => {
       const query = new URLSearchParams(params).toString();
-      return request(`/admin/services${query ? `?${query}` : ""}`);
+      return request(`/admin/services${query ? `?query` : ""}`);
     },
     addService: (body) => request("/admin/services", { method: "POST", body }),
     updateService: (id, body) => request(`/admin/services/${id}`, { method: "PUT", body }),
     deleteService: (id) => request(`/admin/services/${id}`, { method: "DELETE" }),
-    customEnquiries: () => request("/admin/custom-enquiries"),
-    customEnquiryPriceQuote: (id, body) => request(`/admin/custom-enquiries/${id}/price-quote`, { method: "PATCH", body }),
-    customEnquiryFinalApprove: (id) => request(`/admin/custom-enquiries/${id}/final-approve`, { method: "PATCH" }),
     updateOfficeSettings: (payload) => request("/admin/settings", { method: "PUT", body: payload }),
 
     // Payouts
@@ -695,9 +716,9 @@ export const api = {
   },
 };
 
-// Provider booking images upload (multipart)
+// Custom extensions
 api.provider.uploadBookingImages = async (bookingId, type, files) => {
-  const token = getToken();
+  const token = getTokenByRole("provider");
   const form = new FormData();
   for (const f of files) form.append("images", f);
 

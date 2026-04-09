@@ -9,14 +9,14 @@ import { Button } from "@/modules/user/components/ui/button";
 const EditProfilePage = () => {
     const navigate = useNavigate();
     const { gender } = useGenderTheme();
-    const { user, updateProfile } = useAuth();
-
+    const { user, updateProfile, updateAvatar } = useAuth();
     const [formData, setFormData] = useState({
-        name: user?.name || "Muskan",
-        email: user?.email || "muskan@example.com",
-        phone: user?.phone || "+91 98765 43210",
-        image: user?.image || null
+        name: user?.name || "",
+        email: user?.email || "",
+        phone: user?.phone || "",
+        image: user?.avatar || null
     });
+    const [selectedFile, setSelectedFile] = useState(null);
 
     const [isSaving, setIsSaving] = useState(false);
     const fileInputRef = useRef(null);
@@ -24,6 +24,7 @@ const EditProfilePage = () => {
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setFormData({ ...formData, image: reader.result });
@@ -32,11 +33,28 @@ const EditProfilePage = () => {
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (!formData.name.trim()) return alert("Name is required");
+        if (formData.email && !/^\S+@\S+\.\S+$/.test(formData.email)) {
+            return alert("Please enter a valid email address");
+        }
+        
         setIsSaving(true);
-        updateProfile({ name: formData.name })
-            .then(() => navigate(-1))
-            .finally(() => setIsSaving(false));
+        try {
+            // Update basic profile
+            await updateProfile({ name: formData.name.trim(), email: formData.email.trim() });
+            
+            // Update avatar if selected
+            if (selectedFile) {
+                await updateAvatar(selectedFile);
+            }
+            
+            navigate(-1);
+        } catch (err) {
+            alert(err.message || "Failed to update profile");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -67,14 +85,18 @@ const EditProfilePage = () => {
                             ref={fileInputRef}
                             onChange={handleImageChange}
                             accept="image/*"
+                            capture="user"
                             className="hidden"
                         />
-                        <div className="w-24 h-24 rounded-full bg-gradient-theme flex items-center justify-center shadow-xl p-1">
+                        <div className={`w-24 h-24 rounded-full bg-gradient-theme flex items-center justify-center shadow-xl p-1 transition-all ${selectedFile ? 'scale-105 ring-4 ring-primary/20' : ''}`}>
                             <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
                                 {formData.image ? (
                                     <img src={formData.image} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
-                                    <User className="w-10 h-10 text-primary/40" />
+                                    <div className="flex flex-col items-center opacity-40">
+                                        <User className="w-8 h-8 text-primary" />
+                                        <span className="text-[8px] font-black uppercase tracking-tighter mt-1">NO PHOTO</span>
+                                    </div>
                                 )}
                             </div>
                         </div>

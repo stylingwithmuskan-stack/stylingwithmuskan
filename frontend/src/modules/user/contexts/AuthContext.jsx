@@ -167,6 +167,11 @@ export const AuthProvider = ({ children }) => {
         const { user: updated } = await api.updateProfile(payload);
         setUser(updated);
     };
+    
+    const updateAvatar = async (file) => {
+        const { user: updated } = await api.uploadAvatar(file);
+        setUser(updated);
+    };
 
     const joinPlus = async () => {
         if (!user) return null;
@@ -198,7 +203,8 @@ export const AuthProvider = ({ children }) => {
             updateAddress,
             updateExistingAddress,
             deleteAddress,
-            updateProfile
+            updateProfile,
+            updateAvatar
         }}>
             {children}
         </AuthContext.Provider>
