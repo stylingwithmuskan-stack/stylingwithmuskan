@@ -366,6 +366,7 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
   if (status === "approved") {
     updates.adminApprovalStatus = "approved";
     updates.approvalStatus = "approved";
+    updates.isOnline = true;
   } else if (status === "rejected") {
     updates.adminApprovalStatus = "rejected";
     updates.approvalStatus = "rejected";

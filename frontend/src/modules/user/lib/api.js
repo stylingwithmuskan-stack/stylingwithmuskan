@@ -57,6 +57,21 @@ function setToken(token) {
   } catch {}
 }
 
+function isRoleScopedPath(path, scope) {
+  return typeof path === "string" && (path === `/${scope}` || path.startsWith(`/${scope}/`));
+}
+
+export function classifyApiPath(path) {
+  const isProviderPath = isRoleScopedPath(path, "provider");
+  const isAdminPath = isRoleScopedPath(path, "admin");
+  const isVendorPath =
+    isRoleScopedPath(path, "vendor") ||
+    isRoleScopedPath(path, "vender");
+  const isNotificationPath = typeof path === "string" && path.startsWith("/notifications");
+
+  return { isProviderPath, isAdminPath, isVendorPath, isNotificationPath };
+}
+
 async function requestWithToken(path, options = {}, token, role) {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || "GET",
@@ -98,40 +113,28 @@ async function request(path, options = {}) {
   const adminToken = getAdminToken();
   const vendorToken = getVendorToken();
 
-  const isProviderPath = typeof path === "string" && path.startsWith("/provider");
-  const isAdminPath = typeof path === "string" && path.startsWith("/admin");
-  const isVendorPath = typeof path === "string" && path.startsWith("/vendor") || path.startsWith("/vender");
-  const isNotificationPath = typeof path === "string" && path.startsWith("/notifications");
+  const { isProviderPath, isAdminPath, isVendorPath, isNotificationPath } = classifyApiPath(path);
 
   let authToken = token;
+  let role = "user";
+
   if (isAdminPath) {
-    // For login, don't use a token even if it exists
+    role = "admin";
     if (path === "/admin/login") authToken = "";
     else authToken = adminToken;
   }
   else if (isVendorPath) {
-    // For login, don't use a token
+    role = "vendor";
     if (path === "/vendor/login" || path === "/vender/login") authToken = "";
     else authToken = vendorToken;
   }
   else if (isProviderPath) {
-    // For login, don't use a token
-    if (path === "/provider/verify-otp" || path === "/provider/login") authToken = "";
+    role = "provider";
+    if (path === "/provider/verify-otp" || path === "/provider/login" || path === "/provider/register") authToken = "";
     else authToken = providerToken;
   }
   else if (isNotificationPath) {
     authToken = providerToken || vendorToken || adminToken || token;
-  }
-
-  // Debug: Log token status for authenticated endpoints
-  if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/content/")) {
-    console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path}`);
-    console.warn(`[API] Token status:`, { 
-      userToken: token ? '✓' : '✗', 
-      providerToken: providerToken ? '✓' : '✗',
-      adminToken: adminToken ? '✓' : '✗',
-      vendorToken: vendorToken ? '✓' : '✗'
-    });
   }
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -145,11 +148,13 @@ async function request(path, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+
   if (import.meta?.env?.DEV) {
     try {
       console.log("[API]", options.method || "GET", path, { status: res.status, ok: res.ok, data });
     } catch {}
   }
+
   if (!res.ok) {
     const err = data?.error || "Request failed";
     const e = new Error(err);
@@ -161,15 +166,12 @@ async function request(path, options = {}) {
       } catch {}
     }
     if (res.status === 401) {
-      if (isAdminPath) safeStorage.removeItem("swm_admin_token");
-      else if (isVendorPath) safeStorage.removeItem("swm_vendor_token");
-      else if (isProviderPath) safeStorage.removeItem("swm_provider_token");
-      else setToken("");
+      clearTokenByRole(role);
       
       // Dispatch global 401 event
       window.dispatchEvent(new CustomEvent("swm-api-401", { 
-        detail: { status: 401, isAdminPath, isVendorPath, isProviderPath } 
-      }));
+        detail: { status: 401, role, isAdminPath, isVendorPath, isProviderPath } 
+       }));
     }
     throw e;
   }
@@ -350,6 +352,41 @@ export const api = {
         if (import.meta?.env?.DEV) {
           try {
             console.error("[API ERROR]", "POST", "/provider/upload-docs", { status: res.status, data });
+          } catch {}
+        }
+        if (res.status === 401) setToken("");
+        throw new Error(err);
+      }
+      return data;
+    },
+    uploadBookingImages: async (bookingId, type, files) => {
+      const token = getProviderToken();
+      const formData = new FormData();
+      
+      // Add all files to FormData
+      for (const file of files) {
+        formData.append("images", file);
+      }
+      
+      const res = await fetch(`${API_BASE_URL}/provider/bookings/${bookingId}/${type}`, {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (import.meta?.env?.DEV) {
+        try {
+          console.log("[API]", "POST", `/provider/bookings/${bookingId}/${type}`, { status: res.status, ok: res.ok, data });
+        } catch {}
+      }
+      if (!res.ok) {
+        const err = data?.error || "Failed to upload images";
+        if (import.meta?.env?.DEV) {
+          try {
+            console.error("[API ERROR]", "POST", `/provider/bookings/${bookingId}/${type}`, { status: res.status, data });
           } catch {}
         }
         if (res.status === 401) setToken("");

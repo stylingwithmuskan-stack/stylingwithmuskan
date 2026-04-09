@@ -43,16 +43,33 @@ export default function SPOversight() {
     useEffect(() => { load(); }, []);
 
     const getSPRating = (nameOrId) => {
-        const spFeedback = feedback.filter(f => (f.providerName === nameOrId || f.assignedProvider === nameOrId) && f.type === "customer_to_provider");
-        if (spFeedback.length === 0) return (4.0 + (nameOrId?.length || 0) % 10 / 10).toFixed(1);
-        const sum = spFeedback.reduce((a, b) => a + b.rating, 0);
+        const spFeedback = feedback.filter(f => (f.providerName === nameOrId || f.assignedProvider === nameOrId || f.providerId === nameOrId) && f.type === "customer_to_provider");
+        if (spFeedback.length === 0) return "0.0";
+        const sum = spFeedback.reduce((a, b) => a + Number(b.rating || 0), 0);
         return (sum / spFeedback.length).toFixed(1);
     };
 
-    const getSPBookingCount = (nameOrId) => {
+    const getSPStats = (sp) => {
         const bookings = JSON.parse(localStorage.getItem("muskan-bookings") || "[]");
-        const count = bookings.filter(b => b.assignedProvider === nameOrId || b.providerName === nameOrId).length;
-        return count || (nameOrId?.length || 5) * 12; // Fallback to mock
+        const id = sp._id || sp.id;
+        const name = sp.name;
+        
+        const spBookings = bookings.filter(b => b.assignedProvider === id || b.assignedProvider === name || b.providerName === name);
+        const total = spBookings.length;
+        
+        if (total === 0) return { bookings: 0, cancelled: "0%", missed: 0, revenue: "0", acceptTime: "N/A" };
+        
+        const cancelled = spBookings.filter(b => b.status === "cancelled" || b.status === "rejected").length;
+        const completed = spBookings.filter(b => b.status === "completed");
+        const revenue = completed.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
+        
+        return {
+            bookings: total,
+            cancelled: `${Math.round((cancelled / total) * 100)}%`,
+            missed: 0, // Missed not explicitly tracked in current status set
+            revenue: revenue.toLocaleString(),
+            acceptTime: "5 min" // Placeholder or default for active providers
+        };
     };
 
     const filtered = providers.filter(sp => {
@@ -205,34 +222,37 @@ export default function SPOversight() {
                                                 )}
 
                                             {/* Advanced Stats (For View) */}
-                                            {sp.approvalStatus === "approved" && (
-                                                <div className="grid grid-cols-3 md:grid-cols-6 gap-2 pt-3 border-t border-border/50">
-                                                    <div className="bg-muted/30 p-2 rounded-xl">
-                                                        <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><Star className="h-3 w-3" /> Rating</p>
-                                                        <p className="text-sm font-black mt-0.5 text-amber-500">{getSPRating(sp.name || sp.id)}</p>
+                                            {sp.approvalStatus === "approved" && (() => {
+                                                const stats = getSPStats(sp);
+                                                return (
+                                                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2 pt-3 border-t border-border/50">
+                                                        <div className="bg-muted/30 p-2 rounded-xl">
+                                                            <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><Star className="h-3 w-3" /> Rating</p>
+                                                            <p className="text-sm font-black mt-0.5 text-amber-500">{getSPRating(sp.name || sp._id || sp.id)}</p>
+                                                        </div>
+                                                        <div className="bg-muted/30 p-2 rounded-xl">
+                                                            <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Bookings</p>
+                                                            <p className="text-sm font-black mt-0.5 text-blue-500">{stats.bookings}</p>
+                                                        </div>
+                                                        <div className="bg-muted/30 p-2 rounded-xl">
+                                                            <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><XCircle className="h-3 w-3" /> Cancelled</p>
+                                                            <p className="text-sm font-black mt-0.5 text-red-500">{stats.cancelled}</p>
+                                                        </div>
+                                                        <div className="bg-muted/30 p-2 rounded-xl">
+                                                            <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Missed</p>
+                                                            <p className="text-sm font-black mt-0.5 text-amber-500">{stats.missed}</p>
+                                                        </div>
+                                                        <div className="bg-muted/30 p-2 rounded-xl">
+                                                            <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Accept. Time</p>
+                                                            <p className="text-sm font-black mt-0.5">{stats.acceptTime}</p>
+                                                        </div>
+                                                        <div className="bg-muted/30 p-2 rounded-xl">
+                                                            <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Revenue</p>
+                                                            <p className="text-sm font-black mt-0.5 text-green-600">₹{stats.revenue}</p>
+                                                        </div>
                                                     </div>
-                                                    <div className="bg-muted/30 p-2 rounded-xl">
-                                                        <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Bookings</p>
-                                                        <p className="text-sm font-black mt-0.5 text-blue-500">{getSPBookingCount(sp.name || sp.id)}</p>
-                                                    </div>
-                                                    <div className="bg-muted/30 p-2 rounded-xl">
-                                                        <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><XCircle className="h-3 w-3" /> Cancelled</p>
-                                                        <p className="text-sm font-black mt-0.5 text-red-500">{((sp.name?.length || 5) % 3)}%</p>
-                                                    </div>
-                                                    <div className="bg-muted/30 p-2 rounded-xl">
-                                                        <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Missed</p>
-                                                        <p className="text-sm font-black mt-0.5 text-amber-500">{(sp.name?.length || 5) % 2}</p>
-                                                    </div>
-                                                    <div className="bg-muted/30 p-2 rounded-xl">
-                                                        <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Accept. Time</p>
-                                                        <p className="text-sm font-black mt-0.5">{(sp.name?.length || 5) % 4 + 1} min</p>
-                                                    </div>
-                                                    <div className="bg-muted/30 p-2 rounded-xl">
-                                                        <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Revenue</p>
-                                                        <p className="text-sm font-black mt-0.5 text-green-600">₹{((sp.name?.length || 5) * 3400).toLocaleString()}</p>
-                                                    </div>
-                                                </div>
-                                            )}
+                                                );
+                                            })()}
                                         </CardContent>
                                     </Card>
                                 </motion.div>

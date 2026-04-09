@@ -79,6 +79,10 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         return [...new Set((cartItems || []).map(item => item.serviceType).filter(Boolean))];
     }, [cartItems]);
 
+    const serviceCategories = useMemo(() => {
+        return [...new Set((cartItems || []).map(item => item.category).filter(Boolean))];
+    }, [cartItems]);
+
     const totalDurationMinutes = useMemo(() => {
         if (!Array.isArray(cartItems) || cartItems.length === 0) return 0;
         return cartItems.reduce((sum, item) => {
@@ -145,6 +149,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             const params = {
                 date: tempDate,
                 serviceTypes: serviceTypes.join(","),
+                categories: serviceCategories.join(","),
                 city: address?.city || "",
                 zone: address?.zone || ""
             };
@@ -165,7 +170,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         if (isOpen) {
             fetchSlots();
         }
-    }, [isOpen, tempDate, selectedProvider, totalDurationMinutes, serviceTypes, address?.city, address?.zone]);
+    }, [isOpen, tempDate, selectedProvider, totalDurationMinutes, serviceTypes, serviceCategories, address?.city, address?.zone]);
 
     const dates = useMemo(() => {
         let maxDays = 7; // Default

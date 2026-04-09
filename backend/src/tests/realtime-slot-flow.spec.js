@@ -5,7 +5,7 @@ import Booking from "../models/Booking.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import { BookingSettings } from "../models/Settings.js";
-import { OfficeSettings } from "../models/Content.js";
+import { Category, OfficeSettings, ServiceType } from "../models/Content.js";
 import { canAssignProviderToBooking } from "../lib/assignment.js";
 
 function futureDate(days = 1) {
@@ -31,6 +31,8 @@ describe("Realtime slot and nearest-provider flow", () => {
     await ProviderDayAvailability.deleteMany({});
     await BookingSettings.deleteMany({});
     await OfficeSettings.deleteMany({});
+    await Category.deleteMany({ id: { $regex: /^test-/ } });
+    await ServiceType.deleteMany({ id: { $regex: /^test-/ } });
   });
 
   it("assigns Any Professional bookings to the nearest provider and stores only top 5 candidates", async () => {
@@ -213,5 +215,44 @@ describe("Realtime slot and nearest-provider flow", () => {
       const slotMinutes = hours * 60 + minutes;
       expect(slotMinutes).toBeGreaterThan(currentMinutes);
     }
+  });
+
+  it("keeps same-zone slots visible when a category still uses a legacy serviceType token", async () => {
+    const date = futureDate(1);
+    const provider = await ProviderAccount.create({
+      phone: "9199900030",
+      name: "Hair Specialist",
+      approvalStatus: "approved",
+      registrationComplete: true,
+      isOnline: true,
+      city: "Ujjain",
+      zones: ["Ujjain Hub"],
+      currentLocation: { lat: 23.1764, lng: 75.7885 },
+      documents: {
+        primaryCategory: ["hair service"],
+        specializations: ["Hair spa"],
+      },
+    });
+    await ProviderDayAvailability.create({
+      providerId: provider._id.toString(),
+      date,
+      availableSlots: ["10:00 AM", "10:30 AM"],
+    });
+    await ServiceType.create({ id: "test-parent-hair", label: "hair service" });
+    await Category.create({
+      id: "test-hair-spa",
+      name: "Hair spa",
+      gender: "women",
+      serviceType: "skin",
+      bookingType: "instant",
+    });
+
+    const token = await loginUser();
+    const res = await request(app)
+      .get(`/providers/available-slots-by-date?date=${date}&city=Ujjain&zone=Ujjain%20Hub&serviceTypes=skin&categories=test-hair-spa`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.slots).toContain("10:00 AM");
   });
 });

@@ -5,9 +5,10 @@ import { requireAuth } from "../middleware/auth.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import Booking from "../models/Booking.js";
 import { BookingSettings } from "../models/Settings.js";
-import { OfficeSettings, ServiceType } from "../models/Content.js";
+import { OfficeSettings } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, isIsoDate, slotLabelToLocalDateTime, parseDurationToMinutes } from "../lib/slots.js";
 import { computeAvailableSlots } from "../lib/availability.js";
+import { providerMatchesRequestedSpecialties, resolveRequestedSpecialtySets } from "../lib/serviceMatching.js";
 
 const router = Router();
 
@@ -177,6 +178,7 @@ router.get(
   query("date").isString().notEmpty(),
   query("providerId").optional().isString(),
   query("serviceTypes").optional().isString(),
+  query("categories").optional().isString(),
   query("city").optional().isString(),
   query("zone").optional().isString(),
   query("durationMinutes").optional().isNumeric(),
@@ -189,6 +191,7 @@ router.get(
     const city = String(req.query.city || "").trim();
     const zone = String(req.query.zone || "").trim();
     const serviceTypes = String(req.query.serviceTypes || "").split(",").map(s => s.trim()).filter(Boolean);
+    const categories = String(req.query.categories || "").split(",").map(s => s.trim()).filter(Boolean);
 
     if (!isIsoDate(date)) return res.status(400).json({ error: "Invalid date" });
 
@@ -197,7 +200,7 @@ router.get(
     const settings = { ...bookingSettings, ...officeSettings };
     const durationMinutes = Math.max(Number(req.query.durationMinutes || 0), 0);
 
-    // Case 1: Specific Provider Requested (Ensure it's a valid ID and not the string "null")
+    // Case 1: Specific Provider Requested
     if (providerId && providerId !== "null" && mongoose.isValidObjectId(providerId)) {
       const provider = await ProviderAccount.findById(providerId).lean();
       if (!provider) return res.status(404).json({ error: "Provider not found" });
@@ -228,22 +231,6 @@ router.get(
     const cityIdGuess = String(req.query.cityId || addrWithZone.cityId || "").trim();
     const cityGuess = rawCity || (zoneGuess ? "" : String(addrWithZone.area || "").trim());
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[Slots] Address fallback debug:", {
-        queryCity: city,
-        queryCityId: req.query.cityId,
-        queryZone: zone,
-        queryZoneId: req.query.zoneId,
-        addrCity: addrWithZone.city,
-        addrCityId: addrWithZone.cityId,
-        addrZone: addrWithZone.zone,
-        addrZoneId: addrWithZone.zoneId,
-        addrArea: addrWithZone.area,
-        cityGuess,
-        zoneGuess,
-      });
-    }
-    
     const allowPending = process.env.NODE_ENV !== "production";
     const pendingStatuses = ["pending", "pending_vendor", "pending_admin"];
     const baseQ = {
@@ -252,7 +239,6 @@ router.get(
       isOnline: true,
     };
 
-    // Filter by city and zone
     let q = { ...baseQ };
     if (cityIdGuess) {
       q.cityId = cityIdGuess;
@@ -266,7 +252,6 @@ router.get(
         { baseZoneId: zoneIdGuess },
       ];
     } else if (zoneGuess) {
-      // FIXED: Use zones array (plural) to match booking API logic
       q.$or = [
         { zones: { $in: [new RegExp(`^${escapeRegex(zoneGuess)}$`, "i")] } },
         { pendingZones: { $in: [new RegExp(`^${escapeRegex(zoneGuess)}$`, "i")] } },
@@ -279,21 +264,14 @@ router.get(
       providers = await ProviderAccount.find(baseQ).lean();
     }
 
-    // Filter by service types if provided
-    if (serviceTypes.length > 0) {
-      let serviceTypeLabels = [];
-      try {
-        const docs = await ServiceType.find({ id: { $in: serviceTypes } }).select("id label").lean();
-        const map = new Map(docs.map(d => [d.id, d.label]));
-        serviceTypeLabels = serviceTypes.map(id => map.get(id)).filter(Boolean);
-      } catch {}
-      const wantSet = new Set([...serviceTypes, ...serviceTypeLabels]);
-      providers = providers.filter(p => {
-        const spec = Array.isArray(p?.documents?.specializations) ? p.documents.specializations : [];
-        const primary = Array.isArray(p?.documents?.primaryCategory) ? p.documents.primaryCategory : [];
-        if (spec.length === 0 && primary.length === 0) return true; // Default to true if no specs defined
-        return [...spec, ...primary].some(s => wantSet.has(s));
+    if (serviceTypes.length > 0 || categories.length > 0) {
+      const requestedSpecialties = await resolveRequestedSpecialtySets({
+        categoryValues: categories,
+        serviceTypeValues: serviceTypes,
       });
+      providers = providers.filter((provider) =>
+        providerMatchesRequestedSpecialties(provider, requestedSpecialties)
+      );
     }
 
     const slotMap = {};
@@ -306,28 +284,28 @@ router.get(
     const freeProviders = [];
     for (const provider of providers) {
       const result = await computeAvailableSlots(provider._id?.toString(), date, settings, { requestedDurationMinutes: durationMinutes });
-      if ((result.slots || []).length > 0) {
+      const providerSlots = result.slots || [];
+      if (providerSlots.length > 0) {
         freeProviders.push({
           id: provider._id?.toString(),
           name: provider.name || "",
           phone: provider.phone || "",
           city: provider.city || "",
-          zones: provider.zones || [],
-          availableSlots: result.slots.length
+          availableSlots: providerSlots.length
         });
-      }
-      for (const slot of result.slots || []) {
-        slotMap[slot] = true;
-        candidateProvidersBySlot[slot].push(String(provider._id));
+        for (const slot of providerSlots) {
+          slotMap[slot] = true;
+          candidateProvidersBySlot[slot].push(String(provider._id));
+        }
       }
     }
 
     if (process.env.NODE_ENV !== "production") {
-      console.log(`[Slots] Zone free providers (${cityGuess || "unknown"} | ${zoneGuess || "no-zone"} | ${date}):`, freeProviders);
+      console.log(`[Slots] Total free providers found: ${freeProviders.length} for date ${date}`);
     }
 
     const slots = DEFAULT_TIME_SLOTS.filter((s) => slotMap[s]);
-    res.json({ date, slots, slotMap, candidateProvidersBySlot, city: cityGuess, cityId: cityIdGuess, zoneId: zoneIdGuess });
+    res.json({ date, slots, slotMap, candidateProvidersBySlot, city: cityGuess, zoneId: zoneIdGuess });
   }
 );
 
@@ -338,7 +316,6 @@ router.patch("/:id/approve-zones", requireAuth, param("id").isString(), async (r
     p.zones = [...new Set([...(p.zones || []), ...p.pendingZones])];
     p.pendingZones = [];
     await p.save();
-    // Notification logic would go here if notify were imported
   }
   res.json({ provider: p });
 });

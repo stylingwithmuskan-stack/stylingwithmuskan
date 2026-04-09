@@ -463,7 +463,7 @@ const UserModuleManagement = () => {
         if (activeTab === "parent_categories") {
             setFormData({ label: "", description: "", image: "", color: "from-gray-400 to-gray-500", textColor: "text-gray-600", bgColor: "bg-gray-100", gender: "women", zones: [], disabledDates: [] });
         } else if (activeTab === "categories") {
-            setFormData({ name: "", gender: "women", bookingType: "instant", serviceType: "skin", image: "", icon: "", advancePercentage: 0, zones: [], disabledDates: [] });
+            setFormData({ name: "", gender: "women", bookingType: "instant", serviceType: serviceTypes?.[0]?.id || "", image: "", icon: "", advancePercentage: 0, zones: [], disabledDates: [] });
         } else if (activeTab === "spotlights") {
             setFormData({ title: "", category: "Makeup", video: "", poster: "" });
         } else if (activeTab === "gallery") {
@@ -869,7 +869,7 @@ const UserModuleManagement = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Parent Category</label>
-                                            <select value={formData.serviceType || 'skin'} onChange={e => setFormData({ ...formData, serviceType: e.target.value })}
+                                            <select value={formData.serviceType || serviceTypes?.[0]?.id || ''} onChange={e => setFormData({ ...formData, serviceType: e.target.value })}
                                                 className="w-full px-3 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground">
                                                 {serviceTypes?.map(st => (
                                                     <option key={st.id} value={st.id}>{st.label}</option>

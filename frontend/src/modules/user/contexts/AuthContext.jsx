@@ -14,6 +14,13 @@ export const AuthProvider = ({ children }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [hasAddress, setHasAddress] = useState(false);
 
+    const clearUserSession = () => {
+        setIsLoggedIn(false);
+        setUser(null);
+        setHasAddress(false);
+        safeStorage.removeItem(STORAGE_KEY);
+    };
+
     // Initial hydration from localStorage
     useEffect(() => {
         try {
@@ -53,14 +60,28 @@ export const AuthProvider = ({ children }) => {
                 setUser(serverUser);
                 setIsLoggedIn(true);
                 setHasAddress((serverUser.addresses || []).length > 0);
-            } catch {
-                // If api.me fails, only clear if we weren't hydrated or if it's a definite 401
-                // This prevents logging out if the server is temporarily down during refresh
+            } catch (error) {
+                // Clear only on definite unauthorized states; keep hydrated state for transient failures.
+                if (!cancelled && error?.status === 401) {
+                    clearUserSession();
+                }
             } finally {
                 if (!cancelled) setLoading(false);
             }
         })();
         return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        const handle401 = (e) => {
+            if (e.detail?.status !== 401) return;
+            if (e.detail?.role === "user") {
+                clearUserSession();
+                setIsLoginModalOpen(true);
+            }
+        };
+        window.addEventListener("swm-api-401", handle401);
+        return () => window.removeEventListener("swm-api-401", handle401);
     }, []);
 
     const loginWithOtp = async ({ phone, otp, name, referralCode, intent = "login" }) => {
@@ -102,10 +123,7 @@ export const AuthProvider = ({ children }) => {
             return res;
         } catch (error) {
             // Clear any stale data on error
-            setIsLoggedIn(false);
-            setUser(null);
-            setHasAddress(false);
-            safeStorage.removeItem(STORAGE_KEY);
+            clearUserSession();
             throw error;
         }
     };
@@ -116,10 +134,7 @@ export const AuthProvider = ({ children }) => {
         api.logout().then((res) => {
             console.log("[Auth] logout response", res);
         }).finally(() => {
-            setIsLoggedIn(false);
-            setUser(null);
-            setHasAddress(false);
-            safeStorage.removeItem(STORAGE_KEY);
+            clearUserSession();
             window.location.href = "/home";
         });
     };

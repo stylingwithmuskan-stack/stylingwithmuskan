@@ -92,7 +92,7 @@ export default function ProviderRegisterPage() {
     });
 
     useEffect(() => {
-        api.content.cities().then(res => setCities(res.cities || [])).catch(() => {});
+        api.content.cities().then(res => setCities(res.cities || [])).catch(() => { });
     }, []);
 
     useEffect(() => {
@@ -154,26 +154,60 @@ export default function ProviderRegisterPage() {
         serviceOptions
     } = useMemo(() => {
         const types = Array.isArray(serviceTypesList) ? serviceTypesList.filter(st => st?.label) : [];
+        const selectedTypeLabels = new Set(formData.primaryCategory);
         const selectedTypeIds = new Set(
-            types.filter(st => formData.primaryCategory.includes(st.label)).map(st => st.id)
+            types.filter(st => selectedTypeLabels.has(st.label)).map(st => st.id)
         );
+
         const catsRaw = Array.isArray(categoriesList) ? categoriesList.filter(c => c?.name) : [];
-        const cats = selectedTypeIds.size > 0
-            ? catsRaw.filter(c => selectedTypeIds.has(c.serviceType))
-            : catsRaw;
+        
+        // FIXED: Always show all categories, but filter only when primary categories are selected
+        let cats = catsRaw;
+        if (selectedTypeIds.size > 0) {
+            const filtered = catsRaw.filter(c => 
+                selectedTypeIds.has(c.serviceType) || selectedTypeLabels.has(c.serviceType)
+            );
+            // Only apply filter if we found matching categories
+            if (filtered.length > 0) {
+                cats = filtered;
+            }
+        }
+
+        const selectedCatNames = new Set(formData.specializations);
         const selectedCatIds = new Set(
-            catsRaw.filter(c => formData.specializations.includes(c.name)).map(c => c.id)
+            catsRaw.filter(c => selectedCatNames.has(c.name)).map(c => c.id)
         );
+
         const servicesRaw = Array.isArray(servicesList) ? servicesList.filter(s => s?.name) : [];
-        const catById = new Map(catsRaw.map(c => [c.id, c]));
-        const services = selectedCatIds.size > 0
-            ? servicesRaw.filter(s => selectedCatIds.has(s.category))
-            : (selectedTypeIds.size > 0
-                ? servicesRaw.filter(s => {
-                    const cat = catById.get(s.category);
-                    return cat && selectedTypeIds.has(cat.serviceType);
-                })
-                : servicesRaw);
+        const catById = new Map();
+        const catByName = new Map();
+        catsRaw.forEach(c => {
+            if (c.id) catById.set(c.id, c);
+            if (c.name) catByName.set(c.name, c);
+        });
+
+        // FIXED: Improved service filtering logic
+        let services = servicesRaw;
+        
+        if (selectedCatIds.size > 0 || selectedCatNames.size > 0) {
+            // If sub-categories are selected, show only their services
+            const filtered = servicesRaw.filter(s => 
+                selectedCatIds.has(s.category) || selectedCatNames.has(s.category)
+            );
+            if (filtered.length > 0) {
+                services = filtered;
+            }
+        } else if (selectedTypeIds.size > 0) {
+            // If only primary categories are selected, show their services
+            const filtered = servicesRaw.filter(s => {
+                const cat = catById.get(s.category) || catByName.get(s.category);
+                return cat && (selectedTypeIds.has(cat.serviceType) || selectedTypeLabels.has(cat.serviceType));
+            });
+            if (filtered.length > 0) {
+                services = filtered;
+            }
+        }
+
         return {
             serviceTypeOptions: types,
             filteredCategories: cats,
@@ -238,9 +272,9 @@ export default function ProviderRegisterPage() {
             if (videoRef.current) {
                 const v = videoRef.current;
                 v.srcObject = stream;
-                try { v.setAttribute("playsinline", "true"); } catch {}
-                try { v.setAttribute("muted", "true"); } catch {}
-                try { v.muted = true; } catch {}
+                try { v.setAttribute("playsinline", "true"); } catch { }
+                try { v.setAttribute("muted", "true"); } catch { }
+                try { v.muted = true; } catch { }
                 const waitForCanPlay = () => new Promise((resolve) => {
                     const done = () => {
                         setIsVideoReady(true);
@@ -251,7 +285,7 @@ export default function ProviderRegisterPage() {
                     v.addEventListener("canplay", onCanPlay, { once: true });
                 });
                 const ensurePlay = async () => {
-                    try { await v.play(); } catch {}
+                    try { await v.play(); } catch { }
                     if (v.readyState >= 2 && v.videoWidth > 0) {
                         setIsVideoReady(true);
                         return;
@@ -278,7 +312,7 @@ export default function ProviderRegisterPage() {
                 videoRef.current.srcObject = null;
                 videoRef.current.onloadedmetadata = null;
             }
-        } catch {}
+        } catch { }
         streamRef.current = null;
         setIsVideoReady(false);
         setIsCameraOpen(false);
@@ -660,7 +694,7 @@ export default function ProviderRegisterPage() {
                                     </div>
                                     <div className="space-y-4 sm:col-span-2">
                                         <Label className="text-xs font-black uppercase text-gray-400">Address & Hub Location</Label>
-                                        
+
                                         {/* Use Current Location Button - First for easy access */}
                                         <Button
                                             type="button"
@@ -669,7 +703,7 @@ export default function ProviderRegisterPage() {
                                             disabled={isLoading}
                                             onClick={async () => {
                                                 if (!navigator.geolocation) return alert("Geolocation not supported");
-                                                
+
                                                 setIsLoading(true);
                                                 navigator.geolocation.getCurrentPosition(
                                                     async (pos) => {
@@ -717,26 +751,26 @@ export default function ProviderRegisterPage() {
                                                             }
                                                         } catch (error) {
                                                             console.error("Location resolution error:", error);
-                                                            setFormData(prev => ({ 
-                                                                ...prev, 
-                                                                lat, 
-                                                                lng 
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                lat,
+                                                                lng
                                                             }));
                                                             alert("Location captured! Please complete city and zone manually.");
                                                         } finally {
                                                             setIsLoading(false);
                                                         }
                                                         return;
-                                                        
+
                                                         console.log("📍 Current Location Coordinates:");
                                                         console.log("  - Latitude:", lat);
                                                         console.log("  - Longitude:", lng);
-                                                        
+
                                                         try {
                                                             // Reverse geocoding using Nominatim (OpenStreetMap)
                                                             const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
                                                             console.log("🌐 Geocoding API URL:", geocodeUrl);
-                                                            
+
                                                             const response = await fetch(
                                                                 geocodeUrl,
                                                                 {
@@ -745,46 +779,46 @@ export default function ProviderRegisterPage() {
                                                                     }
                                                                 }
                                                             );
-                                                            
+
                                                             console.log("📡 API Response Status:", response.status, response.statusText);
-                                                            
+
                                                             if (response.ok) {
                                                                 const data = await response.json();
                                                                 console.log("🌍 Full Geocoding Response:", data);
-                                                                
+
                                                                 const address = data.address || {};
                                                                 console.log("📍 Address Object:", address);
-                                                                
+
                                                                 // Extract address components with multiple fallbacks
-                                                                const extractedArea = address.suburb || 
-                                                                                     address.neighbourhood || 
-                                                                                     address.residential || 
-                                                                                     address.quarter || 
-                                                                                     address.hamlet ||
-                                                                                     address.locality || "";
-                                                                
-                                                                const extractedCity = address.city || 
-                                                                                     address.town || 
-                                                                                     address.village || 
-                                                                                     address.municipality ||
-                                                                                     address.county ||
-                                                                                     address.state_district || "";
-                                                                
-                                                                const extractedLandmark = address.house_number 
+                                                                const extractedArea = address.suburb ||
+                                                                    address.neighbourhood ||
+                                                                    address.residential ||
+                                                                    address.quarter ||
+                                                                    address.hamlet ||
+                                                                    address.locality || "";
+
+                                                                const extractedCity = address.city ||
+                                                                    address.town ||
+                                                                    address.village ||
+                                                                    address.municipality ||
+                                                                    address.county ||
+                                                                    address.state_district || "";
+
+                                                                const extractedLandmark = address.house_number
                                                                     ? `${address.house_number} ${address.road || address.street || ""}`.trim()
                                                                     : (address.road || address.street || address.building || "");
-                                                                
+
                                                                 console.log("📦 Extracted Values:");
                                                                 console.log("  - Area:", extractedArea);
                                                                 console.log("  - City:", extractedCity);
                                                                 console.log("  - Landmark:", extractedLandmark);
-                                                                
+
                                                                 // Try to match city with available cities in dropdown
                                                                 let matchedCity = "";
                                                                 if (extractedCity && cities.length > 0) {
                                                                     const cityLower = extractedCity.toLowerCase();
-                                                                    const found = cities.find(c => 
-                                                                        c.name.toLowerCase() === cityLower || 
+                                                                    const found = cities.find(c =>
+                                                                        c.name.toLowerCase() === cityLower ||
                                                                         c.name.toLowerCase().includes(cityLower) ||
                                                                         cityLower.includes(c.name.toLowerCase())
                                                                     );
@@ -794,31 +828,31 @@ export default function ProviderRegisterPage() {
                                                                     console.log("  - Matched City:", matchedCity);
                                                                     console.log("  - Found in dropdown:", !!found);
                                                                 }
-                                                                
+
                                                                 console.log("📝 Current Form Data (before update):", {
                                                                     area: formData.area,
                                                                     city: formData.city,
                                                                     addressLine1: formData.addressLine1
                                                                 });
-                                                                
+
                                                                 // Update form with location and address - always update if we have values
-                                                                const updatedData = { 
-                                                                    ...formData, 
-                                                                    lat: lat, 
+                                                                const updatedData = {
+                                                                    ...formData,
+                                                                    lat: lat,
                                                                     lng: lng,
                                                                     area: extractedArea ? extractedArea : formData.area,
                                                                     city: matchedCity ? matchedCity : (extractedCity ? extractedCity : formData.city),
                                                                     addressLine1: extractedLandmark ? extractedLandmark : formData.addressLine1
                                                                 };
-                                                                
+
                                                                 console.log("✅ Updated Form Data (after update):", {
                                                                     area: updatedData.area,
                                                                     city: updatedData.city,
                                                                     addressLine1: updatedData.addressLine1
                                                                 });
-                                                                
+
                                                                 setFormData(updatedData);
-                                                                
+
                                                                 // Verify state update with a small delay
                                                                 setTimeout(() => {
                                                                     console.log("🔄 Form Data After State Update:", {
@@ -827,12 +861,12 @@ export default function ProviderRegisterPage() {
                                                                         addressLine1: updatedData.addressLine1
                                                                     });
                                                                 }, 100);
-                                                                
+
                                                                 const addressParts = [];
                                                                 if (extractedLandmark) addressParts.push(`Landmark: ${extractedLandmark}`);
                                                                 if (extractedArea) addressParts.push(`Area: ${extractedArea}`);
                                                                 if (matchedCity || extractedCity) addressParts.push(`City: ${matchedCity || extractedCity}`);
-                                                                
+
                                                                 if (addressParts.length > 0) {
                                                                     alert(`Location captured!\n${addressParts.join('\n')}`);
                                                                 } else {
@@ -840,20 +874,20 @@ export default function ProviderRegisterPage() {
                                                                 }
                                                             } else {
                                                                 // Fallback: just save coordinates
-                                                                setFormData(prev => ({ 
-                                                                    ...prev, 
-                                                                    lat: lat, 
-                                                                    lng: lng 
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    lat: lat,
+                                                                    lng: lng
                                                                 }));
                                                                 alert("Location captured! Please fill address details manually.");
                                                             }
                                                         } catch (error) {
                                                             console.error("Reverse geocoding error:", error);
                                                             // Fallback: just save coordinates
-                                                            setFormData(prev => ({ 
-                                                                ...prev, 
-                                                                lat: lat, 
-                                                                lng: lng 
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                lat: lat,
+                                                                lng: lng
                                                             }));
                                                             alert("Location captured! Please fill address details manually.");
                                                         } finally {
@@ -972,7 +1006,7 @@ export default function ProviderRegisterPage() {
                                                 ) : (
                                                     <p className="text-xs font-semibold text-gray-400 py-2">Please select a city first</p>
                                                 )}
-                                                
+
                                                 <div className="pt-2 mt-2 border-t border-slate-200">
                                                     <Label className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Custom Hub (If not listed)</Label>
                                                     <Input
@@ -1155,8 +1189,12 @@ export default function ProviderRegisterPage() {
                                                 {spec.name}
                                             </button>
                                         )) : (
-                                            <p className="text-xs font-semibold text-gray-400">
-                                                {catalogLoading ? "Loading sub categories..." : "No sub categories available"}
+                                            <p className="text-xs font-semibold text-gray-400 py-2">
+                                                {catalogLoading 
+                                                    ? "Loading sub categories..." 
+                                                    : formData.primaryCategory.length > 0 
+                                                        ? "No sub categories available for selected primary categories"
+                                                        : "Please select primary categories first to see sub categories"}
                                             </p>
                                         )}
                                     </div>
@@ -1182,8 +1220,12 @@ export default function ProviderRegisterPage() {
                                                 {svc.name}
                                             </button>
                                         )) : (
-                                            <p className="text-xs font-semibold text-gray-400">
-                                                {catalogLoading ? "Loading services..." : "No services available"}
+                                            <p className="text-xs font-semibold text-gray-400 py-2">
+                                                {catalogLoading 
+                                                    ? "Loading services..." 
+                                                    : formData.primaryCategory.length > 0 || formData.specializations.length > 0
+                                                        ? "No services available for selected categories"
+                                                        : "Please select categories first to see services"}
                                             </p>
                                         )}
                                     </div>
@@ -1301,8 +1343,8 @@ export default function ProviderRegisterPage() {
                                                 <User className="h-4 w-4 text-violet-600" />
                                                 <span className="text-xs font-black uppercase text-gray-400 tracking-[0.1em]">Profile Review</span>
                                             </div>
-                                            <button 
-                                                onClick={() => setCurrentStep(1)} 
+                                            <button
+                                                onClick={() => setCurrentStep(1)}
                                                 className="text-[10px] font-black uppercase text-violet-600 hover:bg-violet-50 px-3 py-1 rounded-full transition-colors"
                                             >
                                                 Edit
@@ -1319,8 +1361,8 @@ export default function ProviderRegisterPage() {
                                                     {[
                                                         { label: "Name", value: formData.name, bold: true },
                                                         { label: "City", value: formData.city, bold: true },
-                                                        { 
-                                                            label: "KYC Status", 
+                                                        {
+                                                            label: "KYC Status",
                                                             value: (formData.aadharFront && formData.panCard) ? "Verified" : "Pending Documents",
                                                             color: (formData.aadharFront && formData.panCard) ? "text-green-600" : "text-amber-600"
                                                         },
@@ -1374,7 +1416,7 @@ export default function ProviderRegisterPage() {
                         )}
 
                         {stepError && (
-                            <motion.div 
+                            <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 className="mt-6 p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3"

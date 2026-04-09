@@ -175,7 +175,7 @@ const ProviderBookingDetailPage = () => {
     const nextAction = getNextAction();
 
     return (
-        <div className="min-h-screen bg-gray-50/50 pb-32">
+        <div className="min-h-screen bg-gray-50/50 pb-40">
             <AnimatePresence>
                 {showCancelConfirm && (
                     <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
@@ -445,13 +445,10 @@ const ProviderBookingDetailPage = () => {
                                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">{phase.label} Service</p>
                                         {booking.status !== "completed" && (
                                             <label className="block bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 p-5 text-center cursor-pointer hover:border-purple-300 hover:bg-purple-50 transition-all">
-                                                <input type="file" accept="image/*" capture="environment" className="hidden"
+                                                <input multiple type="file" accept="image/*" capture="environment" className="hidden"
                                                     onChange={e => {
-                                                        const file = e.target.files[0];
-                                                        if (file) {
-                                                            const url = URL.createObjectURL(file);
-                                                            phase.addFn(id, [url]);
-                                                        }
+                                                        const files = Array.from(e.target.files || []);
+                                                        if (files.length) phase.addFn(booking._id || id, files);
                                                     }} />
                                                 <Camera className="w-5 h-5 mx-auto text-gray-400 mb-1 group-hover:text-purple-600" />
                                                 <span className="text-[9px] font-black text-gray-400 tracking-widest uppercase">Snap Photo</span>
@@ -539,20 +536,22 @@ const ProviderBookingDetailPage = () => {
 
             {/* Sticky Action Footer */}
             {(nextAction || ["accepted", "travelling", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase())) && (
-                <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 p-4 z-40">
-                    <div className="max-w-xl mx-auto flex gap-3">
+                <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 p-4 pb-20 sm:pb-4 z-50 safe-area-bottom shadow-2xl">
+                    <div className="max-w-xl mx-auto flex flex-col sm:flex-row gap-3">
                         {nextAction && (
                             <Button
                                 onClick={nextAction.action}
-                                className="flex-1 h-14 rounded-2xl font-black text-xs bg-purple-600 hover:bg-purple-700 text-white shadow-xl shadow-purple-200 flex items-center justify-center gap-2 transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                                disabled={statusLoading}
+                                className="w-full sm:flex-1 h-14 rounded-2xl font-black text-xs bg-purple-600 hover:bg-purple-700 text-white shadow-xl shadow-purple-200 flex items-center justify-center gap-2 transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {nextAction.label.toUpperCase()} <ChevronRight className="w-4 h-4" />
+                                {statusLoading ? "PROCESSING..." : nextAction.label.toUpperCase()} <ChevronRight className="w-4 h-4" />
                             </Button>
                         )}
                         {["accepted", "travelling", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase()) && (
                             <button
                                 onClick={() => setShowCancelConfirm(true)}
-                                className="flex-1 h-14 rounded-2xl border-2 border-red-100 bg-red-50 text-red-600 flex items-center justify-center gap-2 hover:bg-red-100 transition-all shadow-sm font-black text-xs uppercase"
+                                disabled={statusLoading}
+                                className="w-full sm:flex-1 h-14 rounded-2xl border-2 border-red-100 bg-red-50 text-red-600 flex items-center justify-center gap-2 hover:bg-red-100 transition-all shadow-sm font-black text-xs uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Cancel Job"
                             >
                                 <Trash2 className="w-4 h-4" /> CANCEL BOOKING
