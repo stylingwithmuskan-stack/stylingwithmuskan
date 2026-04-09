@@ -19,7 +19,13 @@ const AddressesPage = () => {
         type: a.type,
         houseNo: a.houseNo,
         area: a.area,
-        landmark: a.landmark
+        landmark: a.landmark,
+        city: a.city,
+        cityId: a.cityId,
+        zone: a.zone,
+        zoneId: a.zoneId,
+        lat: a.lat,
+        lng: a.lng
     }));
 
     const getIcon = (type) => {
@@ -76,7 +82,22 @@ const AddressesPage = () => {
                                 {/* Quick Actions */}
                                 <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
                                     <button
-                                        onClick={() => { setEditAddress(a => ({ _id: addr.id, type: addr.type, houseNo: addr.houseNo, area: addr.area, landmark: addr.landmark })); setIsModalOpen(true); }}
+                                        onClick={() => { 
+                                            setEditAddress({ 
+                                                _id: addr.id, 
+                                                type: addr.type, 
+                                                houseNo: addr.houseNo, 
+                                                area: addr.area, 
+                                                landmark: addr.landmark,
+                                                city: addr.city,
+                                                cityId: addr.cityId,
+                                                zone: addr.zone,
+                                                zoneId: addr.zoneId,
+                                                lat: addr.lat,
+                                                lng: addr.lng
+                                            }); 
+                                            setIsModalOpen(true); 
+                                        }}
                                         className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
                                         <Edit2 className="w-3.5 h-3.5" /> Edit
                                     </button>

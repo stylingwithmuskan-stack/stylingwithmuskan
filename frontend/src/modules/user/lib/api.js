@@ -651,6 +651,24 @@ export const api = {
       }
       return request(`/notifications/${id}`, { method: "DELETE" });
     },
+    deleteAll: (opts = {}) => {
+      const options = typeof opts === "string" ? { role: opts } : (opts || {});
+      const role = options.role;
+      const token = options.token || (role ? getTokenByRole(role) : "");
+      if (role || token) {
+        return requestWithToken("/notifications", { method: "DELETE" }, token, role);
+      }
+      return request("/notifications", { method: "DELETE" });
+    },
+    deleteMultiple: (ids, opts = {}) => {
+      const options = typeof opts === "string" ? { role: opts } : (opts || {});
+      const role = options.role;
+      const token = options.token || (role ? getTokenByRole(role) : "");
+      if (role || token) {
+        return requestWithToken("/notifications/delete-multiple", { method: "POST", body: { ids } }, token, role);
+      }
+      return request("/notifications/delete-multiple", { method: "POST", body: { ids } });
+    },
     push: {
       register: (body, opts = {}) => {
         const options = typeof opts === "string" ? { role: opts } : (opts || {});

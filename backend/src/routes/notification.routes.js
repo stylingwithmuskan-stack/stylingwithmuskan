@@ -229,13 +229,48 @@ router.post("/push/test-self", requireAnyAuth, async (req, res) => {
   }
 });
 
-// Delete a notification
+// Delete a single notification
 router.delete("/:id", requireAnyAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
     await Notification.findOneAndDelete({ _id: req.params.id, recipientId, recipientRole });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete all notifications for the current user/role
+router.delete("/", requireAnyAuth, async (req, res) => {
+  try {
+    const recipientId = req.auth.sub;
+    const recipientRole = req.auth.role || "user";
+    await Notification.deleteMany({ recipientId, recipientRole });
+    res.json({ success: true, message: "All notifications deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete selected notifications (Bulk Delete)
+router.post("/delete-multiple", requireAnyAuth, async (req, res) => {
+  try {
+    const recipientId = req.auth.sub;
+    const recipientRole = req.auth.role || "user";
+    const { ids = [] } = req.body;
+    
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "No IDs provided" });
+    }
+
+    await Notification.deleteMany({ 
+      _id: { $in: ids }, 
+      recipientId, 
+      recipientRole 
+    });
+
+    res.json({ success: true, message: `${ids.length} notifications deleted` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

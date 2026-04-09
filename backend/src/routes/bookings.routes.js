@@ -115,33 +115,39 @@ router.post(
       }
 
       // Check if feedback already exists
-      const existing = await Feedback.findOne({ bookingId: req.params.id });
-      if (existing) {
-        return res.status(400).json({ error: "Feedback already submitted for this booking" });
+      let feedback = await Feedback.findOne({ bookingId: req.params.id });
+      
+      if (feedback) {
+        // Update existing feedback
+        feedback.rating = req.body.rating;
+        feedback.comment = req.body.comment || "";
+        feedback.tags = req.body.tags || [];
+        feedback.updatedAt = new Date();
+        await feedback.save();
+      } else {
+        // Create new feedback
+        feedback = await Feedback.create({
+          bookingId: req.params.id,
+          customerId: req.user._id.toString(),
+          customerName: req.user.name || booking.customerName || "Customer",
+          providerId: booking.assignedProvider || "",
+          providerName: booking.assignedProvider ? "Provider" : "",
+          serviceName: booking.services?.[0]?.name || "Service",
+          serviceCategory: booking.services?.[0]?.category || "",
+          rating: req.body.rating,
+          comment: req.body.comment || "",
+          tags: req.body.tags || [],
+          type: "customer_to_provider",
+          status: "active",
+        });
       }
-
-      // Create feedback
-      const feedback = await Feedback.create({
-        bookingId: req.params.id,
-        customerId: req.user._id.toString(),
-        customerName: req.user.name || booking.customerName || "Customer",
-        providerId: booking.assignedProvider || "",
-        providerName: booking.assignedProvider ? "Provider" : "",
-        serviceName: booking.services?.[0]?.name || "Service",
-        serviceCategory: booking.services?.[0]?.category || "",
-        rating: req.body.rating,
-        comment: req.body.comment || "",
-        tags: req.body.tags || [],
-        type: "customer_to_provider",
-        status: "active",
-      });
 
       // Update provider rating if provider is assigned
       if (booking.assignedProvider) {
         await updateProviderRating(booking.assignedProvider);
       }
 
-      res.status(201).json({ success: true, feedback });
+      res.status(feedback.isNew ? 201 : 200).json({ success: true, feedback });
     } catch (error) {
       console.error("[Feedback] Error:", error);
       res.status(500).json({ error: "Failed to submit feedback" });

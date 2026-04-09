@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ShieldCheck, Lock, Eye, FileText } from "lucide-react";
@@ -7,6 +7,10 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 const PrivacyPolicyPage = () => {
   const navigate = useNavigate();
   const { gender } = useGenderTheme();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const sections = [
     { title: "Information We Collect", icon: FileText, content: "We collect information you provide directly to us, such as when you create an account, make a booking, or contact us. This may include your name, email, phone number, and location." },

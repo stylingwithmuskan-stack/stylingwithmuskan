@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, FileText, Scale, Info, CheckCircle2 } from "lucide-react";
@@ -7,6 +7,10 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 const TermsConditionsPage = () => {
   const navigate = useNavigate();
   const { gender } = useGenderTheme();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const terms = [
     { title: "Booking Policies", icon: Info, content: "Bookings can be made up to 7 days in advance. Cancellations must be done at least 4 hours prior to the scheduled service time to avoid cancellation fees." },

@@ -209,38 +209,49 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
         );
     };
 
-    const handleSave = (e) => {
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = async (e) => {
         e.preventDefault();
         if (address.houseNo && address.area && address.city) {
-            if (address._id) {
-                updateExistingAddress(address._id, {
-                    houseNo: address.houseNo,
-                    area: address.area,
-                    landmark: address.landmark,
-                    city: address.city,
-                    cityId: address.cityId,
-                    zone: address.zone,
-                    zoneId: address.zoneId,
-                    type: address.type,
-                    lat: address.lat,
-                    lng: address.lng
-                });
-            } else {
-                updateAddress({
-                    houseNo: address.houseNo,
-                    area: address.area,
-                    landmark: address.landmark,
-                    city: address.city,
-                    cityId: address.cityId,
-                    zone: address.zone,
-                    zoneId: address.zoneId,
-                    type: address.type,
-                    lat: address.lat,
-                    lng: address.lng
-                });
+            setIsSaving(true);
+            try {
+                if (address._id) {
+                    await updateExistingAddress(address._id, {
+                        houseNo: address.houseNo,
+                        area: address.area,
+                        landmark: address.landmark,
+                        city: address.city,
+                        cityId: address.cityId,
+                        zone: address.zone,
+                        zoneId: address.zoneId,
+                        type: address.type,
+                        lat: address.lat,
+                        lng: address.lng
+                    });
+                } else {
+                    await updateAddress({
+                        houseNo: address.houseNo,
+                        area: address.area,
+                        landmark: address.landmark,
+                        city: address.city,
+                        cityId: address.cityId,
+                        zone: address.zone,
+                        zoneId: address.zoneId,
+                        type: address.type,
+                        lat: address.lat,
+                        lng: address.lng
+                    });
+                }
+                onSave?.();
+                onClose();
+            } catch (error) {
+                console.error("[AddressModal] Save failed:", error);
+                const msg = error.data?.error || error.message || "Failed to save address";
+                alert(msg);
+            } finally {
+                setIsSaving(false);
             }
-            onSave?.();
-            onClose();
         }
     };
 
@@ -337,6 +348,8 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                                 cityId: selectedCity?._id || "",
                                                 zone: "",
                                                 zoneId: "",
+                                                lat: undefined, // Clear coordinates on manual change
+                                                lng: undefined
                                             });
                                         }}
                                         className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
@@ -345,7 +358,6 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                         {cities.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
                                     </select>
                                 </div>
-
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Zone*</label>
                                     <select
@@ -357,6 +369,8 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                                 ...address,
                                                 zone: selectedZone?.name || "",
                                                 zoneId: selectedZone?._id || "",
+                                                lat: undefined, // Clear coordinates on manual change
+                                                lng: undefined
                                             });
                                         }}
                                         className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
@@ -394,10 +408,10 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                             <Button
                                 type="submit"
                                 form="address-form"
-                                disabled={isLocating}
+                                disabled={isLocating || isSaving}
                                 className="w-full h-14 rounded-2xl text-base font-bold shadow-xl shadow-primary/20 border-none bg-black text-white hover:bg-black/90"
                             >
-                                CONFIRM LOCATION
+                                {isSaving ? "SAVING..." : "CONFIRM LOCATION"}
                             </Button>
                         </div>
                     </motion.div>
