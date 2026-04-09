@@ -61,6 +61,19 @@ const FeedbackModal = ({ isOpen, onClose, booking, onSubmit }) => {
                 onClose();
             }, 2000);
         } catch (error) {
+            const alreadySubmitted = error?.status === 400 && /already submitted/i.test(error?.message || "");
+            if (alreadySubmitted) {
+                const existing = JSON.parse(localStorage.getItem("muskan-feedback") || "[]");
+                const exists = existing.some(f => f.bookingId === (booking?.id || booking?._id) && f.type === "customer_to_provider");
+                if (!exists) {
+                    existing.unshift(feedback);
+                    localStorage.setItem("muskan-feedback", JSON.stringify(existing));
+                }
+                if (onSubmit) onSubmit(feedback);
+                toast.success("Feedback already recorded for this booking.");
+                onClose();
+                return;
+            }
             toast.error(error?.message || "Failed to submit feedback");
         } finally {
             setSubmitting(false);

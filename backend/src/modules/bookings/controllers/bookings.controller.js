@@ -8,6 +8,7 @@ import ProviderAccount from "../../../models/ProviderAccount.js";
 import BookingLog from "../../../models/BookingLog.js";
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 import User from "../../../models/User.js";
+import Feedback from "../../../models/Feedback.js";
 import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes } from "../../../lib/slots.js";
 import { isIsoDate } from "../../../lib/isoDateTime.js";
 import { computeExpiresAt, pickNextProviderForBooking } from "../../../lib/assignment.js";
@@ -24,6 +25,13 @@ import {
 import { calculateRefundPolicy, processSmartRefund } from "../../../lib/refund.service.js";
 import { buildAssignmentCandidates } from "../../../lib/assignmentCandidates.js";
 import { invalidateProviderSlots } from "../../../lib/availability.js";
+
+function logDevAssignment(message, payload = {}) {
+  if (process.env.NODE_ENV === "production") return;
+  try {
+    console.log(`[AssignmentFlow] ${message}`, payload);
+  } catch {}
+}
 
 async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
   // Logic: Instant bookings never require advance payment.
@@ -167,6 +175,19 @@ export async function list(req, res) {
     items: Array.isArray(b.items) ? b.items : bookingServicesToItems(b.services),
   }));
   bookings = await attachProviderToBookings(bookings);
+  const bookingIds = bookings.map((b) => String(b.id || b._id || "")).filter(Boolean);
+  const feedbackDocs = bookingIds.length > 0
+    ? await Feedback.find({
+        bookingId: { $in: bookingIds },
+        customerId: req.user._id.toString(),
+        type: "customer_to_provider",
+      }).select("bookingId").lean()
+    : [];
+  const feedbackBookingIds = new Set((feedbackDocs || []).map((doc) => String(doc.bookingId || "")));
+  bookings = bookings.map((booking) => ({
+    ...booking,
+    customerFeedbackSubmitted: feedbackBookingIds.has(String(booking.id || booking._id || "")),
+  }));
   res.json({ bookings, page, limit, total });
 }
 
@@ -270,6 +291,20 @@ export async function create(req, res) {
   });
   let candidateProviders = initialCandidates;
 
+  logDevAssignment("Booking create candidate discovery", {
+    customerId: req.user._id?.toString?.() || "",
+    preferredProviderId: preferredProviderId || "",
+    slotDate: requestedDate,
+    slotTime: requestedTime,
+    bookingType: bookingType || "",
+    city: safeAddress.city || "",
+    cityId: safeAddress.cityId || "",
+    zone: safeAddress.zone || "",
+    zoneId: safeAddress.zoneId || "",
+    requestedDurationMinutes,
+    candidateProviders,
+  });
+
   // Enforce booking window + lead time if slot is valid
   if (isIsoDate(requestedDate) && DEFAULT_TIME_SLOTS.includes(requestedTime)) {
     const slotStart = slotLabelToLocalDateTime(requestedDate, requestedTime);
@@ -309,6 +344,10 @@ export async function create(req, res) {
   // Preferred provider takes priority within the candidate list
   if (preferredProviderId && providerIsCandidate(preferredProviderId)) {
     candidateProviders = [preferredProviderId, ...candidateProviders.filter((x) => x !== preferredProviderId)];
+    logDevAssignment("Preferred provider moved to the front of candidate chain", {
+      preferredProviderId,
+      candidateProviders,
+    });
   }
 
   let assignedProvider = "";
@@ -325,6 +364,13 @@ export async function create(req, res) {
       assignmentIndex = picked.index;
       lastAssignedAt = new Date();
       expiresAt = computeExpiresAt(lastAssignedAt);
+      logDevAssignment("Initial auto assignment selected provider", {
+        bookingTempId: "pending-create",
+        assignedProvider,
+        assignmentIndex,
+        expiresAt,
+        candidateProviders,
+      });
     }
   }
 
@@ -340,6 +386,12 @@ export async function create(req, res) {
   // FUTURE IMPROVEMENT: Pass candidateProvidersBySlot from frontend to backend
   // so we can use the same providers that were shown as available during slot selection
   if (!assignedProvider && candidateProviders.length === 0) {
+    logDevAssignment("Booking create found no candidates for selected slot", {
+      slotDate: requestedDate,
+      slotTime: requestedTime,
+      city: safeAddress.city || "",
+      zone: safeAddress.zone || "",
+    });
     return res.status(409).json({
       error: "Selected slot is no longer available. Please choose another slot.",
       code: "SLOT_UNAVAILABLE",
@@ -367,8 +419,24 @@ export async function create(req, res) {
     else if (isAnyPro) mode = "ANY-PROFESSIONAL (Random)";
     
     console.log(`[Booking] Assignment: ${mode} Provider = ${provName} (${provPhone}) (ID: ${assignedProvider})`);
+    logDevAssignment("Booking created with assigned provider", {
+      assignedProvider,
+      assignmentIndex,
+      providerName: provName,
+      providerPhone: provPhone,
+      mode,
+      expiresAt,
+      candidateProviders,
+    });
   } else {
     console.log(`[Booking] Assignment: NO Provider assigned (pending auto-assign pool)`);
+    logDevAssignment("Booking created without assigned provider", {
+      candidateProviders,
+      adminEscalated: false,
+      vendorEscalated: false,
+      slotDate: requestedDate,
+      slotTime: requestedTime,
+    });
   }
 
   if (process.env.NODE_ENV !== "production") {
@@ -410,6 +478,15 @@ export async function create(req, res) {
     lastAssignedAt,
     expiresAt,
     adminEscalated: false,
+  });
+
+  logDevAssignment("Booking persisted", {
+    bookingId: booking._id?.toString?.() || "",
+    assignedProvider: booking.assignedProvider || "",
+    assignmentIndex: booking.assignmentIndex,
+    expiresAt: booking.expiresAt || null,
+    candidateProviders: booking.candidateProviders || [],
+    status: booking.status || "",
   });
   try {
     if (assignedProvider && booking?.slot?.date) {

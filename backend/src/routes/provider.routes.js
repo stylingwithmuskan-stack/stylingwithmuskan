@@ -35,6 +35,13 @@ import {
 
 const router = Router();
 
+function logDevProviderFlow(message, payload = {}) {
+  if (process.env.NODE_ENV === "production") return;
+  try {
+    console.log(`[ProviderAssignmentFlow] ${message}`, payload);
+  } catch {}
+}
+
 async function normalizeProviderZoneSelection({ city = "", cityId = "", zones = [], zoneIds = [] } = {}) {
   const normalizedZones = Array.from(new Set((Array.isArray(zones) ? zones : []).map((z) => String(z || "").trim()).filter(Boolean)));
   const normalizedZoneIds = Array.from(new Set((Array.isArray(zoneIds) ? zoneIds : []).map((z) => String(z || "").trim()).filter(Boolean)));
@@ -1194,6 +1201,15 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     (now.getTime() - new Date(b.lastAssignedAt).getTime()) > acceptMs;
   if (next === "accepted" && (expiredByExpiresAt || expiredByLegacyLastAssignedAt)) {
     const current = b.assignedProvider || "";
+    logDevProviderFlow("Provider tried to accept after assignment window expiry", {
+      bookingId: b._id?.toString?.() || "",
+      providerId: pId,
+      assignedProvider: current,
+      assignmentIndex: b.assignmentIndex,
+      candidateProviders: b.candidateProviders || [],
+      rejectedProviders: b.rejectedProviders || [],
+      expiresAt: b.expiresAt || null,
+    });
     if (current) {
       const set = new Set(b.rejectedProviders || []);
       set.add(current);
@@ -1257,6 +1273,15 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         }
       }
     } catch {}
+    logDevProviderFlow("Expired acceptance rerouted booking", {
+      bookingId: b._id?.toString?.() || "",
+      fromProvider: current,
+      toProvider: picked?.providerId || "",
+      newAssignmentIndex: picked?.index ?? -1,
+      adminEscalated: !picked?.providerId,
+      city: b.address?.city || "",
+      expiresAt: b.expiresAt || null,
+    });
     return res.status(409).json({
       error: "This booking request has expired for you and was reassigned to another provider.",
       code: "ACCEPT_WINDOW_EXPIRED",
@@ -1267,6 +1292,15 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
   // Handle rejection: move to next eligible candidate or escalate to admin
   if (next === "rejected") {
     const current = b.assignedProvider || "";
+    logDevProviderFlow("Provider rejected booking request", {
+      bookingId: b._id?.toString?.() || "",
+      rejectedProviderId: current,
+      assignmentIndex: b.assignmentIndex,
+      candidateProviders: b.candidateProviders || [],
+      rejectedProvidersBeforeUpdate: b.rejectedProviders || [],
+      slotDate: b.slot?.date || "",
+      slotTime: b.slot?.time || "",
+    });
     if (current) {
       const set = new Set(b.rejectedProviders || []);
       set.add(current);
@@ -1295,6 +1329,14 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           respectProviderQuietHours: true,
         });
       } catch {}
+      logDevProviderFlow("Booking moved to next provider after rejection", {
+        bookingId: b._id?.toString?.() || "",
+        fromProvider: current,
+        toProvider: picked.providerId,
+        newAssignmentIndex: picked.index,
+        rejectedProviders: b.rejectedProviders || [],
+        expiresAt: b.expiresAt || null,
+      });
     } else {
       b.assignedProvider = "";
       b.adminEscalated = true;
@@ -1320,6 +1362,14 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           }
         }
       } catch {}
+      logDevProviderFlow("Booking escalated after rejection because no next provider was eligible", {
+        bookingId: b._id?.toString?.() || "",
+        rejectedProviderId: current,
+        candidateProviders: b.candidateProviders || [],
+        rejectedProviders: b.rejectedProviders || [],
+        city: b.address?.city || "",
+        adminEscalated: true,
+      });
     }
   } else if (next === "accepted") {
     // Wallet commission check before accepting

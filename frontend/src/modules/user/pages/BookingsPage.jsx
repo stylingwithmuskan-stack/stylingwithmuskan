@@ -22,7 +22,7 @@ const BookingsPage = () => {
     const navigate = useNavigate();
     const { gender } = useGenderTheme();
     const { bookings, enquiries, acceptCustomEnquiry, rejectCustomEnquiry, payAdvanceForCustomEnquiry, loadingEnquiries } = useBookings();
-    const { addCustomAdvanceToCart, setIsCartOpen } = useCart();
+    const { addCustomAdvanceToCart, setIsCartOpen, clearCart, addToCart, setBookingType } = useCart();
     useEffect(() => {
         try {
             bookings.forEach(b => {
@@ -72,6 +72,7 @@ const BookingsPage = () => {
             // Find completed bookings that haven't been reviewed by customer
             const unreviewed = bookings.find(b =>
                 b.status?.toLowerCase() === 'completed' &&
+                !b.customerFeedbackSubmitted &&
                 !feedback.some(f => f.bookingId === (b.id || b._id) && f.type === 'customer_to_provider')
             );
 
@@ -111,6 +112,51 @@ const BookingsPage = () => {
             };
         }
         setProviderModalData(foundProvider);
+    };
+
+    const handleRebook = (booking) => {
+        try {
+            // Extract services from the completed booking
+            const services = booking.items || booking.services || [];
+            
+            if (!services || services.length === 0) {
+                toast.error("No services found in this booking");
+                return;
+            }
+            
+            // Clear existing cart to avoid conflicts
+            clearCart();
+            
+            // Add each service to cart with all necessary details
+            services.forEach(service => {
+                addToCart({
+                    id: service.id || service._id || `service-${Date.now()}-${Math.random()}`,
+                    name: service.name,
+                    price: service.price,
+                    originalPrice: service.originalPrice,
+                    duration: service.duration,
+                    category: service.category,
+                    serviceType: service.serviceType,
+                    image: service.image,
+                    description: service.description
+                });
+            });
+            
+            // Set booking type from previous booking (instant or pre-book)
+            if (booking.bookingType) {
+                setBookingType(booking.bookingType);
+            }
+            
+            // Show success message
+            toast.success(`${services.length} service${services.length > 1 ? 's' : ''} added to cart`);
+            
+            // Open cart for user to review and proceed
+            setIsCartOpen(true);
+            
+        } catch (error) {
+            console.error("Rebook error:", error);
+            toast.error("Failed to rebook. Please try again.");
+        }
     };
 
     const getPhaseColor = (phase) => {
@@ -326,10 +372,15 @@ const BookingsPage = () => {
                                                         </div>
                                                     ) : (
                                                         <div className="flex gap-2">
-                                                            <button onClick={() => setFeedbackBooking(booking)} className="px-4 py-1.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-[11px] font-bold flex items-center gap-1.5 hover:bg-primary/10 transition-colors">
-                                                                <Star className="w-3.5 h-3.5 fill-primary" /> Review
-                                                            </button>
-                                                            <button className="px-4 py-1.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-[11px] font-bold flex items-center gap-1.5 hover:bg-primary/10 transition-colors">
+                                                            {!booking.customerFeedbackSubmitted && (
+                                                                <button onClick={() => setFeedbackBooking(booking)} className="px-4 py-1.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-[11px] font-bold flex items-center gap-1.5 hover:bg-primary/10 transition-colors">
+                                                                    <Star className="w-3.5 h-3.5 fill-primary" /> Review
+                                                                </button>
+                                                            )}
+                                                            <button 
+                                                                onClick={() => handleRebook(booking)}
+                                                                className="px-4 py-1.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-[11px] font-bold flex items-center gap-1.5 hover:bg-primary/10 transition-colors"
+                                                            >
                                                                 <RefreshCcw className="w-3 h-3" /> Rebook
                                                             </button>
                                                         </div>

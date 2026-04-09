@@ -8,6 +8,13 @@ import { slotLabelToLocalDateTime, parseDurationToMinutes } from "../lib/slots.j
 import { buildAssignmentCandidates } from "../lib/assignmentCandidates.js";
 import { invalidateProviderSlots } from "../lib/availability.js";
 
+function logDevSchedulerFlow(message, payload = {}) {
+  if (process.env.NODE_ENV === "production") return;
+  try {
+    console.log(`[SchedulerFlow] ${message}`, payload);
+  } catch {}
+}
+
 export function startAssignmentScheduler() {
   const ACCEPT_MS = getAcceptWindowMs();
   async function runOnce() {
@@ -40,6 +47,15 @@ export function startAssignmentScheduler() {
           customerId: b.customerId,
           requestedDurationMinutes,
           useCache: false,
+        });
+        logDevSchedulerFlow("Scheduler rebuilt candidates for unassigned pending booking", {
+          bookingId: b._id?.toString?.() || "",
+          slotDate: b.slot?.date || "",
+          slotTime: b.slot?.time || "",
+          city: b.address?.city || "",
+          zone: b.address?.zone || b.address?.area || "",
+          candidateProviders,
+          rejectedProviders: b.rejectedProviders || [],
         });
 
         if (candidateProviders.length > 0) {
@@ -85,6 +101,13 @@ export function startAssignmentScheduler() {
                 meta: { bookingId: b._id.toString() },
               });
             } catch {}
+            logDevSchedulerFlow("Scheduler auto-assigned previously unassigned booking", {
+              bookingId: b._id?.toString?.() || "",
+              assignedProvider: picked.providerId,
+              assignmentIndex: picked.index,
+              expiresAt: b.expiresAt || null,
+              candidateProviders,
+            });
             continue;
           }
         }
@@ -118,6 +141,12 @@ export function startAssignmentScheduler() {
                 meta: { bookingId: b._id.toString(), city, vendorId: vendor._id?.toString(), reason: "escalated to vendor" },
               });
             } catch {}
+            logDevSchedulerFlow("Scheduler escalated unassigned booking to vendor", {
+              bookingId: b._id?.toString?.() || "",
+              city,
+              vendorId: vendor._id?.toString?.() || "",
+              reason: "manual assignment needed",
+            });
           } else {
             console.log(`[Scheduler] Unassigned Booking ${b._id} has no vendor for ${city}. Escalating to admin.`);
             b.adminEscalated = true;
@@ -132,6 +161,11 @@ export function startAssignmentScheduler() {
                 meta: { bookingId: b._id.toString(), city, reason: "no vendor found" },
               });
             } catch {}
+            logDevSchedulerFlow("Scheduler escalated unassigned booking to admin because no vendor was found", {
+              bookingId: b._id?.toString?.() || "",
+              city,
+              reason: "no vendor found",
+            });
           }
 
           try {
@@ -207,6 +241,14 @@ export function startAssignmentScheduler() {
               respectProviderQuietHours: true,
             });
           } catch {}
+          logDevSchedulerFlow("Scheduler reassigned timed-out booking to next provider", {
+            bookingId: b._id?.toString?.() || "",
+            fromProvider,
+            toProvider: picked.providerId,
+            newAssignmentIndex: picked.index,
+            expiresAt: b.expiresAt || null,
+            rejectedProviders: b.rejectedProviders || [],
+          });
         } else {
           const slotStart = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
           const diffMs = slotStart ? slotStart.getTime() - now.getTime() : null;
@@ -248,6 +290,13 @@ export function startAssignmentScheduler() {
                   meta: { bookingId: b._id.toString(), city, vendorId: vendor._id?.toString(), reason: "escalated to vendor" },
                 });
               } catch {}
+              logDevSchedulerFlow("Scheduler escalated timed-out booking to vendor after candidate chain ended", {
+                bookingId: b._id?.toString?.() || "",
+                fromProvider,
+                city,
+                vendorId: vendor._id?.toString?.() || "",
+                reason: "manual assignment needed",
+              });
             } else {
               // Fallback to admin if no vendor found
               console.log(`[Scheduler] No more candidates for Booking ${b._id}. No vendor found for ${city}. Escalating to admin.`);
@@ -268,6 +317,12 @@ export function startAssignmentScheduler() {
                   meta: { bookingId: b._id.toString(), city, reason: "no vendor found" },
                 });
               } catch {}
+              logDevSchedulerFlow("Scheduler escalated timed-out booking to admin after candidate chain ended", {
+                bookingId: b._id?.toString?.() || "",
+                fromProvider,
+                city,
+                reason: "no vendor found",
+              });
             }
 
             try {
@@ -284,6 +339,13 @@ export function startAssignmentScheduler() {
             try {
               if (b?.slot?.date && fromProvider) await invalidateProviderSlots(fromProvider, b.slot.date);
             } catch {}
+            logDevSchedulerFlow("Scheduler released timed-out booking back to unassigned pool because slot is not near yet", {
+              bookingId: b._id?.toString?.() || "",
+              fromProvider,
+              slotDate: b.slot?.date || "",
+              slotTime: b.slot?.time || "",
+              assignmentIndex: -1,
+            });
           }
         }
       }

@@ -42,9 +42,30 @@ const ProviderBookingDetailPage = () => {
     const [statusLoading, setStatusLoading] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
+    const [showEarlyStartWarning, setShowEarlyStartWarning] = useState(false);
+    const [pendingStatusUpdate, setPendingStatusUpdate] = useState(null);
     const lastSentRef = useRef(0);
 
     const handleUpdateStatus = async (next) => {
+        // Check if starting too early (only for travelling status)
+        if (next === "travelling" && booking?.slot?.date && booking?.slot?.time) {
+            console.log("🔍 Checking early start:", {
+                date: booking.slot.date,
+                time: booking.slot.time,
+                status: next
+            });
+            
+            const isEarly = checkIfTooEarly(booking.slot.date, booking.slot.time);
+            console.log("⏰ Is early?", isEarly);
+            
+            if (isEarly) {
+                console.log("⚠️ Showing early warning modal");
+                setPendingStatusUpdate(next);
+                setShowEarlyStartWarning(true);
+                return;
+            }
+        }
+
         setStatusLoading(true);
         try {
             await updateBookingStatus(bookingId, next);
@@ -59,10 +80,94 @@ const ProviderBookingDetailPage = () => {
         }
     };
 
+    const checkIfTooEarly = (dateStr, timeStr) => {
+        try {
+            console.log("📅 Parsing date:", dateStr, "time:", timeStr);
+            
+            // Parse scheduled date - handle different formats
+            let scheduledDate;
+            
+            // Check if date is in ISO format (2026-04-10)
+            if (dateStr.includes('-')) {
+                scheduledDate = new Date(dateStr);
+            } else {
+                // Handle other formats like "Fri, 10 Apr" or "Friday, 10 Apr"
+                scheduledDate = new Date(dateStr);
+            }
+            
+            console.log("📆 Parsed date:", scheduledDate);
+            
+            // Parse time (12:00 PM format)
+            const [time, period] = timeStr.split(' ');
+            let [hours, minutes] = time.split(':').map(Number);
+            
+            if (period === 'PM' && hours !== 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+            
+            scheduledDate.setHours(hours, minutes, 0, 0);
+            
+            console.log("🕐 Final scheduled datetime:", scheduledDate);
+            
+            // Get current time
+            const now = new Date();
+            console.log("🕐 Current time:", now);
+            
+            // Calculate time difference in milliseconds
+            const timeDiff = scheduledDate.getTime() - now.getTime();
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            
+            console.log("⏱️ Time difference:", {
+                milliseconds: timeDiff,
+                hours: hoursDiff.toFixed(2),
+                isMoreThan1Hour: timeDiff > 3600000
+            });
+            
+            // If more than 1 hour early (3600000 ms), show warning
+            return timeDiff > 3600000;
+        } catch (error) {
+            console.error("❌ Error checking booking time:", error);
+            return false;
+        }
+    };
+
+    const handleProceedWithEarlyStart = async () => {
+        setShowEarlyStartWarning(false);
+        setStatusLoading(true);
+        try {
+            await updateBookingStatus(bookingId, pendingStatusUpdate);
+            setPendingStatusUpdate(null);
+        } finally {
+            setStatusLoading(false);
+        }
+    };
+
+    const handleCancelEarlyStart = () => {
+        setShowEarlyStartWarning(false);
+        setPendingStatusUpdate(null);
+    };
+
     const handleCancelJob = () => {
         setIsCancelling(true);
         handleUpdateStatus("cancelled");
     };
+
+    // Debug: Log booking photos data
+    useEffect(() => {
+        if (booking && booking.status === "completed") {
+            console.log("📸 Completed Booking Photos Debug:", {
+                bookingId: booking._id || booking.id,
+                status: booking.status,
+                beforeImages: booking.beforeImages,
+                afterImages: booking.afterImages,
+                productImages: booking.productImages,
+                providerImages: booking.providerImages,
+                beforeCount: (booking.beforeImages || []).length,
+                afterCount: (booking.afterImages || []).length,
+                productCount: (booking.productImages || []).length,
+                providerCount: (booking.providerImages || []).length
+            });
+        }
+    }, [booking]);
 
     const currentIdx = statusSteps.findIndex(s => s.key === booking?.status);
     const trackingActive = ["travelling", "arrived", "in_progress"].includes(String(booking?.status || "").toLowerCase());
@@ -215,6 +320,75 @@ const ProviderBookingDetailPage = () => {
                                     className="w-full h-12 rounded-2xl bg-gray-100 font-black uppercase text-xs tracking-widest text-gray-900"
                                 >
                                     No, Keep it
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Early Start Warning Modal */}
+            <AnimatePresence>
+                {showEarlyStartWarning && (
+                    <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => !statusLoading && handleCancelEarlyStart()}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6 text-center border border-gray-100"
+                        >
+                            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+                                <AlertTriangle className="w-10 h-10 text-amber-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black tracking-tight text-gray-900">⚠️ Early Start Warning</h3>
+                                <p className="text-sm text-gray-600 mt-3 font-medium">
+                                    This booking is scheduled for:
+                                </p>
+                                <p className="text-base font-black text-purple-600 mt-1">
+                                    {booking?.slot?.date} at {booking?.slot?.time}
+                                </p>
+                            </div>
+                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left">
+                                <p className="text-xs font-bold text-amber-900 mb-2 uppercase tracking-wider">
+                                    Starting now may cause:
+                                </p>
+                                <ul className="space-y-1.5 text-xs text-amber-800">
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-amber-600 mt-0.5">•</span>
+                                        <span>Customer not ready</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-amber-600 mt-0.5">•</span>
+                                        <span>Waiting time at location</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-amber-600 mt-0.5">•</span>
+                                        <span>Poor customer experience</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    disabled={statusLoading}
+                                    onClick={handleCancelEarlyStart}
+                                    className="w-full h-12 rounded-2xl bg-gray-100 font-black uppercase text-xs tracking-widest text-gray-900 hover:bg-gray-200 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    disabled={statusLoading}
+                                    onClick={handleProceedWithEarlyStart}
+                                    className="w-full h-12 rounded-2xl bg-purple-600 text-white font-black uppercase text-xs tracking-widest shadow-lg shadow-purple-200 hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                >
+                                    {statusLoading ? "Starting..." : "Start Anyway"}
                                 </button>
                             </div>
                         </motion.div>
@@ -412,52 +586,50 @@ const ProviderBookingDetailPage = () => {
                                         ].filter(p => p.show).map(phase => (
                                     <div key={phase.key} className="space-y-3">
                                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">{phase.label} Photo</p>
-                                        {booking.status !== "completed" && (
-                                            <label className="block bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 p-5 text-center cursor-pointer hover:border-purple-300 hover:bg-purple-50 transition-all">
+                                        
+                                        {/* Upload area with photos inside */}
+                                        <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 p-3 min-h-[120px]">
+                                            {/* Show photos if available */}
+                                            {phase.data.length > 0 ? (
+                                                <div className="flex gap-2 flex-wrap">
+                                                    {phase.data.map((img, i) => (
+                                                        <div key={i} className="w-20 h-20 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm">
+                                                            <img src={img} className="w-full h-full object-cover" alt="" />
+                                                        </div>
+                                                    ))}
+                                                    
+                                                    {/* Add more button */}
+                                                    {booking.status !== "completed" && (
+                                                        <label className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all">
+                                                            <input multiple type="file" accept="image/*" capture="environment" className="hidden"
+                                                                onChange={e => {
+                                                                    const files = Array.from(e.target.files || []);
+                                                                    if (files.length) phase.addFn(booking._id || id, files);
+                                                                }} />
+                                                            <phase.icon className="w-4 h-4 text-gray-400" />
+                                                            <span className="text-[8px] font-bold text-gray-400 mt-1">Add</span>
+                                                        </label>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                /* Show upload prompt if no photos OR message if completed */
+                                                booking.status !== "completed" ? (
+                                                    <label className="flex flex-col items-center justify-center h-full min-h-[100px] cursor-pointer hover:bg-purple-50 transition-all rounded-xl">
                                                         <input multiple type="file" accept="image/*" capture="environment" className="hidden"
-                                                    onChange={e => {
-                                                            const files = Array.from(e.target.files || []);
-                                                            if (files.length) phase.addFn(booking._id || id, files);
-                                                    }} />
-                                                <phase.icon className="w-5 h-5 mx-auto text-gray-400 mb-1 group-hover:text-purple-600" />
-                                                <span className="text-[9px] font-black text-gray-400 tracking-widest uppercase">Snap {phase.label}</span>
-                                            </label>
-                                        )}
-                                        <div className="flex gap-1.5 flex-wrap">
-                                            {phase.data.map((img, i) => (
-                                                <div key={i} className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm"><img src={img} className="w-full h-full object-cover" alt="" /></div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Service Documentation Section */}
-                        <div className="bg-white border border-gray-100 rounded-[20px] p-5 shadow-sm shadow-purple-50">
-                            <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2"><Camera className="w-3.5 h-3.5 text-purple-600" /> Service Documentation</h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                {[
-                                    { key: "before", label: "Before", data: booking.beforeImages || [], addFn: addBeforeImages, show: true },
-                                    { key: "after", label: "After", data: booking.afterImages || [], addFn: addAfterImages, show: booking.status !== "in_progress" }
-                                ].filter(p => p.show).map(phase => (
-                                    <div key={phase.key} className="space-y-3">
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">{phase.label} Service</p>
-                                        {booking.status !== "completed" && (
-                                            <label className="block bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 p-5 text-center cursor-pointer hover:border-purple-300 hover:bg-purple-50 transition-all">
-                                                <input multiple type="file" accept="image/*" capture="environment" className="hidden"
-                                                    onChange={e => {
-                                                        const files = Array.from(e.target.files || []);
-                                                        if (files.length) phase.addFn(booking._id || id, files);
-                                                    }} />
-                                                <Camera className="w-5 h-5 mx-auto text-gray-400 mb-1 group-hover:text-purple-600" />
-                                                <span className="text-[9px] font-black text-gray-400 tracking-widest uppercase">Snap Photo</span>
-                                            </label>
-                                        )}
-                                        <div className="flex gap-1.5 flex-wrap">
-                                            {phase.data.map((img, i) => (
-                                                <div key={i} className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm"><img src={img} className="w-full h-full object-cover" alt="" /></div>
-                                            ))}
+                                                            onChange={e => {
+                                                                const files = Array.from(e.target.files || []);
+                                                                if (files.length) phase.addFn(booking._id || id, files);
+                                                            }} />
+                                                        <phase.icon className="w-6 h-6 text-gray-400 mb-2" />
+                                                        <span className="text-[9px] font-black text-gray-400 tracking-widest uppercase">Snap {phase.label}</span>
+                                                    </label>
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center h-full min-h-[100px] text-center">
+                                                        <phase.icon className="w-6 h-6 text-gray-300 mb-2" />
+                                                        <span className="text-[9px] font-bold text-gray-400 tracking-wider">No photos uploaded</span>
+                                                    </div>
+                                                )
+                                            )}
                                         </div>
                                     </div>
                                 ))}
