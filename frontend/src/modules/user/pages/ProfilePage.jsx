@@ -174,8 +174,8 @@ const ProfilePage = () => {
         >
           <div className="flex items-center gap-5">
             <div className="w-16 h-16 rounded-full bg-gradient-theme flex items-center justify-center shadow-lg relative overflow-hidden">
-              {user?.image ? (
-                <img src={user.image} alt="Profile" className="w-full h-full object-cover" />
+              {user?.avatar ? (
+                <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <User className="w-8 h-8 text-primary-foreground" />
               )}
@@ -252,6 +252,39 @@ const ProfilePage = () => {
                         <Sparkles className="w-3.5 h-3.5" /> Join Now
                     </div>
                 )}
+            </div>
+        </motion.div>
+        
+        {/* Refer & Earn Banner */}
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            onClick={() => navigate('/referral')}
+            className="rounded-2xl p-4 md:p-5 relative overflow-hidden flex items-center justify-between cursor-pointer border border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 shadow-sm transition-all hover:shadow-md h-24"
+        >
+            <div className="absolute top-0 right-0 p-4 opacity-10 text-primary">
+                <Gift className="w-20 h-20" />
+            </div>
+            
+            <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-black tracking-tight text-primary text-lg leading-none">
+                        Refer & Earn
+                    </h3>
+                    <span className="bg-primary text-primary-foreground text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md">
+                        ₹100 Per Friend
+                    </span>
+                </div>
+                <p className="text-xs font-medium text-muted-foreground mt-1 max-w-[200px]">
+                    Invite friends and get ₹100 in your wallet when they sign up!
+                </p>
+            </div>
+
+            <div className="relative z-10 shrink-0">
+                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-md text-primary group-hover:scale-110 transition-transform">
+                    <ChevronRight className="w-6 h-6" />
+                </div>
             </div>
         </motion.div>
 

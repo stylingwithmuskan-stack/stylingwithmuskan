@@ -174,113 +174,124 @@ export default function SubscriptionPortal({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-            <Icon className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight">{title}</h1>
-            <p className="text-sm text-muted-foreground font-medium">{subtitle}</p>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Title section - only show if not in user role (who has its own header) */}
+      {role !== "user" && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+              <Icon className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight">{title}</h1>
+              <p className="text-sm text-muted-foreground font-medium">{subtitle}</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <Card className="border-border/60 shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Clock3 className="h-5 w-5 text-primary" />
-            Current Status
-          </CardTitle>
-          <CardDescription>Backend-driven subscription state shared across all flows.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* Current Status */}
+      <Card className="border-border/60 shadow-xl shadow-primary/5 rounded-[24px] overflow-hidden">
+        <div className="bg-primary/5 px-4 sm:px-6 py-3 sm:py-4 border-b border-primary/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock3 className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs sm:text-sm font-black tracking-tight">Current Status</span>
+          </div>
+          {activeSubscription?.isActive && (
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          )}
+        </div>
+        <CardContent className="p-4 sm:p-6">
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading subscription details...</p>
           ) : activeSubscription?.isActive ? (
-            <>
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-emerald-600">Active Plan</p>
-                  <h2 className="text-xl font-black text-slate-900 mt-1">{activeSubscription.planName}</h2>
-                  <p className="text-sm text-slate-600 mt-1">
-                    Ends on {activeSubscription.currentPeriodEnd ? new Date(activeSubscription.currentPeriodEnd).toLocaleDateString("en-IN") : "N/A"}
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex-1">
+                  <p className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-emerald-600">Active Plan</p>
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">{activeSubscription.planName}</h2>
+                  <p className="text-[11px] sm:text-sm text-slate-600 mt-0.5">
+                    Until {activeSubscription.currentPeriodEnd ? new Date(activeSubscription.currentPeriodEnd).toLocaleDateString("en-IN") : "N/A"}
                   </p>
                 </div>
-                <div className="rounded-xl bg-white px-4 py-3 border border-emerald-200">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Days Left</p>
-                  <p className="text-2xl font-black text-emerald-600">{activeSubscription.daysLeft || 0}</p>
+                <div className="rounded-xl bg-white px-3 sm:px-4 py-2 sm:py-3 border border-emerald-200 self-start sm:self-center">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Days Left</p>
+                  <p className="text-xl sm:text-2xl font-black text-emerald-600">{activeSubscription.daysLeft || 0}</p>
                 </div>
               </div>
-              <div className="grid md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                 {summaryRows.map((row) => (
-                  <div key={row.label} className="rounded-2xl border border-border/50 bg-background p-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{row.label}</p>
-                    <p className="mt-2 text-lg font-black">{row.value}</p>
+                  <div key={row.label} className="rounded-xl sm:rounded-2xl border border-border/50 bg-background p-2.5 sm:p-4">
+                    <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-muted-foreground line-clamp-1">{row.label}</p>
+                    <p className="mt-1 text-sm sm:text-lg font-black">{row.value}</p>
                   </div>
                 ))}
               </div>
-            </>
+            </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-border/60 p-5">
-              <p className="text-sm font-semibold text-muted-foreground">No active subscription yet. Choose a plan below to activate benefits.</p>
+            <div className="rounded-2xl border border-dashed border-border/60 p-4 sm:p-5 text-center sm:text-left">
+              <p className="text-[13px] font-semibold text-muted-foreground">No active subscription yet. Choose a plan below.</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {plans.map((plan) => {
           const isCurrentPlan = activePlan?.planId === plan.planId && activeSubscription?.isActive;
           const isDisabled = !plan.isActive;
           return (
-            <motion.div key={plan.planId} whileHover={{ y: -2 }} className="h-full">
-              <Card className={`h-full flex flex-col border-2 ${isCurrentPlan ? "border-primary bg-primary/5 shadow-lg shadow-primary/10" : isDisabled ? "border-border/20 bg-muted/30 opacity-75" : "border-border/30 bg-background/50"} backdrop-blur-sm`}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base font-black truncate">{plan.name}</CardTitle>
-                      <CardDescription className="text-xs line-clamp-1">{plan.tagline || "Configured by admin"}</CardDescription>
+            <motion.div key={plan.planId} whileHover={{ y: -4 }} className="h-full">
+              <Card className={`h-full flex flex-col border-2 transition-all duration-300 relative overflow-hidden rounded-[28px] ${isCurrentPlan ? "border-primary bg-primary/[0.03] shadow-2xl shadow-primary/10" : isDisabled ? "border-border/20 bg-muted/30 opacity-75" : "border-border/40 hover:border-primary/30"}`}>
+                {isCurrentPlan && (
+                  <div className="absolute top-0 right-0">
+                    <div className="bg-primary text-white text-[10px] font-black px-4 py-1 rounded-bl-xl uppercase tracking-widest shadow-lg">
+                      CURRENT
                     </div>
-                    {isCurrentPlan && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white flex-shrink-0">
-                        <CheckCircle2 className="h-3 w-3" /> Active
-                      </span>
-                    )}
-                    {isDisabled && !isCurrentPlan && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-700 flex-shrink-0">
-                        <Clock3 className="h-3 w-3" /> Soon
-                      </span>
-                    )}
+                  </div>
+                )}
+                
+                <CardHeader className="pb-3 sm:pb-4 pt-6 sm:pt-8 px-4 sm:px-6">
+                  <div className="flex flex-col gap-0.5 sm:gap-1">
+                    <CardTitle className="text-lg sm:text-xl font-black">{plan.name}</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm font-medium text-primary/70">{plan.tagline || "Unlock Plus Benefits"}</CardDescription>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3 flex-1 flex flex-col pt-0">
-                  <div className="pb-3 border-b border-border/50">
-                    <p className="text-2xl font-black text-foreground">₹{Number(plan.price || 0).toLocaleString()}</p>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
-                      {plan.billingCycle || "Custom"} • {plan.durationDays || 0} days
+
+                <CardContent className="space-y-4 sm:space-y-6 flex-1 flex flex-col pt-0 px-4 sm:px-6">
+                  <div className="bg-accent/30 rounded-[18px] sm:rounded-[20px] p-3 sm:p-4 border border-border/10">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl sm:text-3xl font-black italic tracking-tighter text-foreground">₹{Number(plan.price || 0).toLocaleString()}</span>
+                      <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase opacity-60">/ {plan.durationDays || 0} days</span>
+                    </div>
+                    <p className="text-[9px] sm:text-[10px] font-black text-primary/60 uppercase tracking-widest mt-0.5">
+                      {plan.billingCycle || "Standard Access"}
                     </p>
                   </div>
-                  <ul className="space-y-1.5 flex-1">
+
+                  <ul className="space-y-2.5 sm:space-y-3 flex-1 px-0.5">
                     {(plan.benefits || []).slice(0, 5).map((benefit, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-xs text-muted-foreground">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                        <span className="line-clamp-2">{benefit}</span>
+                      <li key={idx} className="flex items-start gap-2.5 sm:gap-3">
+                        <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-600" />
+                        </div>
+                        <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground leading-relaxed line-clamp-2">{benefit}</span>
                       </li>
                     ))}
                     {(plan.benefits || []).length > 5 && (
-                      <li className="text-[10px] text-muted-foreground italic pl-5">
-                        +{(plan.benefits || []).length - 5} more benefits
+                      <li className="text-[9px] sm:text-[10px] text-primary font-black uppercase tracking-widest pl-7 sm:pl-8 mt-1.5 cursor-help">
+                        +{(plan.benefits || []).length - 5} More features
                       </li>
                     )}
                   </ul>
+
                   <Button
                     onClick={() => handlePay(plan)}
-                    disabled={isPaying || !plan.isActive}
-                    className="w-full rounded-xl h-10 font-bold text-sm mt-auto"
+                    disabled={isPaying || !plan.isActive || isCurrentPlan}
+                    variant={isCurrentPlan ? "outline" : "default"}
+                    className={`w-full rounded-[16px] sm:rounded-[18px] h-11 sm:h-12 font-black text-xs sm:text-sm transition-all active:scale-95 mt-2 ${isCurrentPlan ? "border-primary/20 opacity-50 grayscale pointer-events-none" : "bg-black text-white hover:bg-slate-800 shadow-lg shadow-black/10"}`}
                   >
-                    {!plan.isActive ? "Coming Soon" : isCurrentPlan ? "Renew Plan" : "Subscribe Now"}
+                    {!plan.isActive ? "Coming Soon" : isCurrentPlan ? "Renew Membership" : "Get SWM Plus"}
                   </Button>
                 </CardContent>
               </Card>

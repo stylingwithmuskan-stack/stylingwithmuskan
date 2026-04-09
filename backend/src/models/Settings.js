@@ -6,6 +6,7 @@ const ReferralSettingsSchema = new mongoose.Schema(
     refereeBonus: { type: Number, default: 50 },
     maxReferrals: { type: Number, default: 10 },
     isActive: { type: Boolean, default: true },
+    adminManagedCodes: { type: [String], default: [] },
   },
   { timestamps: true }
 );

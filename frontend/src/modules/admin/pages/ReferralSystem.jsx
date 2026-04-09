@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Gift, IndianRupee, Users, Shield, Save, ToggleLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
@@ -10,11 +10,23 @@ import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 
 export default function ReferralSystem() {
     const { getReferralSettings, updateReferralSettings } = useAdminAuth();
-    const [settings, setSettings] = useState(getReferralSettings());
+    const [settings, setSettings] = useState({ referrerBonus: 100, refereeBonus: 50, maxReferrals: 10, isActive: true, adminManagedCodes: [] });
+    const [rawCodes, setRawCodes] = useState("");
+    const [loading, setLoading] = useState(true);
     const [saved, setSaved] = useState(false);
 
-    const handleSave = () => {
-        updateReferralSettings(settings);
+    useEffect(() => {
+        getReferralSettings().then(s => {
+            if (s) {
+                setSettings(s);
+                setRawCodes(s.adminManagedCodes?.join(", ") || "");
+            }
+            setLoading(false);
+        }).catch(() => setLoading(false));
+    }, []);
+
+    const handleSave = async () => {
+        await updateReferralSettings(settings);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     };
@@ -28,6 +40,8 @@ export default function ReferralSystem() {
         { label: "Bonus Paid", value: "₹14,200", color: "bg-purple-500/15 text-purple-400" },
         { label: "Abuse Blocked", value: 3, color: "bg-red-500/15 text-red-400" },
     ];
+
+    if (loading) return <div className="p-8 text-center text-muted-foreground font-bold animate-pulse">Loading Referral Settings...</div>;
 
     return (
         <div className="space-y-6 max-w-3xl">
@@ -77,6 +91,22 @@ export default function ReferralSystem() {
                                     <p className="text-[10px] text-muted-foreground">{settings.isActive ? "Currently enabled" : "Currently disabled"}</p>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="space-y-2 border-t pt-4">
+                            <Label className="text-xs font-bold flex items-center gap-1"><Shield className="h-3 w-3" /> Admin Managed Codes</Label>
+                            <Input 
+                                placeholder="WELCOME100, SAVE50, FESTIVE" 
+                                value={rawCodes} 
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setRawCodes(val);
+                                    const parsed = val.split(",").map(c => c.trim().toUpperCase()).filter(Boolean);
+                                    setSettings(prev => ({ ...prev, adminManagedCodes: parsed }));
+                                }} 
+                                className="rounded-xl h-10 bg-muted/30" 
+                            />
+                            <p className="text-[10px] text-muted-foreground">Specific codes managed by admin that work like referral codes. Separate by commas.</p>
                         </div>
 
                         <Button onClick={handleSave} className="w-full h-11 rounded-xl font-bold gap-2 mt-4">
