@@ -20,7 +20,7 @@ const ServiceDetail = () => {
   const navigate = useNavigate();
   const { gender } = useGenderTheme();
   const { cartItems, addToCart, setIsCartOpen, selectedSlot: globalSlot, setSelectedSlot: setGlobalSlot } = useCart();
-  const { isLoggedIn, setIsLoginModalOpen, user } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const { services, categories, serviceTypes, providers: mockProviders, checkAvailability } = useUserModuleData();
   const service = services.find((s) => s.id === id);
 
@@ -91,7 +91,7 @@ const ServiceDetail = () => {
 
   const handleAddToCart = () => {
     if (!isLoggedIn) {
-      setIsLoginModalOpen(true);
+      navigate('/login');
       return;
     }
 
@@ -106,7 +106,7 @@ const ServiceDetail = () => {
 
   const handleBookingAction = () => {
     if (!isLoggedIn) {
-      setIsLoginModalOpen(true);
+      navigate('/login');
       return;
     }
     handleAddToCart();

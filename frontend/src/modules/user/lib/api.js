@@ -282,6 +282,7 @@ export const api = {
 
   // Public content
   content: {
+    init: () => request("/content/init"),
     serviceTypes: () => request("/content/service-types"),
     bookingTypes: () => request("/content/booking-types"),
     categories: (gender) => request(`/content/categories${gender ? `?gender=${gender}` : ""}`),

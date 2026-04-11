@@ -20,7 +20,7 @@ const ExplorePage = () => {
     const location = useLocation();
     const { gender } = useGenderTheme();
     const { totalItems, cartItems, addToCart, updateQuantity, bookingType: contextBookingType, setBookingType, isFloatingSummaryOpen, setIsFloatingSummaryOpen } = useCart();
-    const { isLoggedIn, setIsLoginModalOpen, user } = useAuth();
+    const { isLoggedIn, user } = useAuth();
     const { toggleWishlist, isInWishlist } = useWishlist();
     const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability } = useUserModuleData();
 
@@ -308,7 +308,7 @@ const ExplorePage = () => {
                                                     <Button
                                                         onClick={(e) => { 
                                                             e.stopPropagation(); 
-                                                            if (!isLoggedIn) setIsLoginModalOpen(true); 
+                                                            if (!isLoggedIn) navigate('/login'); 
                                                             else addToCart(service); 
                                                         }}
                                                         className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm bg-white text-primary border-2 border-primary/20 hover:bg-primary hover:text-white"
@@ -324,14 +324,14 @@ const ExplorePage = () => {
                                                     quantity={inCart.quantity}
                                                     onIncrement={() => {
                                                         if (!isLoggedIn) {
-                                                            setIsLoginModalOpen(true);
+                                                            navigate('/login');
                                                         } else {
                                                             updateQuantity(service.id, 1);
                                                         }
                                                     }}
                                                     onDecrement={() => {
                                                         if (!isLoggedIn) {
-                                                            setIsLoginModalOpen(true);
+                                                            navigate('/login');
                                                         } else {
                                                             updateQuantity(service.id, -1);
                                                         }

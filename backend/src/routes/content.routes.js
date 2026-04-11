@@ -23,6 +23,106 @@ async function cached(keyBase, fn) {
   }
 }
 
+// Master Initialization Endpoint - Aggregates 10 calls into 1
+router.get("/init", async (req, res) => {
+  try {
+    const now = new Date();
+    
+    // Execute all cache checks/DB queries concurrently
+    const [
+      serviceTypes,
+      bookingTypes,
+      categories,
+      services,
+      bannersData,
+      providers,
+      officeSettings,
+      spotlightsData,
+      gallery,
+      testimonials
+    ] = await Promise.all([
+      cached("content:service-types", () => ServiceType.find().lean()),
+      cached("content:booking-types", () => BookingType.find().lean()),
+      cached("content:categories:all", () => Category.find().lean()),
+      cached("content:services:all:all", () => Service.find({}).lean()),
+      
+      // Banners Logic
+      cached("content:banners:all", async () => {
+        const items = await Banner.find({}).lean();
+        const active = (items || []).filter((b) => {
+          if (b.startAt && new Date(b.startAt).getTime() > now.getTime()) return false;
+          if (b.endAt && new Date(b.endAt).getTime() < now.getTime()) return false;
+          return true;
+        });
+        active.sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+        const grouped = active.reduce((acc, b) => {
+          acc[b.gender] = acc[b.gender] || [];
+          acc[b.gender].push({ ...b, priority: b.priority || 1 });
+          return acc;
+        }, {});
+        return { women: grouped.women || [], men: grouped.men || [] };
+      }),
+      
+      cached("content:providers", () => Provider.find().lean()),
+      
+      // Office Settings
+      cached("content:office-settings", async () => {
+        const s = await OfficeSettings.findOne().lean();
+        return s || { startTime: "09:00", endTime: "21:00", autoAssign: true, bufferMinutes: 30, notificationMessage: "Our pros are sleeping. Service starts at 9:00 AM" };
+      }),
+      
+      // Spotlights Logic
+      cached("content:spotlights:all", async () => {
+        const items = await Spotlight.find({ isActive: true }).lean();
+        return (items || [])
+          .filter((s) => {
+            if (s.startAt && new Date(s.startAt).getTime() > now.getTime()) return false;
+            if (s.endAt && new Date(s.endAt).getTime() < now.getTime()) return false;
+            return true;
+          })
+          .sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+      }),
+      
+      // Gallery
+      cached("content:gallery", async () => {
+        const items = await GalleryItem.find({ isActive: true }).lean();
+        return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+      }),
+      
+      // Testimonials
+      cached("content:testimonials", async () => {
+        const items = await Testimonial.find({ isActive: true }).lean();
+        return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+      })
+    ]);
+
+    // Handle like status for spotlights if user is authenticated (pass token if required, but usually /init is public)
+    const userId = req.user?._id;
+    const spotlights = userId ? spotlightsData.map(spotlight => ({
+      ...spotlight,
+      isLikedByUser: spotlight.likedBy?.some(id => id.toString() === userId.toString()) || false
+    })) : spotlightsData;
+
+    res.json({
+      data: {
+        serviceTypes: serviceTypes || [],
+        bookingTypeConfig: bookingTypes || [],
+        categories: categories || [],
+        services: services || [],
+        banners: bannersData || { women: [], men: [] },
+        providers: providers || [],
+        officeSettings,
+        spotlights: spotlights || [],
+        gallery: gallery || [],
+        testimonials: testimonials || []
+      }
+    });
+  } catch (error) {
+    console.error("Init endpoint error:", error);
+    res.status(500).json({ error: "Failed to initialize app content" });
+  }
+});
+
 router.get("/service-types", async (_req, res) => {
   let data = [];
   try {

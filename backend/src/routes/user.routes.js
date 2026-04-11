@@ -109,10 +109,14 @@ router.patch(
       const errors = validationResult(req);
       if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
       
-
+      const u = req.user;
+      if (req.body.name !== undefined) u.name = String(req.body.name).trim();
+      if (req.body.email !== undefined) u.email = String(req.body.email).trim().toLowerCase();
+      if (req.body.referralCode !== undefined) u.referralCode = String(req.body.referralCode).trim();
+      if (req.body.avatar !== undefined) u.avatar = req.body.avatar;
     
-    await u.save();
-    const subscription = await getSubscriptionSnapshot(u._id.toString(), "customer");
+      await u.save();
+      const subscription = await getSubscriptionSnapshot(u._id.toString(), "customer");
     res.json({
       success: true,
       user: {

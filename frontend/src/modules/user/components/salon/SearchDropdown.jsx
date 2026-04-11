@@ -8,7 +8,7 @@ import { toast } from "sonner";
 const SearchDropdown = ({ isOpen, services, searchQuery, onClose }) => {
   const navigate = useNavigate();
   const { addToCart, cartItems } = useCart();
-  const { isLoggedIn, setIsLoginModalOpen } = useAuth();
+  const { isLoggedIn } = useAuth();
 
   if (!isOpen || services.length === 0) return null;
 
@@ -23,7 +23,7 @@ const SearchDropdown = ({ isOpen, services, searchQuery, onClose }) => {
   const handleAddToCart = (e, service) => {
     e.stopPropagation();
     if (!isLoggedIn) {
-      setIsLoginModalOpen(true);
+      navigate('/login');
       return;
     }
     addToCart(service);

@@ -14,6 +14,7 @@ import { WishlistProvider } from "@/modules/user/contexts/WishlistContext";
 import { UserModuleDataProvider } from "@/modules/user/contexts/UserModuleDataContext";
 import { NotificationProvider } from "@/modules/user/contexts/NotificationContext";
 import LoginModal from "@/modules/user/components/salon/LoginModal";
+import ProtectedRoute from "@/modules/user/components/ProtectedRoute";
 
 // User Pages
 import SplashScreen from "@/modules/user/pages/SplashScreen";
@@ -217,26 +218,26 @@ const App = () => {
                                 <Route path="/login" element={<UserLoginPage />} />
                                 <Route path="/explore" element={<ExplorePage />} />
                                 <Route path="/explore/:categoryId" element={<ExplorePage />} />
-                                <Route path="/bookings" element={<BookingsPage />} />
+                                <Route path="/bookings" element={<ProtectedRoute><BookingsPage /></ProtectedRoute>} />
                                 <Route path="/service/:id" element={<ServiceDetail />} />
-                                <Route path="/booking/:id" element={<BookingSummary />} />
-                                <Route path="/payment" element={<PaymentPage />} />
-                                <Route path="/profile" element={<ProfilePage />} />
-                                <Route path="/edit-profile" element={<EditProfilePage />} />
-                                <Route path="/wallet" element={<WalletPage />} />
-                                <Route path="/addresses" element={<AddressesPage />} />
-                                <Route path="/referral" element={<ReferralPage />} />
-                                <Route path="/coupons" element={<CouponsPage />} />
-                                <Route path="/support" element={<SupportPage />} />
-                                <Route path="/wishlist" element={<WishlistPage />} />
-                                <Route path="/notifications" element={<NotificationsPage />} />
-                                <Route path="/activity" element={<ActivityPage />} />
+                                <Route path="/booking/:id" element={<ProtectedRoute><BookingSummary /></ProtectedRoute>} />
+                                <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+                                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                                <Route path="/edit-profile" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
+                                <Route path="/wallet" element={<ProtectedRoute><WalletPage /></ProtectedRoute>} />
+                                <Route path="/addresses" element={<ProtectedRoute><AddressesPage /></ProtectedRoute>} />
+                                <Route path="/referral" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
+                                <Route path="/coupons" element={<ProtectedRoute><CouponsPage /></ProtectedRoute>} />
+                                <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
+                                <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
+                                <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+                                <Route path="/activity" element={<ProtectedRoute><ActivityPage /></ProtectedRoute>} />
                                 <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                                 <Route path="/contact-us" element={<ContactUsPage />} />
                                 <Route path="/about-us" element={<AboutUsPage />} />
                                 <Route path="/terms-conditions" element={<TermsConditionsPage />} />
-                                <Route path="/subscription" element={<SubscriptionPage />} />
-                                <Route path="/plus-subscription" element={<SubscriptionPlans />} />
+                                <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
+                                <Route path="/plus-subscription" element={<ProtectedRoute><SubscriptionPlans /></ProtectedRoute>} />
 
                                 {/* Role Selection for Vendor/Provider */}
                                 <Route path="/role-selection" element={<RoleSelectionPage />} />
@@ -338,7 +339,7 @@ const App = () => {
                                 {/* Fallback */}
                                 <Route path="*" element={<NotFound />} />
                                 </Routes>
-                                <LoginModal />
+                                {/* LoginModal removed — unauthenticated users are now redirected to /login */}
                                 <FloatingCart />
                                 <ExpressCheckout />
                                 <BottomNav />

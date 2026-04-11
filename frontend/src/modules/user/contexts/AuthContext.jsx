@@ -10,7 +10,6 @@ export const AuthProvider = ({ children }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [hasAddress, setHasAddress] = useState(false);
 
@@ -77,7 +76,9 @@ export const AuthProvider = ({ children }) => {
             if (e.detail?.status !== 401) return;
             if (e.detail?.role === "user") {
                 clearUserSession();
-                setIsLoginModalOpen(true);
+                // We no longer do window.location.href = "/login" here.
+                // The ProtectedRoute component in App.jsx will automatically 
+                // handle the redirect if the user is on a guarded page.
             }
         };
         window.addEventListener("swm-api-401", handle401);
@@ -194,8 +195,6 @@ export const AuthProvider = ({ children }) => {
             loginWithOtp,
             logout,
             loading,
-            isLoginModalOpen,
-            setIsLoginModalOpen,
             isAddressModalOpen,
             setIsAddressModalOpen,
             hasAddress,

@@ -16,7 +16,7 @@ const ExpressCheckout = () => {
         isCartOpen, setIsCartOpen, activeCheckoutType, setActiveCheckoutType,
         selectedSlot, getGroupedItems, bookingType
     } = useCart();
-    const { isLoggedIn, hasAddress, setIsLoginModalOpen, user } = useAuth();
+    const { isLoggedIn, hasAddress, user } = useAuth();
     const { gender } = useGenderTheme();
     const { categories } = useUserModuleData(); // Access categories for dynamic advance payment
     const navigate = useNavigate();
@@ -124,7 +124,8 @@ const ExpressCheckout = () => {
 
     const handleCheckout = (typeId = null) => {
         if (!isLoggedIn) {
-            setIsLoginModalOpen(true);
+            navigate('/login');
+            setIsCartOpen(false);
             return;
         }
 
@@ -226,7 +227,7 @@ const ExpressCheckout = () => {
                                             <p className="text-sm font-bold text-amber-900">1. Required: Login</p>
                                             <p className="text-[10px] text-amber-800/80">Login to save your cart and book</p>
                                         </div>
-                                        <Button variant="outline" size="sm" onClick={() => setIsLoginModalOpen(true)} className="h-8 text-xs font-bold border-amber-500/30 text-amber-900 bg-white/50">SIGN IN</Button>
+                                        <Button variant="outline" size="sm" onClick={() => { navigate('/login'); setIsCartOpen(false); }} className="h-8 text-xs font-bold border-amber-500/30 text-amber-900 bg-white/50">SIGN IN</Button>
                                     </motion.div>
                                 )}
 

@@ -12,7 +12,7 @@ import { Heart } from "lucide-react";
 const PopularServices = () => {
   const { gender } = useGenderTheme();
   const { addToCart } = useCart();
-  const { isLoggedIn, setIsLoginModalOpen, user } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const navigate = useNavigate();
   const { services, checkAvailability } = useUserModuleData();
@@ -22,7 +22,7 @@ const PopularServices = () => {
 
   const handleAddToCart = (service) => {
     if (!isLoggedIn) {
-      setIsLoginModalOpen(true);
+      navigate('/login');
       return;
     }
     addToCart(service);

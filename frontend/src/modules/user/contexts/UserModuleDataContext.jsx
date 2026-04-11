@@ -22,6 +22,7 @@ export const UserModuleDataProvider = ({ children }) => {
     const [banners, setBanners] = useState({ women: [], men: [] });
     const [providers, setProviders] = useState([]);
     const [officeSettings, setOfficeSettings] = useState({ startTime: "09:00", endTime: "21:00", autoAssign: true, notificationMessage: "Our pros are sleeping. Service starts at 9:00 AM" });
+    const [isLoading, setIsLoading] = useState(true);
 
     // Site Content States (server-backed; fallback only if API fails)
     const [spotlights, setSpotlights] = useState([]);
@@ -32,29 +33,21 @@ export const UserModuleDataProvider = ({ children }) => {
         let cancelled = false;
         (async () => {
             try {
-                const [st, bt, cats, srv, ban, prov, off, sp, gal, tes] = await Promise.all([
-                    api.content.serviceTypes(),
-                    api.content.bookingTypes(),
-                    api.content.categories(),
-                    api.content.services(),
-                    api.content.banners(),
-                    api.content.providers(),
-                    api.content.officeSettings(),
-                    api.content.spotlights(),
-                    api.content.gallery(),
-                    api.content.testimonials(),
-                ]);
+                const response = await api.content.init();
                 if (cancelled) return;
-                setServiceTypes(st.data || []);
-                setBookingTypeConfig(bt.data || []);
-                setCategories(cats.data || []);
-                setServices(srv.data || []);
-                setBanners(ban.data || { women: [], men: [] });
-                setProviders(prov.data || []);
-                setOfficeSettings(off.data || officeSettings);
-                setSpotlights(sp.data || []);
-                setGallery(gal.data || []);
-                setTestimonials(tes.data || []);
+                
+                const data = response.data || {};
+                
+                setServiceTypes(data.serviceTypes || []);
+                setBookingTypeConfig(data.bookingTypeConfig || []);
+                setCategories(data.categories || []);
+                setServices(data.services || []);
+                setBanners(data.banners || { women: [], men: [] });
+                setProviders(data.providers || []);
+                if (data.officeSettings) setOfficeSettings(data.officeSettings);
+                setSpotlights(data.spotlights || []);
+                setGallery(data.gallery || []);
+                setTestimonials(data.testimonials || []);
             } catch (e) {
                 setServiceTypes(FALLBACK_SERVICE_TYPES);
                 setBookingTypeConfig(FALLBACK_BOOKING_TYPES);
@@ -65,6 +58,8 @@ export const UserModuleDataProvider = ({ children }) => {
                 setSpotlights(initialSpotlights);
                 setGallery(initialGallery);
                 setTestimonials(initialTestimonials);
+            } finally {
+                if (!cancelled) setIsLoading(false);
             }
         })();
         return () => { cancelled = true; };
@@ -137,6 +132,7 @@ export const UserModuleDataProvider = ({ children }) => {
         spotlights,
         gallery,
         testimonials,
+        isLoading,
         // Category actions
         addCategory,
         updateCategory,
