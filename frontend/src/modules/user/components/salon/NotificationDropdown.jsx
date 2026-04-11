@@ -47,7 +47,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
     };
 
     return (
-        <div className="absolute top-full right-0 mt-2 w-80 md:w-96 bg-card border border-border shadow-2xl rounded-[2rem] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="fixed sm:absolute top-[70px] sm:top-full left-4 right-4 sm:left-auto sm:right-0 mt-2 w-auto sm:w-80 md:w-96 bg-card border border-border shadow-2xl rounded-[2rem] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="p-5 border-b border-border flex items-center justify-between bg-accent/5">
                 <div>
                     <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
@@ -101,7 +101,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                 </div>
             )}
 
-            <ScrollArea className="h-[400px]">
+            <div className="max-h-[400px] overflow-y-auto">
                 {unreadNotifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-center p-8">
                         <div className="w-16 h-16 rounded-full bg-accent/50 flex items-center justify-center mb-4">
@@ -153,7 +153,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                         </AnimatePresence>
                     </div>
                 )}
-            </ScrollArea>
+            </div>
         </div>
     );
 };

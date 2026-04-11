@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useProviderAuth } from "../contexts/ProviderAuthContext";
 import { api, API_BASE_URL } from "@/modules/user/lib/api";
 import {
@@ -12,10 +13,11 @@ import {
 import { Button } from "@/modules/user/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
 import { Badge } from "@/modules/user/components/ui/badge";
-import { Wallet, Plus, ArrowDownRight, ArrowUpRight, Ban } from "lucide-react";
+import { Wallet, Plus, ArrowDownRight, ArrowUpRight, Ban, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LeadCreditManager() {
+    const navigate = useNavigate();
     const { provider } = useProviderAuth();
     const [balance, setBalance] = useState(0);
     const [transactions, setTransactions] = useState([]);
@@ -218,9 +220,17 @@ export default function LeadCreditManager() {
 
     return (
         <div className="flex flex-1 w-full flex-col gap-6 pt-4 md:pt-0">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">Credits & Leads</h1>
-                <p className="text-muted-foreground">Manage your wallet balance and review transactions.</p>
+            <div className="flex items-center gap-3">
+                <button 
+                    onClick={() => navigate(-1)} 
+                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Credits & Leads</h1>
+                    <p className="text-muted-foreground">Manage your wallet balance and review transactions.</p>
+                </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-[1fr_2fr]">

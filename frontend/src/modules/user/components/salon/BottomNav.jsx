@@ -45,7 +45,14 @@ const BottomNav = () => {
   };
 
   const handleCartClick = () => {
-    if (!isLoggedIn || totalItems === 0) return;
+    if (!isLoggedIn) return;
+    
+    // If cart is empty, open the cart modal to show empty state
+    if (totalItems === 0) {
+      setIsCartOpen(true);
+      return;
+    }
+    
     // Toggle the floating summary bar
     setIsFloatingSummaryOpen(prev => !prev);
   };

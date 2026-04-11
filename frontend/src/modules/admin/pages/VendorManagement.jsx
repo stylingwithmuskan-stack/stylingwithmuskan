@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Store, Search, CheckCircle, Ban, MapPin, Mail, Phone, RefreshCw, UserCheck, ChevronRight, XCircle, FileText, Shield, X } from "lucide-react";
+import { Store, Search, CheckCircle, Ban, MapPin, Mail, Phone, RefreshCw, UserCheck, ChevronRight, XCircle, FileText, Shield, X, Eye } from "lucide-react";
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -92,7 +92,7 @@ export default function VendorManagement() {
                 <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
                     {filtered.map(v => (
                         <motion.div key={v._id || v.id} variants={item}>
-                            <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all cursor-pointer" onClick={() => setSelectedVendor(v)}>
+                            <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all">
                                 <CardContent className="p-4 flex flex-col gap-4">
                                     <div className="flex items-center gap-4">
                                         <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
@@ -107,6 +107,15 @@ export default function VendorManagement() {
                                             </div>
                                             <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3" />{v.phone || "N/A"}</span>
                                         </div>
+                                        <Button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            className="h-8 w-8 p-0 rounded-full hover:bg-primary/10 flex-shrink-0" 
+                                            onClick={(e) => { e.stopPropagation(); setSelectedVendor(v); }}
+                                            title="View Details"
+                                        >
+                                            <Eye className="h-4 w-4 text-primary" />
+                                        </Button>
                                         <div className="flex gap-1.5">
                                             {v.status === "pending" && (
                                                 <>
@@ -212,7 +221,9 @@ export default function VendorManagement() {
                                     </div>
                                     <div className="bg-muted/50 rounded-xl p-3 col-span-2">
                                         <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Full Address</p>
-                                        <p className="text-sm font-bold mt-1">{selectedVendor.address || "N/A"}</p>
+                                        <p className="text-sm font-bold mt-1">
+                                            {[selectedVendor.address, selectedVendor.city].filter(Boolean).join(", ") || "N/A"}
+                                        </p>
                                     </div>
                                 </div>
 

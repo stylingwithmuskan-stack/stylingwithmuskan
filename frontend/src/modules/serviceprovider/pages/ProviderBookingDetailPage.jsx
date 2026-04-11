@@ -248,8 +248,20 @@ const ProviderBookingDetailPage = () => {
             existing.unshift(fb);
             localStorage.setItem("muskan-feedback", JSON.stringify(existing));
         }
+        
+        // Update booking status to completed
         updateBookingStatus(bookingId, "completed");
+        
+        // Close modal
         setShowComplete(false);
+        
+        // Show success message
+        toast.success("Booking completed successfully!");
+        
+        // Navigate to dashboard after a short delay
+        setTimeout(() => {
+            navigate("/provider/dashboard");
+        }, 1000);
     };
 
     const handleCollectPayment = () => {

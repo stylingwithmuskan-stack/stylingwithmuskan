@@ -11,6 +11,9 @@ import {
     BellRing,
     Send,
     TestTube2,
+    Package,
+    Upload,
+    X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
@@ -19,6 +22,7 @@ import { Input } from "@/modules/user/components/ui/input";
 import { Label } from "@/modules/user/components/ui/label";
 import { Textarea } from "@/modules/user/components/ui/textarea";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
+import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
@@ -35,9 +39,13 @@ export default function MarketingControl() {
         getSubscriptionPlans,
     } = useAdminAuth();
 
+    const { services, categories } = useUserModuleData();
+
     const [banners, setBanners] = useState([]);
     const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState({ title: "", imageUrl: "", linkTo: "", startDate: "", endDate: "", priority: 1 });
+    const [form, setForm] = useState({ title: "", imageUrl: "", serviceName: "", linkTo: "", startDate: "", endDate: "", priority: 1 });
+    const [selectedImageFile, setSelectedImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
 
     const [broadcastForm, setBroadcastForm] = useState({
         roles: ["user"],
@@ -53,6 +61,10 @@ export default function MarketingControl() {
     const [subscriptionPlans, setSubscriptionPlans] = useState([]);
     const [broadcasting, setBroadcasting] = useState(false);
     const [testingPush, setTestingPush] = useState(false);
+
+    // Safety check for services and categories
+    const safeServices = services || [];
+    const safeCategories = categories || [];
 
     const sortedBanners = useMemo(
         () => [...banners].sort((a, b) => (b.priority || 0) - (a.priority || 0)),
@@ -89,10 +101,80 @@ export default function MarketingControl() {
 
     const handleAdd = async (e) => {
         e.preventDefault();
+        
+        // If image file is selected, use the preview (base64) as imageUrl
+        // In production, you would upload to cloudinary/S3 and get URL
+        if (selectedImageFile && imagePreview) {
+            form.imageUrl = imagePreview; // Use base64 preview for now
+        }
+
         await addBanner(form);
-        setForm({ title: "", imageUrl: "", linkTo: "", startDate: "", endDate: "", priority: 1 });
+        setForm({ title: "", imageUrl: "", serviceName: "", linkTo: "", startDate: "", endDate: "", priority: 1 });
+        setSelectedImageFile(null);
+        setImagePreview(null);
         setShowForm(false);
         loadBanners();
+    };
+
+    const handleImageSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image size should be less than 5MB');
+            return;
+        }
+
+        // Store file for later upload
+        setSelectedImageFile(file);
+
+        // Create preview URL
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleRemoveImage = () => {
+        setSelectedImageFile(null);
+        setImagePreview(null);
+        updateBannerForm('imageUrl', '');
+        // Reset file input
+        const fileInput = document.getElementById('banner-image-upload');
+        if (fileInput) fileInput.value = '';
+    };
+
+    // Get category of selected service
+    const getSelectedServiceCategory = () => {
+        if (!form.serviceName) return '';
+        const service = services.find(s => s.name === form.serviceName);
+        if (!service) return '';
+        const category = categories.find(c => c.id === service.category);
+        return category ? `/explore/${category.id}` : '';
+    };
+
+    // Auto-populate linkTo when service is selected
+    const handleServiceChange = (serviceName) => {
+        updateBannerForm('serviceName', serviceName);
+        if (serviceName) {
+            const service = safeServices.find(s => s.name === serviceName);
+            if (service) {
+                const category = safeCategories.find(c => c.id === service.category);
+                if (category) {
+                    updateBannerForm('linkTo', `/explore/${category.id}`);
+                }
+            }
+        } else {
+            updateBannerForm('linkTo', '');
+        }
     };
 
     const handleDelete = async (id) => {
@@ -181,14 +263,106 @@ export default function MarketingControl() {
                                             <Label className="text-xs font-bold">Title</Label>
                                             <Input placeholder="Summer Sale" value={form.title} onChange={(e) => updateBannerForm("title", e.target.value)} className="rounded-xl h-10 bg-muted/30" required />
                                         </div>
+                                        
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-bold">Image URL</Label>
-                                            <Input placeholder="https://..." value={form.imageUrl} onChange={(e) => updateBannerForm("imageUrl", e.target.value)} className="rounded-xl h-10 bg-muted/30" />
+                                            <Label className="text-xs font-bold flex items-center gap-1.5">
+                                                <Image className="h-3.5 w-3.5 text-primary" />
+                                                Banner Image
+                                            </Label>
+                                            <div className="flex gap-2">
+                                                <div className="relative flex-1">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleImageSelect}
+                                                        className="hidden"
+                                                        id="banner-image-upload"
+                                                    />
+                                                    <label
+                                                        htmlFor="banner-image-upload"
+                                                        className="flex items-center justify-center gap-2 w-full h-10 px-4 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-bold text-sm cursor-pointer transition-all border border-primary/20"
+                                                    >
+                                                        <Upload className="h-4 w-4" />
+                                                        {selectedImageFile ? 'Change Image' : 'Select Image'}
+                                                    </label>
+                                                </div>
+                                                {(imagePreview || form.imageUrl) && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleRemoveImage}
+                                                        className="h-10 w-10 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center transition-all"
+                                                        title="Remove image"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {(imagePreview || form.imageUrl) && (
+                                                <div className="mt-2 relative rounded-lg overflow-hidden border border-border/50">
+                                                    <img 
+                                                        src={imagePreview || form.imageUrl} 
+                                                        alt="Preview" 
+                                                        className="w-full h-24 object-cover"
+                                                    />
+                                                    <div className="absolute top-2 right-2 bg-green-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                                        ✓ Ready
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {selectedImageFile 
+                                                    ? `Selected: ${selectedImageFile.name} (${(selectedImageFile.size / 1024).toFixed(0)}KB)`
+                                                    : 'Max 5MB, JPG/PNG/WebP'}
+                                            </p>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs font-bold">Link to Service</Label>
-                                            <Input placeholder="/explore/hair" value={form.linkTo} onChange={(e) => updateBannerForm("linkTo", e.target.value)} className="rounded-xl h-10 bg-muted/30" />
+
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label className="text-xs font-bold flex items-center gap-1.5">
+                                                <Package className="h-3.5 w-3.5 text-primary" />
+                                                Featured Service (Optional)
+                                            </Label>
+                                            <select
+                                                value={form.serviceName}
+                                                onChange={(e) => handleServiceChange(e.target.value)}
+                                                className="w-full rounded-xl h-10 bg-muted/30 border border-input px-3 text-sm font-medium"
+                                            >
+                                                <option value="">-- Select Service --</option>
+                                                {safeServices.map((s) => (
+                                                    <option key={s.id} value={s.name}>
+                                                        {s.name} (₹{s.price}) - {s.gender}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                                                💡 Banner "Book Now" button will navigate to this service detail page
+                                            </p>
                                         </div>
+
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label className="text-xs font-bold flex items-center gap-1.5">
+                                                <LinkIcon className="h-3.5 w-3.5 text-primary" />
+                                                Category Link (Auto-populated)
+                                            </Label>
+                                            <select
+                                                value={form.linkTo}
+                                                onChange={(e) => updateBannerForm('linkTo', e.target.value)}
+                                                className="w-full rounded-xl h-10 bg-muted/30 border border-input px-3 text-sm font-medium"
+                                                disabled={!form.serviceName}
+                                            >
+                                                <option value="">-- Select Category --</option>
+                                                {safeCategories.map((c) => (
+                                                    <option key={c.id} value={`/explore/${c.id}`}>
+                                                        {c.name} ({c.gender})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {form.serviceName 
+                                                    ? '✓ Auto-populated from selected service category' 
+                                                    : 'Select a service first to auto-populate category'}
+                                            </p>
+                                        </div>
+
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold">Priority (1-10)</Label>
                                             <Input type="number" min={1} max={10} value={form.priority} onChange={(e) => updateBannerForm("priority", parseInt(e.target.value || "1", 10))} className="rounded-xl h-10 bg-muted/30" />
@@ -202,8 +376,14 @@ export default function MarketingControl() {
                                             <Input type="date" value={form.endDate} onChange={(e) => updateBannerForm("endDate", e.target.value)} className="rounded-xl h-10 bg-muted/30" />
                                         </div>
                                         <div className="md:col-span-2 flex gap-2">
-                                            <Button type="submit" className="rounded-xl font-bold gap-2"><Save className="h-4 w-4" /> Save Banner</Button>
-                                            <Button type="button" variant="outline" className="rounded-xl font-bold" onClick={() => setShowForm(false)}>Cancel</Button>
+                                            <Button type="submit" disabled={!selectedImageFile && !form.imageUrl} className="rounded-xl font-bold gap-2">
+                                                <Save className="h-4 w-4" /> Save Banner
+                                            </Button>
+                                            <Button type="button" variant="outline" className="rounded-xl font-bold" onClick={() => {
+                                                setShowForm(false);
+                                                setSelectedImageFile(null);
+                                                setImagePreview(null);
+                                            }}>Cancel</Button>
                                         </div>
                                     </form>
                                 </CardContent>
@@ -227,8 +407,16 @@ export default function MarketingControl() {
                                         {b.imageUrl && <div className="h-32 bg-muted bg-cover bg-center" style={{ backgroundImage: `url(${b.imageUrl})` }} />}
                                         <CardContent className="p-4">
                                             <div className="flex items-start justify-between gap-2">
-                                                <div>
+                                                <div className="flex-1 min-w-0">
                                                     <h3 className="text-sm font-bold">{b.title}</h3>
+                                                    {b.serviceName && (
+                                                        <div className="mt-1.5 flex items-center gap-1.5">
+                                                            <Badge variant="secondary" className="text-[9px] font-bold bg-primary/10 text-primary border-none">
+                                                                <Package className="h-2.5 w-2.5 mr-0.5" />
+                                                                {b.serviceName}
+                                                            </Badge>
+                                                        </div>
+                                                    )}
                                                     <div className="flex flex-wrap gap-2 mt-2 text-[10px] text-muted-foreground font-medium">
                                                         {b.startDate && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{b.startDate} to {b.endDate || "Open"}</span>}
                                                         {b.linkTo && <span className="flex items-center gap-1"><LinkIcon className="h-3 w-3" />{b.linkTo}</span>}
@@ -237,7 +425,7 @@ export default function MarketingControl() {
                                                         </Badge>
                                                     </div>
                                                 </div>
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold border-red-500/30 text-red-400 rounded-lg px-2" onClick={() => handleDelete(b.id)}>
+                                                <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold border-red-500/30 text-red-400 rounded-lg px-2 flex-shrink-0" onClick={() => handleDelete(b.id)}>
                                                     <Trash2 className="h-3 w-3" />
                                                 </Button>
                                             </div>

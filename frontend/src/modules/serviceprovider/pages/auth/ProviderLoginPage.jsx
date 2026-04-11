@@ -10,13 +10,6 @@ import {
 import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
 import { Card, CardContent } from "@/modules/user/components/ui/card";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
-} from "@/modules/user/components/ui/select";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { api } from "@/modules/user/lib/api";
 import { toast } from "sonner";
@@ -163,16 +156,8 @@ export default function ProviderLoginPage() {
                             <div className="space-y-2">
                                 <label className="text-xs font-black uppercase tracking-wider text-gray-400">Mobile Number</label>
                                 <div className="flex gap-2">
-                                    <div className="w-24">
-                                        <Select defaultValue="+91">
-                                            <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="+91">+91</SelectItem>
-                                                <SelectItem value="+1">+1</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                    <div className="w-20 flex items-center justify-center h-12 rounded-xl bg-gray-50 border border-gray-100 font-bold text-gray-700">
+                                        +91
                                     </div>
                                     <div className="flex-1 relative">
                                         <Input

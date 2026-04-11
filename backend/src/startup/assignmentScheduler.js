@@ -48,14 +48,37 @@ export function startAssignmentScheduler() {
           requestedDurationMinutes,
           useCache: false,
         });
+        
+        // Fetch provider names for logging
+        const candidateNames = [];
+        const rejectedNames = [];
+        
+        try {
+          if (candidateProviders.length > 0) {
+            const candidateDocs = await ProviderAccount.find({
+              _id: { $in: candidateProviders }
+            }).select('name').lean();
+            candidateNames.push(...candidateDocs.map(p => p.name || 'Unknown'));
+          }
+          
+          if (b.rejectedProviders && b.rejectedProviders.length > 0) {
+            const rejectedDocs = await ProviderAccount.find({
+              _id: { $in: b.rejectedProviders }
+            }).select('name').lean();
+            rejectedNames.push(...rejectedDocs.map(p => p.name || 'Unknown'));
+          }
+        } catch (e) {
+          console.error('[Scheduler] Error fetching provider names:', e.message);
+        }
+        
         logDevSchedulerFlow("Scheduler rebuilt candidates for unassigned pending booking", {
           bookingId: b._id?.toString?.() || "",
           slotDate: b.slot?.date || "",
           slotTime: b.slot?.time || "",
           city: b.address?.city || "",
           zone: b.address?.zone || b.address?.area || "",
-          candidateProviders,
-          rejectedProviders: b.rejectedProviders || [],
+          candidateProviders: candidateNames.length > 0 ? candidateNames : candidateProviders,
+          rejectedProviders: rejectedNames.length > 0 ? rejectedNames : (b.rejectedProviders || []),
         });
 
         if (candidateProviders.length > 0) {
@@ -101,12 +124,20 @@ export function startAssignmentScheduler() {
                 meta: { bookingId: b._id.toString() },
               });
             } catch {}
+            
+            // Fetch provider name for logging
+            let assignedProviderName = picked.providerId;
+            try {
+              const provDoc = await ProviderAccount.findById(picked.providerId).select('name').lean();
+              if (provDoc) assignedProviderName = provDoc.name;
+            } catch {}
+            
             logDevSchedulerFlow("Scheduler auto-assigned previously unassigned booking", {
               bookingId: b._id?.toString?.() || "",
-              assignedProvider: picked.providerId,
+              assignedProvider: assignedProviderName,
               assignmentIndex: picked.index,
               expiresAt: b.expiresAt || null,
-              candidateProviders,
+              candidateProviders: candidateNames.length > 0 ? candidateNames : candidateProviders,
             });
             continue;
           }

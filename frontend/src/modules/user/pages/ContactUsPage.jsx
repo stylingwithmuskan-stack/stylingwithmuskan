@@ -1,12 +1,16 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mail, Phone, MessageSquare, MapPin, ExternalLink } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MessageSquare, MapPin, ExternalLink, Instagram, Facebook, Twitter } from "lucide-react";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 
 const ContactUsPage = () => {
   const navigate = useNavigate();
   const { gender } = useGenderTheme();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const contacts = [
     { icon: Phone, label: "Call Us", value: "+91 999 000 0001", action: "tel:+919990000001" },
@@ -53,20 +57,51 @@ const ContactUsPage = () => {
           </motion.div>
         ))}
 
-        <div className="mt-12 p-6 rounded-3xl bg-primary/5 border border-primary/10 text-center">
-          <h3 className="font-bold text-primary mb-2">Connect on Social Media</h3>
-          <div className="flex justify-center gap-6 mt-4">
-            <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-primary shadow-sm">
-                <span className="font-black text-xs">IG</span>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-primary shadow-sm">
-                <span className="font-black text-xs">FB</span>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-primary shadow-sm">
-                <span className="font-black text-xs">TW</span>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-12 p-8 rounded-3xl bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 border border-primary/20 text-center relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>
+          
+          <div className="relative z-10">
+            <h3 className={`text-lg font-black mb-2 ${gender === "women" ? "font-display text-primary" : "font-heading-men text-primary"}`}>
+              Connect on Social Media
+            </h3>
+            <p className="text-xs text-muted-foreground mb-6 font-medium">Follow us for beauty tips, trends & exclusive offers</p>
+            
+            <div className="flex justify-center gap-4">
+              <motion.button
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.open("https://instagram.com/stylingwithmuskan", "_blank")}
+                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
+              >
+                <Instagram className="w-6 h-6" />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.open("https://facebook.com/stylingwithmuskan", "_blank")}
+                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
+              >
+                <Facebook className="w-6 h-6" />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.open("https://twitter.com/stylingwmuskan", "_blank")}
+                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-400 flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
+              >
+                <Twitter className="w-6 h-6" />
+              </motion.button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

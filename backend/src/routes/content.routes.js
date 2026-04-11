@@ -34,7 +34,7 @@ router.get("/service-types", async (_req, res) => {
   if (!Array.isArray(data) || data.length === 0) {
     try {
       data = await ServiceType.find().lean();
-    } catch {}
+    } catch { }
   }
   res.json({ data });
 });
@@ -50,7 +50,7 @@ router.get("/booking-types", async (_req, res) => {
   if (!Array.isArray(data) || data.length === 0) {
     try {
       data = await BookingType.find().lean();
-    } catch {}
+    } catch { }
   }
   res.json({ data });
 });
@@ -81,7 +81,7 @@ router.get("/categories", async (req, res) => {
   if (!Array.isArray(data) || data.length === 0) {
     try {
       data = await (gender ? Category.find({ gender }).lean() : Category.find().lean());
-    } catch {}
+    } catch { }
   }
   res.json({ data });
 });
@@ -124,7 +124,7 @@ router.get("/services", async (req, res) => {
   if (!Array.isArray(data) || data.length === 0) {
     try {
       data = await Service.find(q).lean();
-    } catch {}
+    } catch { }
   }
   res.json({ data });
 });
@@ -169,6 +169,7 @@ router.get("/banners", async (req, res) => {
 
 router.get("/spotlights", async (req, res) => {
   const { gender } = req.query;
+  const userId = req.user?._id; // Get user ID from auth middleware if available
   const key = `content:spotlights:${gender || "all"}`;
   let data = [];
   try {
@@ -185,10 +186,56 @@ router.get("/spotlights", async (req, res) => {
         })
         .sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
     });
+
+    // Add isLikedByUser flag if user is logged in
+    if (userId) {
+      data = data.map(spotlight => ({
+        ...spotlight,
+        isLikedByUser: spotlight.likedBy?.some(id => id.toString() === userId.toString()) || false
+      }));
+    }
   } catch {
     data = [];
   }
   res.json({ data });
+});
+
+// Like/Unlike spotlight endpoint
+router.post("/spotlights/:id/like", async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const spotlight = await Spotlight.findOne({ id: req.params.id });
+    if (!spotlight) {
+      return res.status(404).json({ error: "Spotlight not found" });
+    }
+
+    const likedIndex = spotlight.likedBy.findIndex(id => id.toString() === userId.toString());
+
+    if (likedIndex > -1) {
+      // Unlike
+      spotlight.likedBy.splice(likedIndex, 1);
+      spotlight.likes = Math.max(0, spotlight.likes - 1);
+    } else {
+      // Like
+      spotlight.likedBy.push(userId);
+      spotlight.likes += 1;
+    }
+
+    await spotlight.save();
+
+    res.json({
+      success: true,
+      likes: spotlight.likes,
+      isLikedByUser: likedIndex === -1
+    });
+  } catch (error) {
+    console.error("Error toggling spotlight like:", error);
+    res.status(500).json({ error: "Failed to toggle like" });
+  }
 });
 
 router.get("/gallery", async (_req, res) => {

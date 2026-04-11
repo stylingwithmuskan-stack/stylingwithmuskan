@@ -305,3 +305,48 @@
     display: none;
   }
 }
+
+/* Force video controls to always be visible - never hide on hover */
+video::-webkit-media-controls {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  transition: none !important;
+}
+
+video::-webkit-media-controls-panel {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  transition: none !important;
+}
+
+video::-webkit-media-controls-play-button,
+video::-webkit-media-controls-timeline,
+video::-webkit-media-controls-current-time-display,
+video::-webkit-media-controls-time-remaining-display,
+video::-webkit-media-controls-mute-button,
+video::-webkit-media-controls-volume-slider,
+video::-webkit-media-controls-fullscreen-button {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: none !important;
+}
+
+/* Prevent controls from fading out */
+video::-webkit-media-controls-enclosure {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: none !important;
+}
+
+/* Disable auto-hide behavior */
+video:not(:hover)::-webkit-media-controls {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+video:not(:hover)::-webkit-media-controls-panel {
+  opacity: 1 !important;
+  visibility: visible !important;
+}

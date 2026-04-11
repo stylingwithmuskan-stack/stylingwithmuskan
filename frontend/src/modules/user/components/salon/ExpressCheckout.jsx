@@ -25,6 +25,58 @@ const ExpressCheckout = () => {
 
     if (!isCartOpen) return null;
 
+    // Check if cart is empty
+    if (cartItems.length === 0) {
+        return (
+            <AnimatePresence>
+                <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsCartOpen(false)}
+                        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                    />
+
+                    <motion.div
+                        initial={{ y: "100%" }}
+                        animate={{ y: 0 }}
+                        exit={{ y: "100%" }}
+                        className="relative w-full max-w-lg bg-background rounded-t-[32px] sm:rounded-[32px] flex flex-col shadow-2xl overflow-hidden"
+                    >
+                        {/* Header */}
+                        <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-background/80 backdrop-blur-md">
+                            <h2 className="text-xl font-bold font-display">Your Cart</h2>
+                            <button onClick={() => setIsCartOpen(false)} className="p-2 rounded-full hover:bg-accent transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Empty State */}
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center min-h-[400px]">
+                            <div className="w-24 h-24 bg-accent rounded-full flex items-center justify-center mb-4">
+                                <ShoppingCart className="w-10 h-10 text-muted-foreground opacity-50" />
+                            </div>
+                            <h3 className="text-lg font-bold mb-2">You have nothing in your cart</h3>
+                            <p className="text-sm text-muted-foreground mb-6 max-w-xs">
+                                Start adding services to book your perfect beauty experience
+                            </p>
+                            <Button
+                                onClick={() => {
+                                    setIsCartOpen(false);
+                                    navigate("/explore/facial");
+                                }}
+                                className="bg-primary text-white font-bold py-3 px-8 rounded-2xl shadow-lg hover:shadow-xl transition-all"
+                            >
+                                Explore Services
+                            </Button>
+                        </div>
+                    </motion.div>
+                </div>
+            </AnimatePresence>
+        );
+    }
+
     const groupedItems = getGroupedItems();
     const displayedGroups = activeCheckoutType && groupedItems[activeCheckoutType]
         ? { [activeCheckoutType]: groupedItems[activeCheckoutType] }

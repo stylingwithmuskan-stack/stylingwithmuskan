@@ -287,6 +287,7 @@ export const api = {
     },
     banners: (gender) => request(`/content/banners${gender ? `?gender=${gender}` : ""}`),
     spotlights: (gender) => request(`/content/spotlights${gender ? `?gender=${gender}` : ""}`),
+    toggleSpotlightLike: (spotlightId) => request(`/content/spotlights/${spotlightId}/like`, { method: "POST" }),
     gallery: () => request("/content/gallery"),
     testimonials: () => request("/content/testimonials"),
     providers: () => request("/content/providers"),

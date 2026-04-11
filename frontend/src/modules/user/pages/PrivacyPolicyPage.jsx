@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ShieldCheck, Lock, Eye, FileText } from "lucide-react";
@@ -7,6 +7,10 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 const PrivacyPolicyPage = () => {
   const navigate = useNavigate();
   const { gender } = useGenderTheme();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const sections = [
     { title: "Information We Collect", icon: FileText, content: "We collect information you provide directly to us, such as when you create an account, make a booking, or contact us. This may include your name, email, phone number, and location." },
@@ -25,7 +29,6 @@ const PrivacyPolicyPage = () => {
       </div>
 
       <div className="px-4 max-w-2xl mx-auto mt-6 space-y-6">
-        <p className="text-sm text-muted-foreground italic">Last Updated: April 2026</p>
         {sections.map((section, i) => (
           <motion.div
             key={section.title}
@@ -45,6 +48,10 @@ const PrivacyPolicyPage = () => {
             </p>
           </motion.div>
         ))}
+        
+        <div className="pt-10 pb-20 text-center">
+          <p className="text-sm text-muted-foreground italic">Last Updated: April 2026</p>
+        </div>
       </div>
     </div>
   );

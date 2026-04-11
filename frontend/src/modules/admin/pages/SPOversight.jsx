@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye } from "lucide-react";
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -154,7 +154,7 @@ export default function SPOversight() {
                         <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
                             {filtered.map(sp => (
                                 <motion.div key={sp._id || sp.id || sp.phone} variants={item}>
-                                    <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all cursor-pointer" onClick={() => setSelectedSP(sp)}>
+                                    <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all">
                                         <CardContent className="p-4 flex flex-col gap-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
@@ -175,6 +175,15 @@ export default function SPOversight() {
                                                     </div>
                                                     <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3" />{sp.phone}</span>
                                                 </div>
+                                                <Button 
+                                                    size="sm" 
+                                                    variant="ghost" 
+                                                    className="h-8 w-8 p-0 rounded-full hover:bg-primary/10 flex-shrink-0" 
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedSP(sp); }}
+                                                    title="View Details"
+                                                >
+                                                    <Eye className="h-4 w-4 text-primary" />
+                                                </Button>
                                                 <div className="flex gap-1.5">
                                                     {(sp.approvalStatus === "pending" || sp.approvalStatus === "pending_vendor") && (
                                                         <Badge variant="outline" className="text-[10px] font-bold bg-amber-50 text-amber-600 border-amber-200 h-7 flex items-center px-2">
@@ -357,7 +366,9 @@ export default function SPOversight() {
                                     </div>
                                     <div className="bg-muted/50 rounded-xl p-3 col-span-2">
                                         <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Full Address</p>
-                                        <p className="text-sm font-bold mt-1">{selectedSP.address || "N/A"}</p>
+                                        <p className="text-sm font-bold mt-1">
+                                            {[selectedSP.address, selectedSP.city].filter(Boolean).join(", ") || "N/A"}
+                                        </p>
                                     </div>
                                 </div>
 

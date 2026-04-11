@@ -1,10 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Sparkles, ShieldCheck, Heart, TrendingUp } from "lucide-react";
+import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 
 const ProviderAboutUsPage = () => {
   const navigate = useNavigate();
+  const { provider } = useProviderAuth();
+
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const values = [
     { title: "Grow Your Business", icon: TrendingUp, content: "Join our platform to reach more customers and grow your beauty service business with flexible scheduling and competitive earnings." },
@@ -57,6 +64,8 @@ const ProviderAboutUsPage = () => {
           </div>
         </div>
 
+        {/* Join Our Network CTA - Only show if provider is not logged in */}
+        {!provider && (
         <div className="p-8 rounded-[32px] bg-slate-900 text-white text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 p-12 opacity-10">
                 <Sparkles className="w-40 h-40" />
@@ -70,6 +79,7 @@ const ProviderAboutUsPage = () => {
                 Get Started
             </button>
         </div>
+        )}
       </div>
     </div>
   );

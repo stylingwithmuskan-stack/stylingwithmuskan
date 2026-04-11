@@ -43,6 +43,9 @@ const steps = [
     { title: "Review", icon: FileText }
 ];
 
+const STORAGE_KEY = 'swm-provider-registration';
+const EXPIRY_DAYS = 7;
+
 export default function ProviderRegisterPage() {
     const navigate = useNavigate();
     const { register, provider, requestRegisterOtp, verifyRegisterOtp } = useProviderAuth();
@@ -51,6 +54,9 @@ export default function ProviderRegisterPage() {
     const [isSuccess, setIsSuccess] = useState(false);
     const [stepError, setStepError] = useState("");
 
+    // Google Maps API key for geocoding
+    const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
     const [cities, setCities] = useState([]);
     const [zones, setZones] = useState([]);
     const [zonesLoading, setZonesLoading] = useState(false);
@@ -58,6 +64,14 @@ export default function ProviderRegisterPage() {
     const [categoriesList, setCategoriesList] = useState([]);
     const [servicesList, setServicesList] = useState([]);
     const [catalogLoading, setCatalogLoading] = useState(false);
+
+    // OTP States - Declared early to avoid initialization errors
+    const [otp, setOtp] = useState("");
+    const [otpSent, setOtpSent] = useState(false);
+    const [otpVerified, setOtpVerified] = useState(false);
+    const [otpError, setOtpError] = useState("");
+    const [otpLoading, setOtpLoading] = useState(false);
+    const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     // Form States
     const [formData, setFormData] = useState({
@@ -93,7 +107,47 @@ export default function ProviderRegisterPage() {
 
     useEffect(() => {
         api.content.cities().then(res => setCities(res.cities || [])).catch(() => { });
+        
+        // Load saved registration data from localStorage
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const { data, timestamp } = JSON.parse(saved);
+                const daysPassed = (Date.now() - timestamp) / (1000 * 60 * 60 * 24);
+                
+                // Check if data is not expired
+                if (daysPassed <= EXPIRY_DAYS) {
+                    setCurrentStep(data.currentStep || 1);
+                    setFormData(prev => ({ ...prev, ...data.formData }));
+                    if (data.otpVerified) setOtpVerified(true);
+                    if (data.otpSent) setOtpSent(true);
+                } else {
+                    // Clear expired data
+                    localStorage.removeItem(STORAGE_KEY);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load saved registration:', error);
+        }
     }, []);
+
+    // Auto-save registration progress to localStorage
+    useEffect(() => {
+        try {
+            const dataToSave = {
+                data: {
+                    currentStep,
+                    formData,
+                    otpVerified,
+                    otpSent
+                },
+                timestamp: Date.now()
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        } catch (error) {
+            console.error('Failed to save registration progress:', error);
+        }
+    }, [currentStep, formData, otpVerified, otpSent]);
 
     useEffect(() => {
         let cancelled = false;
@@ -214,13 +268,6 @@ export default function ProviderRegisterPage() {
             serviceOptions: services
         };
     }, [serviceTypesList, categoriesList, servicesList, formData.primaryCategory, formData.specializations]);
-
-    const [otp, setOtp] = useState("");
-    const [otpSent, setOtpSent] = useState(false);
-    const [otpVerified, setOtpVerified] = useState(false);
-    const [otpError, setOtpError] = useState("");
-    const [otpLoading, setOtpLoading] = useState(false);
-    const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     // Refs for hidden inputs
     const profileInputRef = useRef(null);
@@ -418,8 +465,10 @@ export default function ProviderRegisterPage() {
                 setStepError("Please enter your full name as per Aadhar");
                 return;
             }
-            if (!formData.email.trim() || !/^\S+@\S+\.\S+$/.test(formData.email)) {
-                setStepError("Please enter a valid email address");
+            // Email validation: Allow common valid TLDs, reject .co
+            const emailRegex = /^[^\s@]+@[^\s@]+\.(com|net|org|edu|gov|mil|in|uk|us|ca|au|de|jp|fr|it|ru|br|cn|nl|se|no|es|mx|za|nz|sg|hk|ae|sa|eg|pk|bd|my|th|vn|id|ph|kr|tw|tr|pl|ua|ro|cz|be|gr|pt|hu|at|ch|dk|fi|ie|il|ar|cl|co\.in|co\.uk|co\.za|ac\.in|edu\.in|gov\.in|org\.in|net\.in|info|biz|io|app|dev|tech|online|site|store|shop|xyz|pro|name|mobi|asia|tel|travel|jobs|cat|aero|coop|museum)$/i;
+            if (!formData.email.trim() || !emailRegex.test(formData.email)) {
+                setStepError("Please enter a valid email address (e.g., name@example.com or name@example.in)");
                 return;
             }
             if (!formData.dob) {
@@ -475,9 +524,24 @@ export default function ProviderRegisterPage() {
                 setStepError("Please complete your bank account details");
                 return;
             }
+            // Account number validation: 9-18 digits, numbers only
+            const accountNumberRegex = /^\d{9,18}$/;
+            if (!accountNumberRegex.test(formData.accountNumber)) {
+                setStepError("Account number must be 9-18 digits (numbers only)");
+                return;
+            }
             if (formData.ifscCode.length !== 11) {
                 setStepError("IFSC code must be exactly 11 characters");
                 return;
+            }
+            // UPI ID validation (optional field, but if provided must be valid)
+            if (formData.upiId.trim()) {
+                // Valid UPI format: username@provider (e.g., 9876543210@paytm, name@okaxis)
+                const upiRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/;
+                if (!upiRegex.test(formData.upiId)) {
+                    setStepError("Please enter a valid UPI ID (e.g., 9876543210@paytm or username@upi)");
+                    return;
+                }
             }
         }
 
@@ -501,6 +565,10 @@ export default function ProviderRegisterPage() {
             const finalZones = [...formData.zones];
             if (formData.customZone.trim()) finalZones.push(formData.customZone.trim());
             await register({ ...formData, zones: finalZones });
+            
+            // Clear localStorage after successful registration
+            localStorage.removeItem(STORAGE_KEY);
+            
             setIsLoading(false);
             setIsSuccess(true);
         } catch (err) {
@@ -581,15 +649,8 @@ export default function ProviderRegisterPage() {
                                     <p className="text-gray-500 text-sm font-medium">Help clients know you better.</p>
                                 </div>
 
+                                {/* 1. Profile Photo - Live Camera */}
                                 <div className="flex flex-col items-center py-4">
-                                    <input
-                                        type="file"
-                                        ref={profileInputRef}
-                                        className="hidden"
-                                        accept="image/*"
-                                        capture="user"
-                                        onChange={(e) => handleFileChange("profilePhoto", e.target.files[0])}
-                                    />
                                     <div
                                         className="relative group cursor-pointer"
                                         onClick={startCamera}
@@ -603,9 +664,6 @@ export default function ProviderRegisterPage() {
                                                     <span className="text-[10px] font-black uppercase text-gray-400 mt-1">Live Photo</span>
                                                 </>
                                             )}
-                                        </div>
-                                        <div className="absolute -bottom-2 -right-2 bg-purple-600 text-white p-2 rounded-xl shadow-lg" onClick={(e) => { e.stopPropagation(); profileInputRef.current?.click(); }}>
-                                            <Plus className="h-4 w-4" />
                                         </div>
                                     </div>
                                     <p className="text-[10px] font-bold text-gray-400 mt-4 uppercase tracking-widest leading-none">Live Camera Only</p>
@@ -630,95 +688,250 @@ export default function ProviderRegisterPage() {
                                     )}
                                 </div>
 
-                                <div className="grid gap-6 sm:grid-cols-2">
+                                {/* 2. Full Name */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-black uppercase text-gray-400">Full Name</Label>
+                                    <Input
+                                        placeholder="Enter as per Aadhar"
+                                        className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    />
+                                </div>
+
+                                {/* 3. Email */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-black uppercase text-gray-400">Email Address</Label>
+                                    <Input
+                                        type="email"
+                                        placeholder="name@example.com"
+                                        className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
+                                        title="Please enter a valid email address (e.g., name@example.com or name@example.in)"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    />
+                                </div>
+
+                                {/* 4. Phone Number with OTP */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-black uppercase text-gray-400">Mobile Number</Label>
+                                    <Input
+                                        type="tel"
+                                        placeholder="10-digit mobile number"
+                                        className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                    />
+                                    <div className="mt-2 space-y-2">
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="h-10 rounded-xl text-xs font-black uppercase tracking-widest"
+                                                onClick={handleSendOtp}
+                                                disabled={otpLoading || !/^\d{10}$/.test(formData.phone)}
+                                            >
+                                                {otpSent ? "Resend OTP" : "Send OTP"}
+                                            </Button>
+                                            <Input
+                                                type="text"
+                                                placeholder="Enter 6-digit OTP"
+                                                className="h-10 rounded-xl bg-gray-50 border-gray-100 font-bold text-center tracking-widest w-40"
+                                                value={otp}
+                                                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                                disabled={!otpSent || otpVerified}
+                                            />
+                                            <Button
+                                                type="button"
+                                                className="h-10 rounded-xl text-xs font-black uppercase tracking-widest bg-violet-600 hover:bg-violet-700"
+                                                onClick={handleVerifyOtp}
+                                                disabled={otpLoading || otp.length !== 6 || otpVerified}
+                                            >
+                                                {otpVerified ? "Verified" : "Verify OTP"}
+                                            </Button>
+                                        </div>
+                                        {otpVerified && (
+                                            <p className="text-xs font-bold text-green-600">Mobile number verified</p>
+                                        )}
+                                        {otpSent && !otpVerified && !otpError && (
+                                            <p className="text-xs font-medium text-gray-500">
+                                                {otpDeliveryMode === "allowlist"
+                                                    ? `Enter the 6-digit OTP for +91 ${formData.phone}`
+                                                    : `Enter the 6-digit code sent to +91 ${formData.phone}`}
+                                            </p>
+                                        )}
+                                        {otpError && (
+                                            <p className="text-xs font-bold text-red-600">{otpError}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* 5. Date of Birth */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-black uppercase text-gray-400">Date of Birth</Label>
+                                    <Input
+                                        type="date"
+                                        className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
+                                        value={formData.dob}
+                                        max={new Date().toISOString().split('T')[0]}
+                                        onChange={(e) => {
+                                            const selectedDate = new Date(e.target.value);
+                                            const today = new Date();
+                                            today.setHours(0, 0, 0, 0);
+                                            
+                                            if (selectedDate > today) {
+                                                setStepError("Date of birth cannot be in the future");
+                                                return;
+                                            }
+                                            
+                                            setStepError("");
+                                            setFormData({ ...formData, dob: e.target.value });
+                                        }}
+                                    />
+                                </div>
+
+                                {/* 6. Address Section */}
+                                <div className="space-y-4">
+                                    <Label className="text-xs font-black uppercase text-gray-400">Address & Hub Location</Label>
+
+                                    {/* 6.1 Flat/Building/Landmark */}
                                     <div className="space-y-2">
-                                        <Label className="text-xs font-black uppercase text-gray-400">Mobile Number</Label>
+                                        <Label className="text-[10px] font-bold text-gray-500 uppercase">Flat/Building/Landmark</Label>
                                         <Input
-                                            type="tel"
-                                            placeholder="10-digit mobile number"
+                                            placeholder="Enter flat, building or landmark"
                                             className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                            value={formData.phone}
-                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                            value={formData.addressLine1}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, addressLine1: e.target.value }))}
                                         />
-                                        <div className="mt-2 space-y-2">
-                                            <div className="flex flex-wrap gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    className="h-10 rounded-xl text-xs font-black uppercase tracking-widest"
-                                                    onClick={handleSendOtp}
-                                                    disabled={otpLoading || !/^\d{10}$/.test(formData.phone)}
-                                                >
-                                                    {otpSent ? "Resend OTP" : "Send OTP"}
-                                                </Button>
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Enter 6-digit OTP"
-                                                    className="h-10 rounded-xl bg-gray-50 border-gray-100 font-bold text-center tracking-widest w-40"
-                                                    value={otp}
-                                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                                                    disabled={!otpSent || otpVerified}
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    className="h-10 rounded-xl text-xs font-black uppercase tracking-widest bg-violet-600 hover:bg-violet-700"
-                                                    onClick={handleVerifyOtp}
-                                                    disabled={otpLoading || otp.length !== 6 || otpVerified}
-                                                >
-                                                    {otpVerified ? "Verified" : "Verify OTP"}
-                                                </Button>
-                                            </div>
-                                            {otpVerified && (
-                                                <p className="text-xs font-bold text-green-600">Mobile number verified</p>
-                                            )}
-                                            {otpSent && !otpVerified && !otpError && (
-                                                <p className="text-xs font-medium text-gray-500">
-                                                    {otpDeliveryMode === "allowlist"
-                                                        ? `Enter the 6-digit OTP for +91 ${formData.phone}`
-                                                        : `Enter the 6-digit code sent to +91 ${formData.phone}`}
-                                                </p>
-                                            )}
-                                            {otpError && (
-                                                <p className="text-xs font-bold text-red-600">{otpError}</p>
+                                    </div>
+
+                                    {/* 6.2 Area/Locality */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold text-gray-500 uppercase">Area/Locality</Label>
+                                        <Input
+                                            placeholder="Enter area or locality name"
+                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
+                                            value={formData.area}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, area: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    {/* 6.3 City Selection */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold text-gray-500 uppercase">City</Label>
+                                        <Select value={formData.city} onValueChange={v => {
+                                            const selectedCity = cities.find((city) => city.name === v);
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                city: v,
+                                                cityId: selectedCity?._id || "",
+                                                zones: [],
+                                                zoneIds: [],
+                                            }));
+                                        }}>
+                                            <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600">
+                                                <SelectValue placeholder="Select City" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {cities.map(c => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* 6.4 Hub Zones Selection */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hub Zones (Multiple)</Label>
+                                        <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            {zonesLoading ? (
+                                                <div className="flex items-center gap-2 py-2">
+                                                    <Loader2 className="h-4 w-4 text-violet-600 animate-spin" />
+                                                    <span className="text-xs font-bold text-gray-400">Fetching zones...</span>
+                                                </div>
+                                            ) : zones.length > 0 ? (
+                                                <>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-[10px] font-black text-gray-400 uppercase">Available Hubs</span>
+                                                        <Button type="button" variant="ghost" size="sm" onClick={() => {
+                                                            if (formData.zones.length === zones.length) {
+                                                                setFormData(prev => ({ ...prev, zones: [], zoneIds: [] }));
+                                                            } else {
+                                                                syncSelectedZoneIds(zones.map(z => z.name));
+                                                            }
+                                                        }} className="h-6 text-[9px] font-black text-violet-600 hover:bg-violet-50">
+                                                            {formData.zones.length === zones.length ? "Deselect All" : "Select All"}
+                                                        </Button>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                                                        {zones.map(z => (
+                                                            <div key={z._id} onClick={() => {
+                                                                const current = [...formData.zones];
+                                                                const idx = current.indexOf(z.name);
+                                                                if (idx > -1) current.splice(idx, 1);
+                                                                else current.push(z.name);
+                                                                syncSelectedZoneIds(current);
+                                                            }} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.zones.includes(z.name) ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100' : 'bg-white border-gray-100 text-gray-600 hover:border-violet-200'}`}>
+                                                                <div className={`h-5 w-5 rounded flex items-center justify-center ${formData.zones.includes(z.name) ? 'bg-white text-violet-600' : 'bg-gray-100'}`}>
+                                                                    {formData.zones.includes(z.name) && <Check className="h-3 w-3" />}
+                                                                </div>
+                                                                <span className="text-xs font-black truncate">{z.name}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            ) : formData.city ? (
+                                                <p className="text-xs font-semibold text-gray-400 py-2">No zones available for selected city</p>
+                                            ) : (
+                                                <p className="text-xs font-semibold text-gray-400 py-2">Please select a city first</p>
                                             )}
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-black uppercase text-gray-400">Full Name</Label>
-                                        <Input
-                                            placeholder="Enter as per Aadhar"
-                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        />
+                                </div>
+
+                                {/* 7. Custom Zone Section with Use Current Location */}
+                                <div className="space-y-4 p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-black uppercase text-amber-900">Custom Zone (Optional)</Label>
+                                        <p className="text-[10px] text-amber-700 font-medium">If your location is not listed in the zones above</p>
                                     </div>
-                                    <div className="space-y-4 sm:col-span-2">
-                                        <Label className="text-xs font-black uppercase text-gray-400">Address & Hub Location</Label>
 
-                                        {/* Use Current Location Button - First for easy access */}
-                                        <Button
-                                            type="button"
-                                            variant={formData.lat ? "default" : "outline"}
-                                            className={`w-full h-12 transition-all ${formData.lat ? "bg-green-600 hover:bg-green-700 text-white border-green-600 shadow-lg shadow-green-100" : ""}`}
-                                            disabled={isLoading}
-                                            onClick={async () => {
-                                                if (!navigator.geolocation) return alert("Geolocation not supported");
+                                    {/* Use Current Location Button */}
+                                    <Button
+                                        type="button"
+                                        variant={formData.lat ? "default" : "outline"}
+                                        className={`w-full h-12 transition-all ${formData.lat ? "bg-green-600 hover:bg-green-700 text-white border-green-600 shadow-lg shadow-green-100" : ""}`}
+                                        disabled={isLoading}
+                                        onClick={async () => {
+                                            if (!navigator.geolocation) {
+                                                alert("Geolocation is not supported by your browser");
+                                                return;
+                                            }
 
-                                                setIsLoading(true);
-                                                navigator.geolocation.getCurrentPosition(
-                                                    async (pos) => {
-                                                        const lat = pos.coords.latitude;
-                                                        const lng = pos.coords.longitude;
+                                            setIsLoading(true);
+                                            navigator.geolocation.getCurrentPosition(
+                                                async (position) => {
+                                                    const latitude = position.coords.latitude;
+                                                    const longitude = position.coords.longitude;
+
+                                                    // Helper function to resolve location and set form fields
+                                                    const resolveLocationAndSetFields = async (googleCity, addressLine1, areaText) => {
                                                         try {
                                                             const res = await api.content.resolveLocation({
-                                                                lat: String(lat),
-                                                                lng: String(lng),
+                                                                lat: String(latitude),
+                                                                lng: String(longitude),
+                                                                cityName: googleCity || ""
                                                             });
+
                                                             const location = res?.location || {};
-                                                            if (location.insideServiceArea && location.cityName && location.zoneName) {
-                                                                const matchedCity = cities.find((city) => city._id === location.cityId || city.name === location.cityName);
+
+                                                            if (location.insideServiceArea && location.zoneName) {
+                                                                // CASE 1: Zone found - populate dropdowns
+                                                                const matchedCity = cities.find(
+                                                                    c => c._id === location.cityId || c.name === location.cityName
+                                                                );
                                                                 const nextCity = matchedCity?.name || location.cityName;
                                                                 const nextCityId = matchedCity?._id || location.cityId || "";
+
+                                                                // Load zones for this city
                                                                 let nextZones = [];
                                                                 try {
                                                                     const zonesRes = await api.content.zones({ cityName: nextCity });
@@ -728,333 +941,175 @@ export default function ProviderRegisterPage() {
                                                                     nextZones = [];
                                                                     setZones([]);
                                                                 }
-                                                                const resolvedZone = nextZones.find((zone) => zone._id === location.zoneId || zone.name === location.zoneName);
-                                                                setFormData((prev) => ({
+
+                                                                // Find matching zone
+                                                                const resolvedZone = nextZones.find(
+                                                                    z => z._id === location.zoneId || z.name === location.zoneName
+                                                                );
+
+                                                                setFormData(prev => ({
                                                                     ...prev,
-                                                                    lat,
-                                                                    lng,
+                                                                    lat: latitude,
+                                                                    lng: longitude,
+                                                                    addressLine1: addressLine1 || prev.addressLine1,
+                                                                    area: areaText || prev.area,
                                                                     city: nextCity,
                                                                     cityId: nextCityId,
-                                                                    zones: resolvedZone ? [resolvedZone.name] : (location.zoneName ? [location.zoneName] : prev.zones),
-                                                                    zoneIds: resolvedZone ? [resolvedZone._id] : (location.zoneId ? [location.zoneId] : prev.zoneIds),
+                                                                    zones: resolvedZone ? [resolvedZone.name] : (location.zoneName ? [location.zoneName] : []),
+                                                                    zoneIds: resolvedZone ? [resolvedZone._id] : (location.zoneId ? [location.zoneId] : []),
+                                                                    customZone: "" // Clear custom zone when zone is found
                                                                 }));
+
                                                                 alert(`Location captured!\nDetected zone: ${location.zoneName}`);
                                                             } else {
-                                                                setFormData((prev) => ({
+                                                                // CASE 2: Out of zone - fill custom zone
+                                                                const customZoneText = [areaText, googleCity || location.cityName]
+                                                                    .filter(Boolean)
+                                                                    .join(", ");
+
+                                                                setFormData(prev => ({
                                                                     ...prev,
-                                                                    lat,
-                                                                    lng,
+                                                                    lat: latitude,
+                                                                    lng: longitude,
+                                                                    addressLine1: addressLine1 || prev.addressLine1,
+                                                                    area: areaText || prev.area,
+                                                                    customZone: customZoneText || "Current Location",
                                                                     zones: [],
-                                                                    zoneIds: [],
+                                                                    zoneIds: []
                                                                 }));
-                                                                alert("Your current location is out of zone, apply for the custom zone.");
+
+                                                                alert("Your location is out of service area.\nCustom zone has been filled with your address.");
                                                             }
                                                         } catch (error) {
                                                             console.error("Location resolution error:", error);
+
+                                                            // Fallback: Just set address fields and custom zone
+                                                            const fallbackCustomZone = [areaText, googleCity]
+                                                                .filter(Boolean)
+                                                                .join(", ") || "Current Location";
+
                                                             setFormData(prev => ({
                                                                 ...prev,
-                                                                lat,
-                                                                lng
+                                                                lat: latitude,
+                                                                lng: longitude,
+                                                                addressLine1: addressLine1 || prev.addressLine1,
+                                                                area: areaText || prev.area,
+                                                                customZone: fallbackCustomZone
                                                             }));
-                                                            alert("Location captured! Please complete city and zone manually.");
+
+                                                            alert("Location captured! Please verify the details.");
                                                         } finally {
                                                             setIsLoading(false);
                                                         }
-                                                        return;
+                                                    };
 
-                                                        console.log("📍 Current Location Coordinates:");
-                                                        console.log("  - Latitude:", lat);
-                                                        console.log("  - Longitude:", lng);
-
+                                                    // Try Google Maps Geocoding first
+                                                    if (window.google?.maps && googleKey) {
                                                         try {
-                                                            // Reverse geocoding using Nominatim (OpenStreetMap)
-                                                            const geocodeUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
-                                                            console.log("🌐 Geocoding API URL:", geocodeUrl);
+                                                            const geocoder = new window.google.maps.Geocoder();
+                                                            geocoder.geocode(
+                                                                { location: { lat: latitude, lng: longitude } },
+                                                                (results, status) => {
+                                                                    if (status === "OK" && results && results[0]) {
+                                                                        const res = results[0];
+                                                                        const comp = res.address_components || [];
 
-                                                            const response = await fetch(
-                                                                geocodeUrl,
-                                                                {
-                                                                    headers: {
-                                                                        'Accept-Language': 'en'
+                                                                        // Helper to get component by type
+                                                                        const getComp = (types) =>
+                                                                            comp.find(c => types.some(t => c.types.includes(t)))?.long_name || "";
+
+                                                                        // Extract address components
+                                                                        const houseNo = getComp(["street_number", "premise", "subpremise"]);
+                                                                        const street = getComp(["route", "street_address"]);
+                                                                        const landmark = getComp(["neighborhood", "sublocality_level_2", "sublocality_level_3"]);
+                                                                        const area = getComp(["sublocality_level_1", "sublocality"]);
+                                                                        const city = getComp(["locality", "administrative_area_level_2"]);
+
+                                                                        // Format address line 1
+                                                                        const addressLine1 = [houseNo, street, landmark]
+                                                                            .filter(Boolean)
+                                                                            .join(", ");
+
+                                                                        // Use formatted_address as fallback for area
+                                                                        const areaText = area || res.formatted_address;
+
+                                                                        // Now resolve with backend API
+                                                                        resolveLocationAndSetFields(city, addressLine1, areaText);
+                                                                    } else {
+                                                                        if (status === "REQUEST_DENIED") {
+                                                                            console.warn("Google Maps Geocoding API is not enabled");
+                                                                        }
+                                                                        // Fallback to backend only
+                                                                        resolveLocationAndSetFields("", "", "Current Location");
                                                                     }
                                                                 }
                                                             );
-
-                                                            console.log("📡 API Response Status:", response.status, response.statusText);
-
-                                                            if (response.ok) {
-                                                                const data = await response.json();
-                                                                console.log("🌍 Full Geocoding Response:", data);
-
-                                                                const address = data.address || {};
-                                                                console.log("📍 Address Object:", address);
-
-                                                                // Extract address components with multiple fallbacks
-                                                                const extractedArea = address.suburb ||
-                                                                    address.neighbourhood ||
-                                                                    address.residential ||
-                                                                    address.quarter ||
-                                                                    address.hamlet ||
-                                                                    address.locality || "";
-
-                                                                const extractedCity = address.city ||
-                                                                    address.town ||
-                                                                    address.village ||
-                                                                    address.municipality ||
-                                                                    address.county ||
-                                                                    address.state_district || "";
-
-                                                                const extractedLandmark = address.house_number
-                                                                    ? `${address.house_number} ${address.road || address.street || ""}`.trim()
-                                                                    : (address.road || address.street || address.building || "");
-
-                                                                console.log("📦 Extracted Values:");
-                                                                console.log("  - Area:", extractedArea);
-                                                                console.log("  - City:", extractedCity);
-                                                                console.log("  - Landmark:", extractedLandmark);
-
-                                                                // Try to match city with available cities in dropdown
-                                                                let matchedCity = "";
-                                                                if (extractedCity && cities.length > 0) {
-                                                                    const cityLower = extractedCity.toLowerCase();
-                                                                    const found = cities.find(c =>
-                                                                        c.name.toLowerCase() === cityLower ||
-                                                                        c.name.toLowerCase().includes(cityLower) ||
-                                                                        cityLower.includes(c.name.toLowerCase())
-                                                                    );
-                                                                    matchedCity = found ? found.name : extractedCity;
-                                                                    console.log("🏙️ City Matching:");
-                                                                    console.log("  - Extracted City:", extractedCity);
-                                                                    console.log("  - Matched City:", matchedCity);
-                                                                    console.log("  - Found in dropdown:", !!found);
-                                                                }
-
-                                                                console.log("📝 Current Form Data (before update):", {
-                                                                    area: formData.area,
-                                                                    city: formData.city,
-                                                                    addressLine1: formData.addressLine1
-                                                                });
-
-                                                                // Update form with location and address - always update if we have values
-                                                                const updatedData = {
-                                                                    ...formData,
-                                                                    lat: lat,
-                                                                    lng: lng,
-                                                                    area: extractedArea ? extractedArea : formData.area,
-                                                                    city: matchedCity ? matchedCity : (extractedCity ? extractedCity : formData.city),
-                                                                    addressLine1: extractedLandmark ? extractedLandmark : formData.addressLine1
-                                                                };
-
-                                                                console.log("✅ Updated Form Data (after update):", {
-                                                                    area: updatedData.area,
-                                                                    city: updatedData.city,
-                                                                    addressLine1: updatedData.addressLine1
-                                                                });
-
-                                                                setFormData(updatedData);
-
-                                                                // Verify state update with a small delay
-                                                                setTimeout(() => {
-                                                                    console.log("🔄 Form Data After State Update:", {
-                                                                        area: updatedData.area,
-                                                                        city: updatedData.city,
-                                                                        addressLine1: updatedData.addressLine1
-                                                                    });
-                                                                }, 100);
-
-                                                                const addressParts = [];
-                                                                if (extractedLandmark) addressParts.push(`Landmark: ${extractedLandmark}`);
-                                                                if (extractedArea) addressParts.push(`Area: ${extractedArea}`);
-                                                                if (matchedCity || extractedCity) addressParts.push(`City: ${matchedCity || extractedCity}`);
-
-                                                                if (addressParts.length > 0) {
-                                                                    alert(`Location captured!\n${addressParts.join('\n')}`);
-                                                                } else {
-                                                                    alert("Location captured! Please verify and complete address details.");
-                                                                }
-                                                            } else {
-                                                                // Fallback: just save coordinates
-                                                                setFormData(prev => ({
-                                                                    ...prev,
-                                                                    lat: lat,
-                                                                    lng: lng
-                                                                }));
-                                                                alert("Location captured! Please fill address details manually.");
-                                                            }
                                                         } catch (error) {
-                                                            console.error("Reverse geocoding error:", error);
-                                                            // Fallback: just save coordinates
-                                                            setFormData(prev => ({
-                                                                ...prev,
-                                                                lat: lat,
-                                                                lng: lng
-                                                            }));
-                                                            alert("Location captured! Please fill address details manually.");
-                                                        } finally {
-                                                            setIsLoading(false);
+                                                            console.error("Google Maps Geocoding error:", error);
+                                                            // Fallback to backend only
+                                                            resolveLocationAndSetFields("", "", "Current Location");
                                                         }
-                                                    },
-                                                    () => {
-                                                        setIsLoading(false);
-                                                        alert("Permission denied or location unavailable. Please ensure GPS is enabled.");
-                                                    },
-                                                    { enableHighAccuracy: true, timeout: 8000 }
-                                                );
-                                            }}
-                                        >
-                                            {isLoading ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                    <span className="font-black uppercase text-[10px] tracking-widest">Getting Location...</span>
-                                                </div>
-                                            ) : formData.lat ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Check className="h-4 w-4 stroke-[3px]" />
-                                                    <span className="font-black uppercase text-[10px] tracking-widest">Location Captured</span>
-                                                </div>
-                                            ) : (
-                                                "Use Current Location"
-                                            )}
-                                        </Button>
-
-                                        {/* City Selection */}
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-bold text-gray-500 uppercase">City</Label>
-                                            <Select value={formData.city} onValueChange={v => {
-                                                const selectedCity = cities.find((city) => city.name === v);
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    city: v,
-                                                    cityId: selectedCity?._id || "",
-                                                    zones: [],
-                                                    zoneIds: [],
-                                                }));
-                                            }}>
-                                                <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600">
-                                                    <SelectValue placeholder="Select City" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {cities.map(c => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        {/* Area and Landmark Fields */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-bold text-gray-500 uppercase">Area/Colony</Label>
-                                                <Input
-                                                    placeholder="Enter area or colony name"
-                                                    className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                                    value={formData.area}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, area: e.target.value }))}
-                                                />
+                                                    } else {
+                                                        // Google Maps not available, use backend only
+                                                        console.warn("Google Maps not loaded, using backend API only");
+                                                        resolveLocationAndSetFields("", "", "Current Location");
+                                                    }
+                                                },
+                                                (error) => {
+                                                    setIsLoading(false);
+                                                    console.error("Geolocation error:", error);
+                                                    alert("Permission denied or location unavailable. Please ensure GPS is enabled.");
+                                                },
+                                                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                                            );
+                                        }}
+                                    >
+                                        {isLoading ? (
+                                            <div className="flex items-center gap-2">
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                <span className="font-black uppercase text-[10px] tracking-widest">Getting Location...</span>
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-bold text-gray-500 uppercase">Flat/Building/Landmark</Label>
-                                                <Input
-                                                    placeholder="Enter flat, building or landmark"
-                                                    className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                                    value={formData.addressLine1}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, addressLine1: e.target.value }))}
-                                                />
+                                        ) : formData.lat ? (
+                                            <div className="flex items-center gap-2">
+                                                <Check className="h-4 w-4 stroke-[3px]" />
+                                                <span className="font-black uppercase text-[10px] tracking-widest">Location Captured</span>
                                             </div>
-                                        </div>
+                                        ) : (
+                                            "📍 Use Current Location"
+                                        )}
+                                    </Button>
 
-                                        {/* Hub Zones Selection */}
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hub Zones (Multiple)</Label>
-                                            <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                                {zonesLoading ? (
-                                                    <div className="flex items-center gap-2 py-2">
-                                                        <Loader2 className="h-4 w-4 text-violet-600 animate-spin" />
-                                                        <span className="text-xs font-bold text-gray-400">Fetching zones...</span>
-                                                    </div>
-                                                ) : zones.length > 0 ? (
-                                                    <>
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <span className="text-[10px] font-black text-gray-400 uppercase">Available Hubs</span>
-                                                            <Button type="button" variant="ghost" size="sm" onClick={() => {
-                                                                if (formData.zones.length === zones.length) {
-                                                                    setFormData(prev => ({ ...prev, zones: [], zoneIds: [] }));
-                                                                } else {
-                                                                    syncSelectedZoneIds(zones.map(z => z.name));
-                                                                }
-                                                            }} className="h-6 text-[9px] font-black text-violet-600 hover:bg-violet-50">
-                                                                {formData.zones.length === zones.length ? "Deselect All" : "Select All"}
-                                                            </Button>
-                                                        </div>
-                                                        <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-                                                            {zones.map(z => (
-                                                                <div key={z._id} onClick={() => {
-                                                                    const current = [...formData.zones];
-                                                                    const idx = current.indexOf(z.name);
-                                                                    if (idx > -1) current.splice(idx, 1);
-                                                                    else current.push(z.name);
-                                                                    syncSelectedZoneIds(current);
-                                                                }} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.zones.includes(z.name) ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100' : 'bg-white border-gray-100 text-gray-600 hover:border-violet-200'}`}>
-                                                                    <div className={`h-5 w-5 rounded flex items-center justify-center ${formData.zones.includes(z.name) ? 'bg-white text-violet-600' : 'bg-gray-100'}`}>
-                                                                        {formData.zones.includes(z.name) && <Check className="h-3 w-3" />}
-                                                                    </div>
-                                                                    <span className="text-xs font-black truncate">{z.name}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </>
-                                                ) : formData.city ? (
-                                                    <p className="text-xs font-semibold text-gray-400 py-2">No zones available for selected city</p>
-                                                ) : (
-                                                    <p className="text-xs font-semibold text-gray-400 py-2">Please select a city first</p>
-                                                )}
-
-                                                <div className="pt-2 mt-2 border-t border-slate-200">
-                                                    <Label className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Custom Hub (If not listed)</Label>
-                                                    <Input
-                                                        placeholder="Enter custom area name"
-                                                        className="h-10 rounded-xl bg-white border-gray-100 font-bold text-xs"
-                                                        value={formData.customZone}
-                                                        onChange={(e) => setFormData(prev => ({ ...prev, customZone: e.target.value }))}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    {/* Custom Zone Input */}
                                     <div className="space-y-2">
-                                        <Label className="text-xs font-black uppercase text-gray-400">Email Address</Label>
                                         <Input
-                                            type="email"
-                                            placeholder="name@example.com"
-                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            placeholder="Enter custom zone name if not listed above"
+                                            className="h-12 rounded-xl bg-white border-amber-200 font-bold focus:ring-amber-500"
+                                            value={formData.customZone}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, customZone: e.target.value }))}
                                         />
+                                        <p className="text-[10px] text-amber-700 font-medium">
+                                            💡 Tip: Click "Use Current Location" to auto-detect your zone and fill address details
+                                        </p>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-black uppercase text-gray-400">Date of Birth</Label>
-                                        <Input
-                                            type="date"
-                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
-                                            value={formData.dob}
-                                            onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-black uppercase text-gray-400">Experience (Years)</Label>
-                                        <Select
-                                            value={formData.experience}
-                                            onValueChange={(v) => setFormData({ ...formData, experience: v })}
-                                        >
-                                            <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold">
-                                                <SelectValue placeholder="Select experience" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="0-1">0-1 Years</SelectItem>
-                                                <SelectItem value="1-3">1-3 Years</SelectItem>
-                                                <SelectItem value="3-5">3-5 Years</SelectItem>
-                                                <SelectItem value="5+">5+ Years</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                </div>
+
+                                {/* 8. Professional Experience */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-black uppercase text-gray-400">Professional Experience</Label>
+                                    <Select
+                                        value={formData.experience}
+                                        onValueChange={(v) => setFormData({ ...formData, experience: v })}
+                                    >
+                                        <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold">
+                                            <SelectValue placeholder="Select experience" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="0-1">0-1 Years</SelectItem>
+                                            <SelectItem value="1-3">1-3 Years</SelectItem>
+                                            <SelectItem value="3-5">3-5 Years</SelectItem>
+                                            <SelectItem value="5+">5+ Years</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                         )}
@@ -1293,8 +1348,15 @@ export default function ProviderRegisterPage() {
                                             type="password"
                                             placeholder="•••• •••• •••• 1234"
                                             className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
+                                            pattern="\d{9,18}"
+                                            title="Account number must be 9-18 digits"
+                                            maxLength={18}
                                             value={formData.accountNumber}
-                                            onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                                            onChange={(e) => {
+                                                // Only allow numbers and limit to 18 digits
+                                                const value = e.target.value.replace(/\D/g, '').slice(0, 18);
+                                                setFormData({ ...formData, accountNumber: value });
+                                            }}
                                         />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -1310,11 +1372,16 @@ export default function ProviderRegisterPage() {
                                         <div className="space-y-2">
                                             <Label className="text-xs font-black uppercase text-gray-400">UPI ID (Optional)</Label>
                                             <Input
-                                                placeholder="username@upi"
+                                                placeholder="e.g., 9876543210@paytm, username@ybl"
                                                 className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
+                                                pattern="[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+"
+                                                title="Enter valid UPI ID (Google Pay, PhonePe, Paytm, BHIM supported)"
                                                 value={formData.upiId}
-                                                onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
+                                                onChange={(e) => setFormData({ ...formData, upiId: e.target.value.toLowerCase().trim() })}
                                             />
+                                            <p className="text-[10px] text-gray-500 font-medium">
+                                                Supported: Google Pay (@okaxis, @oksbi, @okicici), PhonePe (@ybl, @axl), Paytm (@paytm), BHIM (@upi, @bhim)
+                                            </p>
                                         </div>
                                     </div>
                                 </div>

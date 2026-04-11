@@ -1,16 +1,21 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mail, Phone, MessageSquare, MapPin, ExternalLink } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MessageSquare, MapPin, ExternalLink, Instagram, Facebook, Twitter } from "lucide-react";
 
 const ProviderContactUsPage = () => {
   const navigate = useNavigate();
+
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const contacts = [
     { icon: Phone, label: "Call Provider Support", value: "+91 999 000 0002", action: "tel:+919990000002" },
     { icon: Mail, label: "Email Support", value: "provider@swm.com", action: "mailto:provider@swm.com" },
     { icon: MessageSquare, label: "Live Chat", value: "Chat with support team", action: "/provider/support" },
-    { icon: MapPin, label: "Visit Our Hub", value: "Main Market, Sector 15, Gurgaon", action: "#" },
+    { icon: MapPin, label: "Visit Our Hub", value: "View all service zones on map", action: "/provider/all-zones" },
   ];
 
   return (
@@ -51,20 +56,49 @@ const ProviderContactUsPage = () => {
           </motion.div>
         ))}
 
-        <div className="mt-12 p-6 rounded-3xl bg-violet-50 border border-violet-100 text-center">
-          <h3 className="font-bold text-violet-600 mb-2">Connect on Social Media</h3>
-          <div className="flex justify-center gap-6 mt-4">
-            <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-violet-600 shadow-sm">
-                <span className="font-black text-xs">IG</span>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-violet-600 shadow-sm">
-                <span className="font-black text-xs">FB</span>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center text-violet-600 shadow-sm">
-                <span className="font-black text-xs">TW</span>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-12 p-8 rounded-3xl bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-100 text-center relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-violet-200/30 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-200/30 rounded-full blur-3xl"></div>
+          
+          <div className="relative z-10">
+            <h3 className="text-lg font-black text-violet-900 mb-2">Connect on Social Media</h3>
+            <p className="text-xs text-violet-600 mb-6 font-medium">Follow us for updates, tips & exclusive offers</p>
+            
+            <div className="flex justify-center gap-4">
+              <motion.button
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.open("https://instagram.com/stylingwithmuskan", "_blank")}
+                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
+              >
+                <Instagram className="w-6 h-6" />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.open("https://facebook.com/stylingwithmuskan", "_blank")}
+                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
+              >
+                <Facebook className="w-6 h-6" />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.open("https://twitter.com/stylingwmuskan", "_blank")}
+                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-400 flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all"
+              >
+                <Twitter className="w-6 h-6" />
+              </motion.button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

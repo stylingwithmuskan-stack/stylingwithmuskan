@@ -39,6 +39,11 @@ const ServiceDetail = () => {
     return checkAvailability(service, userCity, selectedDate, selectedSlot?.split(' ')[0]);
   }, [service, userCity, selectedDate, selectedSlot, checkAvailability]);
 
+  // Scroll to top when page loads
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
   const { realRating, realReviews } = useMemo(() => {
     if (!service) return { realRating: 0, realReviews: 0 };
     const allFeedback = JSON.parse(localStorage.getItem('muskan-feedback') || '[]');
@@ -95,8 +100,8 @@ const ServiceDetail = () => {
       price: service.price * qty,
     });
 
-    setAddedToCart(true);
-    setTimeout(() => setAddedToCart(false), 2000);
+    // Open cart modal directly instead of navigating
+    setIsCartOpen(true);
   };
 
   const handleBookingAction = () => {
@@ -153,7 +158,7 @@ const ServiceDetail = () => {
       <div className="px-4 md:px-8 lg:px-0 max-w-4xl mx-auto -mt-10 relative z-10">
         {/* ===== SERVICE INFO CARD ===== */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="glass-strong rounded-2xl p-4 md:p-6 shadow-elevated relative overflow-hidden"
         >
@@ -191,16 +196,6 @@ const ServiceDetail = () => {
 
           <p className="mt-4 text-sm text-muted-foreground leading-relaxed">{service.description}</p>
 
-          <div className="mt-3 flex justify-end">
-            <Button
-              onClick={handleBookingAction}
-              className="h-9 px-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm"
-            >
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              Add
-            </Button>
-          </div>
-
           {/* What's Included */}
           <div className="mt-4">
             <h3 className="font-semibold text-xs mb-2 flex items-center gap-2">
@@ -228,7 +223,7 @@ const ServiceDetail = () => {
         {/* ===== STEPS WE FOLLOW ===== */}
         {service.steps && service.steps.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="mt-4"
@@ -326,7 +321,7 @@ const ServiceDetail = () => {
         {/* ===== WORK GALLERY (Before/After) ===== */}
         {service.gallery && service.gallery.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
             className="mt-6"
@@ -381,7 +376,7 @@ const ServiceDetail = () => {
 
         {/* ===== QUANTITY & COST ===== */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
           className="mt-4 glass-strong rounded-2xl p-4 md:p-5"
@@ -443,7 +438,7 @@ const ServiceDetail = () => {
 
         {/* ===== CUSTOMER REVIEWS ===== */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18 }}
           className="mt-6 mb-12"
@@ -550,7 +545,7 @@ const ServiceDetail = () => {
             </motion.p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Conditional Button: Add to Cart or View Cart */}
+            {/* Add to Cart Button - Directly navigates to cart */}
             {!isAvailable ? (
               <Button
                 disabled
@@ -558,33 +553,13 @@ const ServiceDetail = () => {
               >
                 Currently Unavailable
               </Button>
-            ) : cartItems.some(item => item.id === service.id) ? (
-              <Button
-                onClick={() => setIsCartOpen(true)}
-                className="flex-1 h-12 gap-2 rounded-xl transition-all duration-300 font-bold bg-primary text-primary-foreground hover:opacity-90 glow-primary px-6 min-w-[140px]"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                View Cart
-              </Button>
             ) : (
               <Button
                 onClick={handleAddToCart}
-                className={`flex-1 h-12 gap-2 rounded-xl transition-all duration-300 font-bold ${addedToCart
-                  ? "bg-green-500 text-white hover:bg-green-600"
-                  : "bg-primary text-primary-foreground glow-primary px-6 min-w-[140px]"
-                  }`}
+                className="flex-1 h-12 gap-2 rounded-xl transition-all duration-300 font-bold bg-primary text-primary-foreground glow-primary px-6 min-w-[140px]"
               >
-                {addedToCart ? (
-                  <>
-                    <Check className="w-5 h-5" /> Added to Cart
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="w-5 h-5" />
-                    Add to Cart
-                  </>
-                )
-                }
+                <ShoppingCart className="w-5 h-5" />
+                Add to Cart
               </Button>
             )}
           </div>

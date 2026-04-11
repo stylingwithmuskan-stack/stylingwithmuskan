@@ -1,17 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { ChevronRight, Briefcase, RefreshCw, HelpCircle, MapPin, Search } from "lucide-react";
+import { ChevronRight, Briefcase, RefreshCw, HelpCircle, MapPin, Search, Loader2, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { useProviderAuth } from "../contexts/ProviderAuthContext";
 import { api } from "@/modules/user/lib/api";
-import LiveMap from "@/components/LiveMap";
+import { GoogleMap, LoadScript, Polygon, Marker, InfoWindow } from '@react-google-maps/api';
 
 export default function MyHub() {
     const navigate = useNavigate();
     const { provider } = useProviderAuth();
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [zoneData, setZoneData] = useState([]);
+    const [mapCenter, setMapCenter] = useState(null);
+    const [mapZoom, setMapZoom] = useState(12);
+    const [selectedZone, setSelectedZone] = useState(null);
+    const [providerMarkerPosition, setProviderMarkerPosition] = useState(null);
+    const [loadingZones, setLoadingZones] = useState(true);
+    const [zoneError, setZoneError] = useState(null);
 
+    // Fetch provider summary
     useEffect(() => {
         let cancelled = false;
         if (provider?.phone) {
@@ -31,25 +39,155 @@ export default function MyHub() {
         return () => { cancelled = true; };
     }, [provider?.phone]);
 
+    // Fetch zone coordinates and setup map
+    useEffect(() => {
+        const fetchZoneData = async () => {
+            if (!provider?.zones || provider.zones.length === 0 || !provider?.city) {
+                setLoadingZones(false);
+                return;
+            }
+
+            try {
+                setLoadingZones(true);
+                setZoneError(null);
+
+                // Fetch all zones for provider's city
+                const response = await api.content.zones({ cityName: provider.city });
+                const allZones = response.zones || [];
+
+                // Filter zones that provider is assigned to
+                const providerZones = allZones.filter(z => 
+                    provider.zones.includes(z.name) && 
+                    z.coordinates && 
+                    Array.isArray(z.coordinates) && 
+                    z.coordinates.length > 0
+                );
+
+                if (providerZones.length === 0) {
+                    setZoneError("No zone coordinates available");
+                    setLoadingZones(false);
+                    return;
+                }
+
+                // Calculate map center from all zone coordinates
+                const center = calculateMapCenter(providerZones);
+                
+                // Set provider marker position (use provider's location or zone center)
+                const providerLat = provider?.location?.lat || provider?.latitude;
+                const providerLng = provider?.location?.lng || provider?.longitude;
+                
+                if (providerLat && providerLng) {
+                    setProviderMarkerPosition({
+                        lat: parseFloat(providerLat),
+                        lng: parseFloat(providerLng)
+                    });
+                } else {
+                    // Use zone center as fallback
+                    setProviderMarkerPosition(center);
+                }
+
+                setZoneData(providerZones);
+                setMapCenter(center);
+                setLoadingZones(false);
+            } catch (err) {
+                console.error("Failed to load zone data:", err);
+                setZoneError("Failed to load zone data");
+                setLoadingZones(false);
+            }
+        };
+
+        fetchZoneData();
+    }, [provider?.zones, provider?.city, provider?.location?.lat, provider?.location?.lng, provider?.latitude, provider?.longitude]);
+
+    // Calculate map center from zone coordinates
+    const calculateMapCenter = (zones) => {
+        if (!zones || zones.length === 0) {
+            return { lat: 23.1765, lng: 75.7885 }; // Default fallback
+        }
+
+        // Collect all coordinates from all zones
+        const allCoords = zones.flatMap(z => z.coordinates || []);
+        
+        if (allCoords.length === 0) {
+            return { lat: 23.1765, lng: 75.7885 };
+        }
+
+        // Calculate average lat/lng
+        const avgLat = allCoords.reduce((sum, c) => sum + c.lat, 0) / allCoords.length;
+        const avgLng = allCoords.reduce((sum, c) => sum + c.lng, 0) / allCoords.length;
+
+        return { lat: avgLat, lng: avgLng };
+    };
+
+    // Handle polygon click to show zone info
+    const handlePolygonClick = (zone) => {
+        setSelectedZone(zone);
+    };
+
+    // Close info window
+    const handleInfoWindowClose = () => {
+        setSelectedZone(null);
+    };
+
     const providerCity = summary?.provider?.city || provider?.city || "Your City";
     const hubName = `${providerCity} Hub`;
-    
-    // Default location if provider location is not available
-    const providerLocation = (provider?.location?.lat || summary?.provider?.location?.lat || provider?.latitude || summary?.provider?.latitude) ? {
-        lat: parseFloat(provider?.location?.lat || summary?.provider?.location?.lat || provider?.latitude || summary?.provider?.latitude),
-        lng: parseFloat(provider?.location?.lng || summary?.provider?.location?.lng || provider?.longitude || summary?.provider?.longitude)
-    } : null;
+
+    // Map container style
+    const mapContainerStyle = {
+        width: '100%',
+        height: '100%'
+    };
+
+    // Map options
+    const mapOptions = {
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+        styles: [
+            {
+                featureType: "poi",
+                elementType: "labels",
+                stylers: [{ visibility: "off" }]
+            }
+        ]
+    };
+
+    // Polygon options for each zone
+    const getPolygonOptions = (zone) => ({
+        strokeColor: "#8B5CF6",
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        fillColor: "#8B5CF6",
+        fillOpacity: 0.2,
+        clickable: true,
+        draggable: false,
+        editable: false,
+    });
+
+    // Marker icon for provider location
+    const providerMarkerIcon = {
+        path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+        fillColor: "#8B5CF6",
+        fillOpacity: 1,
+        strokeColor: "#FFFFFF",
+        strokeWeight: 2,
+        scale: 1.5,
+    };
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50 -m-4 md:m-0">
-            {/* Custom Tab Header as per Image */}
-            <div className="bg-white pt-10 sticky top-0 z-10 shadow-sm">
+        <div className="flex flex-col min-h-screen bg-slate-50">
+            {/* Custom Tab Header */}
+            <div className="bg-white pt-6 md:pt-10 sticky top-0 z-10 shadow-sm">
                 <div className="px-6 flex items-center justify-between mb-4">
-                    <button onClick={() => navigate(-1)} className="p-1 hover:bg-slate-100 rounded-full transition-colors">
-                        <ChevronRight className="h-6 w-6 text-slate-900 rotate-180" />
+                    <button 
+                        onClick={() => navigate(-1)} 
+                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
                     </button>
                     <h1 className="text-lg font-black text-slate-900 tracking-tight">Current Zone</h1>
-                    <div className="w-8" /> {/* Spacer */}
+                    <div className="w-9" /> {/* Spacer */}
                 </div>
 
                 <div className="flex border-b border-slate-100">
@@ -63,33 +201,108 @@ export default function MyHub() {
             <div className="p-4">
                 <Card className="overflow-hidden rounded-3xl border-none shadow-xl bg-white ring-1 ring-slate-100">
                     <div className="relative aspect-[4/3] w-full bg-slate-100">
-                        {providerLocation ? (
-                            <LiveMap 
-                                providerLocation={providerLocation} 
-                                className="w-full h-full"
-                                height="100%" 
-                            />
-                        ) : (
+                        {loadingZones ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
+                                <Loader2 className="h-12 w-12 text-purple-600 mb-3 animate-spin" />
+                                <p className="text-sm font-bold text-slate-500">Loading zone map...</p>
+                            </div>
+                        ) : zoneError || !mapCenter || zoneData.length === 0 ? (
                             <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
                                 <MapPin className="h-12 w-12 text-slate-300 mb-3" />
-                                <p className="text-sm font-bold text-slate-500">Location not registered yet</p>
-                                <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Please update your profile</p>
+                                <p className="text-sm font-bold text-slate-500">
+                                    {zoneError || "No zones assigned yet"}
+                                </p>
+                                <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">
+                                    Please contact admin
+                                </p>
+                            </div>
+                        ) : (
+                            <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
+                                <GoogleMap
+                                    mapContainerStyle={mapContainerStyle}
+                                    center={mapCenter}
+                                    zoom={mapZoom}
+                                    options={mapOptions}
+                                >
+                                    {/* Render polygons for each zone */}
+                                    {zoneData.map((zone, index) => (
+                                        <Polygon
+                                            key={zone._id || index}
+                                            paths={zone.coordinates}
+                                            options={getPolygonOptions(zone)}
+                                            onClick={() => handlePolygonClick(zone)}
+                                        />
+                                    ))}
+
+                                    {/* Provider location marker */}
+                                    {providerMarkerPosition && (
+                                        <Marker
+                                            position={providerMarkerPosition}
+                                            icon={providerMarkerIcon}
+                                            title="Your Location"
+                                        />
+                                    )}
+
+                                    {/* Info window for selected zone */}
+                                    {selectedZone && selectedZone.coordinates && selectedZone.coordinates.length > 0 && (
+                                        <InfoWindow
+                                            position={selectedZone.coordinates[0]}
+                                            onCloseClick={handleInfoWindowClose}
+                                        >
+                                            <div className="p-2">
+                                                <h3 className="font-bold text-sm text-slate-900 mb-1">
+                                                    {selectedZone.name}
+                                                </h3>
+                                                <p className="text-xs text-slate-600">
+                                                    Status: <span className="font-semibold text-green-600">Active</span>
+                                                </p>
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    {providerCity}
+                                                </p>
+                                            </div>
+                                        </InfoWindow>
+                                    )}
+                                </GoogleMap>
+                            </LoadScript>
+                        )}
+                        
+                        {!loadingZones && !zoneError && zoneData.length > 0 && (
+                            <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-slate-100 flex items-center gap-2 z-10">
+                                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                                <span className="text-[10px] font-black tracking-widest uppercase text-slate-700">
+                                    Live Zone Active
+                                </span>
                             </div>
                         )}
-                        <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-slate-100 flex items-center gap-2 z-10">
-                            <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
-                            <span className="text-[10px] font-black tracking-widest uppercase text-slate-700">Live Zone Active</span>
-                        </div>
                     </div>
 
                     <CardContent className="p-6 space-y-6 bg-white">
+                        {/* Zone List */}
+                        {zoneData.length > 0 && (
+                            <div className="mb-4">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                                    Your Assigned Zones ({zoneData.length})
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {zoneData.map((zone, index) => (
+                                        <div
+                                            key={zone._id || index}
+                                            className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-bold border border-purple-100"
+                                        >
+                                            {zone.name}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex items-start gap-4 group">
                             <div className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-100 shadow-sm group-hover:scale-110 transition-transform">
                                 <Briefcase className="h-5 w-5" />
                             </div>
                             <div className="flex-1">
                                 <p className="text-[15px] font-bold text-slate-900 leading-snug">
-                                    <span className="text-xl font-black mr-1">{summary?.metrics?.jobsLast30Days || 0}</span> jobs delivered within hub in last 30 days
+                                    <span className="text-xl font-black mr-1">{summary?.hub?.jobs30d || 0}</span> jobs delivered within hub in last 30 days
                                 </p>
                                 <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Performance Metric</p>
                             </div>
@@ -101,7 +314,7 @@ export default function MyHub() {
                             </div>
                             <div className="flex-1">
                                 <p className="text-[15px] font-bold text-slate-900 leading-snug">
-                                    <span className="text-xl font-black mr-1 text-purple-600">{summary?.metrics?.repeatCustomers || 0} of {summary?.metrics?.jobsLast30Days || 0}</span> jobs were of repeat customers
+                                    <span className="text-xl font-black mr-1 text-purple-600">{summary?.hub?.repeatCustomers || 0} of {summary?.hub?.jobs30d || 0}</span> jobs were of repeat customers
                                 </p>
                                 <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Loyalty Score</p>
                             </div>

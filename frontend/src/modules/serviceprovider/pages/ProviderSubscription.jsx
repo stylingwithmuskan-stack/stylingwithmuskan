@@ -1,19 +1,72 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Sparkles, Zap, CheckCircle2, Crown, BadgeCheck, AlertCircle, TrendingUp, Clock, CreditCard } from "lucide-react";
+import { Shield, Sparkles, Zap, CheckCircle2, Crown, BadgeCheck, AlertCircle, TrendingUp, Clock, CreditCard, Package, Frown } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { api } from "@/modules/user/lib/api";
 
 export default function ProviderSubscription() {
     const { provider, upgradeToPro } = useProviderAuth();
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [showComparison, setShowComparison] = useState(false);
+    const [plans, setPlans] = useState([]);
+    const [loadingPlans, setLoadingPlans] = useState(true);
+
+    // DEBUG: Verify component is loading
+    console.log('🔥 [ProviderSubscription] Component mounted/rendered');
+    console.log('🔥 [ProviderSubscription] Initial state - plans:', plans, 'loadingPlans:', loadingPlans);
+
+    // Scroll to top on mount
+    useEffect(() => {
+        console.log('🔥 [ProviderSubscription] Scroll effect running');
+        window.scrollTo(0, 0);
+    }, []);
+
+    // Fetch subscription plans on mount
+    useEffect(() => {
+        console.log('🔥 [ProviderSubscription] Fetch effect triggered');
+        
+        const fetchPlans = async () => {
+            try {
+                setLoadingPlans(true);
+                console.log('🔥 [ProviderSubscription] Starting API call...');
+                console.log('🔥 [ProviderSubscription] Calling: api.subscriptions.getPlans("provider")');
+                
+                const response = await api.subscriptions.getPlans('provider');
+                
+                console.log('🔥 [ProviderSubscription] API Response received:', response);
+                console.log('🔥 [ProviderSubscription] Plans array:', response?.plans);
+                console.log('🔥 [ProviderSubscription] Plans length:', response?.plans?.length);
+                
+                const fetchedPlans = response?.plans || [];
+                setPlans(fetchedPlans);
+                console.log('🔥 [ProviderSubscription] State updated with plans:', fetchedPlans);
+            } catch (error) {
+                console.error('🔥 [ProviderSubscription] ERROR fetching plans:', error);
+                console.error('🔥 [ProviderSubscription] Error details:', error.message, error.status);
+                setPlans([]);
+            } finally {
+                setLoadingPlans(false);
+                console.log('🔥 [ProviderSubscription] Loading complete, loadingPlans set to false');
+            }
+        };
+
+        fetchPlans();
+    }, []);
 
     const isPro = provider?.isPro;
     const daysLeft = isPro && provider?.proExpiry ? Math.ceil((new Date(provider.proExpiry) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
+
+    // Debug logging
+    console.log('🔥 [ProviderSubscription] Render state check:');
+    console.log('🔥   - loadingPlans:', loadingPlans);
+    console.log('🔥   - plans:', plans);
+    console.log('🔥   - plans.length:', plans.length);
+    console.log('🔥   - Should show empty state:', !loadingPlans && plans.length === 0);
+    console.log('🔥   - Should show benefits:', !loadingPlans && plans.length > 0);
 
     const benefits = [
         { icon: TrendingUp, title: "5% Commission Rate", desc: "Keep more of your earnings. Standard providers pay 15-20%, you pay only 5%.", color: "bg-emerald-50 text-emerald-600" },
@@ -100,7 +153,113 @@ export default function ProviderSubscription() {
                 </div>
             )}
 
-            <div className="px-4 md:px-0 grid md:grid-cols-2 gap-4 mb-4">
+            {/* Loading State */}
+            {loadingPlans && (
+                <div className="flex flex-col items-center justify-center py-20 px-4">
+                    <div className="w-16 h-16 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin mb-4"></div>
+                    <p className="text-sm font-bold text-muted-foreground">Loading subscription plans...</p>
+                </div>
+            )}
+
+            {/* Empty State - No Plans Available */}
+            {!loadingPlans && plans.length === 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col items-center justify-center py-16 px-4 mx-4 md:mx-0"
+                >
+                    <div className="relative mb-8">
+                        <motion.div
+                            animate={{ 
+                                rotate: [0, -10, 10, -10, 0],
+                                scale: [1, 1.05, 1]
+                            }}
+                            transition={{ 
+                                duration: 2,
+                                repeat: Infinity,
+                                repeatDelay: 1
+                            }}
+                            className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl flex items-center justify-center shadow-lg"
+                        >
+                            <Package className="w-12 h-12 text-slate-400" />
+                        </motion.div>
+                        <motion.div
+                            animate={{ 
+                                scale: [1, 1.2, 1],
+                                opacity: [0.5, 0.8, 0.5]
+                            }}
+                            transition={{ 
+                                duration: 2,
+                                repeat: Infinity
+                            }}
+                            className="absolute -top-2 -right-2 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center"
+                        >
+                            <Frown className="w-5 h-5 text-amber-600" />
+                        </motion.div>
+                    </div>
+
+                    <h3 className="text-2xl font-black text-foreground mb-3 text-center">
+                        No Plans Available Yet
+                    </h3>
+                    
+                    <p className="text-sm text-muted-foreground text-center max-w-md mb-6 leading-relaxed">
+                        We sincerely apologize! Our subscription plans are currently being set up by the admin team. 
+                        Please check back soon for exciting Pro Partner benefits.
+                    </p>
+
+                    <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 max-w-md w-full">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                                <AlertCircle className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-amber-900 text-sm mb-1">What's Coming?</h4>
+                                <ul className="text-xs text-amber-800 space-y-1 font-medium">
+                                    <li className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                                        Lower commission rates
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                                        Priority job leads
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                                        Premium training access
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                                        Exclusive Pro badge
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                        <Button
+                            onClick={() => navigate(-1)}
+                            variant="outline"
+                            className="px-6 py-3 rounded-xl font-bold"
+                        >
+                            Go Back
+                        </Button>
+                        <Button
+                            onClick={() => window.location.reload()}
+                            className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold gap-2"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Refresh Page
+                        </Button>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Show benefits only when plans are available */}
+            {!loadingPlans && plans.length > 0 && (
+                <div className="px-4 md:px-0 grid md:grid-cols-2 gap-4 mb-4">
                 {benefits.map((benefit, i) => (
                     <motion.div
                         key={i}
@@ -119,7 +278,11 @@ export default function ProviderSubscription() {
                     </motion.div>
                 ))}
             </div>
+            )}
 
+            {/* Comparison and other sections - only show when plans available */}
+            {!loadingPlans && plans.length > 0 && (
+                <>
             <div className="px-4 md:px-0 mb-6">
                 <button
                     onClick={() => setShowComparison(!showComparison)}
@@ -174,7 +337,10 @@ export default function ProviderSubscription() {
                 </div>
             )}
 
-            {!isPro ? (
+            </>
+            )}
+
+            {!isPro && !loadingPlans && plans.length > 0 ? (
                 <div className="mx-4 md:mx-0 sticky bottom-4 z-10 bg-card p-4 rounded-3xl border border-border shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="text-center sm:text-left w-full sm:w-auto">
                         <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Monthly Subscription</p>

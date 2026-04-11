@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Bell, MapPin, ChevronDown, Home, Compass, Calendar, User, Heart, MessageSquare } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Search, Bell, MapPin, ChevronDown, Home, Compass, Calendar, User, Heart, HelpCircle } from "lucide-react";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useCart } from "@/modules/user/contexts/CartContext";
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
@@ -10,6 +10,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/modules/user/lib/api";
 import { motion } from "framer-motion";
 import NotificationDropdown from "./NotificationDropdown";
+import SearchDropdown from "./SearchDropdown";
+import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 
 const desktopNavItems = [
   { icon: Home, label: "Home", path: "/home" },
@@ -24,17 +26,62 @@ const Header = () => {
   const { unreadCount } = useNotifications();
   const { totalItems } = useCart();
   const { wishlistCount } = useWishlist();
+  const { services, checkAvailability } = useUserModuleData();
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const searchRef = useRef(null);
+
+  const userCity = user?.address?.city || null;
+
+  // Filter services based on search query
+  const filteredServices = useMemo(() => {
+    if (searchQuery.trim().length < 2) return [];
+    
+    return services.filter(s => {
+      const matchesGender = s.gender === gender;
+      const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           s.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const isAvailable = checkAvailability(s, userCity);
+      
+      return matchesGender && matchesSearch && isAvailable;
+    }).sort((a, b) => b.rating - a.rating); // Sort by rating
+  }, [searchQuery, services, gender, userCity, checkAvailability]);
+
+  // Show dropdown when user types (min 2 characters)
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      setIsSearchDropdownOpen(true);
+    } else {
+      setIsSearchDropdownOpen(false);
+    }
+  }, [searchQuery]);
+
+  // Click outside handler
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsSearchDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       // Navigate to explore page with the search query
       navigate(`/explore/facial?q=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchDropdownOpen(false);
     }
+  };
+
+  const handleSearchInputChange = (e) => {
+    setSearchQuery(e.target.value);
   };
 
   return (<header className="sticky top-0 z-30 glass-strong border-b border-border">
@@ -42,7 +89,12 @@ const Header = () => {
       {/* Top Row: Address + Desktop Nav + Notification */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 sm:gap-4">
-          <img src="/logo1.png" alt="Muskan" className="h-12 w-12 sm:h-14 sm:w-14 rounded-full object-cover border-2 border-primary/20 shadow-md transition-transform hover:scale-105" />
+          <img 
+            src="/logo1.png" 
+            alt="Muskan" 
+            onClick={() => window.location.reload()}
+            className="h-12 w-12 sm:h-14 sm:w-14 rounded-full object-cover border-2 border-primary/20 shadow-md transition-transform hover:scale-105 cursor-pointer" 
+          />
           <div className="h-6 w-px bg-border hidden sm:block"></div>
           <button
             onClick={() => setIsAddressModalOpen(true)}
@@ -118,27 +170,37 @@ const Header = () => {
             onClick={() => navigate("/support")}
             className="w-9 h-9 rounded-full bg-accent flex items-center justify-center relative hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
           >
-            <MessageSquare className="w-4 h-4" />
+            <HelpCircle className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Search Bar */}
-      <motion.form
-        onSubmit={handleSearch}
+      <motion.div
+        ref={searchRef}
         initial={{ opacity: 0, y: -5 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative"
       >
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={gender === "women" ? "Search facials, makeup, waxing..." : "Search haircut, grooming, beard..."}
-          className="w-full h-10 pl-10 pr-4 rounded-lg bg-white border border-border/50 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all font-medium"
+        <form onSubmit={handleSearch}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={handleSearchInputChange}
+            placeholder={gender === "women" ? "Search facials, makeup, waxing..." : "Search haircut, grooming, beard..."}
+            className="w-full h-10 pl-10 pr-4 rounded-lg bg-white border border-border/50 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all font-medium"
+          />
+        </form>
+        
+        {/* Search Dropdown */}
+        <SearchDropdown
+          isOpen={isSearchDropdownOpen}
+          services={filteredServices}
+          searchQuery={searchQuery}
+          onClose={() => setIsSearchDropdownOpen(false)}
         />
-      </motion.form>
+      </motion.div>
     </div>
 
     {/* Address Modal */}

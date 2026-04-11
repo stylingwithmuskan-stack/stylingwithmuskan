@@ -18,6 +18,7 @@ import bookingsRoutes from "./modules/bookings/routes/index.js";
 import paymentsRoutes from "./routes/payments.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import subscriptionRoutes from "./modules/subscriptions/routes/subscription.routes.js";
+// import supportRoutes from "./routes/support.routes.js"; // Temporarily disabled - file not created yet
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";

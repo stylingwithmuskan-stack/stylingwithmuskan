@@ -19,6 +19,7 @@ import LoginModal from "@/modules/user/components/salon/LoginModal";
 import SplashScreen from "@/modules/user/pages/SplashScreen";
 import GenderSelect from "@/modules/user/pages/GenderSelect";
 import HomePage from "@/modules/user/pages/HomePage";
+import ReelsPage from "@/modules/user/pages/ReelsPage";
 import ExplorePage from "@/modules/user/pages/ExplorePage";
 import BookingsPage from "@/modules/user/pages/BookingsPage";
 import ServiceDetail from "@/modules/user/pages/ServiceDetail";
@@ -64,6 +65,7 @@ import SWMSupport from "@/modules/serviceprovider/pages/SWMSupport";
 import SOSPage from "@/modules/serviceprovider/pages/SOSPage";
 import TicketRaise from "@/modules/serviceprovider/pages/TicketRaise";
 import MyHub from "@/modules/serviceprovider/pages/MyHub";
+import AllZonesMapPage from "@/modules/serviceprovider/pages/AllZonesMapPage";
 import SWMShop from "@/modules/serviceprovider/pages/SWMShop";
 import { ProviderBookingProvider } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { ProviderAuthProvider, ProviderAuthContext } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
@@ -208,6 +210,7 @@ const App = () => {
                                 <Route path="/" element={<SplashScreen />} />
                                 <Route path="/select-gender" element={<GenderSelect />} />
                                 <Route path="/home" element={<HomePage />} />
+                                <Route path="/reels" element={<ReelsPage />} />
                                 <Route path="/register" element={<UserRegisterPage />} />
                                 <Route path="/login" element={<UserLoginPage />} />
                                 <Route path="/explore" element={<ExplorePage />} />
@@ -265,6 +268,7 @@ const App = () => {
                                   <Route path="sos" element={<SOSPage />} />
                                   <Route path="tickets" element={<TicketRaise />} />
                                   <Route path="hub" element={<MyHub />} />
+                                  <Route path="all-zones" element={<AllZonesMapPage />} />
                                   <Route path="shop" element={<SWMShop />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
                                   <Route path="activity" element={<ProviderActivityPage />} />

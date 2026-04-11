@@ -5,7 +5,7 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useBookings } from "@/modules/user/contexts/BookingContext";
 import { toast } from "sonner";
 import {
-    ArrowLeft, Calendar, Clock, ChevronRight,
+    Calendar, Clock, ChevronRight,
     MapPin, ShoppingBag, Star, RefreshCcw,
     MessageSquare, Phone, Zap, Sparkles, Users, LayoutGrid, IndianRupee, Percent, CheckCircle2
 } from "lucide-react";
@@ -189,9 +189,6 @@ const BookingsPage = () => {
         <div className="min-h-screen bg-background pb-24 lg:pb-8">
             {/* Header */}
             <div className="sticky top-0 z-30 glass-strong border-b border-border px-4 py-3 flex items-center gap-3">
-                <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
-                    <ArrowLeft className="w-4 h-4" />
-                </button>
                 <h1 className={`text-lg font-semibold ${gender === "women" ? "font-display" : "font-heading-men"}`}>My Bookings</h1>
             </div>
 

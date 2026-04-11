@@ -8,7 +8,8 @@ import {
   User,
   Settings,
   Bell,
-  CalendarRange
+  CalendarRange,
+  ShieldAlert
 } from "lucide-react";
 import { cn } from "@/modules/user/lib/utils";
 import { useProviderAuth } from "../contexts/ProviderAuthContext";
@@ -23,6 +24,9 @@ const ProviderLayout = () => {
   const location = useLocation();
   const { unreadCount } = useNotifications();
   const [isNotifOpen, setIsNotifOpen] = React.useState(false);
+
+  // Check if current page is Profile page to remove padding
+  const isProfilePage = location.pathname === '/provider/profile';
 
   const navLinks = [
     { name: "Dashboard", path: "/provider/dashboard", icon: LayoutDashboard },
@@ -118,7 +122,7 @@ const ProviderLayout = () => {
               className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
               title="Emergency SOS"
             >
-              <Bell className="h-5 w-5 animate-pulse" />
+              <ShieldAlert className="h-5 w-5 animate-pulse" />
             </button>
             <Link to="/provider/credits" className="p-2 bg-purple-50 text-purple-600 rounded-full hover:bg-purple-100 transition-colors">
               <Wallet className="h-5 w-5" />
@@ -140,7 +144,7 @@ const ProviderLayout = () => {
           </div>
         </header>
 
-        <main className="flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8 md:p-8 pb-20 md:pb-8">
+        <main className={`flex-1 items-start ${isProfilePage ? '' : 'p-4 sm:px-6 md:p-8'} pb-20 md:pb-8`}>
           <div className="mx-auto w-full max-w-6xl">
             <Outlet />
           </div>

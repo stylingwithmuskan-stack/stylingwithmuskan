@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, Mail, Phone, MessageSquare, 
   MapPin, ExternalLink, Send, CheckCircle2, 
-  Building2, User, Landmark, Globe
+  Building2, User, Landmark, Globe, Instagram, Facebook, Twitter, Linkedin
 } from "lucide-react";
 
 const VenderContactUsPage = () => {
@@ -18,6 +18,10 @@ const VenderContactUsPage = () => {
     businessType: "Salon",
     message: ""
   });
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const contacts = [
     { icon: Phone, label: "Call Vendor Support", value: "+91 999 000 0003", action: "tel:+919990000003", color: "bg-emerald-100 text-emerald-600" },
@@ -245,22 +249,57 @@ const VenderContactUsPage = () => {
             ))}
 
             {/* Social Connect */}
-            <div className="mt-8 bg-slate-900 rounded-[2.5rem] p-8 text-white">
-              <h4 className="font-bold mb-4 flex items-center gap-2">
-                <Globe className="w-4 h-4 text-emerald-400" />
-                Join our community
-              </h4>
-              <p className="text-slate-400 text-xs mb-6 leading-relaxed">
-                Stay updated with the latest trends and business tips for beauty professionals.
-              </p>
-              <div className="flex gap-4">
-                {["Instagram", "LinkedIn", "Twitter"].map((social) => (
-                  <button key={social} className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-wider transition-colors">
-                    {social.slice(0, 2)}
-                  </button>
-                ))}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="mt-8 bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/20 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 w-40 h-40 bg-teal-500/20 rounded-full blur-3xl"></div>
+              
+              <div className="relative z-10">
+                <h4 className="text-lg font-black mb-2 flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-emerald-400" />
+                  Join Our Community
+                </h4>
+                <p className="text-slate-300 text-xs mb-6 leading-relaxed">
+                  Stay updated with the latest trends and business tips for beauty professionals.
+                </p>
+                
+                <div className="flex gap-3">
+                  <motion.button
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => window.open("https://instagram.com/stylingwithmuskan", "_blank")}
+                    className="flex-1 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 hover:shadow-lg hover:shadow-pink-500/30 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Instagram className="w-5 h-5" />
+                    <span className="text-xs font-bold">Instagram</span>
+                  </motion.button>
+                  
+                  <motion.button
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => window.open("https://linkedin.com/company/stylingwithmuskan", "_blank")}
+                    className="flex-1 bg-gradient-to-br from-blue-600 to-blue-700 hover:shadow-lg hover:shadow-blue-500/30 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Linkedin className="w-5 h-5" />
+                    <span className="text-xs font-bold">LinkedIn</span>
+                  </motion.button>
+                  
+                  <motion.button
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => window.open("https://twitter.com/stylingwmuskan", "_blank")}
+                    className="flex-1 bg-gradient-to-br from-sky-500 to-blue-400 hover:shadow-lg hover:shadow-sky-500/30 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Twitter className="w-5 h-5" />
+                    <span className="text-xs font-bold">Twitter</span>
+                  </motion.button>
+                </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>

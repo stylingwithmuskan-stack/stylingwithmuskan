@@ -9,7 +9,6 @@ import {
     GraduationCap,
     UserPlus,
     ShoppingBag,
-    ChevronRight,
     Star,
     LogOut,
     LifeBuoy,
@@ -213,23 +212,24 @@ export default function ProviderProfile() {
     };
 
     return (
-        <div className="flex flex-1 w-full flex-col bg-white -m-4 md:m-0 min-h-screen">
+        <div className="flex flex-1 w-full flex-col bg-white min-h-screen">
             {/* Top Header Section */}
-            <div className="p-6 pt-10 flex justify-between items-start border-b border-gray-100">
-                <div className="space-y-4">
-                    <div className="space-y-1">
-                        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">{name}</h1>
-                        <div className="flex items-center gap-1 text-sm font-bold text-gray-600">
-                            <Star className="h-4 w-4 fill-gray-600" />
+            <div className="py-2 border-b border-gray-100">
+                <div className="px-6 flex justify-between items-center">
+                <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-base font-bold tracking-tight text-gray-900">{name}</h1>
+                        <div className="flex items-center gap-1 text-xs font-bold text-gray-600">
+                            <Star className="h-3 w-3 fill-gray-600" />
                             <span>{(summary?.provider?.rating ?? safeProvider.rating ?? 0).toFixed ? (summary?.provider?.rating ?? safeProvider.rating ?? 0).toFixed(2) : summary?.provider?.rating ?? safeProvider.rating ?? 0}</span>
                         </div>
                     </div>
 
-                    <div className="flex gap-6 pt-2">
+                    <div className="mt-0.5">
                         {/* Profile Details Dialog */}
                         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                             <DialogTrigger asChild>
-                                <button className="text-sm font-bold border-b-2 border-black pb-0.5">Profile Details</button>
+                                <button className="text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors">Profile Details</button>
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden rounded-2xl border-none">
                                 <DialogHeader className="p-6 bg-slate-900 text-white">
@@ -319,20 +319,22 @@ export default function ProviderProfile() {
                     </div>
                 </div>
 
-                <div className="relative group">
-                    <Avatar className="h-28 w-24 rounded-2xl border-2 border-gray-100 shadow-sm overflow-hidden relative">
+                <div className="relative group shrink-0">
+                    <Avatar className="h-11 w-11 rounded-full border-2 border-violet-100 shadow-sm overflow-hidden relative">
                         <AvatarImage
-                            src={profileImage || "https://via.placeholder.com/200x240"}
+                            src={profileImage || "https://via.placeholder.com/200"}
                             className="object-cover"
-                            onError={(e) => { e.currentTarget.src = "https://via.placeholder.com/200x240"; }}
+                            onError={(e) => { e.currentTarget.src = "https://via.placeholder.com/200"; }}
                         />
-                        <AvatarFallback className="rounded-2xl">{name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                        <AvatarFallback className="rounded-full bg-violet-100 text-violet-700 font-bold text-sm">{name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                     </Avatar>
+                </div>
                 </div>
             </div>
 
             {/* Hub Zones Management */}
-            <div className="px-6 py-6 border-b border-gray-100 bg-violet-50/30">
+            <div className="py-6 border-b border-gray-100 bg-violet-50/30">
+                <div className="px-6">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <MapPin className="h-5 w-5 text-violet-600" />
@@ -377,6 +379,7 @@ export default function ProviderProfile() {
                         </div>
                     </div>
                 )}
+                </div>
             </div>
 
             {/* Menu Options List */}
@@ -403,7 +406,6 @@ export default function ProviderProfile() {
                                         <span className="text-[17px] font-semibold tracking-tight text-gray-800">{item.label}</span>
                                     </div>
                                 </div>
-                                <ChevronRight className="h-5 w-5 text-gray-400" />
                             </Link>
                         );
                     }
@@ -420,7 +422,6 @@ export default function ProviderProfile() {
                                     {item.version && <span className="text-[11px] font-bold text-gray-400 -mt-1">{item.version}</span>}
                                 </div>
                             </div>
-                            <ChevronRight className="h-5 w-5 text-gray-400" />
                         </Link>
                     );
                 })}
@@ -436,7 +437,6 @@ export default function ProviderProfile() {
                         </div>
                         <span className="text-[17px] font-bold text-red-600 tracking-tight">Logout</span>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-red-400" />
                 </button>
 
                 {/* Delete Account Button */}
@@ -450,7 +450,6 @@ export default function ProviderProfile() {
                         </div>
                         <span className="text-[17px] font-bold text-red-600 tracking-tight">Delete Account</span>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-red-400" />
                 </button>
             </div>
 

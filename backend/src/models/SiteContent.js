@@ -12,6 +12,8 @@ const SpotlightSchema = new mongoose.Schema(
     startAt: { type: Date, default: null },
     endAt: { type: Date, default: null },
     isActive: { type: Boolean, default: true },
+    likes: { type: Number, default: 0 },
+    likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );

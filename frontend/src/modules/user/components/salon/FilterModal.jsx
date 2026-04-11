@@ -5,39 +5,18 @@ import { Button } from "@/modules/user/components/ui/button";
 
 const FilterModal = ({ isOpen, onClose, onApply, currentFilters }) => {
     const [tempFilters, setTempFilters] = useState({
-        concern: null,
-        skinType: null,
-        other: null,
         priceRange: null
     });
 
     useEffect(() => {
         if (isOpen) {
             setTempFilters({
-                concern: currentFilters.concern || null,
-                skinType: currentFilters.skinType || null,
-                other: currentFilters.other || null,
                 priceRange: currentFilters.priceRange || null
             });
         }
     }, [isOpen, currentFilters]);
 
     const sections = [
-        {
-            id: "concern",
-            title: "Concerns",
-            options: ["Dullness", "Dark Spots/ Pigmentation", "Tanning", "Uneven Skin Tone", "Dryness", "Anti-Ageing"]
-        },
-        {
-            id: "skinType",
-            title: "Skin Type",
-            options: ["Normal Skin", "Dry Skin", "Normal To Dry Skin", "Oily Skin", "All Skin Types"]
-        },
-        {
-            id: "other",
-            title: "Others",
-            options: ["Korean", "Special Occassion", "Ayurvedic", "Regular Facials", "Premium Facials", "Bridal Facial", "Hydra Facial"]
-        },
         {
             id: "priceRange",
             title: "Price Range",
@@ -54,9 +33,6 @@ const FilterModal = ({ isOpen, onClose, onApply, currentFilters }) => {
 
     const handleClear = () => {
         setTempFilters({
-            concern: null,
-            skinType: null,
-            other: null,
             priceRange: null
         });
     };
@@ -98,8 +74,8 @@ const FilterModal = ({ isOpen, onClose, onApply, currentFilters }) => {
 
                     {/* Header */}
                     <div className="px-6 py-6 border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-10">
-                        <h2 className="text-2xl font-bold tracking-tight">Select Your Preferences</h2>
-                        <p className="text-xs text-muted-foreground mt-1">You can select multiple filters as per your need</p>
+                        <h2 className="text-2xl font-bold tracking-tight">Filter by Price</h2>
+                        <p className="text-xs text-muted-foreground mt-1">Select your preferred price range</p>
                     </div>
 
                     {/* Content */}

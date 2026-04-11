@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Sparkles, User, ShieldCheck, Heart } from "lucide-react";
@@ -7,6 +7,10 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 const AboutUsPage = () => {
   const navigate = useNavigate();
   const { gender } = useGenderTheme();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const values = [
     { title: "Quality Service", icon: Sparkles, content: "We partner with top professionals to ensure you receive premium beauty and wellness services at home." },

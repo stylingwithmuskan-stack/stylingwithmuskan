@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Card,
     CardContent,
@@ -11,7 +12,7 @@ import { Badge } from "@/modules/user/components/ui/badge";
 import { Button } from "@/modules/user/components/ui/button";
 import { 
     AlertCircle, Star, XCircle, Clock, ShieldCheck, PauseCircle, 
-    Briefcase, DownloadIcon, MoreVerticalIcon, AwardIcon, TrendingUp, TrendingDown, Zap 
+    Briefcase, DownloadIcon, MoreVerticalIcon, AwardIcon, TrendingUp, TrendingDown, Zap, ArrowLeft 
 } from "lucide-react";
 import { 
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -22,6 +23,7 @@ import { api } from "@/modules/user/lib/api";
 import { motion } from "framer-motion";
 
 export default function PerformanceDashboard() {
+    const navigate = useNavigate();
     const { provider } = useProviderAuth();
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -68,9 +70,17 @@ export default function PerformanceDashboard() {
 
     return (
         <div className="flex flex-1 w-full flex-col gap-6 pt-4 md:pt-0">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">Performance & Compliance</h1>
-                <p className="text-muted-foreground">Track your metrics and ensure adherence to UC standards.</p>
+            <div className="flex items-center gap-3">
+                <button 
+                    onClick={() => navigate(-1)} 
+                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Performance & Compliance</h1>
+                    <p className="text-muted-foreground">Track your metrics and ensure adherence to UC standards.</p>
+                </div>
             </div>
 
             {isPaused && (

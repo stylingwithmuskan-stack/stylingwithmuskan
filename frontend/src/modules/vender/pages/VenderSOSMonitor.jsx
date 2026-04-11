@@ -25,9 +25,17 @@ export default function VenderSOSMonitor() {
     const activeAlerts = alerts.filter(a => a.status !== "resolved");
     const resolvedAlerts = alerts.filter(a => a.status === "resolved");
 
-    const handleResolve = (id) => {
-        resolveSOSAlert(id);
-        load();
+    const handleResolve = async (id) => {
+        if (!id) {
+            console.error('Cannot resolve: Alert ID is undefined');
+            return;
+        }
+        try {
+            await resolveSOSAlert(id);
+            await load();
+        } catch (error) {
+            console.error('Failed to resolve alert:', error);
+        }
     };
 
     return (
@@ -50,8 +58,8 @@ export default function VenderSOSMonitor() {
                     <h2 className="text-sm font-black text-red-600 uppercase tracking-widest flex items-center gap-2">
                         <span className="h-2 w-2 bg-red-500 rounded-full animate-pulse" /> Active Alerts ({activeAlerts.length})
                     </h2>
-                    {activeAlerts.map((alert) => (
-                        <motion.div key={alert.id} variants={item}>
+                    {activeAlerts.map((alert, index) => (
+                        <motion.div key={alert.id || alert._id || `alert-${index}`} variants={item}>
                             <Card className="shadow-sm border-red-200 bg-red-50/30">
                                 <CardContent className="p-4 md:p-5">
                                     <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -70,6 +78,7 @@ export default function VenderSOSMonitor() {
                                                 <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {alert.phone || "N/A"}</span>
                                                 <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {alert.location || "Location shared"}</span>
                                                 <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {alert.time || "Just now"}</span>
+                                                {(alert._id || alert.id) && <span className="text-[9px] opacity-50">ID: {alert._id || alert.id}</span>}
                                             </div>
                                         </div>
                                         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
@@ -79,7 +88,7 @@ export default function VenderSOSMonitor() {
                                             <Button className="h-10 bg-red-600 hover:bg-red-700 rounded-xl font-bold gap-2">
                                                 <Phone className="h-4 w-4" /> Call Now
                                             </Button>
-                                            <Button variant="outline" className="h-10 rounded-xl font-bold gap-2 bg-white hover:bg-green-50 hover:text-green-600 hover:border-green-200" onClick={() => handleResolve(alert.id)}>
+                                            <Button variant="outline" className="h-10 rounded-xl font-bold gap-2 bg-white hover:bg-green-50 hover:text-green-600 hover:border-green-200" onClick={() => handleResolve(alert._id || alert.id)} disabled={!alert._id && !alert.id}>
                                                 <CheckCircle className="h-4 w-4" /> Resolve
                                             </Button>
                                         </div>
@@ -111,8 +120,8 @@ export default function VenderSOSMonitor() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-2">
-                                {resolvedAlerts.map((alert) => (
-                                    <div key={alert.id} className="flex items-center justify-between py-2.5 border-b border-border/30 last:border-0">
+                                {resolvedAlerts.map((alert, index) => (
+                                    <div key={alert.id || alert._id || `resolved-${index}`} className="flex items-center justify-between py-2.5 border-b border-border/30 last:border-0">
                                         <div className="flex items-center gap-3">
                                             <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
                                                 <CheckCircle className="h-4 w-4 text-green-600" />

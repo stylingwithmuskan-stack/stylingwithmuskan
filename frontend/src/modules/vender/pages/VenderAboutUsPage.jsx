@@ -1,10 +1,14 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Sparkles, ShieldCheck, Heart, Building2 } from "lucide-react";
 
 const VenderAboutUsPage = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const values = [
     { title: "Business Growth", icon: Building2, content: "Manage your city operations efficiently and grow your beauty service business with our comprehensive vendor management platform." },

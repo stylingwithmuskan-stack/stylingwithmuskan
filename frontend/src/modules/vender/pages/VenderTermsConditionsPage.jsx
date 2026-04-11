@@ -1,10 +1,14 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, FileText, Scale, Info, CheckCircle2 } from "lucide-react";
 
 const VenderTermsConditionsPage = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const terms = [
     { title: "Vendor Agreement", icon: Info, content: "As a city vendor, you agree to manage service providers in your assigned zones and ensure quality service delivery to customers." },

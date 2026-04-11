@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const BannerSlider = () => {
   const { gender } = useGenderTheme();
-  const { banners } = useUserModuleData();
+  const { banners, services } = useUserModuleData();
+  const navigate = useNavigate();
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
@@ -49,6 +51,33 @@ const BannerSlider = () => {
   useEffect(() => {
     setCurrent(0);
   }, [gender]);
+
+  // Handle banner click navigation
+  const handleBannerClick = (banner) => {
+    if (!banner) return;
+
+    // Priority 1: Service Name - Find service by name and navigate to its detail page
+    if (banner.serviceName) {
+      const service = services.find(s => s.name === banner.serviceName);
+      if (service) {
+        navigate(`/service/${service.id}`);
+        return;
+      }
+    }
+
+    // Priority 2: Custom Link
+    if (banner.linkTo) {
+      if (banner.linkTo.startsWith('http')) {
+        window.open(banner.linkTo, '_blank');
+      } else {
+        navigate(banner.linkTo);
+      }
+      return;
+    }
+
+    // Priority 3: Default fallback to explore page
+    navigate('/explore/facial');
+  };
 
   const slideVariants = {
     enter: (dir) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0, scale: 0.95 }),
@@ -141,6 +170,10 @@ const BannerSlider = () => {
                   transition={{ delay: 0.35 }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBannerClick(banner);
+                  }}
                   className="mt-3 md:mt-4 self-start px-5 md:px-6 py-2 md:py-2.5 bg-white text-gray-900 text-xs md:text-sm font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:bg-white/90"
                 >
                   {banner.cta} →

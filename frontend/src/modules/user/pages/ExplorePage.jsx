@@ -45,9 +45,6 @@ const ExplorePage = () => {
     const [isSidebarHovered, setIsSidebarHovered] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [preferences, setPreferences] = useState({
-        concern: null,
-        skinType: null,
-        other: null,
         priceRange: null
     });
 
@@ -106,9 +103,28 @@ const ExplorePage = () => {
             if (activeFilter === "Top Selling") matchesFilter = s.rating >= 4.7;
             else if (activeFilter === "Premium") matchesFilter = s.price > 2000;
 
-            return matchesCategory && matchesGender && matchesSearch && matchesFilter && isAvailable;
+            // Price range filter
+            let matchesPreferences = true;
+            if (preferences.priceRange) {
+                const price = s.price;
+                let matchesPrice = false;
+                
+                if (preferences.priceRange === "Under ₹999") {
+                    matchesPrice = price < 1000;
+                } else if (preferences.priceRange === "₹1000 - ₹1200") {
+                    matchesPrice = price >= 1000 && price <= 1200;
+                } else if (preferences.priceRange === "₹1200 - ₹1999") {
+                    matchesPrice = price > 1200 && price < 2000;
+                } else if (preferences.priceRange === "Above ₹1999") {
+                    matchesPrice = price >= 2000;
+                }
+                
+                matchesPreferences = matchesPrice;
+            }
+
+            return matchesCategory && matchesGender && matchesSearch && matchesFilter && isAvailable && matchesPreferences;
         });
-    }, [activeCategory, gender, searchQuery, activeFilter, services, checkAvailability, userCity]);
+    }, [activeCategory, gender, searchQuery, activeFilter, services, checkAvailability, userCity, preferences]);
 
     const handleTypeChange = (typeId) => {
         const firstCat = categories.find(c =>
@@ -145,8 +161,16 @@ const ExplorePage = () => {
                             className="w-full h-10 pl-10 bg-accent/50 rounded-xl border-none text-sm focus:ring-2 focus:ring-primary/20 transition-all"
                         />
                     </div>
-                    <button onClick={() => setIsFilterModalOpen(true)} className="w-10 h-10 rounded-2xl bg-accent flex items-center justify-center transition-all hover:bg-primary/10">
+                    <button 
+                        onClick={() => setIsFilterModalOpen(true)} 
+                        className="w-10 h-10 rounded-2xl bg-accent flex items-center justify-center transition-all hover:bg-primary/10 relative"
+                    >
                         <Filter className="w-4 h-4" />
+                        {Object.values(preferences).filter(v => v !== null).length > 0 && (
+                            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center animate-in zoom-in">
+                                {Object.values(preferences).filter(v => v !== null).length}
+                            </span>
+                        )}
                     </button>
                 </div>
             </header>
@@ -324,7 +348,15 @@ const ExplorePage = () => {
                 </main>
             </div>
 
-            <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} />
+            <FilterModal 
+                isOpen={isFilterModalOpen} 
+                onClose={() => setIsFilterModalOpen(false)}
+                currentFilters={preferences}
+                onApply={(filters) => {
+                    setPreferences(filters);
+                    setIsFilterModalOpen(false);
+                }}
+            />
         </div >
     );
 };

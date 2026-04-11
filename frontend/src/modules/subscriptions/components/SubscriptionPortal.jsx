@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle2, Clock3, Crown, ShieldCheck, Sparkles, Users, Wallet, Zap, Trash2, Plus } from "lucide-react";
+import { CheckCircle2, Clock3, Crown, ShieldCheck, Sparkles, Users, Wallet, Zap, Trash2, Plus, Package, Frown, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/modules/user/lib/api";
 import { Button } from "@/modules/user/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Input } from "@/modules/user/components/ui/input";
+import { useNavigate } from "react-router-dom";
 
 const ROLE_TO_USER_TYPE = {
   user: "customer",
@@ -42,6 +43,7 @@ export default function SubscriptionPortal({
   const [isLoading, setIsLoading] = useState(true);
   const [isPaying, setIsPaying] = useState(false);
   const [subAccountForm, setSubAccountForm] = useState({ name: "", email: "", phone: "", role: "operations" });
+  const navigate = useNavigate();
   const Icon = ROLE_TO_ICON[role] || Sparkles;
   const userType = ROLE_TO_USER_TYPE[role] || "customer";
 
@@ -75,8 +77,14 @@ export default function SubscriptionPortal({
   const refresh = async () => {
     setIsLoading(true);
     try {
+      console.log('🔥 [SubscriptionPortal] Fetching plans for userType:', userType);
       const plansRes = await api.subscriptions.getPlans(userType);
+      console.log('🔥 [SubscriptionPortal] Plans response:', plansRes);
+      console.log('🔥 [SubscriptionPortal] Plans array:', plansRes?.plans);
+      console.log('🔥 [SubscriptionPortal] Plans length:', plansRes?.plans?.length);
+      
       setPlans(Array.isArray(plansRes?.plans) ? plansRes.plans : []);
+      
       try {
         const currentRes = await api.subscriptions.getCurrent(role);
         setCurrent(currentRes || null);
@@ -88,16 +96,19 @@ export default function SubscriptionPortal({
         setCurrent(null);
       }
     } catch (error) {
+      console.error('🔥 [SubscriptionPortal] Error fetching plans:', error);
       // Only show error toast if it's not a 401 (unauthorized)
       if (error?.status !== 401) {
         toast.error(error?.message || "Failed to load subscription details");
       }
     } finally {
       setIsLoading(false);
+      console.log('🔥 [SubscriptionPortal] Loading complete');
     }
   };
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     refresh();
   }, [role]);
 
@@ -190,7 +201,8 @@ export default function SubscriptionPortal({
         </div>
       )}
 
-      {/* Current Status */}
+      {/* Current Status - Only show when plans are available */}
+      {!isLoading && plans.length > 0 && (
       <Card className="border-border/60 shadow-xl shadow-primary/5 rounded-[24px] overflow-hidden">
         <div className="bg-primary/5 px-4 sm:px-6 py-3 sm:py-4 border-b border-primary/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -202,9 +214,7 @@ export default function SubscriptionPortal({
           )}
         </div>
         <CardContent className="p-4 sm:p-6">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading subscription details...</p>
-          ) : activeSubscription?.isActive ? (
+          {activeSubscription?.isActive ? (
             <div className="space-y-4">
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex-1">
@@ -235,7 +245,150 @@ export default function SubscriptionPortal({
           )}
         </CardContent>
       </Card>
+      )}
 
+      {/* Empty State - No Plans Available */}
+      {!isLoading && plans.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center py-16 px-4"
+        >
+          <div className="relative mb-8">
+            <motion.div
+              animate={{ 
+                rotate: [0, -10, 10, -10, 0],
+                scale: [1, 1.05, 1]
+              }}
+              transition={{ 
+                duration: 2,
+                repeat: Infinity,
+                repeatDelay: 1
+              }}
+              className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-3xl flex items-center justify-center shadow-lg"
+            >
+              <Package className="w-12 h-12 text-slate-400" />
+            </motion.div>
+            <motion.div
+              animate={{ 
+                scale: [1, 1.2, 1],
+                opacity: [0.5, 0.8, 0.5]
+              }}
+              transition={{ 
+                duration: 2,
+                repeat: Infinity
+              }}
+              className="absolute -top-2 -right-2 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center"
+            >
+              <Frown className="w-5 h-5 text-amber-600" />
+            </motion.div>
+          </div>
+
+          <h3 className="text-2xl font-black text-foreground mb-3 text-center">
+            No Plans Available Yet
+          </h3>
+          
+          <p className="text-sm text-muted-foreground text-center max-w-md mb-6 leading-relaxed">
+            We sincerely apologize! Our subscription plans are currently being set up by the admin team. 
+            Please check back soon for exciting {role === 'provider' ? 'Pro Partner' : role === 'vendor' ? 'Enterprise' : 'Premium'} benefits.
+          </p>
+
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-5 max-w-md w-full">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h4 className="font-bold text-amber-900 text-sm mb-1">What's Coming?</h4>
+                <ul className="text-xs text-amber-800 space-y-1 font-medium">
+                  {role === 'provider' && (
+                    <>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Lower commission rates
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Priority job leads
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Premium training access
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Exclusive Pro badge
+                      </li>
+                    </>
+                  )}
+                  {role === 'vendor' && (
+                    <>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Marketing credits
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Priority support
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Sub-account management
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Performance bonuses
+                      </li>
+                    </>
+                  )}
+                  {role === 'user' && (
+                    <>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Exclusive discounts
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Free cancellations
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Priority booking
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Special rewards
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={() => navigate(-1)}
+              variant="outline"
+              className="px-6 py-3 rounded-xl font-bold"
+            >
+              Go Back
+            </Button>
+            <Button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh Page
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Plans Grid - Only show when plans are available */}
+      {!isLoading && plans.length > 0 && (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {plans.map((plan) => {
           const isCurrentPlan = activePlan?.planId === plan.planId && activeSubscription?.isActive;
@@ -299,6 +452,7 @@ export default function SubscriptionPortal({
           );
         })}
       </div>
+      )}
 
       {role === "vendor" && activeSubscription?.subAccountsEnabled && (
         <Card className="border-border/60 shadow-sm">

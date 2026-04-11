@@ -1,10 +1,14 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ShieldCheck, Lock, Eye, FileText } from "lucide-react";
 
 const VenderPrivacyPolicyPage = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const sections = [
     { title: "Information We Collect", icon: FileText, content: "We collect your business details, operational data, provider information, and transaction records to facilitate city-level management." },
@@ -23,7 +27,6 @@ const VenderPrivacyPolicyPage = () => {
       </div>
 
       <div className="px-4 max-w-2xl mx-auto mt-6 space-y-6">
-        <p className="text-sm text-muted-foreground italic">Last Updated: April 2026</p>
         {sections.map((section, i) => (
           <motion.div
             key={section.title}
@@ -43,6 +46,10 @@ const VenderPrivacyPolicyPage = () => {
             </p>
           </motion.div>
         ))}
+        
+        <div className="pt-10 pb-20 text-center">
+          <p className="text-sm text-muted-foreground italic">Last Updated: April 2026</p>
+        </div>
       </div>
     </div>
   );
