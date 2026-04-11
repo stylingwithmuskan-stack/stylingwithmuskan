@@ -9,7 +9,7 @@ export const useAdminAuth = () => {
         // Return a dummy object if context is missing to avoid immediate crash,
         // but this shouldn't happen if structure is correct.
         console.warn("useAdminAuth must be used within AdminAuthProvider");
-        return { admin: null, isLoggedIn: false, login: () => {}, logout: () => {} };
+        return { admin: null, isLoggedIn: false, hydrated: false, login: () => {}, logout: () => {} };
     }
     return context;
 };
@@ -18,6 +18,7 @@ const ADMIN_KEY = "swm_admin";
 
 export const AdminAuthProvider = ({ children }) => {
     const [admin, setAdmin] = useState(null);
+    const [hydrated, setHydrated] = useState(false);
 
     const isLoggedIn = !!admin;
 
@@ -29,6 +30,7 @@ export const AdminAuthProvider = ({ children }) => {
                 if (saved && typeof saved === "object") setAdmin(saved);
             }
         } catch {}
+        setHydrated(true);
     }, []);
 
     useEffect(() => {
@@ -219,7 +221,7 @@ export const AdminAuthProvider = ({ children }) => {
 
     return (
         <AdminAuthContext.Provider value={{
-            admin, isLoggedIn, login, logout,
+            admin, isLoggedIn, hydrated, login, logout,
             getAllVendors, updateVendorStatus,
             approveVendorZones, rejectVendorZones,
             getAllCustomers,

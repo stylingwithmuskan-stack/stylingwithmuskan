@@ -13,7 +13,7 @@ import NotificationDropdown from "@/modules/user/components/salon/NotificationDr
 const AdminLayout = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { admin, logout } = useAdminAuth();
+    const { admin, logout, hydrated, isLoggedIn } = useAdminAuth();
     const { unreadCount } = useNotifications();
     const [sidebarOpen, setSidebarOpen] = React.useState(false);
     const [isNotifOpen, setIsNotifOpen] = React.useState(false);
@@ -23,10 +23,13 @@ const AdminLayout = () => {
         document.documentElement.classList.add("theme-admin");
         return () => document.documentElement.classList.remove("theme-admin");
     }, []);
-    useEffect(() => {
-        if (!admin) navigate("/admin/login");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [admin]);
+
+    if (!hydrated) {
+        return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading…</div>;
+    }
+    if (!isLoggedIn) {
+        return <Navigate to="/admin/login" replace />;
+    }
 
     const navGroups = [
         {

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     LayoutDashboard,
@@ -41,12 +41,10 @@ const VenderLayout = () => {
         return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading…</div>;
     }
     if (!isLoggedIn) {
-        navigate("/vender/login", { replace: true });
-        return null;
+        return <Navigate to="/vender/login" replace />;
     }
     if (vendor?.status !== "approved") {
-        navigate("/vender/status", { replace: true });
-        return null;
+        return <Navigate to="/vender/status" replace />;
     }
 
     const navLinks = [

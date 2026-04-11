@@ -8,7 +8,7 @@ import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function VenderLoginPage() {
-    const { requestOtp, verifyOtp, isLoggedIn } = useVenderAuth();
+    const { requestOtp, verifyOtp, isLoggedIn, hydrated } = useVenderAuth();
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
     const [phone, setPhone] = useState("");
@@ -22,8 +22,8 @@ export default function VenderLoginPage() {
     }, []);
 
     useEffect(() => {
-        if (isLoggedIn) navigate("/vender/dashboard", { replace: true });
-    }, [isLoggedIn]);
+        if (hydrated && isLoggedIn) navigate("/vender/dashboard", { replace: true });
+    }, [hydrated, isLoggedIn]);
 
     const handleRequestOtp = async (e) => {
         e.preventDefault();

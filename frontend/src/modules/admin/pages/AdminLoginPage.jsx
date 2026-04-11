@@ -8,7 +8,7 @@ import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 import { useNavigate } from "react-router-dom";
 
 export default function AdminLoginPage() {
-    const { login, isLoggedIn } = useAdminAuth();
+    const { login, isLoggedIn, hydrated } = useAdminAuth();
     const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -21,8 +21,8 @@ export default function AdminLoginPage() {
     }, []);
 
     useEffect(() => {
-        if (isLoggedIn) navigate("/admin/dashboard", { replace: true });
-    }, [isLoggedIn]);
+        if (hydrated && isLoggedIn) navigate("/admin/dashboard", { replace: true });
+    }, [hydrated, isLoggedIn]);
 
     const handleLogin = async (e) => {
         e.preventDefault();

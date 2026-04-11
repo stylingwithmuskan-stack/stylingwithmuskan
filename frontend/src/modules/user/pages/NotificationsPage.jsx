@@ -180,7 +180,7 @@ const NotificationsPage = () => {
                 )}
             </AnimatePresence>
 
-            <main className="max-w-3xl mx-auto p-4 md:p-6 pb-24">
+            <div className="mt-6">
                 {pushSupported && !isSelectMode && (
                     <motion.div
                         initial={{ opacity: 0, y: 12 }}
@@ -303,8 +303,9 @@ const NotificationsPage = () => {
                         </AnimatePresence>
                     </div>
                 )}
-            </main>
-        </div>
+            </div>
+        </main>
+    </div>
     );
 };
 
