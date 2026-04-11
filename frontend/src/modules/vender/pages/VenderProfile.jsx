@@ -27,6 +27,10 @@ export default function VenderProfile() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+
+    useEffect(() => {
         if (isZoneModalOpen && vendor?.city) {
             setLoadingZones(true);
             api.content.zones({ cityName: vendor.city })
@@ -221,7 +225,7 @@ export default function VenderProfile() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="space-y-2 md:space-y-3">
                 <Button 
                     variant="outline" 
-                    className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-2 md:gap-3 shadow-sm"
+                    className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold text-[11px] md:text-sm text-emerald-700 border-emerald-100 hover:bg-emerald-50 gap-2 md:gap-3 shadow-sm justify-start"
                     onClick={() => navigate("/vender/notifications")}
                 >
                     <Bell className="h-4 w-4 md:h-5 md:w-5" />

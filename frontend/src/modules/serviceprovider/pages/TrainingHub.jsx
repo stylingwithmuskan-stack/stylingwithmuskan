@@ -71,6 +71,9 @@ const DEFAULT_VIDEOS = [
     }
 ];
 
+import { api } from "@/modules/user/lib/api";
+import { toast } from "sonner";
+
 export default function TrainingHub() {
     const navigate = useNavigate();
     const { provider } = useProviderAuth();
@@ -80,15 +83,32 @@ export default function TrainingHub() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Load videos from localStorage or use defaults
-        const storedVideos = localStorage.getItem("swm_training_videos");
-        if (storedVideos) {
-            setVideos(JSON.parse(storedVideos));
-        } else {
-            setVideos(DEFAULT_VIDEOS);
-            localStorage.setItem("swm_training_videos", JSON.stringify(DEFAULT_VIDEOS));
+        let isMounted = true;
+        
+        async function fetchVideos() {
+            try {
+                const res = await api.provider.training.getVideos();
+                if (isMounted) setVideos(res);
+            } catch (err) {
+                console.error("Error fetching videos:", err);
+                // Fallback to defaults
+                if (isMounted) {
+                    const storedVideos = localStorage.getItem("swm_training_videos");
+                    if (storedVideos) {
+                        setVideos(JSON.parse(storedVideos));
+                    } else {
+                        setVideos(DEFAULT_VIDEOS);
+                        localStorage.setItem("swm_training_videos", JSON.stringify(DEFAULT_VIDEOS));
+                    }
+                }
+            } finally {
+                if (isMounted) setIsLoading(false);
+            }
         }
-        setIsLoading(false);
+        
+        fetchVideos();
+        
+        return () => { isMounted = false; };
     }, []);
 
     const categories = useMemo(() => {
@@ -99,7 +119,7 @@ export default function TrainingHub() {
     const filteredVideos = useMemo(() => {
         const visibleVideos = (provider?.subscription?.premiumTrainingAccess || provider?.isPro)
             ? videos
-            : videos.filter((v) => v.status === "Mandatory");
+            : videos.filter((v) => v.status === "Mandatory" || v.status === "New");
         return visibleVideos.filter(v => {
             const matchesCategory = selectedCategory === "All" || v.category === selectedCategory;
             const matchesSearch = v.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -188,7 +208,7 @@ export default function TrainingHub() {
                     {filteredVideos.length > 0 ? (
                         filteredVideos.map((video, idx) => (
                             <motion.div
-                                key={video.id}
+                                key={video._id || video.id}
                                 layout
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}

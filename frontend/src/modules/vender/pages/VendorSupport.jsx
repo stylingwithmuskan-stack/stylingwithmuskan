@@ -3,11 +3,11 @@ import { ChevronLeft, Phone, Send, CheckCircle2, Loader2, MessageCircle } from "
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/modules/user/components/ui/button";
 import { api } from "@/modules/user/lib/api";
-import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
+import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
 
-export default function SWMSupport() {
+export default function VendorSupport() {
     const navigate = useNavigate();
-    const { provider } = useProviderAuth();
+    const { vender } = useVenderAuth();
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(true);
@@ -21,7 +21,7 @@ export default function SWMSupport() {
 
     const fetchMessages = useCallback(async () => {
         try {
-            const { messages: msgs } = await api.provider.support.getMessages();
+            const { messages: msgs } = await api.vendor.support.getMessages();
             setMessages(msgs || []);
         } catch (err) {
             console.error("[Support] Failed to fetch messages:", err);
@@ -59,7 +59,7 @@ export default function SWMSupport() {
         // Optimistic update
         const tempMsg = {
             _id: `temp-${Date.now()}`,
-            sender: "provider",
+            sender: "vendor",
             message: text,
             createdAt: new Date().toISOString(),
         };
@@ -67,7 +67,7 @@ export default function SWMSupport() {
         scrollToBottom();
 
         try {
-            const { chat } = await api.provider.support.sendMessage(text);
+            const { chat } = await api.vendor.support.sendMessage(text);
             // Replace temp with real message
             setMessages((prev) =>
                 prev.map((m) => (m._id === tempMsg._id ? chat : m))
@@ -145,7 +145,7 @@ export default function SWMSupport() {
                             <MessageCircle className="h-10 w-10 text-purple-400" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800">Start a Conversation</h3>
+                            <h3 className="text-lg font-bold text-slate-800">Vendor Support</h3>
                             <p className="text-sm text-slate-500 mt-1">
                                 Send a message and our support team will get back to you shortly.
                             </p>
@@ -163,12 +163,12 @@ export default function SWMSupport() {
                                 {dayMessages.map((msg) => (
                                     <div
                                         key={msg._id}
-                                        className={`flex ${msg.sender === "provider" ? "justify-end" : "justify-start"}`}
+                                        className={`flex ${msg.sender === "vendor" ? "justify-end" : "justify-start"}`}
                                     >
-                                        <div className={`max-w-[80%] ${msg.sender === "provider" ? "order-1" : ""}`}>
+                                        <div className={`max-w-[80%] ${msg.sender === "vendor" ? "order-1" : ""}`}>
                                             <div
                                                 className={`p-3.5 rounded-2xl shadow-sm ${
-                                                    msg.sender === "provider"
+                                                    msg.sender === "vendor"
                                                         ? "bg-purple-600 text-white rounded-tr-none"
                                                         : "bg-white text-slate-800 rounded-tl-none border border-slate-100"
                                                 }`}
@@ -178,11 +178,11 @@ export default function SWMSupport() {
                                                 )}
                                                 <p className="text-[14px] leading-relaxed font-medium">{msg.message}</p>
                                             </div>
-                                            <div className={`flex items-center gap-1.5 mt-1 ${msg.sender === "provider" ? "justify-end" : "justify-start"}`}>
+                                            <div className={`flex items-center gap-1.5 mt-1 ${msg.sender === "vendor" ? "justify-end" : "justify-start"}`}>
                                                 <span className="text-[10px] text-slate-400 font-bold">
                                                     {formatTime(msg.createdAt)}
                                                 </span>
-                                                {msg.sender === "provider" && !msg._id?.startsWith("temp-") && (
+                                                {msg.sender === "vendor" && !msg._id?.startsWith("temp-") && (
                                                     <CheckCircle2 className="h-3 w-3 text-purple-400" />
                                                 )}
                                                 {msg._id?.startsWith("temp-") && (

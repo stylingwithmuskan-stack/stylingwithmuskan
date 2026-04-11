@@ -25,6 +25,11 @@ const ProviderLayout = () => {
   const { unreadCount } = useNotifications();
   const [isNotifOpen, setIsNotifOpen] = React.useState(false);
 
+  // Scroll to top on every route change
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   // Check if current page is Profile page to remove padding
   const isProfilePage = location.pathname === '/provider/profile';
 
@@ -95,7 +100,8 @@ const ProviderLayout = () => {
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 md:pl-64">
         {/* Mobile Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:hidden">
+        {!(location.pathname.includes("/notifications") || location.pathname.includes("/activity")) && (
+          <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:hidden">
           <Link to="/provider/profile" className="flex items-center gap-3 group max-w-[70%]">
             <div className="relative shrink-0">
               <img src={profileImage} alt="Logo" className="h-10 w-10 rounded-full object-cover border-2 border-primary/20 shadow-md" onError={(e) => { e.target.onerror = null; e.target.src = '/logo1.png' }} />
@@ -143,6 +149,7 @@ const ProviderLayout = () => {
             </div>
           </div>
         </header>
+        )}
 
         <main className={`flex-1 items-start ${isProfilePage ? '' : 'p-4 sm:px-6 md:p-8'} pb-20 md:pb-8`}>
           <div className="mx-auto w-full max-w-6xl">

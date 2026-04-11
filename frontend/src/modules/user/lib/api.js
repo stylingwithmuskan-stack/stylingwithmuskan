@@ -73,15 +73,17 @@ export function classifyApiPath(path) {
 }
 
 async function requestWithToken(path, options = {}, token, role) {
+  const isFormData = options.body instanceof FormData;
+  
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || "GET",
     headers: {
-      "Content-Type": "application/json",
+      ...(!isFormData ? { "Content-Type": "application/json" } : {}),
       ...(options.headers || {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     credentials: "include",
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: isFormData ? options.body : (options.body ? JSON.stringify(options.body) : undefined),
   });
   const data = await res.json().catch(() => ({}));
   if (import.meta?.env?.DEV) {
@@ -148,15 +150,17 @@ async function request(path, options = {}) {
     });
   }
 
+  const isFormData = options.body instanceof FormData;
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || "GET",
     headers: {
-      "Content-Type": "application/json",
+      ...(!isFormData ? { "Content-Type": "application/json" } : {}),
       ...(options.headers || {}),
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     },
     credentials: "include",
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: isFormData ? options.body : (options.body ? JSON.stringify(options.body) : undefined),
   });
   const data = await res.json().catch(() => ({}));
 
@@ -419,6 +423,22 @@ export const api = {
       }
       return data;
     },
+    support: {
+      sendMessage: (message) => {
+        const token = getProviderToken();
+        return requestWithToken("/support/chat", { method: "POST", body: { message } }, token, "provider");
+      },
+      getMessages: () => {
+        const token = getProviderToken();
+        return requestWithToken("/support/chat", {}, token, "provider");
+      },
+    },
+    training: {
+      getVideos: () => {
+        const token = getProviderToken();
+        return requestWithToken("/training/provider", {}, token, "provider");
+      }
+    }
   },
 
   // Vendor
@@ -453,6 +473,16 @@ export const api = {
     createSubAccount: (body) => request("/vendor/subaccounts", { method: "POST", body }),
     deleteSubAccount: (id) => request(`/vendor/subaccounts/${id}`, { method: "DELETE" }),
     stats: () => request("/vendor/stats"),
+    support: {
+      sendMessage: (message) => {
+        const token = getVendorToken();
+        return requestWithToken("/support/chat", { method: "POST", body: { message } }, token, "vendor");
+      },
+      getMessages: () => {
+        const token = getVendorToken();
+        return requestWithToken("/support/chat", {}, token, "vendor");
+      },
+    },
   },
 
   // Admin
@@ -604,6 +634,22 @@ export const api = {
     createBookingType: (body) => request("/admin/booking-types", { method: "POST", body }),
     updateBookingType: (id, body) => request(`/admin/booking-types/${id}`, { method: "PATCH", body }),
     deleteBookingType: (id) => request(`/admin/booking-types/${id}`, { method: "DELETE" }),
+
+    // Support Chat
+    supportConversations: () => requestWithToken("/support/admin/conversations", {}, getAdminToken(), "admin"),
+    supportChat: (participantId) => requestWithToken(`/support/admin/chat/${participantId}`, {}, getAdminToken(), "admin"),
+    supportReply: (participantId, message) => requestWithToken(`/support/admin/chat/${participantId}`, { method: "POST", body: { message } }, getAdminToken(), "admin"),
+
+    // Training
+    getTrainingVideos: () => requestWithToken("/training/admin", {}, getAdminToken(), "admin"),
+    createTrainingVideo: (body) => requestWithToken("/training/admin", { method: "POST", body }, getAdminToken(), "admin"),
+    updateTrainingVideo: (id, body) => requestWithToken(`/training/admin/${id}`, { method: "PUT", body }, getAdminToken(), "admin"),
+    deleteTrainingVideo: (id) => requestWithToken(`/training/admin/${id}`, { method: "DELETE" }, getAdminToken(), "admin"),
+    uploadTrainingThumbnail: (file) => {
+      const formData = new FormData();
+      formData.append("image", file);
+      return requestWithToken("/training/upload-thumbnail", { method: "POST", body: formData }, getAdminToken(), "admin");
+    },
   },
 
   subscriptions: {

@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate, Navigate } from "react-router-d
 import { motion, AnimatePresence } from "framer-motion";
 import {
     LayoutDashboard, Users, Store, CalendarRange, Wallet, ShieldAlert,
-    Image, Ticket, Gift, LogOut, Bell, Menu, X, ChevronRight, Shield, Layers, User, MessageSquare, LayoutGrid, Clapperboard, Images, MapPin, Crown
+    Image, Ticket, Gift, LogOut, Bell, Menu, X, ChevronRight, Shield, Layers, User, MessageSquare, LayoutGrid, Clapperboard, Images, MapPin, Crown, Headphones
 } from "lucide-react";
 import { cn } from "@/modules/user/lib/utils";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
@@ -47,6 +47,7 @@ const AdminLayout = () => {
                 { name: "Training", path: "/admin/training", icon: LayoutGrid },
                 { name: "Feedback", path: "/admin/feedback", icon: MessageSquare },
                 { name: "App Data", path: "/admin/user-data", icon: Layers },
+                { name: "Support Chat", path: "/admin/support-chat", icon: Headphones },
             ],
         },
         {

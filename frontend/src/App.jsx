@@ -105,6 +105,7 @@ import VenderPrivacyPolicyPage from "@/modules/vender/pages/VenderPrivacyPolicyP
 import VenderContactUsPage from "@/modules/vender/pages/VenderContactUsPage";
 import VenderAboutUsPage from "@/modules/vender/pages/VenderAboutUsPage";
 import VenderTermsConditionsPage from "@/modules/vender/pages/VenderTermsConditionsPage";
+import VendorSupport from "@/modules/vender/pages/VendorSupport";
 
 // Admin Module
 import { AdminAuthProvider, AdminAuthContext } from "@/modules/admin/contexts/AdminAuthContext";
@@ -128,6 +129,7 @@ import CustomEnquiries from "@/modules/admin/pages/CustomEnquiries";
 import TrainingManagement from "@/modules/admin/pages/TrainingManagement";
 import GalleryManagement from "@/modules/admin/pages/GalleryManagement";
 import SubscriptionManagement from "@/modules/admin/pages/SubscriptionManagement";
+import SupportChat from "@/modules/admin/pages/SupportChat";
 
 // Common Pages
 import RoleSelectionPage from "@/modules/common/pages/RoleSelectionPage";
@@ -300,6 +302,7 @@ const App = () => {
                                   <Route path="profile" element={<VenderProfile />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
                                   <Route path="activity" element={<VenderActivityPage />} />
+                                  <Route path="support" element={<VendorSupport />} />
                                 </Route>
 
                                 {/* Admin Module */}
@@ -324,6 +327,7 @@ const App = () => {
                                   <Route path="custom-enquiries" element={<CustomEnquiries />} />
                                   <Route path="gallery" element={<GalleryManagement />} />
                                   <Route path="subscriptions" element={<SubscriptionManagement />} />
+                                  <Route path="support-chat" element={<SupportChat />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
                                 </Route>
 

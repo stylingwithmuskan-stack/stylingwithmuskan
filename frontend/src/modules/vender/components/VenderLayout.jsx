@@ -210,42 +210,44 @@ const VenderLayout = () => {
             {/* Main Content */}
             <div className="flex flex-col flex-1 md:pl-[260px]">
                 {/* Top Bar */}
-                <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-xl px-4 md:px-8">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors">
-                            <Menu className="h-5 w-5" />
-                        </button>
-                        <div className="hidden md:block">
-                            <h2 className="text-sm font-bold text-foreground">
-                                Welcome, {vendor?.name || "Vendor"}
-                            </h2>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                {vendor?.city || "City"} • Vendor Panel
-                            </p>
+                {!(location.pathname.includes("/notifications") || location.pathname.includes("/activity") || location.pathname.includes("/support")) && (
+                    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-xl px-4 md:px-8">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors">
+                                <Menu className="h-5 w-5" />
+                            </button>
+                            <div className="hidden md:block">
+                                <h2 className="text-sm font-bold text-foreground">
+                                    Welcome, {vendor?.name || "Vendor"}
+                                </h2>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                    {vendor?.city || "City"} • Vendor Panel
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="relative">
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => setIsNotifOpen(!isNotifOpen)}
-                                className={cn(
-                                    "relative p-2.5 rounded-xl transition-all active:scale-90",
-                                    isNotifOpen ? "bg-primary/10 text-primary" : "bg-muted hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                                )}
-                            >
-                                <Bell className="h-5 w-5" />
-                                {unreadCount > 0 && (
-                                    <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-primary text-[10px] font-bold text-white flex items-center justify-center rounded-full border-2 border-background animate-in zoom-in">
-                                        {unreadCount}
-                                    </span>
-                                )}
-                            </motion.button>
-                            <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
+                        <div className="flex items-center gap-2">
+                            <div className="relative">
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setIsNotifOpen(!isNotifOpen)}
+                                    className={cn(
+                                        "relative p-2.5 rounded-xl transition-all active:scale-90",
+                                        isNotifOpen ? "bg-primary/10 text-primary" : "bg-muted hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                                    )}
+                                >
+                                    <Bell className="h-5 w-5" />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-primary text-[10px] font-bold text-white flex items-center justify-center rounded-full border-2 border-background animate-in zoom-in">
+                                            {unreadCount}
+                                        </span>
+                                    )}
+                                </motion.button>
+                                <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
+                            </div>
                         </div>
-                    </div>
-                </header>
+                    </header>
+                )}
 
                 <main className="flex-1 p-4 md:p-8 pb-28 md:pb-8 w-full max-w-[100vw] overflow-x-hidden">
                     <div className="mx-auto w-full max-w-7xl">

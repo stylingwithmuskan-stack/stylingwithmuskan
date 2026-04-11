@@ -10,39 +10,11 @@ import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { toast } from "sonner";
+import { api } from "@/modules/user/lib/api";
 
 const CATEGORIES = ["Hair Styling", "Makeup", "Skin Care", "Hygiene", "Business Skills", "Safety"];
 const DIFFICULTIES = ["Beginner", "Intermediate", "Advanced"];
-const STATUSES = ["New", "Mandatory", "Optional", "Completed"];
-
-const DEFAULT_VIDEOS = [
-    {
-        id: 1,
-        title: "Advanced Hair Styling Techniques",
-        category: "Hair Styling",
-        duration: "15:30",
-        status: "Completed",
-        thumbnail: "https://images.unsplash.com/photo-1560869713-7d0a294308a3?auto=format&fit=crop&w=800&q=80",
-        provider: "StylingwithMuskan Academy",
-        description: "Learn the latest professional hair styling techniques including 3D braiding and advanced blowouts.",
-        views: "1.2k",
-        difficulty: "Advanced",
-        videoUrl: "https://example.com/video1"
-    },
-    {
-        id: 2,
-        title: "Bridal Makeup Masterclass 2026",
-        category: "Makeup",
-        duration: "45:00",
-        status: "Ongoing",
-        thumbnail: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=800&q=80",
-        provider: "Senior Artist - Rhea",
-        description: "A comprehensive guide to long-lasting bridal makeup for various skin types and tones.",
-        views: "3.5k",
-        difficulty: "Intermediate",
-        videoUrl: "https://example.com/video2"
-    }
-];
+const STATUSES = ["New", "Mandatory", "Optional", "Completed", "Ongoing"];
 
 export default function TrainingManagement() {
     const [videos, setVideos] = useState([]);
@@ -50,10 +22,11 @@ export default function TrainingManagement() {
     const [searchQuery, setSearchQuery] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingVideo, setEditingVideo] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
         title: "",
         category: "Hair Styling",
-        duration: "",
+        duration: "00:00",
         status: "New",
         thumbnail: "",
         provider: "SWM Academy",
@@ -63,26 +36,26 @@ export default function TrainingManagement() {
         views: "0"
     });
 
+    const fetchVideos = async () => {
+        try {
+            setLoading(true);
+            const data = await api.admin.getTrainingVideos();
+            setVideos(data || []);
+        } catch (error) {
+            console.error("Failed to fetch training videos", error);
+            toast.error("Failed to fetch training videos");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
         checkMobile();
         window.addEventListener("resize", checkMobile);
-        
-        const stored = localStorage.getItem("swm_training_videos");
-        if (stored) {
-            setVideos(JSON.parse(stored));
-        } else {
-            setVideos(DEFAULT_VIDEOS);
-            localStorage.setItem("swm_training_videos", JSON.stringify(DEFAULT_VIDEOS));
-        }
-        
+        fetchVideos();
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
-
-    const saveVideos = (newVideos) => {
-        setVideos(newVideos);
-        localStorage.setItem("swm_training_videos", JSON.stringify(newVideos));
-    };
 
     const handleOpenModal = (video = null) => {
         if (video) {
@@ -106,41 +79,46 @@ export default function TrainingManagement() {
         setIsModalOpen(true);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.title || !formData.thumbnail) {
             toast.error("Please fill all required fields");
             return;
         }
 
-        if (editingVideo) {
-            const updated = videos.map(v => v.id === editingVideo.id ? { ...formData, id: v.id } : v);
-            saveVideos(updated);
-            toast.success("Training module updated");
-        } else {
-            const newVideo = {
-                ...formData,
-                id: Date.now(),
-                views: "0"
-            };
-            saveVideos([newVideo, ...videos]);
-            toast.success("New training module added");
+        try {
+            if (editingVideo) {
+                await api.admin.updateTrainingVideo(editingVideo._id, formData);
+                toast.success("Training module updated");
+            } else {
+                await api.admin.createTrainingVideo(formData);
+                toast.success("New training module added");
+            }
+            setIsModalOpen(false);
+            fetchVideos();
+        } catch (error) {
+            toast.error(error.message || "Operation failed");
         }
-        setIsModalOpen(false);
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (window.confirm("Are you sure you want to delete this training?")) {
-            const updated = videos.filter(v => v.id !== id);
-            saveVideos(updated);
-            toast.success("Training module deleted");
+            try {
+                await api.admin.deleteTrainingVideo(id);
+                toast.success("Training module deleted");
+                fetchVideos();
+            } catch (error) {
+                toast.error(error.message || "Failed to delete");
+            }
         }
     };
 
     const filteredVideos = videos.filter(v => 
-        v.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.category.toLowerCase().includes(searchQuery.toLowerCase())
+        (v.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (v.category || "").toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    if (loading) return <div className="p-8 text-center text-muted-foreground">Loading training...</div>;
 
     return (
         <div className="space-y-6">
@@ -174,7 +152,7 @@ export default function TrainingManagement() {
                 <AnimatePresence mode="popLayout">
                     {filteredVideos.map((video) => (
                         <motion.div
-                            key={video.id}
+                            key={video._id || video.id}
                             layout
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -187,7 +165,7 @@ export default function TrainingManagement() {
                                         <Button size="icon" variant="secondary" onClick={() => handleOpenModal(video)} className="rounded-full h-10 w-10">
                                             <Edit2 className="h-4 w-4 text-primary" />
                                         </Button>
-                                        <Button size="icon" variant="destructive" onClick={() => handleDelete(video.id)} className="rounded-full h-10 w-10">
+                                        <Button size="icon" variant="destructive" onClick={() => handleDelete(video._id || video.id)} className="rounded-full h-10 w-10">
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </div>
@@ -305,19 +283,71 @@ export default function TrainingManagement() {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Thumbnail URL *</label>
-                                        <div className="flex gap-4 items-center">
-                                            <Input 
-                                                value={formData.thumbnail} 
-                                                onChange={e => setFormData({...formData, thumbnail: e.target.value})} 
-                                                placeholder="https://images.unsplash.com/..." 
-                                                className="h-12 rounded-xl flex-1"
-                                            />
-                                            {formData.thumbnail && (
-                                                <div className="h-12 w-12 rounded-xl overflow-hidden border">
-                                                    <img src={formData.thumbnail} className="h-full w-full object-cover" />
+                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Thumbnail *</label>
+                                        <div className="flex flex-col gap-4">
+                                            <div className="flex gap-4 items-center">
+                                                <div 
+                                                    onClick={() => document.getElementById("thumbnail-upload").click()}
+                                                    className="flex-1 h-32 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer group relative overflow-hidden"
+                                                >
+                                                    {formData.thumbnail ? (
+                                                        <>
+                                                            <img src={formData.thumbnail} className="w-full h-full object-cover" />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                                <Camera className="h-6 w-6 text-white" />
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                                <Camera className="h-5 w-5 text-primary" />
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-muted-foreground text-center px-10">Click or Drag to upload<br/>Professional Thumbnail</span>
+                                                        </>
+                                                    )}
                                                 </div>
-                                            )}
+                                                <input 
+                                                    id="thumbnail-upload"
+                                                    type="file" 
+                                                    className="hidden" 
+                                                    accept="image/*"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+                                                        
+                                                        const loadingToast = toast.loading("Uploading image...");
+                                                        try {
+                                                            const res = await api.admin.uploadTrainingThumbnail(file);
+                                                            if (res.url) {
+                                                                setFormData({ ...formData, thumbnail: res.url });
+                                                                toast.success("Image uploaded", { id: loadingToast });
+                                                            }
+                                                        } catch (err) {
+                                                            toast.error("Upload failed", { id: loadingToast });
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            
+                                            <div className="flex gap-2">
+                                                <Input 
+                                                    value={formData.thumbnail} 
+                                                    onChange={e => setFormData({...formData, thumbnail: e.target.value})} 
+                                                    placeholder="...or paste image URL directly" 
+                                                    className="h-9 rounded-xl text-[10px] bg-card/30"
+                                                />
+                                                {formData.thumbnail && (
+                                                    <Button 
+                                                        type="button" 
+                                                        variant="ghost" 
+                                                        size="sm"
+                                                        onClick={() => setFormData({ ...formData, thumbnail: "" })}
+                                                        className="h-9 rounded-xl text-xs text-destructive hover:bg-destructive/10"
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 

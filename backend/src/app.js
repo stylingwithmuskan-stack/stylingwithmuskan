@@ -18,7 +18,8 @@ import bookingsRoutes from "./modules/bookings/routes/index.js";
 import paymentsRoutes from "./routes/payments.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import subscriptionRoutes from "./modules/subscriptions/routes/subscription.routes.js";
-// import supportRoutes from "./routes/support.routes.js"; // Temporarily disabled - file not created yet
+import supportRoutes from "./routes/support.routes.js";
+import trainingRoutes from "./routes/training.routes.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -85,6 +86,8 @@ app.use("/bookings", bookingsRoutes);
 app.use("/payments", paymentsRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/subscriptions", subscriptionRoutes);
+app.use("/support", supportRoutes);
+app.use("/training", trainingRoutes);
 try {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const spec = JSON.parse(fs.readFileSync(path.join(__dirname, "swagger.json"), "utf-8"));

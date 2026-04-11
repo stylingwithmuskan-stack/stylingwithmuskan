@@ -18,15 +18,17 @@ const VenderTermsConditionsPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-30 bg-white border-b border-border px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <h1 className="text-lg font-semibold">Terms & Conditions</h1>
-      </div>
-
-      <div className="px-4 max-w-2xl mx-auto mt-6 space-y-6">
+    <div className="min-h-screen bg-[#F8FAFC] pb-24 pt-10">
+      <div className="px-4 max-w-2xl mx-auto">
+        <div className="flex items-center gap-4 mb-8 px-2">
+            <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50">
+                <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+                <h1 className="text-2xl font-black text-slate-900 text-sm md:text-2xl uppercase md:normal-case">Terms & Conditions</h1>
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Partner Agreement</p>
+            </div>
+        </div>
         <p className="text-sm text-muted-foreground italic px-2">Please read these terms carefully as a vendor partner.</p>
         {terms.map((term, i) => (
           <motion.div
