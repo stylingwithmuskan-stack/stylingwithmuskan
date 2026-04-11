@@ -45,8 +45,10 @@ const FeedbackModal = ({ isOpen, onClose, booking, onSubmit }) => {
 
             // Also save to localStorage for backward compatibility
             const existing = JSON.parse(localStorage.getItem("muskan-feedback") || "[]");
-            existing.unshift(feedback);
-            localStorage.setItem("muskan-feedback", JSON.stringify(existing));
+            // Remove any existing entry for this bookingId to avoid duplicates
+            const filtered = existing.filter(f => f.bookingId !== (booking?.id || booking?._id));
+            filtered.unshift(feedback);
+            localStorage.setItem("muskan-feedback", JSON.stringify(filtered));
 
             if (onSubmit) onSubmit(feedback);
             
@@ -125,18 +127,21 @@ const FeedbackModal = ({ isOpen, onClose, booking, onSubmit }) => {
                             <div className="text-center mb-5">
                                 <div className="flex justify-center gap-2 mb-2">
                                     {[1, 2, 3, 4, 5].map(s => (
-                                        <button key={s}
+                                        <motion.button 
+                                            key={s}
+                                            animate={rating === 0 ? { scale: [1, 1.1, 1] } : {}}
+                                            transition={{ repeat: rating === 0 ? Infinity : 0, duration: 2, delay: s * 0.1 }}
                                             onMouseEnter={() => setHoverRating(s)}
                                             onMouseLeave={() => setHoverRating(0)}
                                             onClick={() => setRating(s)}
                                             className="transition-transform hover:scale-125 active:scale-95"
                                         >
-                                            <Star className={`w-9 h-9 transition-colors ${s <= (hoverRating || rating) ? "fill-amber-400 text-amber-400" : "text-gray-200"}`} />
-                                        </button>
+                                            <Star className={`w-9 h-9 transition-colors ${s <= (hoverRating || rating) ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
+                                        </motion.button>
                                     ))}
                                 </div>
-                                <p className="text-xs font-bold text-muted-foreground">
-                                    {rating === 0 ? "Tap to rate" : rating <= 2 ? "We'll do better!" : rating <= 3 ? "Good" : rating === 4 ? "Great!" : "Excellent! 🎉"}
+                                <p className={`text-xs font-bold transition-colors ${rating === 0 ? "text-primary animate-pulse" : "text-muted-foreground"}`}>
+                                    {rating === 0 ? "Select stars to enable submit" : rating <= 2 ? "We'll do better!" : rating <= 3 ? "Good" : rating === 4 ? "Great!" : "Excellent! 🎉"}
                                 </p>
                             </div>
 
@@ -144,7 +149,7 @@ const FeedbackModal = ({ isOpen, onClose, booking, onSubmit }) => {
                             <div className="flex flex-wrap gap-2 mb-5">
                                 {tags.map(t => (
                                     <button key={t} onClick={() => toggleTag(t)}
-                                        className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all ${selectedTags.includes(t) ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20" : "bg-accent border-border text-muted-foreground hover:border-primary/30"}`}
+                                        className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all ${selectedTags.includes(t) ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105" : "bg-accent border-border text-muted-foreground hover:border-primary/30"}`}
                                     >
                                         {t}
                                     </button>
@@ -161,9 +166,15 @@ const FeedbackModal = ({ isOpen, onClose, booking, onSubmit }) => {
 
                             {/* Submit */}
                             <button
-                                onClick={handleSubmit}
-                                disabled={rating === 0 || submitting}
-                                className={`w-full h-13 py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${rating > 0 && !submitting ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99]" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+                                onClick={() => {
+                                    if (rating === 0) {
+                                        toast.error("Please select a star rating first");
+                                        return;
+                                    }
+                                    handleSubmit();
+                                }}
+                                disabled={submitting}
+                                className={`w-full h-13 py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${rating > 0 && !submitting ? "bg-primary text-primary-foreground shadow-xl shadow-primary/20 hover:scale-[1.01]" : "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20"}`}
                             >
                                 <Send className="w-4 h-4" /> {submitting ? "Submitting..." : "Submit Review"}
                             </button>

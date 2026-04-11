@@ -135,6 +135,27 @@ export const NotificationProvider = ({ children, role }) => {
         }
     };
 
+    const deleteAllNotifications = async () => {
+        try {
+            await api.notifications.deleteAll({ role: activeRole, token: activeToken });
+            setNotifications([]);
+            setUnreadCount(0);
+        } catch (err) {
+            console.error("[NotificationContext] Delete-all failed", err);
+        }
+    };
+
+    const deleteMultipleNotifications = async (ids) => {
+        if (!ids || ids.length === 0) return;
+        try {
+            await api.notifications.deleteMultiple(ids, { role: activeRole, token: activeToken });
+            setNotifications((prev) => prev.filter((n) => !ids.includes(n._id)));
+            fetchNotifications();
+        } catch (err) {
+            console.error("[NotificationContext] Delete-multiple failed", err);
+        }
+    };
+
     return (
         <NotificationContext.Provider value={{
             notifications,
@@ -143,6 +164,8 @@ export const NotificationProvider = ({ children, role }) => {
             fetchNotifications,
             markAllAsRead,
             deleteNotification,
+            deleteAllNotifications,
+            deleteMultipleNotifications,
         }}>
             {children}
         </NotificationContext.Provider>
