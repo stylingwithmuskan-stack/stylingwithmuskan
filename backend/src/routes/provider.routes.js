@@ -1106,7 +1106,20 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const acc = await ProviderAccount.findById(req.params.providerId).lean();
-  const q = { assignedProvider: { $in: [req.params.providerId, acc?.phone].filter(Boolean) } };
+  const now = new Date();
+  const threshold = new Date(now.getTime() - getAcceptWindowMs());
+  const q = {
+    assignedProvider: { $in: [req.params.providerId, acc?.phone].filter(Boolean) },
+    $nor: [
+      {
+        status: { $in: ["pending", "Pending", "incoming", "final_approved"] },
+        $or: [
+          { expiresAt: { $ne: null, $lte: now } },
+          { expiresAt: null, lastAssignedAt: { $ne: null, $lte: threshold } },
+        ],
+      },
+    ],
+  };
   let total = await Booking.countDocuments(q);
   const items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
   const bookings = (items || []).map((b) => ({ ...b, id: b._id?.toString?.() || b.id }));

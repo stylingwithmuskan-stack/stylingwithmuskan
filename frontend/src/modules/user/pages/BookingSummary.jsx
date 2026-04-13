@@ -18,6 +18,7 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useCart } from "@/modules/user/contexts/CartContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useBookings } from "@/modules/user/contexts/BookingContext";
+import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { api } from "@/modules/user/lib/api";
 import { toast } from "sonner";
 
@@ -32,6 +33,7 @@ const BookingSummary = () => {
   const { cartItems, updateQuantity, clearCart, totalPrice, totalSavings, isCartOpen, setIsCartOpen, selectedSlot, getGroupedItems, bookingType: contextBookingType, customAdvance, setCustomAdvance } = useCart();
   const { user, setIsAddressModalOpen } = useAuth();
   const { addBooking } = useBookings();
+  const { checkAvailability } = useUserModuleData();
 
   const allGroups = getGroupedItems();
   const displayGroups = checkoutType && allGroups[checkoutType] ? { [checkoutType]: allGroups[checkoutType] } : allGroups;
@@ -212,19 +214,10 @@ const BookingSummary = () => {
     // Bug Fix 1: Zone Service Availability Validation
     // Check if the selected zone has available services
     const userAddress = user.addresses[0];
-    const zoneName = userAddress?.area || userAddress?.city;
-    
-    if (zoneName && displayItems.length > 0) {
-      // Check if any of the services in cart are available in the user's zone
-      const hasUnavailableServices = displayItems.some(item => {
-        // If item has zones defined, check if user's zone is in the list
-        if (item.zones && Array.isArray(item.zones) && item.zones.length > 0) {
-          return !item.zones.includes(zoneName);
-        }
-        // If no zones defined, service is available everywhere
-        return false;
-      });
-      
+
+    if (displayItems.length > 0) {
+      const hasUnavailableServices = displayItems.some((item) => !checkAvailability(item, userAddress));
+
       if (hasUnavailableServices) {
         toast.error("Currently this service is not available in your zone.");
         return;

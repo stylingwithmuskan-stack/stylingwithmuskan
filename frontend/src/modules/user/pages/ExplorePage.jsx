@@ -24,11 +24,11 @@ const ExplorePage = () => {
     const { toggleWishlist, isInWishlist } = useWishlist();
     const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability } = useUserModuleData();
 
-    const userCity = user?.address?.city || null;
+    const userLocation = user?.addresses?.[0] || user?.address || null;
 
     const availableServiceTypes = useMemo(() =>
-        SERVICE_TYPES.filter(t => checkAvailability(t, userCity)),
-        [SERVICE_TYPES, userCity, checkAvailability]
+        SERVICE_TYPES.filter(t => checkAvailability(t, userLocation)),
+        [SERVICE_TYPES, userLocation, checkAvailability]
     );
 
     const searchParams = new URLSearchParams(location.search);
@@ -75,9 +75,9 @@ const ExplorePage = () => {
             c.gender === gender &&
             c.serviceType === activeType &&
             c.bookingType === activeBooking &&
-            checkAvailability(c, userCity)
+            checkAvailability(c, userLocation)
         ),
-        [gender, activeType, activeBooking, categories, checkAvailability, userCity]
+        [gender, activeType, activeBooking, categories, checkAvailability, userLocation]
     );
 
     // If activeCategory is not in the filtered list (e.g. after type change), reset it
@@ -97,7 +97,7 @@ const ExplorePage = () => {
             const matchesGender = s.gender === gender;
             const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesCategory = searchQuery.length > 0 ? true : s.category === activeCategory;
-            const isAvailable = checkAvailability(s, userCity);
+            const isAvailable = checkAvailability(s, userLocation);
 
             let matchesFilter = true;
             if (activeFilter === "Top Selling") matchesFilter = s.rating >= 4.7;
@@ -124,7 +124,7 @@ const ExplorePage = () => {
 
             return matchesCategory && matchesGender && matchesSearch && matchesFilter && isAvailable && matchesPreferences;
         });
-    }, [activeCategory, gender, searchQuery, activeFilter, services, checkAvailability, userCity, preferences]);
+    }, [activeCategory, gender, searchQuery, activeFilter, services, checkAvailability, userLocation, preferences]);
 
     const handleTypeChange = (typeId) => {
         const firstCat = categories.find(c =>

@@ -255,4 +255,45 @@ describe("Realtime slot and nearest-provider flow", () => {
     expect(res.status).toBe(200);
     expect(res.body.slots).toContain("10:00 AM");
   });
+
+  it("does not return expired pending assignments in the old provider booking list", async () => {
+    const provider = await ProviderAccount.create({
+      phone: "9199900040",
+      name: "Expired Assignee",
+      approvalStatus: "approved",
+      registrationComplete: true,
+      isOnline: true,
+      city: "Ujjain",
+      zones: ["Ujjain Hub"],
+      currentLocation: { lat: 23.1764, lng: 75.7885 },
+    });
+
+    const expiredBooking = await Booking.create({
+      customerId: "C-expired",
+      customerName: "Customer",
+      services: [{ name: "Skin Glow", price: 900, duration: "1h", category: "facial", serviceType: "skin" }],
+      totalAmount: 900,
+      balanceAmount: 900,
+      address: { houseNo: "1", area: "Ujjain Hub", city: "Ujjain", zone: "Ujjain Hub" },
+      slot: { date: futureDate(1), time: "09:30 AM" },
+      bookingType: "scheduled",
+      status: "pending",
+      assignedProvider: provider._id.toString(),
+      expiresAt: new Date(Date.now() - 5 * 1000),
+      lastAssignedAt: new Date(Date.now() - 11 * 60 * 1000),
+    });
+
+    const providerAgent = request.agent(app);
+    const otpRequestRes = await providerAgent.post("/provider/request-otp").send({ phone: provider.phone });
+    expect(otpRequestRes.status).toBe(200);
+    const providerOtp = otpRequestRes.body.otpPreview || process.env.DEFAULT_PROVIDER_OTP || "123456";
+    const loginRes = await providerAgent.post("/provider/verify-otp").send({ phone: provider.phone, otp: providerOtp });
+    expect(loginRes.status).toBe(200);
+
+    const res = await providerAgent.get(`/provider/bookings/${provider._id.toString()}`);
+
+    expect(res.status).toBe(200);
+    const bookingIds = (res.body.bookings || []).map((b) => b._id || b.id);
+    expect(bookingIds).not.toContain(expiredBooking._id.toString());
+  });
 });

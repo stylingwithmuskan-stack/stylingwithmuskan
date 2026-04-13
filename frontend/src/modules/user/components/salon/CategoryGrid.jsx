@@ -34,7 +34,7 @@ const CategoryGrid = () => {
     }
   }, [isLoggedIn]);
 
-  const userCity = user?.address?.city || null;
+  const userLocation = user?.addresses?.[0] || user?.address || null;
 
   // Group categories into Main Service Types for the home page
   const mainServiceTypes = SERVICE_TYPES.map(type => ({
@@ -43,7 +43,7 @@ const CategoryGrid = () => {
     entryCategory: categories.find(c => c.serviceType === type.id && (c.gender === gender || !c.gender))?.id
   }))
     .filter(t => t.entryCategory)
-    .filter(t => checkAvailability(t, userCity));
+    .filter(t => checkAvailability(t, userLocation));
 
   const handleServiceSelect = (type) => {
     // Default to instant for home page selections, but it will be overridden by explore page if needed

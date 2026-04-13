@@ -14,6 +14,7 @@ const STORAGE_KEY = null;
 
 export const ProviderBookingProvider = ({ children }) => {
     const [bookings, setBookings] = useState([]);
+    const [nowMs, setNowMs] = useState(Date.now());
 
     // Fast Refresh can briefly remount this provider before the auth provider rebinds.
     // Fall back to an empty auth state instead of crashing the entire app tree.
@@ -22,6 +23,28 @@ export const ProviderBookingProvider = ({ children }) => {
 
     const providerId = provider?._id || provider?.id;
     const normalizeBooking = useCallback((b) => ({ ...b, id: b?.id || b?._id }), []);
+    const acceptWindowMs = 10 * 60 * 1000;
+
+    const refreshBookings = useCallback(async () => {
+        try {
+            let pid = providerId;
+            if (!pid && provider?.phone) {
+                const { provider: fresh } = await api.provider.me(provider.phone);
+                pid = fresh?._id || fresh?.id || "";
+            }
+            if (!pid) {
+                setBookings([]);
+                return;
+            }
+            const { bookings } = await api.provider.bookings(pid);
+            const normalized = (bookings || [])
+                .map(normalizeBooking)
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            setBookings(normalized);
+        } catch {
+            setBookings([]);
+        }
+    }, [normalizeBooking, providerId, provider?.phone]);
 
     useEffect(() => {
         let cancelled = false;
@@ -43,8 +66,44 @@ export const ProviderBookingProvider = ({ children }) => {
         return () => { cancelled = true; };
     }, [providerId, provider?.phone]);
 
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setNowMs(Date.now());
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        if (!providerId && !provider?.phone) return;
+        const interval = setInterval(() => {
+            refreshBookings();
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [providerId, provider?.phone, refreshBookings]);
+
+    const isExpiredAssignmentForCurrentProvider = useCallback((booking) => {
+        const normalizedStatus = String(booking?.status || "").toLowerCase();
+        if (!["incoming", "pending", "final_approved"].includes(normalizedStatus)) return false;
+
+        if (booking?.expiresAt) {
+            const expiresAtMs = new Date(booking.expiresAt).getTime();
+            return Number.isFinite(expiresAtMs) && expiresAtMs <= nowMs;
+        }
+
+        if (booking?.lastAssignedAt) {
+            const lastAssignedMs = new Date(booking.lastAssignedAt).getTime();
+            return Number.isFinite(lastAssignedMs) && (nowMs - lastAssignedMs) >= acceptWindowMs;
+        }
+
+        return false;
+    }, [nowMs]);
+
     // Only show bookings explicitly assigned to this provider
-    const myBookings = bookings.filter(b => String(b.assignedProvider || "") === String(providerId || ""));
+    const myBookings = bookings.filter((b) => {
+        const belongsToProvider = String(b.assignedProvider || "") === String(providerId || "");
+        if (!belongsToProvider) return false;
+        return !isExpiredAssignmentForCurrentProvider(b);
+    });
 
     const incomingBookings = myBookings.filter(b => b.status === "incoming" || b.status === "pending" || b.status === "Pending" || b.status === "final_approved");
     const pendingBookings = myBookings.filter(b => b.status === "pending" || b.status === "Pending" || b.status === "final_approved");
@@ -59,9 +118,10 @@ export const ProviderBookingProvider = ({ children }) => {
             const normalized = normalizeBooking(booking);
             setBookings(prev => prev.map(b => b._id === normalized._id ? normalized : b));
         } catch (e) {
+            refreshBookings();
             alert(e?.message || "Failed to accept");
         }
-    }, [normalizeBooking]);
+    }, [normalizeBooking, refreshBookings]);
 
     const rejectBooking = useCallback(async (id) => {
         try {
@@ -69,9 +129,10 @@ export const ProviderBookingProvider = ({ children }) => {
             const normalized = normalizeBooking(booking);
             setBookings(prev => prev.map(b => b._id === normalized._id ? normalized : b));
         } catch (e) {
+            refreshBookings();
             alert(e?.message || "Failed to reject");
         }
-    }, [normalizeBooking]);
+    }, [normalizeBooking, refreshBookings]);
 
     const updateBookingStatus = useCallback(async (id, status) => {
         try {
@@ -79,9 +140,10 @@ export const ProviderBookingProvider = ({ children }) => {
             const normalized = normalizeBooking(booking);
             setBookings(prev => prev.map(b => b._id === normalized._id ? normalized : b));
         } catch (e) {
+            refreshBookings();
             alert(e?.message || "Failed to update");
         }
-    }, [normalizeBooking]);
+    }, [normalizeBooking, refreshBookings]);
 
     const requestPayment = useCallback(async (id) => {
         try {
@@ -132,6 +194,7 @@ export const ProviderBookingProvider = ({ children }) => {
             assignedBookings,
             completedBookings,
             cancelledBookings,
+            refreshBookings,
             acceptBooking,
             rejectBooking,
             updateBookingStatus,

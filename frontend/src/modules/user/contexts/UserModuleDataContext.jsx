@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/modules/user/lib/api";
+import { isContentAvailable } from "@/modules/user/lib/contentAvailability";
 import {
     SERVICE_TYPES as FALLBACK_SERVICE_TYPES,
     BOOKING_TYPE_CONFIG as FALLBACK_BOOKING_TYPES,
@@ -161,31 +162,11 @@ export const UserModuleDataProvider = ({ children }) => {
         deleteTestimonial,
         // Booking Type Config actions
         updateBookingTypeConfig: (updatedConfig) => setBookingTypeConfig(updatedConfig),
-        checkAvailability: (item, userCity, selectedDate = null, selectedTime = null) => {
-            if (!item) return true;
-            // 1. Zone/City check
-            if (item.zones && item.zones.length > 0 && userCity) {
-                if (!item.zones.includes(userCity)) return false;
-            }
-
-            // 2. Disabled Dates/Times check
-            if (item.disabledDates && item.disabledDates.length > 0) {
-                const checkDate = selectedDate || new Date().toISOString().split('T')[0];
-                const checkTime = selectedTime || new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-                const isBlocked = item.disabledDates.some(block => {
-                    if (block.date !== checkDate) return false;
-                    if (block.fullDay) return true;
-
-                    // Partial time check
-                    return checkTime >= block.startTime && checkTime <= block.endTime;
-                });
-
-                if (isBlocked) return false;
-            }
-
-            return true;
-        }
+        checkAvailability: (item, location, selectedDate = null, selectedTime = null) =>
+            isContentAvailable(item, location, selectedDate, selectedTime, {
+                categories,
+                serviceTypes,
+            })
     };
 
     return (

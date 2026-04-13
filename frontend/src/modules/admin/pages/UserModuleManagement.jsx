@@ -606,31 +606,33 @@ const UserModuleManagement = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-full overflow-hidden">
             <div>
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">App Data Management</h1>
                 <p className="text-sm text-muted-foreground mt-1">Manage user module categories, services, and banners directly here.</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <div className="flex bg-muted p-1 rounded-xl w-full sm:w-auto overflow-x-auto hide-scrollbar text-foreground border border-border">
-                    {["parent_categories", "categories", "services", "spotlights", "gallery", "testimonials", "booking_rules", "system_settings"].map(tab => (
-                        <button key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`flex-1 sm:px-6 py-2 px-3 whitespace-nowrap rounded-lg text-sm font-medium transition-all ${activeTab === tab ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-                            {tab === "parent_categories" ? "Parent Categories" : tab === "categories" ? "Subcategories" : tab === "booking_rules" ? "Booking Types" : tab === "system_settings" ? "System Core" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </button>
-                    ))}
+            <div className="flex flex-col gap-4">
+                <div className="w-full overflow-x-auto">
+                    <div className="flex bg-muted p-1 rounded-xl text-foreground border border-border min-w-max">
+                        {["parent_categories", "categories", "services", "spotlights", "gallery", "testimonials", "booking_rules", "system_settings"].map(tab => (
+                            <button key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-4 sm:px-6 py-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all ${activeTab === tab ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+                                {tab === "parent_categories" ? "Parent Categories" : tab === "categories" ? "Subcategories" : tab === "booking_rules" ? "Booking Types" : tab === "system_settings" ? "System Core" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {activeTab !== "booking_rules" && activeTab !== "system_settings" && (
-                    <div className="flex w-full sm:w-auto gap-3">
-                        <div className="relative flex-1 sm:w-64">
+                    <div className="flex flex-col sm:flex-row w-full gap-3">
+                        <div className="relative flex-1 sm:max-w-xs">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <input type="text" placeholder={`Search ${activeTab}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground" />
                         </div>
-                        <Button onClick={handleOpenAdd} className="bg-primary text-primary-foreground rounded-xl">
+                        <Button onClick={handleOpenAdd} className="bg-primary text-primary-foreground rounded-xl whitespace-nowrap shrink-0">
                             <Plus className="h-4 w-4 mr-2" /> Add New
                         </Button>
                     </div>

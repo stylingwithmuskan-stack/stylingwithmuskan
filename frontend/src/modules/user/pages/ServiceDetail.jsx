@@ -34,10 +34,10 @@ const ServiceDetail = () => {
   const [addedToCart, setAddedToCart] = useState(false);
   const stepsRef = useRef(null);
 
-  const userCity = user?.address?.city || null;
+  const userLocation = user?.addresses?.[0] || user?.address || null;
   const isAvailable = useMemo(() => {
-    return checkAvailability(service, userCity, selectedDate, selectedSlot?.split(' ')[0]);
-  }, [service, userCity, selectedDate, selectedSlot, checkAvailability]);
+    return checkAvailability(service, userLocation, selectedDate, selectedSlot?.split(' ')[0]);
+  }, [service, userLocation, selectedDate, selectedSlot, checkAvailability]);
 
   // Scroll to top when page loads
   useEffect(() => {
