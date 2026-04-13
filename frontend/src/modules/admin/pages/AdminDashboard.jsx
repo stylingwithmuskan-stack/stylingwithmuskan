@@ -466,15 +466,19 @@ export default function AdminDashboard() {
                                         <div className="p-1.5 rounded-lg bg-emerald-100"><TrendingUp className="h-4 w-4" /></div> Most Active Zones
                                     </div>
                                     <div className="space-y-3">
-                                        {stats.zones?.slice(0, 3).map((zone, i) => (
-                                            <div key={i} className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs">#{i + 1}</div>
-                                                    <span className="text-sm font-bold flex items-center gap-1.5"><MapPin className="h-3 w-3 text-muted-foreground" /> {zone[0]}</span>
+                                        {stats.zones && stats.zones.length > 0 ? (
+                                            stats.zones.slice(0, Math.min(3, Math.ceil(stats.zones.length / 2))).map((zone, i) => (
+                                                <div key={i} className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs">#{i + 1}</div>
+                                                        <span className="text-sm font-bold flex items-center gap-1.5"><MapPin className="h-3 w-3 text-muted-foreground" /> {zone[0]}</span>
+                                                    </div>
+                                                    <span className="text-sm font-black">{zone[1]} Bookings</span>
                                                 </div>
-                                                <span className="text-sm font-black">{zone[1]} Bookings</span>
-                                            </div>
-                                        ))}
+                                            ))
+                                        ) : (
+                                            <div className="text-sm text-muted-foreground italic text-center py-4">No zone data available</div>
+                                        )}
                                     </div>
                                 </div>
                                 {/* Low Zones */}
@@ -483,15 +487,23 @@ export default function AdminDashboard() {
                                         <div className="p-1.5 rounded-lg bg-red-100"><TrendingDown className="h-4 w-4" /></div> Low-Performing Zones
                                     </div>
                                     <div className="space-y-3">
-                                        {stats.zones?.slice(-3).reverse().map((zone, i) => (
-                                            <div key={i} className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-8 w-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-black text-xs text-center leading-none">!</div>
-                                                    <span className="text-sm font-bold flex items-center gap-1.5"><MapPin className="h-3 w-3 text-muted-foreground" /> {zone[0]}</span>
+                                        {stats.zones && stats.zones.length > 3 ? (
+                                            stats.zones.slice(-Math.min(3, Math.floor(stats.zones.length / 2))).reverse().map((zone, i) => (
+                                                <div key={i} className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-black text-xs text-center leading-none">!</div>
+                                                        <span className="text-sm font-bold flex items-center gap-1.5"><MapPin className="h-3 w-3 text-muted-foreground" /> {zone[0]}</span>
+                                                    </div>
+                                                    <span className="text-sm font-black opacity-70">{zone[1]} Bookings</span>
                                                 </div>
-                                                <span className="text-sm font-black opacity-70">{zone[1]} Bookings</span>
+                                            ))
+                                        ) : (
+                                            <div className="text-sm text-muted-foreground italic text-center py-4">
+                                                {stats.zones && stats.zones.length > 0 
+                                                    ? "Need more zones for comparison" 
+                                                    : "No zone data available"}
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
                                 </div>
                             </div>

@@ -21,7 +21,7 @@ export default function ProviderLoginPage() {
     const [phone, setPhone] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-    const [timer, setTimer] = useState(30);
+    const [timer, setTimer] = useState(60); // 1 minute
     const [error, setError] = useState("");
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
@@ -55,7 +55,7 @@ export default function ProviderLoginPage() {
             const res = await requestOtp(phone);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
-            setTimer(30);
+            setTimer(60); // Reset to 1 minute
         } catch (e) {
             setError(e?.message || "Failed to request OTP");
         } finally {

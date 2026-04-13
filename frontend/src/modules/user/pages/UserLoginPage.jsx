@@ -14,7 +14,7 @@ const UserLoginPage = () => {
     const [step, setStep] = useState(1); // 1: Phone, 2: OTP
     const [phone, setPhone] = useState("");
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-    const [timer, setTimer] = useState(30);
+    const [timer, setTimer] = useState(60); // 1 minute
     const [error, setError] = useState("");
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
@@ -49,10 +49,10 @@ const UserLoginPage = () => {
         }
 
         try {
-            const res = await request();
+            const res = await api.requestOtp(phone, "login");
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
-            setTimer(30);
+            setTimer(60); // Reset to 1 minute
         } catch (e) {
             setError(e.message || "Failed to send OTP");
         }
@@ -71,8 +71,8 @@ const UserLoginPage = () => {
             // Show success message
             toast.success(res?.message || "OTP sent successfully!");
             
-            // Reset timer
-            setTimer(30);
+            // Reset timer to 1 minute
+            setTimer(60);
         } catch (e) {
             const errorMsg = e.message || "Failed to resend OTP";
             setError(errorMsg);

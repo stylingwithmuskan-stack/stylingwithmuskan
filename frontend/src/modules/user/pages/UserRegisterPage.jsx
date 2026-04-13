@@ -20,7 +20,7 @@ const UserRegisterPage = () => {
     const [name, setName] = useState("");
     const [referralCode, setReferralCode] = useState("");
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-    const [timer, setTimer] = useState(30);
+    const [timer, setTimer] = useState(60); // 1 minute
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
@@ -54,7 +54,7 @@ const UserRegisterPage = () => {
             console.log("[UserRegister] request-otp response", res);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
-            setTimer(30);
+            setTimer(60); // Reset to 1 minute
         } catch (err) {
              console.error("[UserRegister] request-otp error", err);
             alert(err.message || "Failed to send OTP");
@@ -114,7 +114,7 @@ const UserRegisterPage = () => {
         try {
             const res = await api.requestOtp(phone, "register");
             setOtpDeliveryMode(res?.deliveryMode || "sms");
-            setTimer(30);
+            setTimer(60); // Reset to 1 minute
             toast.success("OTP sent successfully!");
         } catch (err) {
             console.error("[UserRegister] resend-otp error", err);

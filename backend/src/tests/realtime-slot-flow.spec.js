@@ -4,9 +4,12 @@ import app from "../app.js";
 import Booking from "../models/Booking.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
+import User from "../models/User.js";
+import Vendor from "../models/Vendor.js";
 import { BookingSettings } from "../models/Settings.js";
 import { Category, OfficeSettings, ServiceType } from "../models/Content.js";
-import { canAssignProviderToBooking } from "../lib/assignment.js";
+import { canAssignProviderToBooking, getExhaustedAssignmentDisposition } from "../lib/assignment.js";
+import { runAssignmentSchedulerOnce } from "../startup/assignmentScheduler.js";
 
 function futureDate(days = 1) {
   const d = new Date();
@@ -24,11 +27,26 @@ async function loginUser() {
   return res.body.token;
 }
 
+function slotLabelFromNow(minutesFromNow) {
+  const d = new Date(Date.now() + (minutesFromNow * 60 * 1000));
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const period = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  return {
+    date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+    time: `${String(hours).padStart(2, "0")}:${minutes} ${period}`,
+  };
+}
+
 describe("Realtime slot and nearest-provider flow", () => {
   beforeEach(async () => {
     await Booking.deleteMany({});
     await ProviderAccount.deleteMany({ phone: { $regex: /^91999/ } });
     await ProviderDayAvailability.deleteMany({});
+    await User.deleteMany({ phone: { $regex: /^919980/ } });
+    await Vendor.deleteMany({ phone: { $regex: /^919970/ } });
     await BookingSettings.deleteMany({});
     await OfficeSettings.deleteMany({});
     await Category.deleteMany({ id: { $regex: /^test-/ } });
@@ -295,5 +313,185 @@ describe("Realtime slot and nearest-provider flow", () => {
     expect(res.status).toBe(200);
     const bookingIds = (res.body.bookings || []).map((b) => b._id || b.id);
     expect(bookingIds).not.toContain(expiredBooking._id.toString());
+  });
+
+  it("escalates to vendor when the fifth provider rejects and at least 60 minutes remain", async () => {
+    const city = "Ujjain";
+    const zone = "Ujjain Hub";
+    const slot = { date: futureDate(1), time: "10:00 AM" };
+    const providers = [];
+    for (let idx = 0; idx < 5; idx++) {
+      providers.push(await ProviderAccount.create({
+        phone: `91999001${idx}1`,
+        name: `Reject Provider ${idx + 1}`,
+        approvalStatus: "approved",
+        registrationComplete: true,
+        isOnline: true,
+        city,
+        zones: [zone],
+        currentLocation: { lat: 23.1764 + (idx * 0.001), lng: 75.7885 + (idx * 0.001) },
+      }));
+    }
+    await Vendor.create({
+      phone: "9199700001",
+      name: "Ujjain Vendor",
+      city,
+      status: "approved",
+      zones: [zone],
+    });
+    const booking = await Booking.create({
+      customerId: "user-vendor-escalation",
+      customerName: "Customer",
+      services: [{ name: "Skin Glow", price: 900, duration: "1h", category: "facial", serviceType: "skin" }],
+      totalAmount: 900,
+      balanceAmount: 900,
+      address: { houseNo: "1", area: zone, city, zone },
+      slot,
+      bookingType: "scheduled",
+      status: "pending",
+      assignedProvider: providers[4]._id.toString(),
+      candidateProviders: providers.map((p) => p._id.toString()),
+      rejectedProviders: providers.slice(0, 4).map((p) => p._id.toString()),
+      assignmentIndex: 4,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    const providerAgent = request.agent(app);
+    const otpRequestRes = await providerAgent.post("/provider/request-otp").send({ phone: providers[4].phone });
+    expect(otpRequestRes.status).toBe(200);
+    const providerOtp = otpRequestRes.body.otpPreview || process.env.DEFAULT_PROVIDER_OTP || "123456";
+    const loginRes = await providerAgent.post("/provider/verify-otp").send({ phone: providers[4].phone, otp: providerOtp });
+    expect(loginRes.status).toBe(200);
+
+    const res = await providerAgent.patch(`/provider/bookings/${booking._id.toString()}/status`).send({ status: "rejected" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.booking.assignedProvider).toBe("");
+    expect(res.body.booking.vendorEscalated).toBe(true);
+    expect(res.body.booking.adminEscalated).toBe(false);
+    expect(res.body.booking.status).toBe("pending");
+    expect(res.body.booking.expiresAt).toBeNull();
+  });
+
+  it("auto-cancels and refunds when the fifth provider rejects with less than 60 minutes remaining", async () => {
+    const city = "Ujjain";
+    const zone = "Ujjain Hub";
+    const slot = slotLabelFromNow(30);
+    const customer = await User.create({
+      phone: "9199800001",
+      name: "Refund User",
+      wallet: { balance: 0, transactions: [] },
+    });
+    const providers = [];
+    for (let idx = 0; idx < 5; idx++) {
+      providers.push(await ProviderAccount.create({
+        phone: `91999002${idx}2`,
+        name: `Cancel Provider ${idx + 1}`,
+        approvalStatus: "approved",
+        registrationComplete: true,
+        isOnline: true,
+        city,
+        zones: [zone],
+        currentLocation: { lat: 23.1864 + (idx * 0.001), lng: 75.7985 + (idx * 0.001) },
+        credits: idx === 4 ? 0 : undefined,
+      }));
+    }
+    const booking = await Booking.create({
+      customerId: customer._id.toString(),
+      customerName: customer.name,
+      services: [{ name: "Skin Glow", price: 900, duration: "1h", category: "facial", serviceType: "skin" }],
+      totalAmount: 900,
+      prepaidAmount: 500,
+      balanceAmount: 400,
+      paymentSources: [{ source: "wallet", amount: 500, paidAt: new Date() }],
+      address: { houseNo: "1", area: zone, city, zone },
+      slot,
+      bookingType: "scheduled",
+      status: "pending",
+      assignedProvider: providers[4]._id.toString(),
+      candidateProviders: providers.map((p) => p._id.toString()),
+      rejectedProviders: providers.slice(0, 4).map((p) => p._id.toString()),
+      assignmentIndex: 4,
+      commissionAmount: 50,
+      commissionChargedAt: new Date(Date.now() - 5 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    const providerAgent = request.agent(app);
+    const otpRequestRes = await providerAgent.post("/provider/request-otp").send({ phone: providers[4].phone });
+    expect(otpRequestRes.status).toBe(200);
+    const providerOtp = otpRequestRes.body.otpPreview || process.env.DEFAULT_PROVIDER_OTP || "123456";
+    const loginRes = await providerAgent.post("/provider/verify-otp").send({ phone: providers[4].phone, otp: providerOtp });
+    expect(loginRes.status).toBe(200);
+
+    const res = await providerAgent.patch(`/provider/bookings/${booking._id.toString()}/status`).send({ status: "rejected" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.booking.status).toBe("cancelled");
+    expect(res.body.booking.cancelledBy).toBe("system");
+    expect(res.body.booking.assignedProvider).toBe("");
+    expect(res.body.booking.refundAmount).toBe(500);
+    expect(res.body.booking.refundStatus).toBe("processed");
+    expect(res.body.booking.commissionRefundedAt).toBeTruthy();
+
+    const refreshedProvider = await ProviderAccount.findById(providers[4]._id).lean();
+    expect(Number(refreshedProvider?.credits || 0)).toBe(50);
+  });
+
+  it("chooses vendor escalation when exactly 60 minutes remain", () => {
+    const slot = slotLabelFromNow(60);
+    const outcome = getExhaustedAssignmentDisposition({ slot }, new Date());
+    expect(outcome.kind).toBe("vendor_escalation");
+  });
+
+  it("uses the same exhausted-chain rule for scheduler timeout handling", async () => {
+    const city = "Ujjain";
+    const zone = "Ujjain Hub";
+    const slot = { date: futureDate(1), time: "11:00 AM" };
+    const providers = [];
+    for (let idx = 0; idx < 5; idx++) {
+      providers.push(await ProviderAccount.create({
+        phone: `91999003${idx}3`,
+        name: `Timeout Provider ${idx + 1}`,
+        approvalStatus: "approved",
+        registrationComplete: true,
+        isOnline: true,
+        city,
+        zones: [zone],
+        currentLocation: { lat: 23.1964 + (idx * 0.001), lng: 75.8085 + (idx * 0.001) },
+      }));
+    }
+    await Vendor.create({
+      phone: "9199700002",
+      name: "Timeout Vendor",
+      city,
+      status: "approved",
+      zones: [zone],
+    });
+    const booking = await Booking.create({
+      customerId: "timeout-user",
+      customerName: "Timeout Customer",
+      services: [{ name: "Skin Glow", price: 900, duration: "1h", category: "facial", serviceType: "skin" }],
+      totalAmount: 900,
+      balanceAmount: 900,
+      address: { houseNo: "1", area: zone, city, zone },
+      slot,
+      bookingType: "scheduled",
+      status: "pending",
+      assignedProvider: providers[4]._id.toString(),
+      candidateProviders: providers.map((p) => p._id.toString()),
+      rejectedProviders: providers.slice(0, 4).map((p) => p._id.toString()),
+      assignmentIndex: 4,
+      expiresAt: new Date(Date.now() - 10 * 1000),
+      lastAssignedAt: new Date(Date.now() - 11 * 60 * 1000),
+    });
+
+    await runAssignmentSchedulerOnce(new Date());
+
+    const refreshed = await Booking.findById(booking._id).lean();
+    expect(refreshed?.assignedProvider).toBe("");
+    expect(refreshed?.vendorEscalated).toBe(true);
+    expect(refreshed?.adminEscalated).toBe(false);
+    expect(refreshed?.status).toBe("pending");
   });
 });

@@ -15,6 +15,7 @@ export default function VenderLoginPage() {
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [error, setError] = useState("");
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
+    const [timer, setTimer] = useState(60); // 1 minute
 
     useEffect(() => {
         document.documentElement.classList.remove("theme-women", "theme-men", "theme-beautician", "theme-admin");
@@ -22,8 +23,21 @@ export default function VenderLoginPage() {
     }, []);
 
     useEffect(() => {
-        if (hydrated && isLoggedIn) navigate("/vender/dashboard", { replace: true });
-    }, [hydrated, isLoggedIn]);
+        if (hydrated && isLoggedIn) {
+            // Support redirect query param
+            const searchParams = new URLSearchParams(location.search);
+            const redirectUrl = searchParams.get('redirect') || "/vender/dashboard";
+            navigate(redirectUrl, { replace: true });
+        }
+    }, [hydrated, isLoggedIn, location.search, navigate]);
+
+    useEffect(() => {
+        let interval;
+        if (step === 2 && timer > 0) {
+            interval = setInterval(() => setTimer(t => t - 1), 1000);
+        }
+        return () => clearInterval(interval);
+    }, [step, timer]);
 
     const handleRequestOtp = async (e) => {
         e.preventDefault();
@@ -40,6 +54,7 @@ export default function VenderLoginPage() {
             const res = await requestOtp(phone);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
+            setTimer(60); // Reset to 1 minute
         } catch (err) {
             setError(err?.message || "Failed to request OTP");
         }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ArrowRight, ArrowLeft, Save, Users, Briefcase, Building2 } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
@@ -33,66 +33,108 @@ const USER_TYPES = [
   },
 ];
 
-export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
-  const [step, setStep] = useState(1);
-  const [selectedType, setSelectedType] = useState(null);
+export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = false, initialData = null }) {
+  const [step, setStep] = useState(editMode ? 2 : 1);
+  const [selectedType, setSelectedType] = useState(editMode && initialData ? initialData.userType : null);
   const [formData, setFormData] = useState({
     planId: "",
     name: "",
-    price: 0,
+    price: "",
     durationDays: 30,
     billingCycle: "monthly",
     tagline: "",
     // Customer fields
-    discountPercentage: 0,
-    minCartValueForDiscount: 0,
+    discountPercentage: "",
+    minCartValueForDiscount: "",
     discountFundedBy: "platform",
     zeroConvenienceFee: false,
     zeroTravelFee: false,
     priorityBookingEnabled: false,
     eliteAccessEnabled: false,
     // Provider fields
-    providerCommissionRate: 0,
-    leadPriorityWindowMinutes: 0,
+    providerCommissionRate: "",
+    leadPriorityWindowMinutes: "",
     proBadgeEnabled: false,
     boostedVisibilityEnabled: false,
     premiumTrainingAccess: false,
     // Vendor fields
-    marketingCreditsMonthly: 0,
+    marketingCreditsMonthly: "",
     prioritySupport: false,
     subAccountsEnabled: false,
     vendorPerformanceCommissionType: "percentage",
-    vendorPerformanceCommissionValue: 0,
+    vendorPerformanceCommissionValue: "",
   });
 
+  // Load initial data when in edit mode
+  useEffect(() => {
+    if (editMode && initialData && isOpen) {
+      setStep(2);
+      setSelectedType(initialData.userType);
+      setFormData({
+        planId: initialData.planId || "",
+        name: initialData.name || "",
+        price: initialData.price || "",
+        durationDays: initialData.durationDays || 30,
+        billingCycle: initialData.billingCycle || "monthly",
+        tagline: initialData.tagline || "",
+        // Customer fields
+        discountPercentage: initialData.meta?.discountPercentage || "",
+        minCartValueForDiscount: initialData.meta?.minCartValueForDiscount || "",
+        discountFundedBy: initialData.meta?.discountFundedBy || "platform",
+        zeroConvenienceFee: initialData.meta?.zeroConvenienceFee || false,
+        zeroTravelFee: initialData.meta?.zeroTravelFee || false,
+        priorityBookingEnabled: initialData.meta?.priorityBookingEnabled || false,
+        eliteAccessEnabled: initialData.meta?.eliteAccessEnabled || false,
+        // Provider fields
+        providerCommissionRate: initialData.meta?.providerCommissionRate || initialData.meta?.commissionRate || "",
+        leadPriorityWindowMinutes: initialData.meta?.leadPriorityWindowMinutes || "",
+        proBadgeEnabled: initialData.meta?.proBadgeEnabled || false,
+        boostedVisibilityEnabled: initialData.meta?.boostedVisibilityEnabled || false,
+        premiumTrainingAccess: initialData.meta?.premiumTrainingAccess || false,
+        // Vendor fields
+        marketingCreditsMonthly: initialData.meta?.marketingCreditsMonthly || initialData.meta?.marketingCredits || "",
+        prioritySupport: initialData.meta?.prioritySupport || false,
+        subAccountsEnabled: initialData.meta?.subAccountsEnabled || false,
+        vendorPerformanceCommissionType: initialData.meta?.vendorPerformanceCommissionType || "percentage",
+        vendorPerformanceCommissionValue: initialData.meta?.vendorPerformanceCommissionValue || "",
+      });
+    } else if (!editMode && isOpen) {
+      // Reset for create mode
+      setStep(1);
+      setSelectedType(null);
+    }
+  }, [editMode, initialData, isOpen]);
+
   const handleClose = () => {
-    setStep(1);
-    setSelectedType(null);
-    setFormData({
-      planId: "",
-      name: "",
-      price: 0,
-      durationDays: 30,
-      billingCycle: "monthly",
-      tagline: "",
-      discountPercentage: 0,
-      minCartValueForDiscount: 0,
-      discountFundedBy: "platform",
-      zeroConvenienceFee: false,
-      zeroTravelFee: false,
-      priorityBookingEnabled: false,
-      eliteAccessEnabled: false,
-      providerCommissionRate: 0,
-      leadPriorityWindowMinutes: 0,
-      proBadgeEnabled: false,
-      boostedVisibilityEnabled: false,
-      premiumTrainingAccess: false,
-      marketingCreditsMonthly: 0,
-      prioritySupport: false,
-      subAccountsEnabled: false,
-      vendorPerformanceCommissionType: "percentage",
-      vendorPerformanceCommissionValue: 0,
-    });
+    if (!editMode) {
+      setStep(1);
+      setSelectedType(null);
+      setFormData({
+        planId: "",
+        name: "",
+        price: "",
+        durationDays: 30,
+        billingCycle: "monthly",
+        tagline: "",
+        discountPercentage: "",
+        minCartValueForDiscount: "",
+        discountFundedBy: "platform",
+        zeroConvenienceFee: false,
+        zeroTravelFee: false,
+        priorityBookingEnabled: false,
+        eliteAccessEnabled: false,
+        providerCommissionRate: "",
+        leadPriorityWindowMinutes: "",
+        proBadgeEnabled: false,
+        boostedVisibilityEnabled: false,
+        premiumTrainingAccess: false,
+        marketingCreditsMonthly: "",
+        prioritySupport: false,
+        subAccountsEnabled: false,
+        vendorPerformanceCommissionType: "percentage",
+        vendorPerformanceCommissionValue: "",
+      });
+    }
     onClose();
   };
 
@@ -112,35 +154,35 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
     const meta = {};
     
     if (selectedType === "customer") {
-      meta.discountPercentage = Number(formData.discountPercentage);
-      meta.minCartValueForDiscount = Number(formData.minCartValueForDiscount);
+      meta.discountPercentage = Number(formData.discountPercentage) || 0;
+      meta.minCartValueForDiscount = Number(formData.minCartValueForDiscount) || 0;
       meta.discountFundedBy = formData.discountFundedBy;
       meta.zeroConvenienceFee = formData.zeroConvenienceFee;
       meta.zeroTravelFee = formData.zeroTravelFee;
       meta.priorityBookingEnabled = formData.priorityBookingEnabled;
       meta.eliteAccessEnabled = formData.eliteAccessEnabled;
     } else if (selectedType === "provider") {
-      meta.providerCommissionRate = Number(formData.providerCommissionRate);
-      meta.commissionRate = Number(formData.providerCommissionRate);
-      meta.leadPriorityWindowMinutes = Number(formData.leadPriorityWindowMinutes);
+      meta.providerCommissionRate = Number(formData.providerCommissionRate) || 0;
+      meta.commissionRate = Number(formData.providerCommissionRate) || 0;
+      meta.leadPriorityWindowMinutes = Number(formData.leadPriorityWindowMinutes) || 0;
       meta.proBadgeEnabled = formData.proBadgeEnabled;
       meta.boostedVisibilityEnabled = formData.boostedVisibilityEnabled;
       meta.premiumTrainingAccess = formData.premiumTrainingAccess;
     } else if (selectedType === "vendor") {
-      meta.marketingCreditsMonthly = Number(formData.marketingCreditsMonthly);
-      meta.marketingCredits = Number(formData.marketingCreditsMonthly);
+      meta.marketingCreditsMonthly = Number(formData.marketingCreditsMonthly) || 0;
+      meta.marketingCredits = Number(formData.marketingCreditsMonthly) || 0;
       meta.prioritySupport = formData.prioritySupport;
       meta.subAccountsEnabled = formData.subAccountsEnabled;
       meta.vendorPerformanceCommissionType = formData.vendorPerformanceCommissionType;
-      meta.vendorPerformanceCommissionValue = Number(formData.vendorPerformanceCommissionValue);
+      meta.vendorPerformanceCommissionValue = Number(formData.vendorPerformanceCommissionValue) || 0;
     }
 
     const planData = {
       planId: formData.planId.trim(),
       name: formData.name.trim(),
       userType: selectedType,
-      price: Number(formData.price),
-      durationDays: Number(formData.durationDays),
+      price: Number(formData.price) || 0,
+      durationDays: Number(formData.durationDays) || 30,
       billingCycle: formData.billingCycle,
       tagline: formData.tagline.trim(),
       benefits: [],
@@ -170,10 +212,20 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
         <div className="flex items-center justify-between p-6 border-b border-border bg-muted/30 flex-shrink-0">
           <div>
             <h3 className="text-xl font-black">
-              {step === 1 ? "Create New Plan" : `Create ${USER_TYPES.find(t => t.value === selectedType)?.label} Plan`}
+              {editMode 
+                ? `Edit ${USER_TYPES.find(t => t.value === selectedType)?.label} Plan`
+                : step === 1 
+                  ? "Create New Plan" 
+                  : `Create ${USER_TYPES.find(t => t.value === selectedType)?.label} Plan`
+              }
             </h3>
             <p className="text-xs text-muted-foreground mt-1">
-              {step === 1 ? "Select user type to continue" : "Fill in plan details"}
+              {editMode 
+                ? "Update plan details" 
+                : step === 1 
+                  ? "Select user type to continue" 
+                  : "Fill in plan details"
+              }
             </p>
           </div>
           <button
@@ -187,7 +239,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1">
           <AnimatePresence mode="wait">
-            {step === 1 ? (
+            {step === 1 && !editMode ? (
               <motion.div
                 key="step1"
                 initial={{ opacity: 0, x: -20 }}
@@ -258,8 +310,12 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
                         onChange={(e) => updateField("planId", e.target.value.toLowerCase().replace(/\s+/g, "_"))}
                         placeholder="swm_plus_weekend"
                         required
+                        disabled={editMode}
                         className="rounded-xl font-mono"
                       />
+                      {editMode && (
+                        <p className="text-[10px] text-muted-foreground">Plan ID cannot be changed</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-bold">Billing Cycle</Label>
@@ -280,6 +336,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
                         type="number"
                         value={formData.price}
                         onChange={(e) => updateField("price", e.target.value)}
+                        placeholder="Enter price (e.g., 499)"
                         required
                         className="rounded-xl"
                       />
@@ -317,6 +374,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
                           type="number"
                           value={formData.discountPercentage}
                           onChange={(e) => updateField("discountPercentage", e.target.value)}
+                          placeholder="e.g., 10"
                           className="rounded-xl"
                         />
                       </div>
@@ -326,6 +384,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
                           type="number"
                           value={formData.minCartValueForDiscount}
                           onChange={(e) => updateField("minCartValueForDiscount", e.target.value)}
+                          placeholder="e.g., 500"
                           className="rounded-xl"
                         />
                       </div>
@@ -385,6 +444,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
                           type="number"
                           value={formData.providerCommissionRate}
                           onChange={(e) => updateField("providerCommissionRate", e.target.value)}
+                          placeholder="e.g., 15"
                           className="rounded-xl"
                         />
                       </div>
@@ -394,6 +454,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
                           type="number"
                           value={formData.leadPriorityWindowMinutes}
                           onChange={(e) => updateField("leadPriorityWindowMinutes", e.target.value)}
+                          placeholder="e.g., 30"
                           className="rounded-xl"
                         />
                       </div>
@@ -434,6 +495,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
                           type="number"
                           value={formData.marketingCreditsMonthly}
                           onChange={(e) => updateField("marketingCreditsMonthly", e.target.value)}
+                          placeholder="e.g., 5000"
                           className="rounded-xl"
                         />
                       </div>
@@ -454,6 +516,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
                           type="number"
                           value={formData.vendorPerformanceCommissionValue}
                           onChange={(e) => updateField("vendorPerformanceCommissionValue", e.target.value)}
+                          placeholder="e.g., 20"
                           className="rounded-xl"
                         />
                       </div>
@@ -483,7 +546,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
 
         {/* Footer */}
         <div className="p-6 border-t border-border bg-muted/30 flex justify-between flex-shrink-0">
-          {step === 1 ? (
+          {step === 1 && !editMode ? (
             <>
               <Button type="button" variant="outline" onClick={handleClose} className="rounded-xl font-bold">
                 Cancel
@@ -499,15 +562,22 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit }) {
             </>
           ) : (
             <>
-              <Button type="button" variant="outline" onClick={handleBack} className="rounded-xl font-bold gap-2">
-                <ArrowLeft className="w-4 h-4" /> Back
-              </Button>
+              {!editMode && (
+                <Button type="button" variant="outline" onClick={handleBack} className="rounded-xl font-bold gap-2">
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </Button>
+              )}
+              {editMode && (
+                <Button type="button" variant="outline" onClick={handleClose} className="rounded-xl font-bold">
+                  Cancel
+                </Button>
+              )}
               <Button
                 type="submit"
                 onClick={handleSubmit}
                 className="rounded-xl font-bold gap-2"
               >
-                <Save className="w-4 h-4" /> Create Plan
+                <Save className="w-4 h-4" /> {editMode ? "Update Plan" : "Create Plan"}
               </Button>
             </>
           )}

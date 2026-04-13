@@ -15,7 +15,7 @@ import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import { OfficeSettings } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, defaultSlotsMap, isIsoDate, normalizeSlotsPayload, slotLabelToLocalDateTime, slotsMapToAvailableSlots, parseDurationToMinutes } from "../lib/slots.js";
 import { daysBetweenInclusive, isoDateRangeIncludesWeekend, isoDateToLocalEnd, isoDateToLocalStart, toIsoDateFromAny } from "../lib/isoDateTime.js";
-import { computeExpiresAt, getAcceptWindowMs, pickNextProviderForBooking } from "../lib/assignment.js";
+import { computeExpiresAt, getAcceptWindowMs, handleExhaustedAssignmentChain, pickNextProviderForBooking } from "../lib/assignment.js";
 import { BookingSettings, CommissionSettings, PerformanceSettings } from "../models/Settings.js";
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../config.js";
@@ -1244,14 +1244,12 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
       } catch {}
     } else {
-      b.assignedProvider = "";
-      b.adminEscalated = true;
-      b.status = "pending";
-      b.expiresAt = null;
-      try {
-        const io = getIO();
-        io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
-      } catch {}
+      await handleExhaustedAssignmentChain({
+        booking: b,
+        now,
+        fromProvider: current,
+        escalationReason: "acceptance expiry",
+      });
     }
 
     await b.save();
@@ -1265,25 +1263,6 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           meta: { bookingId: b._id.toString(), reason: "accept_expired" },
           respectProviderQuietHours: true,
         });
-      } else {
-        await notify({
-          recipientId: "ADMIN001",
-          recipientRole: "admin",
-          type: "booking_escalated",
-          meta: { bookingId: b._id.toString(), reason: "acceptance expiry" },
-        });
-        const city = b.address?.city || "";
-        if (city) {
-          const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
-          if (vendor) {
-            await notify({
-              recipientId: vendor._id?.toString(),
-              recipientRole: "vendor",
-              type: "booking_escalated",
-              meta: { bookingId: b._id.toString(), city, reason: "acceptance expiry" },
-            });
-          }
-        }
       }
     } catch {}
     logDevProviderFlow("Expired acceptance rerouted booking", {
@@ -1291,9 +1270,11 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       fromProvider: current,
       toProvider: picked?.providerId || "",
       newAssignmentIndex: picked?.index ?? -1,
-      adminEscalated: !picked?.providerId,
+      adminEscalated: b.adminEscalated === true,
+      vendorEscalated: b.vendorEscalated === true,
       city: b.address?.city || "",
       expiresAt: b.expiresAt || null,
+      status: b.status || "",
     });
     return res.status(409).json({
       error: "This booking request has expired for you and was reassigned to another provider.",
@@ -1351,37 +1332,22 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         expiresAt: b.expiresAt || null,
       });
     } else {
-      b.assignedProvider = "";
-      b.adminEscalated = true;
-      b.status = "pending";
-      b.expiresAt = null;
-      try {
-        await notify({
-          recipientId: "ADMIN001",
-          recipientRole: "admin",
-          type: "booking_escalated",
-          meta: { bookingId: b._id.toString(), reason: "provider rejection" },
-        });
-        const city = b.address?.city || "";
-        if (city) {
-          const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
-          if (vendor) {
-            await notify({
-              recipientId: vendor._id?.toString(),
-              recipientRole: "vendor",
-              type: "booking_escalated",
-              meta: { bookingId: b._id.toString(), city, reason: "provider rejection" },
-            });
-          }
-        }
-      } catch {}
-      logDevProviderFlow("Booking escalated after rejection because no next provider was eligible", {
+      const outcome = await handleExhaustedAssignmentChain({
+        booking: b,
+        now,
+        fromProvider: current,
+        escalationReason: "provider rejection",
+      });
+      logDevProviderFlow("Booking reached terminal branch after rejection because no next provider was eligible", {
         bookingId: b._id?.toString?.() || "",
         rejectedProviderId: current,
         candidateProviders: b.candidateProviders || [],
         rejectedProviders: b.rejectedProviders || [],
         city: b.address?.city || "",
-        adminEscalated: true,
+        outcome: outcome.kind,
+        adminEscalated: b.adminEscalated === true,
+        vendorEscalated: b.vendorEscalated === true,
+        status: b.status || "",
       });
     }
   } else if (next === "accepted") {
@@ -1641,6 +1607,8 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     }
   }
 
+  const effectiveStatus = String(b.status || next);
+
   await b.save();
   try {
     if (b?.slot?.date) {
@@ -1652,19 +1620,19 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       }
     }
   } catch {}
-  await BookingLog.create({ action: "booking:status", userId: pId, bookingId: req.params.id, meta: { status: next } });
+  await BookingLog.create({ action: "booking:status", userId: pId, bookingId: req.params.id, meta: { status: effectiveStatus } });
   try {
     const io = getIO();
-    io?.of("/bookings").emit("status:update", { id: req.params.id, status: next });
+    io?.of("/bookings").emit("status:update", { id: req.params.id, status: effectiveStatus });
   } catch {}
   try {
     const notifyStatuses = new Set(["accepted", "travelling", "arrived", "in_progress", "completed", "payment_pending"]);
-      if (b.customerId && notifyStatuses.has(next)) {
+      if (b.customerId && notifyStatuses.has(effectiveStatus)) {
         await notify({
           recipientId: b.customerId,
           recipientRole: "user",
           type: "booking_status",
-          meta: { bookingId: b._id.toString(), status: next },
+          meta: { bookingId: b._id.toString(), status: effectiveStatus },
         });
       }
   } catch {}

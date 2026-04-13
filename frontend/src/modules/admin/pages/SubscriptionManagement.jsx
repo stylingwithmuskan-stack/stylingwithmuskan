@@ -23,6 +23,8 @@ export default function SubscriptionManagement() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -63,8 +65,20 @@ export default function SubscriptionManagement() {
   };
 
   const handleEdit = async (plan) => {
-    // For now, just show a toast. You can implement edit modal later if needed
-    toast.info("Edit functionality - coming soon! Use the form below to update plan details.");
+    setSelectedPlan(plan);
+    setShowEditModal(true);
+  };
+
+  const handleUpdatePlan = async (planData) => {
+    try {
+      await updateSubscriptionPlan(selectedPlan.planId, planData);
+      toast.success("Plan updated successfully!");
+      setShowEditModal(false);
+      setSelectedPlan(null);
+      await load();
+    } catch (error) {
+      toast.error(error?.message || "Failed to update plan");
+    }
   };
 
   const handleDelete = async (plan) => {
@@ -265,6 +279,18 @@ export default function SubscriptionManagement() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreatePlan}
+      />
+
+      {/* Edit Plan Modal */}
+      <CreatePlanModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedPlan(null);
+        }}
+        onSubmit={handleUpdatePlan}
+        editMode={true}
+        initialData={selectedPlan}
       />
     </div>
   );
