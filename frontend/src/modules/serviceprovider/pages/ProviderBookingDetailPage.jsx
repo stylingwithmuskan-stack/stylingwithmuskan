@@ -420,7 +420,7 @@ const ProviderBookingDetailPage = () => {
                     </div>
                 </div>
                 <span className={`px-2.5 py-1 text-[9px] font-black uppercase rounded-md tracking-widest ${booking.status === 'in_progress' ? 'bg-amber-100 text-amber-700' : booking.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
-                    {booking.status.replace("_", " ")}
+                    {booking.status?.replace("_", " ") || ""}
                 </span>
             </div>
 
@@ -613,7 +613,7 @@ const ProviderBookingDetailPage = () => {
                                                     {/* Add more button */}
                                                     {booking.status !== "completed" && (
                                                         <label className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all">
-                                                            <input multiple type="file" accept="image/*" capture="environment" className="hidden"
+                                                            <input multiple type="file" accept="image/*" className="hidden"
                                                                 onChange={e => {
                                                                     const files = Array.from(e.target.files || []);
                                                                     if (files.length) phase.addFn(booking._id || id, files);
@@ -627,7 +627,7 @@ const ProviderBookingDetailPage = () => {
                                                 /* Show upload prompt if no photos OR message if completed */
                                                 booking.status !== "completed" ? (
                                                     <label className="flex flex-col items-center justify-center h-full min-h-[100px] cursor-pointer hover:bg-purple-50 transition-all rounded-xl">
-                                                        <input multiple type="file" accept="image/*" capture="environment" className="hidden"
+                                                        <input multiple type="file" accept="image/*" className="hidden"
                                                             onChange={e => {
                                                                 const files = Array.from(e.target.files || []);
                                                                 if (files.length) phase.addFn(booking._id || id, files);

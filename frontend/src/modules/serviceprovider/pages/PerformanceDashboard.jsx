@@ -39,7 +39,7 @@ export default function PerformanceDashboard() {
             try {
                 const [s, pc, r] = await Promise.all([
                     api.provider.summary(provider.phone),
-                    api.admin.getPerformanceCriteria(),
+                    api.provider.getPerformanceCriteria(),
                     api.vendor.getProviderRankings(provider.city),
                 ]);
                 if (!cancel) {

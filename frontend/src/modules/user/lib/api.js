@@ -341,6 +341,7 @@ export const api = {
     logout: () => request("/provider/logout", { method: "POST" }),
     me: (phone) => request(`/provider/me/${phone}`),
     summary: (phone) => request(`/provider/summary/${phone}`),
+    getPerformanceCriteria: () => request("/provider/performance-criteria"),
     requestZones: (body) => request("/provider/request-zones", { method: "POST", body }),
     rankings: (city) => request(`/provider/rankings/${city}`),
     credits: (phone) => request(`/provider/credits/${phone}`),
