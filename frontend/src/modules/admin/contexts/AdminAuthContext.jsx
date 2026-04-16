@@ -79,6 +79,8 @@ export const AdminAuthProvider = ({ children }) => {
     // ───── SERVICE PROVIDERS ─────
     const getAllServiceProviders = async () => (await api.admin.providers()).providers;
     const updateSPStatus = async (id, status) => { await api.admin.updateProviderStatus(id, status); };
+    const updateProviderProfile = async (id, data) => { await api.admin.updateProviderProfile(id, data); };
+
 
     // ───── ENQUIRIES (server) ─────
     const getEnquiries = async () => (await api.admin.customEnquiries()).enquiries;
@@ -219,13 +221,18 @@ export const AdminAuthProvider = ({ children }) => {
     const toggleCustomerCOD = async (userId, codDisabled) => { await api.admin.toggleCustomerCOD(userId, codDisabled); };
     const updateCustomerStatus = async (userId, status) => { await api.admin.updateCustomerStatus(userId, status); };
 
+    // ───── CONTENT ─────
+    const getParents = async () => (await api.admin.getParents()).parents;
+    const getCategories = async (params = {}) => (await api.admin.getCategories(params)).categories;
+
     return (
         <AdminAuthContext.Provider value={{
             admin, isLoggedIn, hydrated, login, logout,
             getAllVendors, updateVendorStatus,
             approveVendorZones, rejectVendorZones,
             getAllCustomers,
-            getAllServiceProviders, updateSPStatus,
+            getAllServiceProviders, updateSPStatus, updateProviderProfile,
+
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,
             getAllBookings, getUserBookings, assignSPToBooking, assignTeamToBooking,
             getCoupons, addCoupon, deleteCoupon,
@@ -241,7 +248,9 @@ export const AdminAuthProvider = ({ children }) => {
             pushBroadcast, getPushBroadcastHistory, sendPushTest,
             getFeedback, getFeedbackStats, deleteFeedback, updateFeedbackStatus,
             toggleCustomerCOD, updateCustomerStatus,
+            getParents, getCategories,
         }}>
+
             {children}
         </AdminAuthContext.Provider>
     );

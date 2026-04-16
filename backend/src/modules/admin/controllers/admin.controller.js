@@ -1174,3 +1174,30 @@ export async function rejectZoneCreationRequest(req, res) {
     res.status(500).json({ error: 'Failed to reject zone request' });
   }
 }
+
+export async function updateProviderProfile(req, res) {
+  try {
+    const { id } = req.params;
+    const { primaryCategory, specializations } = req.body;
+
+    const updates = {};
+    if (Array.isArray(primaryCategory)) updates["documents.primaryCategory"] = primaryCategory;
+    if (Array.isArray(specializations)) updates["documents.specializations"] = specializations;
+
+    const provider = await ProviderAccount.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true }
+    );
+
+    if (!provider) {
+      return res.status(404).json({ error: "Provider not found" });
+    }
+
+    res.json({ success: true, provider });
+  } catch (error) {
+    console.error("[Admin] Failed to update provider profile:", error);
+    res.status(500).json({ error: "Failed to update provider profile" });
+  }
+}
+
