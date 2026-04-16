@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X } from "lucide-react";
+
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -22,13 +23,31 @@ const statusColors = {
 };
 
 export default function SPOversight() {
-    const { getAllServiceProviders, updateSPStatus, approveProviderZones, rejectProviderZones } = useAdminAuth();
+    const { 
+        getAllServiceProviders, 
+        updateSPStatus, 
+        approveProviderZones, 
+        rejectProviderZones,
+        getParents,
+        getCategories,
+        updateProviderProfile
+    } = useAdminAuth();
+
     const [providers, setProviders] = useState([]);
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("all");
     const [categoryRequests, setCategoryRequests] = useState([]);
     const [selectedSP, setSelectedSP] = useState(null);
     const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
+    
+    // Profile Editing State
+    const [isEditingCategories, setIsEditingCategories] = useState(false);
+    const [tempCategories, setTempCategories] = useState([]);
+    const [tempSpecializations, setTempSpecializations] = useState([]);
+    const [availableParents, setAvailableParents] = useState([]);
+    const [availableCategories, setAvailableCategories] = useState([]);
+    const [isSaving, setIsSaving] = useState(false);
+
 
     const [feedback, setFeedback] = useState([]);
 
@@ -37,10 +56,50 @@ export default function SPOversight() {
             const items = await getAllServiceProviders();
             setProviders(Array.isArray(items) ? items : []);
         } catch {}
+        try {
+            const [parents, cats] = await Promise.all([getParents(), getCategories()]);
+            setAvailableParents(parents || []);
+            setAvailableCategories(cats || []);
+        } catch (err) {
+            console.error("Failed to load content:", err);
+        }
         setFeedback(JSON.parse(localStorage.getItem("muskan-feedback") || "[]"));
         setCategoryRequests(JSON.parse(localStorage.getItem("muskan-category-requests") || "[]"));
     };
     useEffect(() => { load(); }, []);
+
+    const startEditing = () => {
+        setTempCategories(selectedSP.documents?.primaryCategory || []);
+        setTempSpecializations(selectedSP.documents?.specializations || []);
+        setIsEditingCategories(true);
+    };
+
+    const handleSaveProfile = async () => {
+        setIsSaving(true);
+        try {
+            await updateProviderProfile(selectedSP._id || selectedSP.id, {
+                primaryCategory: tempCategories,
+                specializations: tempSpecializations
+            });
+            toast.success("Provider profile updated successfully");
+            setIsEditingCategories(false);
+            load();
+            // Update selectedSP locally
+            setSelectedSP(prev => ({
+                ...prev,
+                documents: {
+                    ...prev.documents,
+                    primaryCategory: tempCategories,
+                    specializations: tempSpecializations
+                }
+            }));
+        } catch (error) {
+            toast.error(error?.message || "Failed to update profile");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     const getSPRating = (nameOrId) => {
         const spFeedback = feedback.filter(f => (f.providerName === nameOrId || f.assignedProvider === nameOrId || f.providerId === nameOrId) && f.type === "customer_to_provider");
@@ -377,26 +436,91 @@ export default function SPOversight() {
                                     <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">Professional Details</h3>
                                     <div className="space-y-4">
                                         <div className="bg-muted/30 rounded-xl p-3">
-                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Categories & Specializations</p>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {selectedSP.documents?.primaryCategory?.length > 0 ? (
-                                                    selectedSP.documents.primaryCategory.map(cat => (
-                                                        <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-none">
-                                                            {cat}
-                                                        </Badge>
-                                                    ))
+                                            <div className="flex items-center justify-between mb-2">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Categories & Specializations</p>
+                                                {!isEditingCategories ? (
+                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full hover:bg-primary/10" onClick={startEditing}>
+                                                        <Edit2 className="h-3 w-3 text-primary" />
+                                                    </Button>
                                                 ) : (
-                                                    <span className="text-xs text-muted-foreground italic">No primary categories</span>
-                                                )}
-                                                {selectedSP.documents?.specializations?.length > 0 && (
-                                                    selectedSP.documents.specializations.map(spec => (
-                                                        <Badge key={spec} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
-                                                            {spec}
-                                                        </Badge>
-                                                    ))
+                                                    <div className="flex gap-1">
+                                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full hover:bg-green-100" onClick={handleSaveProfile} disabled={isSaving}>
+                                                            <Save className="h-3 w-3 text-green-600" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full hover:bg-red-100" onClick={() => setIsEditingCategories(false)} disabled={isSaving}>
+                                                            <X className="h-3 w-3 text-red-600" />
+                                                        </Button>
+                                                    </div>
                                                 )}
                                             </div>
+
+                                            {isEditingCategories ? (
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-muted-foreground mb-1.5">Primary Categories (Parents)</p>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {availableParents.map(parent => {
+                                                                const isSelected = tempCategories.includes(parent.label);
+                                                                return (
+                                                                    <Badge 
+                                                                        key={parent._id} 
+                                                                        variant={isSelected ? "default" : "outline"}
+                                                                        className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-primary border-primary' : 'hover:border-primary/50'}`}
+                                                                        onClick={() => {
+                                                                            if (isSelected) setTempCategories(prev => prev.filter(c => c !== parent.label));
+                                                                            else setTempCategories(prev => [...prev, parent.label]);
+                                                                        }}
+                                                                    >
+                                                                        {parent.label}
+                                                                    </Badge>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-muted-foreground mb-1.5">Specializations (Subcategories)</p>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {availableCategories.map(cat => {
+                                                                const isSelected = tempSpecializations.includes(cat.name);
+                                                                return (
+                                                                    <Badge 
+                                                                        key={cat._id} 
+                                                                        variant={isSelected ? "secondary" : "outline"}
+                                                                        className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-primary/10 text-primary border-primary/20' : 'hover:border-primary/50'}`}
+                                                                        onClick={() => {
+                                                                            if (isSelected) setTempSpecializations(prev => prev.filter(s => s !== cat.name));
+                                                                            else setTempSpecializations(prev => [...prev, cat.name]);
+                                                                        }}
+                                                                    >
+                                                                        {cat.name}
+                                                                    </Badge>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedSP.documents?.primaryCategory?.length > 0 ? (
+                                                        selectedSP.documents.primaryCategory.map(cat => (
+                                                            <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-none">
+                                                                {cat}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground italic">No primary categories</span>
+                                                    )}
+                                                    {selectedSP.documents?.specializations?.length > 0 && (
+                                                        selectedSP.documents.specializations.map(spec => (
+                                                            <Badge key={spec} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
+                                                                {spec}
+                                                            </Badge>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
+
                                         
                                         {selectedSP.documents?.certifications?.length > 0 && (
                                             <div className="bg-muted/30 rounded-xl p-3">

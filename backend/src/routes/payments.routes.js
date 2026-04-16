@@ -218,15 +218,56 @@ router.post(
           paidAt: new Date()
         });
         
+        const isFirstPayment = b.status === "payment_pending";
         b.prepaidAmount = (b.prepaidAmount || 0) + amount;
         b.balanceAmount = Math.max((b.totalAmount || 0) - (b.prepaidAmount || 0), 0);
         b.paymentStatus = b.balanceAmount > 0 ? "Partially Paid" : "Fully Paid";
-        b.status = b.status === "payment_pending" && b.balanceAmount === 0 ? "documentation" : b.status;
+        
+        // If it was waiting for payment, move it to active statuses
+        if (isFirstPayment) {
+          b.status = b.balanceAmount === 0 ? "documentation" : "pending";
+        } else {
+          // Normal status update logic for existing bookings
+          b.status = b.status === "payment_pending" && b.balanceAmount === 0 ? "documentation" : b.status;
+        }
+
         b.paymentOrder = { id: "", amount: 0, currency: "INR", receipt: "", createdAt: null };
         b.paymentId = payment_id;
         b.onlineAmountPaid = (b.onlineAmountPaid || 0) + amount;
         await b.save();
         await BookingLog.create({ action: "booking:payment-update", userId: req.user._id.toString(), bookingId: b._id.toString(), meta: { amount, source: "razorpay", paymentId: payment_id } });
+
+        // If this was the initial payment, send the confirmation notifications now
+        if (isFirstPayment) {
+          try {
+            // Notify user: booking created
+            await notify({
+              recipientId: req.user._id.toString(),
+              recipientRole: "user",
+              type: "booking_created",
+              meta: { bookingId: b._id.toString() },
+            });
+
+            // Notify provider and user about assignment
+            if (b.assignedProvider) {
+              await notify({
+                recipientId: b.assignedProvider,
+                recipientRole: "provider",
+                type: "booking_assigned",
+                meta: { bookingId: b._id.toString() },
+                respectProviderQuietHours: true,
+              });
+              await notify({
+                recipientId: req.user._id.toString(),
+                recipientRole: "user",
+                type: "booking_assigned",
+                meta: { bookingId: b._id.toString() },
+              });
+            }
+          } catch (err) {
+            console.error("[Payment] Notification error:", err.message);
+          }
+        }
       }
       try {
         await notify({

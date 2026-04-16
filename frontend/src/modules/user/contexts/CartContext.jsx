@@ -22,7 +22,8 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-    const { categories: categoriesData } = useUserModuleData();
+    const { categories: categoriesData, serviceTypes } = useUserModuleData();
+
     const getCategories = () => categoriesData || [];
 
     const [cartItems, setCartItems] = useState([]);
@@ -56,12 +57,16 @@ export const CartProvider = ({ children }) => {
         cartItems.forEach(item => {
             const cats = getCategories();
             const cat = item.category ? cats.find(c => c.id === item.category) : null;
-            const type = cat?.serviceType || item.serviceType || "other";
+            const type = (cat?.serviceType || item.serviceType || "other").toLowerCase();
+            
             if (!groups[type]) {
+                const typeInfo = serviceTypes?.find(t => t.id.toLowerCase() === type || t.label.toLowerCase() === type);
+                const fallbackLabel = cat?.name || (type !== 'other' ? (type.charAt(0).toUpperCase() + type.slice(1)) : "Other Services");
+                
                 groups[type] = {
                     id: type,
-                    label: groupLabels[type] || "Other Services",
-                    image: groupImages[type] || "",
+                    label: groupLabels[type] || typeInfo?.label || fallbackLabel,
+                    image: groupImages[type] || typeInfo?.image || (cat?.image || "/logo1.png"),
                     items: [],
                     subtotal: 0,
                     itemCount: 0
@@ -73,6 +78,7 @@ export const CartProvider = ({ children }) => {
         });
         return groups;
     };
+
 
     const addToCart = (service) => {
         const cats = getCategories();

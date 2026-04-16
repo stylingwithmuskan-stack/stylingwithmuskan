@@ -280,21 +280,6 @@ router.patch("/vendors/:id/status", requireRole("admin"), param("id").isString()
   const current = await Vendor.findById(req.params.id);
   if (!current) return res.status(404).json({ error: "Vendor not found" });
   const nextStatus = String(req.body.status || "").toLowerCase();
-  if (nextStatus === "approved") {
-    const cityId = String(current.cityId || "").trim();
-    const city = String(current.city || "").trim();
-    const duplicate = await Vendor.findOne({
-      _id: { $ne: current._id },
-      status: "approved",
-      $or: [
-        ...(cityId ? [{ cityId }] : []),
-        ...(city ? [{ city: new RegExp(`^${city}$`, "i") }] : []),
-      ],
-    }).lean();
-    if (duplicate) {
-      return res.status(409).json({ error: "An approved vendor already exists for this city." });
-    }
-  }
   const v = await Vendor.findByIdAndUpdate(req.params.id, { status: nextStatus }, { new: true });
   if (nextStatus === "approved" && v?.cityId) {
     try {
@@ -399,6 +384,9 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
   } catch {}
   res.json({ provider: p });
 });
+
+router.patch("/providers/:id/profile", requireRole("admin"), param("id").isString(), AdminController.updateProviderProfile);
+
 
 router.patch("/providers/:id/approve-zones", requireRole("admin"), param("id").isString(), async (req, res) => {
   const p = await ProviderAccount.findById(req.params.id);

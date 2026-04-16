@@ -7,7 +7,7 @@ import ProviderWalletTxn from "../models/ProviderWalletTxn.js";
 import { redis } from "../startup/redis.js";
 import { upload } from "../middleware/upload.js";
 import { uploadBuffer } from "../startup/cloudinary.js";
-import { issueRoleToken, requireRole } from "../middleware/roles.js";
+import { issueRoleToken, requireRole, requireAnyRole } from "../middleware/roles.js";
 import BookingLog from "../models/BookingLog.js";
 import { getIO } from "../startup/socket.js";
 import LeaveRequest from "../models/LeaveRequest.js";
@@ -666,6 +666,11 @@ router.get("/me/:phone", param("phone").matches(/^\d{10}$/), async (req, res) =>
   });
 });
 
+router.get("/performance-criteria", requireAnyRole(["admin", "provider"]), async (_req, res) => {
+  const s = await PerformanceSettings.findOne().lean();
+  res.json({ settings: s || { minWeeklyHours: 20, minRatingThreshold: 4.5, maxCancellationsThreshold: 5 } });
+});
+
 router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, res) => {
   try {
     const phone = req.params.phone;
@@ -754,7 +759,7 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
   }
 });
 
-router.get("/rankings/:city", requireRole("admin"), async (req, res) => {
+router.get("/rankings/:city", requireAnyRole(["admin", "provider"]), async (req, res) => {
   try {
     const city = req.params.city;
     const providers = await ProviderAccount.find({ city }).lean();

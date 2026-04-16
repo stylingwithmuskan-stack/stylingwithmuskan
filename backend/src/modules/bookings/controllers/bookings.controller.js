@@ -462,7 +462,7 @@ export async function create(req, res) {
     address: safeAddress,
     slot,
     bookingType,
-    status: "pending",
+    status: advanceAmount > 0 ? "payment_pending" : "pending",
     notificationStatus,
     assignedProvider,
     maintainProvider: preferredProviderId || "",
@@ -501,11 +501,20 @@ export async function create(req, res) {
         key_secret: RAZORPAY_KEY_SECRET,
       });
       order = await rzp.orders.create({
-        amount: advanceAmount * 100,
+        amount: Math.round(advanceAmount * 100),
         currency: "INR",
         receipt: `swm_${booking._id}`,
         notes: { bookingId: booking._id.toString() },
       });
+      // Save order info to booking for later verification if needed
+      booking.paymentOrder = {
+        id: order.id,
+        amount: advanceAmount,
+        currency: "INR",
+        receipt: order.receipt,
+        createdAt: new Date(),
+      };
+      await booking.save();
     } catch (e) {
       order = null;
     }
@@ -581,33 +590,37 @@ export async function create(req, res) {
       },
     });
   }
-  // Notify user: booking created
-  try {
-    await notify({
-      recipientId: req.user._id.toString(),
-      recipientRole: "user",
-      type: "booking_created",
-      meta: { bookingId },
-    });
-  } catch {}
 
-  // Create notification for the assigned provider
-  if (assignedProvider) {
+  // Only notify if no advance is required (e.g. Cash / Free / Instant)
+  if (advanceAmount === 0) {
+    // Notify user: booking created
     try {
-      await notify({
-        recipientId: assignedProvider,
-        recipientRole: "provider",
-        type: "booking_assigned",
-        meta: { bookingId },
-        respectProviderQuietHours: true,
-      });
       await notify({
         recipientId: req.user._id.toString(),
         recipientRole: "user",
-        type: "booking_assigned",
+        type: "booking_created",
         meta: { bookingId },
       });
     } catch {}
+
+    // Create notification for the assigned provider
+    if (assignedProvider) {
+      try {
+        await notify({
+          recipientId: assignedProvider,
+          recipientRole: "provider",
+          type: "booking_assigned",
+          meta: { bookingId },
+          respectProviderQuietHours: true,
+        });
+        await notify({
+          recipientId: req.user._id.toString(),
+          recipientRole: "user",
+          type: "booking_assigned",
+          meta: { bookingId },
+        });
+      } catch {}
+    }
   }
 }
 

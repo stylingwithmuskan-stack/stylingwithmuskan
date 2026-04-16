@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Search, Bell, MapPin, ChevronDown, Home, Compass, Calendar, User, Heart, HelpCircle } from "lucide-react";
+import { Search, Bell, MapPin, ChevronDown, Home, Compass, Calendar, User, Heart, HelpCircle, ShoppingBag } from "lucide-react";
+
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useCart } from "@/modules/user/contexts/CartContext";
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
@@ -24,7 +25,8 @@ const Header = () => {
   const { gender } = useGenderTheme();
   const { user, isAddressModalOpen, setIsAddressModalOpen, isLoggedIn } = useAuth();
   const { unreadCount } = useNotifications();
-  const { totalItems } = useCart();
+  const { totalItems, setIsCartOpen } = useCart();
+
   const { wishlistCount } = useWishlist();
   const { services, checkAvailability } = useUserModuleData();
   const [searchQuery, setSearchQuery] = useState("");
@@ -162,6 +164,18 @@ const Header = () => {
             {wishlistCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-background animate-in zoom-in">
                 {wishlistCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="hidden lg:flex w-9 h-9 rounded-full bg-accent items-center justify-center relative hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-background animate-in zoom-in">
+                {totalItems}
               </span>
             )}
           </button>

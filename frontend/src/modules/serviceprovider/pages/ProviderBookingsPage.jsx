@@ -50,9 +50,9 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                 </div>
                 <div className="flex items-center gap-2">
                     {(type === "incoming" || type === "pending") && booking.expiresAt && <CountdownTimer expiresAt={booking.expiresAt} />}
-                    {type === "active" && <span className="text-[10px] font-bold uppercase text-green-500 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> {booking.status.replace("_", " ")}</span>}
+                    {type === "active" && <span className="text-[10px] font-bold uppercase text-green-500 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> {booking.status?.replace("_", " ") || ""}</span>}
                     {type === "assigned" && <span className="text-[10px] font-bold uppercase text-blue-500 flex items-center gap-1.5"><Zap className="w-3 h-3" /> Mandatory Job</span>}
-                    {type === "cancelled" && <span className="text-[10px] font-bold uppercase text-red-500 flex items-center gap-1.5">{booking.status.replace("_", " ")}</span>}
+                    {type === "cancelled" && <span className="text-[10px] font-bold uppercase text-red-500 flex items-center gap-1.5">{booking.status?.replace("_", " ") || ""}</span>}
                 </div>
             </div>
 

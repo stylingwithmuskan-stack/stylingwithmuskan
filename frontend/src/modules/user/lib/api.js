@@ -341,6 +341,7 @@ export const api = {
     logout: () => request("/provider/logout", { method: "POST" }),
     me: (phone) => request(`/provider/me/${phone}`),
     summary: (phone) => request(`/provider/summary/${phone}`),
+    getPerformanceCriteria: () => request("/provider/performance-criteria"),
     requestZones: (body) => request("/provider/request-zones", { method: "POST", body }),
     rankings: (city) => request(`/provider/rankings/${city}`),
     credits: (phone) => request(`/provider/credits/${phone}`),
@@ -499,7 +500,9 @@ export const api = {
     customers: () => request("/admin/customers"),
     providers: () => request("/admin/providers"),
     updateProviderStatus: (id, status) => request(`/admin/providers/${id}/status`, { method: "PATCH", body: { status } }),
+    updateProviderProfile: (id, payload) => request(`/admin/providers/${id}/profile`, { method: "PATCH", body: payload }),
     bookings: () => request("/admin/bookings"),
+
     assignBooking: (id, providerId) => request(`/admin/bookings/${id}/assign`, { method: "PATCH", body: { providerId } }),
     customEnquiries: () => request("/admin/custom-enquiries"),
     customEnquiryPriceQuote: (id, body) => request(`/admin/custom-enquiries/${id}/price-quote`, { method: "PATCH", body }),
