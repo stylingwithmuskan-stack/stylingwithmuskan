@@ -42,11 +42,16 @@ async function normalizeResolvedAddress(input = {}) {
     zone: String(input.zone || "").trim(),
     zoneId: String(input.zoneId || "").trim(),
     type: input.type || "home",
-    lat: input.lat !== undefined ? Number(input.lat) : null,
-    lng: input.lng !== undefined ? Number(input.lng) : null,
+    lat: (input.lat !== undefined && input.lat !== null && input.lat !== "") ? Number(input.lat) : null,
+    lng: (input.lng !== undefined && input.lng !== null && input.lng !== "") ? Number(input.lng) : null,
     insideServiceArea: true,
     resolvedAt: null,
   };
+
+  if (addr.lat === 0 && addr.lng === 0) {
+    addr.lat = null;
+    addr.lng = null;
+  }
 
   if (Number.isFinite(addr.lat) && Number.isFinite(addr.lng)) {
     const resolved = await resolveServiceLocation({
@@ -163,8 +168,8 @@ router.post(
       zone: String(req.body.zone || "").trim(),
       zoneId: String(req.body.zoneId || "").trim(),
       type: req.body.type || "home",
-      lat: req.body.lat !== undefined ? Number(req.body.lat) : null,
-      lng: req.body.lng !== undefined ? Number(req.body.lng) : null,
+      lat: (req.body.lat !== undefined && req.body.lat !== null && req.body.lat !== "") ? Number(req.body.lat) : null,
+      lng: (req.body.lng !== undefined && req.body.lng !== null && req.body.lng !== "") ? Number(req.body.lng) : null,
     };
     const normalizedAddr = await normalizeResolvedAddress(addr);
     if (Number.isFinite(normalizedAddr.lat) && Number.isFinite(normalizedAddr.lng) && !normalizedAddr.insideServiceArea) {
@@ -216,8 +221,8 @@ router.patch(
     if (req.body.zone !== undefined) addr.zone = String(req.body.zone || "").trim();
     if (req.body.zoneId !== undefined) addr.zoneId = String(req.body.zoneId || "").trim();
     if (req.body.type !== undefined) addr.type = req.body.type;
-    if (req.body.lat !== undefined) addr.lat = Number(req.body.lat);
-    if (req.body.lng !== undefined) addr.lng = Number(req.body.lng);
+    if (req.body.lat !== undefined && req.body.lat !== null && req.body.lat !== "") addr.lat = Number(req.body.lat);
+    if (req.body.lng !== undefined && req.body.lng !== null && req.body.lng !== "") addr.lng = Number(req.body.lng);
     const normalizedAddr = await normalizeResolvedAddress(addr.toObject ? addr.toObject() : addr);
     Object.assign(addr, normalizedAddr);
     if (Number.isFinite(addr.lat) && Number.isFinite(addr.lng) && !addr.insideServiceArea) {

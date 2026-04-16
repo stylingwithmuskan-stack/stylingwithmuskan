@@ -152,6 +152,24 @@ export async function updateBookingStatus(req, res) {
     }
   }
 
+  // Prevent starting 'travelling' too early for future bookings
+  if (next === "travelling") {
+    const slotDateTime = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
+    if (slotDateTime) {
+      const now = Date.now();
+      const diffMs = slotDateTime.getTime() - now;
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      // If more than 2 hours in the future, block it
+      if (diffHours > 2) {
+        return res.status(400).json({ 
+          error: "Too Early", 
+          message: `This booking is scheduled for ${b.slot.date} at ${b.slot.time}. You can only start travelling within 2 hours of the scheduled time.` 
+        });
+      }
+    }
+  }
+
   b.status = next;
   await b.save();
 

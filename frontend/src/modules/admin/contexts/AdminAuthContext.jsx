@@ -79,6 +79,8 @@ export const AdminAuthProvider = ({ children }) => {
     // ───── SERVICE PROVIDERS ─────
     const getAllServiceProviders = async () => (await api.admin.providers()).providers;
     const updateSPStatus = async (id, status) => { await api.admin.updateProviderStatus(id, status); };
+    const approveProviderZones = async (id) => { await api.admin.approveProviderZones(id); };
+    const rejectProviderZones = async (id) => { await api.admin.rejectProviderZones(id); };
 
     // ───── ENQUIRIES (server) ─────
     const getEnquiries = async () => (await api.admin.customEnquiries()).enquiries;
@@ -225,7 +227,7 @@ export const AdminAuthProvider = ({ children }) => {
             getAllVendors, updateVendorStatus,
             approveVendorZones, rejectVendorZones,
             getAllCustomers,
-            getAllServiceProviders, updateSPStatus,
+            getAllServiceProviders, updateSPStatus, approveProviderZones, rejectProviderZones,
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,
             getAllBookings, getUserBookings, assignSPToBooking, assignTeamToBooking,
             getCoupons, addCoupon, deleteCoupon,

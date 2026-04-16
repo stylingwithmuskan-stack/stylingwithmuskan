@@ -49,17 +49,14 @@ const ProviderBookingDetailPage = () => {
     const handleUpdateStatus = async (next) => {
         // Check if starting too early (only for travelling status)
         if (next === "travelling" && booking?.slot?.date && booking?.slot?.time) {
-            console.log("🔍 Checking early start:", {
-                date: booking.slot.date,
-                time: booking.slot.time,
-                status: next
-            });
+            const timeStatus = getBookingTimeStatus(booking.slot.date, booking.slot.time);
             
-            const isEarly = checkIfTooEarly(booking.slot.date, booking.slot.time);
-            console.log("⏰ Is early?", isEarly);
+            if (timeStatus.status === "block") {
+                toast.error(`Too Early: ${timeStatus.message}`);
+                return;
+            }
             
-            if (isEarly) {
-                console.log("⚠️ Showing early warning modal");
+            if (timeStatus.status === "warn") {
                 setPendingStatusUpdate(next);
                 setShowEarlyStartWarning(true);
                 return;
@@ -80,53 +77,45 @@ const ProviderBookingDetailPage = () => {
         }
     };
 
-    const checkIfTooEarly = (dateStr, timeStr) => {
+    const getBookingTimeStatus = (dateStr, timeStr) => {
         try {
-            console.log("📅 Parsing date:", dateStr, "time:", timeStr);
+            if (!dateStr || !timeStr) return { status: "allow" };
             
-            // Parse scheduled date - handle different formats
-            let scheduledDate;
-            
-            // Check if date is in ISO format (2026-04-10)
-            if (dateStr.includes('-')) {
-                scheduledDate = new Date(dateStr);
-            } else {
-                // Handle other formats like "Fri, 10 Apr" or "Friday, 10 Apr"
-                scheduledDate = new Date(dateStr);
-            }
-            
-            console.log("📆 Parsed date:", scheduledDate);
-            
-            // Parse time (12:00 PM format)
+            // Parse scheduled date
+            let scheduledDate = new Date(dateStr);
             const [time, period] = timeStr.split(' ');
             let [hours, minutes] = time.split(':').map(Number);
-            
             if (period === 'PM' && hours !== 12) hours += 12;
             if (period === 'AM' && hours === 12) hours = 0;
-            
             scheduledDate.setHours(hours, minutes, 0, 0);
             
-            console.log("🕐 Final scheduled datetime:", scheduledDate);
-            
-            // Get current time
             const now = new Date();
-            console.log("🕐 Current time:", now);
-            
-            // Calculate time difference in milliseconds
             const timeDiff = scheduledDate.getTime() - now.getTime();
             const hoursDiff = timeDiff / (1000 * 60 * 60);
             
-            console.log("⏱️ Time difference:", {
-                milliseconds: timeDiff,
-                hours: hoursDiff.toFixed(2),
-                isMoreThan1Hour: timeDiff > 3600000
-            });
+            // More than 2 hours early OR different future date = BLOCK
+            // (Note: simple date comparison to prevent starting tomorrow's jobs today even if < 24h)
+            const todayStr = now.toISOString().split('T')[0];
+            const isFutureDate = dateStr > todayStr;
+
+            if (isFutureDate || hoursDiff > 2) {
+                return { 
+                    status: "block", 
+                    message: `Scheduled for ${dateStr} at ${timeStr}`,
+                    diffHours: hoursDiff 
+                };
+            }
             
-            // If more than 1 hour early (3600000 ms), show warning
-            return timeDiff > 3600000;
+            // Between 1 and 2 hours early = WARN
+            if (hoursDiff > 1) {
+                return { status: "warn", diffHours: hoursDiff };
+            }
+            
+            // Less than 1 hour early = ALLOW
+            return { status: "allow" };
         } catch (error) {
             console.error("❌ Error checking booking time:", error);
-            return false;
+            return { status: "allow" };
         }
     };
 
@@ -280,7 +269,15 @@ const ProviderBookingDetailPage = () => {
         switch (booking.status) {
             case "vendor_assigned":
             case "vendor_reassigned":
-            case "accepted": return { label: "Start Travelling", icon: Navigation, action: () => updateBookingStatus(bookingId, "travelling") };
+            case "accepted": {
+                const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
+                return { 
+                    label: timeStatus.status === "block" ? "Job Locked" : "Start Travelling", 
+                    icon: Navigation, 
+                    action: () => handleUpdateStatus("travelling"),
+                    disabled: timeStatus.status === "block"
+                };
+            }
             case "travelling": return { label: "Mark as Arrived", icon: MapPin, action: () => updateBookingStatus(bookingId, "arrived") };
             case "arrived": return { label: "Verify Customer OTP", icon: Shield, action: () => setShowOTP(true) };
             case "in_progress": return { label: "Collect Service Payment", icon: IndianRupee, action: () => handleCollectPayment() };
@@ -725,7 +722,7 @@ const ProviderBookingDetailPage = () => {
                         {nextAction && (
                             <Button
                                 onClick={nextAction.action}
-                                disabled={statusLoading}
+                                disabled={statusLoading || nextAction.disabled}
                                 className="w-full sm:flex-1 h-14 rounded-2xl font-black text-xs bg-purple-600 hover:bg-purple-700 text-white shadow-xl shadow-purple-200 flex items-center justify-center gap-2 transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {statusLoading ? "PROCESSING..." : nextAction.label.toUpperCase()} <ChevronRight className="w-4 h-4" />

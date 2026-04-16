@@ -259,9 +259,12 @@ router.get(
     }
 
     let providers = await ProviderAccount.find(q).lean();
+    console.log(`[SLOTS DEBUG] Query executed:`, JSON.stringify(q, (k,v)=>v instanceof RegExp ? v.toString() : v));
+    console.log(`[SLOTS DEBUG] Initial providers matched: ${providers.length}`);
 
     if (cityGuess && providers.length === 0 && !zoneGuess) {
       providers = await ProviderAccount.find(baseQ).lean();
+      console.log(`[SLOTS DEBUG] Fallback to baseQ providers: ${providers.length}`);
     }
 
     if (serviceTypes.length > 0 || categories.length > 0) {
@@ -269,9 +272,11 @@ router.get(
         categoryValues: categories,
         serviceTypeValues: serviceTypes,
       });
+      console.log(`[SLOTS DEBUG] Filtering by specialties:`, Array.from(requestedSpecialties.wantTypes), Array.from(requestedSpecialties.wantCats));
       providers = providers.filter((provider) =>
         providerMatchesRequestedSpecialties(provider, requestedSpecialties)
       );
+      console.log(`[SLOTS DEBUG] Providers after specialty filter: ${providers.length}`);
     }
 
     const slotMap = {};
@@ -297,6 +302,8 @@ router.get(
           slotMap[slot] = true;
           candidateProvidersBySlot[slot].push(String(provider._id));
         }
+      } else {
+        console.log(`[SLOTS DEBUG] Provider ${provider._id} has NO free slots. result:`, result.reason);
       }
     }
 
