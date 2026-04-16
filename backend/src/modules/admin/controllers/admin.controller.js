@@ -8,6 +8,7 @@ import SOSAlert from "../../../models/SOSAlert.js";
 import { CommissionSettings } from "../../../models/Settings.js";
 import { City, Zone } from "../../../models/CityZone.js";
 import { syncCityCenterFromZone } from "../../../lib/locationResolution.js";
+import { validatePolygon } from "../../../lib/polygonValidation.js";
 
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 
@@ -543,21 +544,50 @@ export async function createZone(req, res) {
   // Existing validation
   if (!name) return res.status(400).json({ error: "Name is required" });
   
-  // NEW: Validate coordinates if provided
+  // Validate coordinates if provided
   if (coordinates !== undefined && coordinates !== null) {
-    if (!Array.isArray(coordinates) || coordinates.length !== 5) {
+    // Flexible validation: 3-10 points
+    const MIN_POINTS = 3;
+    const MAX_POINTS = 10;
+    
+    if (!Array.isArray(coordinates)) {
       return res.status(400).json({ 
-        error: "Coordinates must be an array of exactly 5 points" 
+        error: "Coordinates must be an array" 
       });
     }
     
-    for (const coord of coordinates) {
-      if (!isValidCoordinate(coord)) {
+    if (coordinates.length < MIN_POINTS || coordinates.length > MAX_POINTS) {
+      return res.status(400).json({ 
+        error: `Coordinates must have between ${MIN_POINTS} and ${MAX_POINTS} points. Received: ${coordinates.length}` 
+      });
+    }
+    
+    // Validate each coordinate format
+    for (let i = 0; i < coordinates.length; i++) {
+      if (!isValidCoordinate(coordinates[i])) {
         return res.status(400).json({ 
-          error: "Invalid coordinate format or values" 
+          error: `Invalid coordinate format at point ${i + 1}` 
         });
       }
     }
+    
+    // Validate polygon geometry
+    const validation = validatePolygon(coordinates);
+    if (!validation.isValid) {
+      return res.status(400).json({ 
+        error: "Invalid polygon geometry",
+        details: validation.errors,
+        area: validation.areaKm,
+        perimeter: validation.perimeterKm
+      });
+    }
+    
+    // Log zone metrics for monitoring
+    console.log(`[Zone Create] ${name}:`, {
+      points: coordinates.length,
+      area: `${validation.areaKm} km²`,
+      perimeter: `${validation.perimeterKm} km`
+    });
   }
   
   // Create zone with optional coordinates
@@ -602,24 +632,55 @@ export async function updateZone(req, res) {
   const updates = {};
   if (name) updates.name = name;
   
-  // NEW: Validate and include coordinates if provided
+  // Validate and include coordinates if provided
   if (coordinates !== undefined) {
     if (coordinates === null) {
       updates.coordinates = null; // Allow clearing coordinates
     } else {
-      if (!Array.isArray(coordinates) || coordinates.length !== 5) {
+      // Flexible validation: 3-10 points
+      const MIN_POINTS = 3;
+      const MAX_POINTS = 10;
+      
+      if (!Array.isArray(coordinates)) {
         return res.status(400).json({ 
-          error: "Coordinates must be an array of exactly 5 points" 
+          error: "Coordinates must be an array" 
         });
       }
-      for (const coord of coordinates) {
-        if (!isValidCoordinate(coord)) {
+      
+      if (coordinates.length < MIN_POINTS || coordinates.length > MAX_POINTS) {
+        return res.status(400).json({ 
+          error: `Coordinates must have between ${MIN_POINTS} and ${MAX_POINTS} points. Received: ${coordinates.length}` 
+        });
+      }
+      
+      // Validate each coordinate format
+      for (let i = 0; i < coordinates.length; i++) {
+        if (!isValidCoordinate(coordinates[i])) {
           return res.status(400).json({ 
-            error: "Invalid coordinate format or values" 
+            error: `Invalid coordinate format at point ${i + 1}` 
           });
         }
       }
+      
+      // Validate polygon geometry
+      const validation = validatePolygon(coordinates);
+      if (!validation.isValid) {
+        return res.status(400).json({ 
+          error: "Invalid polygon geometry",
+          details: validation.errors,
+          area: validation.areaKm,
+          perimeter: validation.perimeterKm
+        });
+      }
+      
       updates.coordinates = coordinates;
+      
+      // Log zone metrics for monitoring
+      console.log(`[Zone Update] ${name || zoneId}:`, {
+        points: coordinates.length,
+        area: `${validation.areaKm} km²`,
+        perimeter: `${validation.perimeterKm} km`
+      });
     }
   }
   

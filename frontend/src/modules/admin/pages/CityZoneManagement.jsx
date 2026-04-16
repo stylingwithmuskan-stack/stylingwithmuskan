@@ -274,7 +274,9 @@ const CityZoneManagement = () => {
             toast.success("Zone updated successfully");
             setNewName("");
             setEditingZone(null);
-            fetchZones(editingZone.city);
+            // Extract cityId properly - handle both ObjectId string and populated object
+            const cityId = typeof editingZone.city === 'object' ? editingZone.city._id : editingZone.city;
+            fetchZones(cityId);
         } catch (err) {
             toast.error(err.message || "Failed to update zone");
         } finally {
@@ -288,7 +290,8 @@ const CityZoneManagement = () => {
             setSubmitting(true);
             await api.admin.deleteZone(deletingZone._id);
             toast.success("Zone deleted successfully");
-            const cityId = deletingZone.city;
+            // Extract cityId properly - handle both ObjectId string and populated object
+            const cityId = typeof deletingZone.city === 'object' ? deletingZone.city._id : deletingZone.city;
             setDeletingZone(null);
             fetchZones(cityId);
         } catch (err) {

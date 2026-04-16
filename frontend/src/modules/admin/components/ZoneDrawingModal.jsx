@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, MapPin, RotateCcw, Loader2, AlertTriangle } from "lucide-react";
+import { X, MapPin, RotateCcw, Loader2, AlertTriangle, CheckCircle } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
 import { toast } from "sonner";
 import useGoogleMaps from "../hooks/useGoogleMaps";
+import { ZONE_CONFIG } from "../config/zoneConfig";
+import { validatePolygonClient } from "../utils/polygonValidation";
+
+const MAX_POINTS = ZONE_CONFIG.MAX_POINTS; // 8
+const MIN_POINTS = ZONE_CONFIG.MIN_POINTS; // 3
 
 const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existingZones = [], providerLocation = null, zoneToEdit = null, initialZoneName = "", onSave }) => {
   const mapRef = useRef(null);
@@ -19,6 +24,7 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
   const [zoneName, setZoneName] = useState(initialZoneName || "");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [validationResult, setValidationResult] = useState(null);
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded: isMapLoaded, loadError } = useGoogleMaps(apiKey);
@@ -37,7 +43,10 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
   // Initialize markers for editing an existing zone
   useEffect(() => {
     if (!isOpen || !isMapLoaded || !mapInstanceRef.current || !window.google?.maps) return;
-    if (!zoneToEdit || !Array.isArray(zoneToEdit.coordinates) || zoneToEdit.coordinates.length !== 5) return;
+    if (!zoneToEdit || !Array.isArray(zoneToEdit.coordinates)) return;
+    
+    // Flexible validation: accept 3-10 points
+    if (zoneToEdit.coordinates.length < MIN_POINTS || zoneToEdit.coordinates.length > 10) return;
 
     const mapInstance = mapInstanceRef.current;
     
@@ -134,14 +143,11 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
 
   }, [isOpen, isMapLoaded, zoneToEdit]);
 
-  // Sync refs with state
+  // Sync refs with state - ALWAYS sync to prevent stale refs
   useEffect(() => {
-    // Only sync if markers/polygon are set from state updates (not from edit mode)
-    if (!zoneToEdit) {
-      markersRef.current = markers;
-      polygonRef.current = polygon;
-    }
-  }, [markers, polygon, zoneToEdit]);
+    markersRef.current = markers;
+    polygonRef.current = polygon;
+  }, [markers, polygon]);
 
   const clearExistingPolygons = () => {
     existingPolygonsRef.current.forEach((shape) => shape.setMap(null));
@@ -195,7 +201,14 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
     // Add click listener for placing new markers
     mapInstance.addListener("click", (event) => {
       const currentMarkers = markersRef.current;
-      if (currentMarkers.length >= 5) return;
+      
+      // Debug log to help diagnose issues
+      console.log(`[Zone Drawing] Click detected. Current markers: ${currentMarkers.length}/${MAX_POINTS}`);
+      
+      if (currentMarkers.length >= MAX_POINTS) {
+        console.log(`[Zone Drawing] Maximum points (${MAX_POINTS}) reached. Ignoring click.`);
+        return;
+      }
 
       const marker = new window.google.maps.Marker({
         position: event.latLng,
@@ -222,6 +235,8 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
       markersRef.current = newMarkers;
       setMarkers(newMarkers);
       setPointsPlaced(newMarkers.length);
+      
+      console.log(`[Zone Drawing] Marker ${newMarkers.length} added successfully. Total: ${newMarkers.length}/${MAX_POINTS}`);
 
       // Add drag listener with fresh reference
       marker.addListener("drag", () => {
@@ -263,7 +278,7 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
         updatePolygon(newMarkers, mapInstance);
       }
 
-      if (newMarkers.length === 5) {
+      if (newMarkers.length >= MIN_POINTS) {
         setIsComplete(true);
       }
     });
@@ -288,14 +303,25 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
       window.google.maps.event.trigger(mapInstanceRef.current, 'resize');
       mapInstanceRef.current.setCenter(mapCenter);
       mapInstanceRef.current.setZoom(Number(city.mapZoom || 12));
+      // Clear before rendering to ensure fresh polygons
+      clearExistingPolygons();
       renderExistingPolygons();
     }, 100);
 
   }, [isOpen, city, existingZones]);
 
+  // Re-render existing polygons when zones change or modal state changes
   useEffect(() => {
-    if (!isOpen || !mapInstanceRef.current) return;
-    renderExistingPolygons();
+    if (!mapInstanceRef.current) return;
+    
+    // Always clear existing polygons first (even if modal is closed)
+    // This ensures deleted zones are removed from map
+    clearExistingPolygons();
+    
+    // Only render new polygons if modal is open
+    if (isOpen) {
+      renderExistingPolygons();
+    }
   }, [existingZones, existingZone, isOpen]);
 
   useEffect(() => {
@@ -313,9 +339,10 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
     }
   }, [providerLocation, isOpen]);
 
-  // Reset state when modal closes
+  // Reset state when modal closes, force clear when opens
   useEffect(() => {
     if (!isOpen) {
+      // Modal closing - clear everything
       markers.forEach(marker => marker.setMap(null));
       if (polygon) polygon.setMap(null);
       clearExistingPolygons();
@@ -334,6 +361,9 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
       // Clear refs to ensure clean state on next open
       markersRef.current = [];
       polygonRef.current = null;
+    } else if (mapInstanceRef.current) {
+      // Modal opening - force clear any stale polygons before rendering
+      clearExistingPolygons();
     }
   }, [isOpen]);
 
@@ -342,12 +372,34 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
     if (currentPolygon) currentPolygon.setMap(null);
 
     const path = currentMarkers.map(m => m.getPosition());
+    
+    // Validate polygon if enough points
+    let validation = null;
+    let strokeColor = ZONE_CONFIG.POLYGON_COLORS.DEFAULT.stroke;
+    let fillColor = ZONE_CONFIG.POLYGON_COLORS.DEFAULT.fill;
+    
+    if (currentMarkers.length >= MIN_POINTS) {
+      validation = validatePolygonClient(currentMarkers);
+      setValidationResult(validation);
+      
+      // Change color based on validation
+      if (validation.isValid) {
+        strokeColor = ZONE_CONFIG.POLYGON_COLORS.VALID.stroke;
+        fillColor = ZONE_CONFIG.POLYGON_COLORS.VALID.fill;
+      } else {
+        strokeColor = ZONE_CONFIG.POLYGON_COLORS.INVALID.stroke;
+        fillColor = ZONE_CONFIG.POLYGON_COLORS.INVALID.fill;
+      }
+    } else {
+      setValidationResult(null);
+    }
+    
     const newPolygon = new window.google.maps.Polygon({
       paths: path,
-      strokeColor: "#FF0000",
+      strokeColor: strokeColor,
       strokeOpacity: 0.8,
       strokeWeight: 2,
-      fillColor: "#FF0000",
+      fillColor: fillColor,
       fillOpacity: 0.35
     });
 
@@ -382,8 +434,20 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
       return;
     }
 
-    if (pointsPlaced !== 5) {
-      setError("Please place all 5 points on the map");
+    if (pointsPlaced < MIN_POINTS) {
+      setError(ZONE_CONFIG.UI_TEXT.MIN_POINTS_ERROR(MIN_POINTS));
+      return;
+    }
+    
+    if (pointsPlaced > MAX_POINTS) {
+      setError(ZONE_CONFIG.UI_TEXT.MAX_POINTS_ERROR(MAX_POINTS));
+      return;
+    }
+    
+    // Validate polygon geometry
+    const validation = validatePolygonClient(markersRef.current);
+    if (!validation.isValid) {
+      setError(`Invalid zone shape: ${validation.errors.join(', ')}`);
       return;
     }
 
@@ -462,38 +526,71 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
                 <MapPin className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-base font-bold">Draw New Zone</h2>
-                <p className="text-xs text-muted-foreground">
-                  {city?.name || "Unknown City"} • Click to place 5 points
+                <h2 className="text-base font-bold text-gray-900">{zoneToEdit ? 'Edit Zone' : 'Draw New Zone'}</h2>
+                <p className="text-xs text-gray-700 font-medium">
+                  {city?.name || "Unknown City"} • {ZONE_CONFIG.UI_TEXT.PLACE_POINTS(MIN_POINTS, MAX_POINTS)}
                 </p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-gray-700 hover:text-gray-900 hover:bg-gray-100">
               <X className="h-5 w-5" />
             </Button>
           </div>
 
           {/* Map */}
-          <div className="relative bg-gray-100" style={{ height: '450px' }}>
+          <div className="relative bg-gray-100" style={{ height: '430px' }}>
             <div ref={mapRef} className="w-full h-full" />
             
             {!isMapLoaded && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-20">
                 <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-                <p className="text-sm font-bold text-muted-foreground">Loading Google Maps...</p>
+                <p className="text-sm font-bold text-gray-900">Loading Google Maps...</p>
               </div>
             )}
             
             {isMapLoaded && (
               <>
                 <div className="absolute top-4 left-4 bg-white rounded-xl shadow-lg px-4 py-2 border z-10">
-                  <p className="text-xs font-bold text-muted-foreground uppercase">
-                    Point {pointsPlaced} of 5
+                  <p className="text-xs font-bold text-gray-900 uppercase">
+                    {ZONE_CONFIG.UI_TEXT.POINT_COUNTER(pointsPlaced, MAX_POINTS, pointsPlaced >= MIN_POINTS)}
                   </p>
+                  
+                  {/* Validation Status */}
+                  {validationResult && pointsPlaced >= MIN_POINTS && (
+                    <div className="mt-2 pt-2 border-t">
+                      {validationResult.isValid ? (
+                        <div className="flex items-center gap-2 text-green-600">
+                          <CheckCircle className="h-3 w-3" />
+                          <span className="text-xs font-bold">{ZONE_CONFIG.UI_TEXT.VALIDATION_VALID}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-red-600">
+                          <AlertTriangle className="h-3 w-3" />
+                          <span className="text-xs font-bold">{ZONE_CONFIG.UI_TEXT.VALIDATION_INVALID}</span>
+                        </div>
+                      )}
+                      <p className="text-[10px] text-gray-700 font-medium mt-1">
+                        Area: {validationResult.areaKm} km²
+                      </p>
+                    </div>
+                  )}
+                  
                   {isComplete && (
                     <p className="text-xs text-green-600 font-bold mt-1">✓ Complete</p>
                   )}
                 </div>
+                
+                {/* Validation Errors */}
+                {validationResult && !validationResult.isValid && pointsPlaced >= MIN_POINTS && (
+                  <div className="absolute top-24 left-4 bg-red-50 border border-red-200 rounded-xl shadow-lg px-4 py-2 z-10 max-w-xs">
+                    <p className="text-xs font-bold text-red-600 mb-1">Issues:</p>
+                    <ul className="text-[10px] text-red-600 space-y-1">
+                      {validationResult.errors.map((err, idx) => (
+                        <li key={idx}>• {err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {pointsPlaced > 0 && (
                   <div className="absolute top-4 right-4 z-10">
@@ -501,7 +598,7 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
                       onClick={handleReset}
                       variant="outline"
                       size="sm"
-                      className="bg-white shadow-lg"
+                      className="bg-white shadow-lg text-gray-900 border-gray-300 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-400"
                     >
                       <RotateCcw className="h-4 w-4 mr-2" />
                       Reset
@@ -516,7 +613,7 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
           <div className="p-4 border-t bg-muted/30">
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase mb-2 block">
+                <label className="text-xs font-bold text-gray-700 uppercase mb-2 block">
                   Zone Name *
                 </label>
                 <Input
@@ -549,7 +646,7 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
                 <Button
                   onClick={handleSave}
                   className="flex-1 bg-primary hover:bg-primary/90 text-white"
-                  disabled={!zoneName.trim() || pointsPlaced !== 5 || isSaving}
+                  disabled={!zoneName.trim() || pointsPlaced < MIN_POINTS || isSaving || (validationResult && !validationResult.isValid)}
                 >
                   {isSaving ? (
                     <>
