@@ -5,7 +5,7 @@ import { Input } from "@/modules/user/components/ui/input";
 import { toast } from "sonner";
 import useGoogleMaps from "../hooks/useGoogleMaps";
 
-const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existingZones = [], providerLocation = null, initialZoneName = "", onSave }) => {
+const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existingZones = [], providerLocation = null, zoneToEdit = null, initialZoneName = "", onSave }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const providerMarkerRef = useRef(null);
@@ -23,18 +23,125 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const { isLoaded: isMapLoaded, loadError } = useGoogleMaps(apiKey);
 
-  // Update zone name when initialZoneName changes
+  // Update zone name when zoneToEdit or initialZoneName changes
   useEffect(() => {
-    if (initialZoneName) {
+    if (zoneToEdit) {
+      setZoneName(zoneToEdit.name || "");
+    } else if (initialZoneName) {
       setZoneName(initialZoneName);
+    } else {
+      setZoneName("");
     }
-  }, [initialZoneName]);
+  }, [initialZoneName, zoneToEdit]);
 
-  // Sync refs
+  // Initialize markers for editing an existing zone
   useEffect(() => {
-    markersRef.current = markers;
-    polygonRef.current = polygon;
-  }, [markers, polygon]);
+    if (!isOpen || !isMapLoaded || !mapInstanceRef.current || !window.google?.maps) return;
+    if (!zoneToEdit || !Array.isArray(zoneToEdit.coordinates) || zoneToEdit.coordinates.length !== 5) return;
+
+    const mapInstance = mapInstanceRef.current;
+    
+    // Clear any existing markers first to prevent duplicates
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current = [];
+    if (polygonRef.current) {
+      polygonRef.current.setMap(null);
+      polygonRef.current = null;
+    }
+    
+    // Create markers from existing coordinates
+    const loadedMarkers = zoneToEdit.coordinates.map((coord, index) => {
+      const marker = new window.google.maps.Marker({
+        position: { lat: Number(coord.lat), lng: Number(coord.lng) },
+        map: mapInstance,
+        draggable: true,
+        cursor: 'move',
+        label: {
+          text: `${index + 1}`,
+          color: '#FFFFFF',
+          fontWeight: 'bold'
+        },
+        animation: window.google.maps.Animation.DROP,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#FF0000',
+          fillOpacity: 0.8,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2
+        }
+      });
+      
+      // Add drag listener with fresh reference
+      marker.addListener("drag", () => {
+        const currentMarkers = markersRef.current;
+        if (currentMarkers.length > 0) {
+          updatePolygon(currentMarkers, mapInstance);
+        }
+      });
+      
+      // Add dragend listener for final update
+      marker.addListener("dragend", () => {
+        updatePolygon(markersRef.current, mapInstance);
+      });
+      
+      // Add hover effects for better UX
+      marker.addListener("mouseover", () => {
+        marker.setIcon({
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: '#FF4444',
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 3
+        });
+      });
+      
+      marker.addListener("mouseout", () => {
+        marker.setIcon({
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#FF0000',
+          fillOpacity: 0.8,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2
+        });
+      });
+      
+      return marker;
+    });
+
+    // Update ref immediately before state
+    markersRef.current = loadedMarkers;
+    
+    setMarkers(loadedMarkers);
+    setPointsPlaced(loadedMarkers.length);
+    setIsComplete(true);
+    
+    // Draw initial polygon
+    const path = loadedMarkers.map(m => m.getPosition());
+    const newPolygon = new window.google.maps.Polygon({
+      paths: path,
+      strokeColor: "#FF0000",
+      strokeOpacity: 0.8,
+      strokeWeight: 2,
+      fillColor: "#FF0000",
+      fillOpacity: 0.35
+    });
+    newPolygon.setMap(mapInstance);
+    polygonRef.current = newPolygon;
+    setPolygon(newPolygon);
+
+  }, [isOpen, isMapLoaded, zoneToEdit]);
+
+  // Sync refs with state
+  useEffect(() => {
+    // Only sync if markers/polygon are set from state updates (not from edit mode)
+    if (!zoneToEdit) {
+      markersRef.current = markers;
+      polygonRef.current = polygon;
+    }
+  }, [markers, polygon, zoneToEdit]);
 
   const clearExistingPolygons = () => {
     existingPolygonsRef.current.forEach((shape) => shape.setMap(null));
@@ -46,6 +153,7 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
     clearExistingPolygons();
     existingPolygonsRef.current = (Array.isArray(existingZones) ? existingZones : [])
       .filter((zone) => Array.isArray(zone?.coordinates) && zone.coordinates.length >= 3)
+      .filter((zone) => zone._id !== zoneToEdit?._id)
       .map((zone) => {
         const shape = new window.google.maps.Polygon({
           paths: zone.coordinates.map((point) => ({ lat: Number(point.lat), lng: Number(point.lng) })),
@@ -74,13 +182,17 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: true,
-      gestureHandling: 'greedy'
+      gestureHandling: 'greedy',
+      draggable: true,
+      disableDoubleClickZoom: false,
+      scrollwheel: true,
+      clickableIcons: false
     });
 
     mapInstanceRef.current = mapInstance;
     renderExistingPolygons();
 
-    // Add click listener
+    // Add click listener for placing new markers
     mapInstance.addListener("click", (event) => {
       const currentMarkers = markersRef.current;
       if (currentMarkers.length >= 5) return;
@@ -89,20 +201,62 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
         position: event.latLng,
         map: mapInstance,
         draggable: true,
+        cursor: 'move',
         label: {
           text: `${currentMarkers.length + 1}`,
           color: '#FFFFFF',
           fontWeight: 'bold'
         },
-        animation: window.google.maps.Animation.DROP
+        animation: window.google.maps.Animation.DROP,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#FF0000',
+          fillOpacity: 0.8,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2
+        }
       });
 
       const newMarkers = [...currentMarkers, marker];
+      markersRef.current = newMarkers;
       setMarkers(newMarkers);
       setPointsPlaced(newMarkers.length);
 
+      // Add drag listener with fresh reference
       marker.addListener("drag", () => {
+        const currentMarkers = markersRef.current;
+        if (currentMarkers.length > 0) {
+          updatePolygon(currentMarkers, mapInstance);
+        }
+      });
+      
+      // Add dragend listener for final update
+      marker.addListener("dragend", () => {
         updatePolygon(markersRef.current, mapInstance);
+      });
+      
+      // Add hover effects
+      marker.addListener("mouseover", () => {
+        marker.setIcon({
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: '#FF4444',
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 3
+        });
+      });
+      
+      marker.addListener("mouseout", () => {
+        marker.setIcon({
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#FF0000',
+          fillOpacity: 0.8,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2
+        });
       });
 
       if (newMarkers.length >= 2) {
@@ -176,6 +330,10 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
       setIsComplete(false);
       setZoneName("");
       setError(null);
+      
+      // Clear refs to ensure clean state on next open
+      markersRef.current = [];
+      polygonRef.current = null;
     }
   }, [isOpen]);
 
@@ -200,6 +358,11 @@ const ZoneDrawingModal = ({ isOpen, onClose, city, existingZone = null, existing
   const handleReset = () => {
     markers.forEach(marker => marker.setMap(null));
     if (polygon) polygon.setMap(null);
+    
+    // Clear both state and refs
+    markersRef.current = [];
+    polygonRef.current = null;
+    
     setMarkers([]);
     setPolygon(null);
     setPointsPlaced(0);

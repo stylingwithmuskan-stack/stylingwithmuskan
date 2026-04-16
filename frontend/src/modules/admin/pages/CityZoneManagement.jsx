@@ -201,13 +201,22 @@ const CityZoneManagement = () => {
             return;
         }
         try {
-            await api.admin.createZone(zoneData.cityId, {
-                name: zoneData.name,
-                coordinates: zoneData.coordinates
-            });
-            toast.success("Zone with coordinates added successfully");
+            if (editingZone) {
+                await api.admin.updateZone(editingZone._id, {
+                    name: zoneData.name,
+                    coordinates: zoneData.coordinates
+                });
+                toast.success("Zone updated successfully");
+            } else {
+                await api.admin.createZone(zoneData.cityId, {
+                    name: zoneData.name,
+                    coordinates: zoneData.coordinates
+                });
+                toast.success("Zone created successfully");
+            }
             setIsZoneDrawingOpen(false);
             setCityForDrawing(null);
+            setEditingZone(null);
             fetchZones(zoneData.cityId);
         } catch (err) {
             if (err?.status === 401) {
@@ -404,6 +413,7 @@ const CityZoneManagement = () => {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setCityForDrawing(city);
+                                                setEditingZone(null);
                                                 setIsZoneDrawingOpen(true);
                                             }}
                                             className="h-8 px-3 rounded-lg text-primary hover:bg-primary/5 font-bold hidden sm:flex text-xs"
@@ -457,7 +467,8 @@ const CityZoneManagement = () => {
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             setEditingZone(zone);
-                                                                            setNewName(zone.name);
+                                                                            setCityForDrawing(city);
+                                                                            setIsZoneDrawingOpen(true);
                                                                         }}
                                                                         className="h-7 w-7 text-muted-foreground hover:text-primary rounded-lg"
                                                                     >
@@ -742,32 +753,7 @@ const CityZoneManagement = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Edit Zone Dialog */}
-            <Dialog open={!!editingZone} onOpenChange={(open) => !open && setEditingZone(null)}>
-                <DialogContent className="sm:max-w-[400px] rounded-2xl p-6">
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-black flex items-center gap-2"><Edit2 className="h-5 w-5 text-primary" /> Edit Zone</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        <div className="space-y-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Zone Name</p>
-                            <Input 
-                                placeholder="e.g. Andheri" 
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                                className="h-11 rounded-xl border-border/50 focus:ring-primary font-bold text-sm"
-                            />
-                        </div>
-                        <Button 
-                            onClick={handleUpdateZone}
-                            disabled={submitting || !newName.trim()}
-                            className="w-full h-11 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold"
-                        >
-                            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Zone"}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
+            {/* Edit Zone Dialog removed in favor of ZoneDrawingModal */}
 
             {/* Delete Zone Confirmation */}
             <Dialog open={!!deletingZone} onOpenChange={(open) => !open && setDeletingZone(null)}>
@@ -803,6 +789,7 @@ const CityZoneManagement = () => {
                 }}
                 city={cityForDrawing}
                 existingZones={cityForDrawing?._id ? (zones[cityForDrawing._id] || []) : []}
+                zoneToEdit={editingZone}
                 onSave={handleSaveZoneWithCoordinates}
             />
         </div>
@@ -810,3 +797,4 @@ const CityZoneManagement = () => {
 };
 
 export default CityZoneManagement;
+
