@@ -226,6 +226,10 @@ export const AdminAuthProvider = ({ children }) => {
     // ───── CONTENT ─────
     const getParents = async () => (await api.admin.getParents()).parents;
     const getCategories = async (params = {}) => (await api.admin.getCategories(params)).categories;
+    const getServices = async (params = {}) => (await api.admin.getServices(params)).services;
+    const getLeaves = async () => (await api.admin.leaves()).leaves;
+    const approveLeave = async (id) => { await api.admin.approveLeave(id); };
+    const rejectLeave = async (id) => { await api.admin.rejectLeave(id); };
 
     return (
         <AdminAuthContext.Provider value={{
@@ -251,7 +255,8 @@ export const AdminAuthProvider = ({ children }) => {
             pushBroadcast, getPushBroadcastHistory, sendPushTest,
             getFeedback, getFeedbackStats, deleteFeedback, updateFeedbackStatus,
             toggleCustomerCOD, updateCustomerStatus,
-            getParents, getCategories,
+            getParents, getCategories, getServices,
+            getLeaves, approveLeave, rejectLeave,
         }}>
 
             {children}

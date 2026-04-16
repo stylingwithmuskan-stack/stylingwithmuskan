@@ -306,25 +306,48 @@ export default function SPManagement() {
                                 <div>
                                     <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">Professional Details</h3>
                                     <div className="space-y-4">
-                                        <div className="bg-muted/30 rounded-xl p-3">
-                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Categories & Specializations</p>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {selectedSP.documents?.primaryCategory?.length > 0 ? (
-                                                    selectedSP.documents.primaryCategory.map(cat => (
-                                                        <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-none">
-                                                            {cat}
-                                                        </Badge>
-                                                    ))
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground italic">No primary categories</span>
-                                                )}
-                                                {selectedSP.documents?.specializations?.length > 0 && (
-                                                    selectedSP.documents.specializations.map(spec => (
-                                                        <Badge key={spec} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
-                                                            {spec}
-                                                        </Badge>
-                                                    ))
-                                                )}
+                                        <div className="space-y-3">
+                                            <div className="bg-muted/30 rounded-xl p-3">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Primary Category</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedSP.documents?.primaryCategory?.length > 0 ? (
+                                                        selectedSP.documents.primaryCategory.map(cat => (
+                                                            <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-none">
+                                                                {cat}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground italic">No primary categories</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/30 rounded-xl p-3">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Sub Category</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedSP.documents?.specializations?.length > 0 ? (
+                                                        selectedSP.documents.specializations.map(spec => (
+                                                            <Badge key={spec} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
+                                                                {spec}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground italic">No sub categories</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/30 rounded-xl p-3">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Services</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedSP.documents?.services?.length > 0 ? (
+                                                        selectedSP.documents.services.map(svc => (
+                                                            <Badge key={svc} variant="outline" className="text-[10px] font-bold bg-green-50 text-green-700 border-green-200">
+                                                                {svc}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground italic">No services</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         

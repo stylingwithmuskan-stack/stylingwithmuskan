@@ -1081,9 +1081,16 @@ export async function createZoneFromRequest(req, res) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Validate coordinates (must be array of 5 lat/lng pairs)
-    if (!Array.isArray(coordinates) || coordinates.length !== 5) {
-      return res.status(400).json({ error: 'Coordinates must be an array of exactly 5 points' });
+    // Validate coordinates (flexible: 3-10 points)
+    const MIN_POINTS = 3;
+    const MAX_POINTS = 10;
+    
+    if (!Array.isArray(coordinates) || 
+        coordinates.length < MIN_POINTS || 
+        coordinates.length > MAX_POINTS) {
+      return res.status(400).json({ 
+        error: `Coordinates must have between ${MIN_POINTS} and ${MAX_POINTS} points. Received: ${coordinates?.length || 0}` 
+      });
     }
 
     for (const coord of coordinates) {
@@ -1239,23 +1246,47 @@ export async function rejectZoneCreationRequest(req, res) {
 export async function updateProviderProfile(req, res) {
   try {
     const { id } = req.params;
-    const { primaryCategory, specializations } = req.body;
+    const { primaryCategory, specializations, services } = req.body;
 
+    // Fetch existing provider to compare services
+    const provider = await ProviderAccount.findById(id);
+    if (!provider) {
+      return res.status(404).json({ error: "Provider not found" });
+    }
+
+    const oldServices = provider.documents?.services || [];
     const updates = {};
     if (Array.isArray(primaryCategory)) updates["documents.primaryCategory"] = primaryCategory;
     if (Array.isArray(specializations)) updates["documents.specializations"] = specializations;
+    if (Array.isArray(services)) updates["documents.services"] = services;
 
-    const provider = await ProviderAccount.findByIdAndUpdate(
+    const updatedProvider = await ProviderAccount.findByIdAndUpdate(
       id,
       { $set: updates },
       { new: true }
     );
 
-    if (!provider) {
-      return res.status(404).json({ error: "Provider not found" });
+    // Send notification if services were removed
+    if (Array.isArray(services)) {
+      const removed = oldServices.filter(s => !services.includes(s));
+      if (removed.length > 0) {
+        try {
+          const { notify } = await import("../../../lib/notify.js");
+          await notify({
+            recipientId: id,
+            recipientRole: "provider",
+            title: "Portfolio Updated",
+            message: `Admin has updated your professional portfolio. ${removed.length} services were removed. Please check your active services limit and bookings availability.`,
+            type: "marketing_campaign",
+            meta: { removedCount: removed.length }
+          });
+        } catch (notifyErr) {
+          console.error("[Admin] Failed to send profile update notification:", notifyErr);
+        }
+      }
     }
 
-    res.json({ success: true, provider });
+    res.json({ success: true, provider: updatedProvider });
   } catch (error) {
     console.error("[Admin] Failed to update provider profile:", error);
     res.status(500).json({ error: "Failed to update provider profile" });

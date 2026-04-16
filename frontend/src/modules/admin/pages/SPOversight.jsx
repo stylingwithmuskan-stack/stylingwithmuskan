@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X, CalendarRange, MapPin } from "lucide-react";
 
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/modules/user/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 import { toast } from "sonner";
+import { cn } from "@/modules/user/lib/utils";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
@@ -28,12 +29,18 @@ export default function SPOversight() {
         updateSPStatus, 
         approveProviderZones, 
         rejectProviderZones,
-        getParents,
-        getCategories,
-        updateProviderProfile
+        getParents, 
+        getCategories, 
+        getServices, 
+        updateProviderProfile,
+        getLeaves,
+        approveLeave,
+        rejectLeave
     } = useAdminAuth();
 
     const [providers, setProviders] = useState([]);
+    const [leaves, setLeaves] = useState([]);
+    const [isLoadingLeaves, setIsLoadingLeaves] = useState(false);
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("all");
     const [categoryRequests, setCategoryRequests] = useState([]);
@@ -44,8 +51,10 @@ export default function SPOversight() {
     const [isEditingCategories, setIsEditingCategories] = useState(false);
     const [tempCategories, setTempCategories] = useState([]);
     const [tempSpecializations, setTempSpecializations] = useState([]);
+    const [tempServices, setTempServices] = useState([]);
     const [availableParents, setAvailableParents] = useState([]);
     const [availableCategories, setAvailableCategories] = useState([]);
+    const [availableServices, setAvailableServices] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
 
 
@@ -57,20 +66,36 @@ export default function SPOversight() {
             setProviders(Array.isArray(items) ? items : []);
         } catch {}
         try {
-            const [parents, cats] = await Promise.all([getParents(), getCategories()]);
+            const [parents, cats, svcs] = await Promise.all([getParents(), getCategories(), getServices()]);
             setAvailableParents(parents || []);
             setAvailableCategories(cats || []);
+            setAvailableServices(svcs || []);
         } catch (err) {
             console.error("Failed to load content:", err);
         }
         setFeedback(JSON.parse(localStorage.getItem("muskan-feedback") || "[]"));
         setCategoryRequests(JSON.parse(localStorage.getItem("muskan-category-requests") || "[]"));
+        loadLeaves();
     };
+
+    const loadLeaves = async () => {
+        setIsLoadingLeaves(true);
+        try {
+            const data = await getLeaves();
+            setLeaves(data || []);
+        } catch (error) {
+            console.error("Failed to load leaves:", error);
+        } finally {
+            setIsLoadingLeaves(false);
+        }
+    };
+
     useEffect(() => { load(); }, []);
 
     const startEditing = () => {
         setTempCategories(selectedSP.documents?.primaryCategory || []);
         setTempSpecializations(selectedSP.documents?.specializations || []);
+        setTempServices(selectedSP.documents?.services || []);
         setIsEditingCategories(true);
     };
 
@@ -79,7 +104,8 @@ export default function SPOversight() {
         try {
             await updateProviderProfile(selectedSP._id || selectedSP.id, {
                 primaryCategory: tempCategories,
-                specializations: tempSpecializations
+                specializations: tempSpecializations,
+                services: tempServices
             });
             toast.success("Provider profile updated successfully");
             setIsEditingCategories(false);
@@ -90,7 +116,8 @@ export default function SPOversight() {
                 documents: {
                     ...prev.documents,
                     primaryCategory: tempCategories,
-                    specializations: tempSpecializations
+                    specializations: tempSpecializations,
+                    services: tempServices
                 }
             }));
         } catch (error) {
@@ -176,6 +203,17 @@ export default function SPOversight() {
         load();
     };
 
+    const handleLeaveUpdate = async (id, action) => {
+        try {
+            if (action === "approve") await approveLeave(id);
+            else await rejectLeave(id);
+            toast.success(`Leave ${action}d successfully`);
+            loadLeaves();
+        } catch (err) {
+            toast.error(`Failed to ${action} leave`);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -197,13 +235,20 @@ export default function SPOversight() {
                         <TabsTrigger value="approved" className="rounded-lg text-xs font-bold">Active</TabsTrigger>
                         <TabsTrigger value="category-requests" className="rounded-lg text-xs font-bold bg-amber-500/10 text-amber-600">Cat. Requests ({categoryRequests.filter(r => r.status === 'pending').length})</TabsTrigger>
                         <TabsTrigger value="blocked" className="rounded-lg text-xs font-bold">Blocked</TabsTrigger>
+                        <TabsTrigger value="leaves" className="rounded-lg text-xs font-bold flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5" /> Leave Requests
+                            {leaves.filter(l => l.status === "pending").length > 0 && (
+                                <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                            )}
+                        </TabsTrigger>
                     </TabsList>
                     <div className="relative flex-1 max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 rounded-xl h-10 bg-muted/30 border-border/50" />
                     </div>
                 </div>
-                <TabsContent value={tab} className="mt-0">
+                {["all", "pending", "approved", "blocked"].map(t => (
+                    <TabsContent key={t} value={t} className="mt-0">
                     {filtered.length === 0 ? (
                         <Card className="border-border/50"><CardContent className="py-16 text-center">
                             <Users className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
@@ -328,6 +373,7 @@ export default function SPOversight() {
                         </motion.div>
                     )}
                 </TabsContent>
+                ))}
 
                 <TabsContent value="category-requests" className="mt-0">
                     {categoryRequests.length === 0 ? (
@@ -370,6 +416,78 @@ export default function SPOversight() {
                             ))}
                         </div>
                     )}
+                </TabsContent>
+
+                <TabsContent value="leaves" className="mt-0">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {isLoadingLeaves ? (
+                            Array(3).fill(0).map((_, i) => (
+                                <Card key={i} className="border-border/50 animate-pulse">
+                                    <div className="h-40 bg-muted/20" />
+                                </Card>
+                            ))
+                        ) : leaves.length > 0 ? (
+                            leaves.map((leave, idx) => (
+                                <motion.div key={leave._id || idx} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: idx * 0.05 }}>
+                                    <Card className="border-border/50 overflow-hidden hover:border-primary/30 transition-all group">
+                                        <CardContent className="p-0">
+                                            <div className="p-4 bg-muted/20 border-b border-border/50 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary text-xs tracking-tighter">
+                                                        {String(leave.providerName || "SP").slice(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-black tracking-tight">{leave.providerName}</p>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <p className="text-[10px] text-muted-foreground font-medium">{leave.type === "half_day" ? "Half Day Leave" : "Full Day Leave"}</p>
+                                                            <span className="text-[10px] text-muted-foreground/30">•</span>
+                                                            <p className="text-[10px] text-primary/80 font-bold flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" /> {leave.city || "N/A"}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <Badge className={cn("text-[10px] font-black px-2 py-0.5", 
+                                                    leave.status === "approved" ? "bg-green-500/15 text-green-400" : 
+                                                    leave.status === "rejected" ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400")}>
+                                                    {String(leave.status).toUpperCase()}
+                                                </Badge>
+                                            </div>
+                                            <div className="p-4 space-y-4">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-1">
+                                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Start Date</p>
+                                                        <p className="text-xs font-bold flex items-center gap-1.5"><CalendarRange className="h-3 w-3 text-primary" /> {new Date(leave.startAt).toLocaleDateString()} {leave.type === "half_day" && new Date(leave.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                    </div>
+                                                    {leave.endDate && (
+                                                        <div className="space-y-1">
+                                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">End Date</p>
+                                                            <p className="text-xs font-bold flex items-center gap-1.5"><CalendarRange className="h-3 w-3 text-primary" /> {new Date(leave.endDate).toLocaleDateString()}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+                                                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 shadow-sm">Reason</p>
+                                                    <p className="text-[11px] font-medium leading-relaxed italic text-muted-foreground">{leave.reason || "No reason provided"}</p>
+                                                </div>
+                                                
+                                                {leave.status === "pending" && (
+                                                    <div className="flex gap-2 pt-1">
+                                                        <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-xs font-black shadow-lg shadow-green-500/20" onClick={() => handleLeaveUpdate(leave._id, "approve")}>Approve</Button>
+                                                        <Button size="sm" variant="outline" className="flex-1 border-red-200 text-red-600 hover:bg-red-50 text-xs font-black" onClick={() => handleLeaveUpdate(leave._id, "reject")}>Reject</Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            ))
+                        ) : (
+                            <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
+                                <div className="h-16 w-16 rounded-3xl bg-muted/50 flex items-center justify-center mb-4"><Clock className="h-8 w-8 text-muted-foreground/30" /></div>
+                                <h3 className="text-lg font-black tracking-tight">No Leave Requests</h3>
+                                <p className="text-sm text-muted-foreground max-w-[250px] mt-1">Provider absence requests will appear here for your review.</p>
+                            </div>
+                        )}
+                    </div>
                 </TabsContent>
             </Tabs>
 
@@ -437,7 +555,7 @@ export default function SPOversight() {
                                     <div className="space-y-4">
                                         <div className="bg-muted/30 rounded-xl p-3">
                                             <div className="flex items-center justify-between mb-2">
-                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Categories & Specializations</p>
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Professional Services</p>
                                                 {!isEditingCategories ? (
                                                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full hover:bg-primary/10" onClick={startEditing}>
                                                         <Edit2 className="h-3 w-3 text-primary" />
@@ -467,12 +585,29 @@ export default function SPOversight() {
                                                                         variant={isSelected ? "default" : "outline"}
                                                                         className={`text-[10px] cursor-pointer transition-all py-1 px-2.5 ${isSelected ? 'bg-primary border-primary shadow-sm ring-2 ring-primary/20' : 'hover:border-primary/50 text-muted-foreground'}`}
                                                                         onClick={() => {
-                                                                            const pid = parent._id || parent.id;
+                                                                            const pid = parent.id || parent._id;
                                                                             if (isSelected) {
                                                                                 setTempCategories(prev => prev.filter(c => c !== parent.label));
-                                                                                // Auto-remove specializations belonging to this parent
-                                                                                const childNames = availableCategories.filter(c => c.serviceType === pid).map(c => c.name);
-                                                                                setTempSpecializations(prev => prev.filter(s => !childNames.includes(s)));
+                                                                                // Auto-remove specializations and services belonging to this parent
+                                                                                const pLabel = parent.label.toLowerCase().split(' ')[0];
+                                                                                const childCats = availableCategories.filter(c => 
+                                                                                    c.serviceType === pid || 
+                                                                                    c.serviceType === String(parent._id) || 
+                                                                                    (c.serviceType && String(c.serviceType).toLowerCase() === pLabel)
+                                                                                );
+                                                                                const childCatNames = childCats.map(c => c.name);
+                                                                                const childCatIds = childCats.map(c => c.id || c._id);
+                                                                                const childCatNamesLower = childCats.map(c => c.name.toLowerCase());
+                                                                                
+                                                                                setTempSpecializations(prev => prev.filter(s => !childCatNames.includes(s)));
+                                                                                setTempServices(prev => {
+                                                                                    return prev.filter(svcName => {
+                                                                                        const svcObj = availableServices.find(as => as.name === svcName);
+                                                                                        if (!svcObj) return true;
+                                                                                        return !childCatIds.includes(svcObj.category) && 
+                                                                                               !childCatNamesLower.includes(String(svcObj.category).toLowerCase());
+                                                                                    });
+                                                                                });
                                                                             }
                                                                             else setTempCategories(prev => [...prev, parent.label]);
                                                                         }}
@@ -495,8 +630,13 @@ export default function SPOversight() {
                                                                 availableParents
                                                                     .filter(p => tempCategories.includes(p.label))
                                                                     .map(parent => {
-                                                                        const pid = parent._id || parent.id;
-                                                                        const children = availableCategories.filter(c => c.serviceType === pid);
+                                                                        const pid = parent.id || parent._id;
+                                                                        const pLabel = parent.label.toLowerCase().split(' ')[0];
+                                                                        const children = availableCategories.filter(c => 
+                                                                            c.serviceType === pid || 
+                                                                            c.serviceType === String(parent._id) || 
+                                                                            (c.serviceType && String(c.serviceType).toLowerCase() === pLabel)
+                                                                        );
                                                                         if (children.length === 0) return null;
 
                                                                         return (
@@ -513,7 +653,17 @@ export default function SPOversight() {
                                                                                                 variant={isSelected ? "secondary" : "outline"}
                                                                                                 className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-primary/15 text-primary border-primary/30 font-bold' : 'text-muted-foreground hover:border-primary/30'}`}
                                                                                                 onClick={() => {
-                                                                                                    if (isSelected) setTempSpecializations(prev => prev.filter(s => s !== cat.name));
+                                                                                                    if (isSelected) {
+                                                                                                        setTempSpecializations(prev => prev.filter(s => s !== cat.name));
+                                                                                                        // Auto-remove services belonging to this specialization
+                                                                                                        const catId = cat.id || cat._id;
+                                                                                                        setTempServices(prev => {
+                                                                                                            return prev.filter(svcName => {
+                                                                                                                const svcObj = availableServices.find(as => as.name === svcName);
+                                                                                                                return !svcObj || (svcObj.category !== catId && String(svcObj.category).toLowerCase() !== cat.name.toLowerCase());
+                                                                                                            });
+                                                                                                        });
+                                                                                                    }
                                                                                                     else setTempSpecializations(prev => [...prev, cat.name]);
                                                                                                 }}
                                                                                             >
@@ -528,25 +678,101 @@ export default function SPOversight() {
                                                             )}
                                                         </div>
                                                     </div>
+
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-muted-foreground mb-2 uppercase tracking-tight">Step 3: Select Individual Services (Deep Cleanup)</p>
+                                                        <div className="space-y-3">
+                                                            {tempSpecializations.length === 0 ? (
+                                                                <div className="p-4 text-center border border-dashed border-border rounded-xl">
+                                                                    <p className="text-[10px] text-muted-foreground font-bold italic">Select Sub Categories to enable Service removal/addition</p>
+                                                                </div>
+                                                            ) : (
+                                                                availableCategories
+                                                                    .filter(c => tempSpecializations.includes(c.name))
+                                                                    .map(cat => {
+                                                                        const cid = cat.id || cat._id;
+                                                                        const cName = cat.name.toLowerCase();
+                                                                        const services = availableServices.filter(s => 
+                                                                            s.category === cid || 
+                                                                            s.category === String(cat._id) || 
+                                                                            (s.category && String(s.category).toLowerCase() === cName)
+                                                                        );
+                                                                        if (services.length === 0) return null;
+
+                                                                        return (
+                                                                            <div key={cid} className="space-y-1.5">
+                                                                                <p className="text-[9px] font-black text-green-600 uppercase tracking-widest px-1 flex items-center gap-1.5 opacity-70">
+                                                                                    <span className="h-1 w-1 rounded-full bg-green-600" /> {cat.name} Services
+                                                                                </p>
+                                                                                <div className="flex flex-wrap gap-1.5 p-2 bg-green-50/20 border border-green-100 rounded-xl">
+                                                                                    {services.map(svc => {
+                                                                                        const isSelected = tempServices.includes(svc.name);
+                                                                                        return (
+                                                                                            <Badge 
+                                                                                                key={svc._id || svc.id} 
+                                                                                                variant={isSelected ? "default" : "outline"}
+                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-green-600 border-green-600 shadow-sm' : 'text-muted-foreground hover:border-green-300'}`}
+                                                                                                onClick={() => {
+                                                                                                    if (isSelected) setTempServices(prev => prev.filter(s => s !== svc.name));
+                                                                                                    else setTempServices(prev => [...prev, svc.name]);
+                                                                                                }}
+                                                                                            >
+                                                                                                {svc.name}
+                                                                                            </Badge>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ) : (
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {selectedSP.documents?.primaryCategory?.length > 0 ? (
-                                                        selectedSP.documents.primaryCategory.map(cat => (
-                                                            <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-none">
-                                                                {cat}
-                                                            </Badge>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground italic">No primary categories</span>
-                                                    )}
-                                                    {selectedSP.documents?.specializations?.length > 0 && (
-                                                        selectedSP.documents.specializations.map(spec => (
-                                                            <Badge key={spec} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
-                                                                {spec}
-                                                            </Badge>
-                                                        ))
-                                                    )}
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Primary Category</p>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {selectedSP.documents?.primaryCategory?.length > 0 ? (
+                                                                selectedSP.documents.primaryCategory.map(cat => (
+                                                                    <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-none">
+                                                                        {cat}
+                                                                    </Badge>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-xs text-muted-foreground italic">No primary categories</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Sub Category</p>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {selectedSP.documents?.specializations?.length > 0 ? (
+                                                                selectedSP.documents.specializations.map(spec => (
+                                                                    <Badge key={spec} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
+                                                                        {spec}
+                                                                    </Badge>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-xs text-muted-foreground italic">No sub categories</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Services</p>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {selectedSP.documents?.services?.length > 0 ? (
+                                                                selectedSP.documents.services.map(svc => (
+                                                                    <Badge key={svc} variant="outline" className="text-[10px] font-bold bg-green-50 text-green-700 border-green-200">
+                                                                        {svc}
+                                                                    </Badge>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-xs text-muted-foreground italic">No services</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>

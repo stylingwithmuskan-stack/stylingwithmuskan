@@ -109,10 +109,32 @@ export default function AvailabilityCalendar() {
         }
         return days;
     }, [currentMonth]);
-
+ 
+    const isWeekend = useMemo(() => {
+        const date = new Date(selectedDate);
+        const day = date.getDay();
+        return day === 0 || day === 6; // Sunday or Saturday
+    }, [selectedDate]);
+ 
     const currentDaySlots = useMemo(() => {
         const slotsFromApi = dateSlots[selectedDate];
-        if (slotsFromApi && Object.keys(slotsFromApi).length > 0) return slotsFromApi;
+        if (slotsFromApi && Object.keys(slotsFromApi).length > 0) {
+            // If it's a weekend, ignore the saved "off" values and force them ON
+            if (isWeekend) {
+                const forced = { ...slotsFromApi };
+                timeSlots.forEach(s => { forced[s] = true; });
+                return forced;
+            }
+            return slotsFromApi;
+        }
+
+        // If no API data but it's a weekend, all slots are ON
+        if (isWeekend) {
+            return timeSlots.reduce((acc, slot) => {
+                acc[slot] = true;
+                return acc;
+            }, {});
+        }
 
         // Dynamic Default Range from Admin Settings
         const startMin = officeSettings?.providerStartTime ? (parseInt(officeSettings.providerStartTime.split(":")[0]) * 60 + parseInt(officeSettings.providerStartTime.split(":")[1])) : 540; // 9 AM
@@ -254,6 +276,15 @@ export default function AvailabilityCalendar() {
             if (diffHours < 24) {
                 toast.error("Leave must be at least 24 hours in advance");
                 return;
+            }
+
+            if (leaveEndDate) {
+                const endDateTimeStr = leaveEndTime ? `${leaveEndDate}T${leaveEndTime}:00` : `${leaveEndDate}T23:59:59`;
+                const end = new Date(endDateTimeStr);
+                if (end < start) {
+                    toast.error("End date/time cannot be before start date/time");
+                    return;
+                }
             }
 
             const payload = {
@@ -404,6 +435,11 @@ export default function AvailabilityCalendar() {
                                                 On approved leave for this date
                                             </p>
                                         )}
+                                        {isWeekend && (
+                                            <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-purple-600">
+                                                Weekend Policy: All slots are ON
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="flex gap-1">
@@ -429,7 +465,7 @@ export default function AvailabilityCalendar() {
                                         {/* Off All Confirmation */}
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <button disabled={loadingSlots || savingSlots || isPastDay || !!activeApprovedLeave} className="text-[9px] font-black uppercase px-2 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:pointer-events-none">OFF ALL</button>
+                                                <button disabled={loadingSlots || savingSlots || isPastDay || !!activeApprovedLeave || isWeekend} className="text-[9px] font-black uppercase px-2 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-30 disabled:pointer-events-none">OFF ALL</button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
                                                 <AlertDialogHeader>
@@ -464,8 +500,8 @@ export default function AvailabilityCalendar() {
                                                     checked={isActive}
                                                     onCheckedChange={() => toggleSlot(slot)}
                                                     className="data-[state=checked]:bg-purple-600 scale-90"
-                                                    disabled={loadingSlots || savingSlots || isPastDay || !!activeApprovedLeave || isSlotLocked(slot)}
-                                                    title={isSlotLocked(slot) ? "Cannot change availability within 4 hours of the slot time" : ""}
+                                                    disabled={loadingSlots || savingSlots || isPastDay || !!activeApprovedLeave || isSlotLocked(slot) || isWeekend}
+                                                    title={isWeekend ? "Weekend slots cannot be turned off" : isSlotLocked(slot) ? "Cannot change availability within 4 hours of the slot time" : ""}
                                                 />
                                             </div>
                                         );
@@ -577,7 +613,7 @@ export default function AvailabilityCalendar() {
                             <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex gap-3">
                                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                                     <p className="text-[10px] text-amber-800 font-bold leading-tight uppercase tracking-tighter">
-                                    Leaves must be applied at least 24 hours prior. Weekend or more than 3 days requires admin approval.
+                                    Leaves must be applied at least 24 hours prior.Admin approval is required for leaves.
                                     </p>
                                 </div>
 
