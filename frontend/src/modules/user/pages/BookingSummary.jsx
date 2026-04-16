@@ -21,6 +21,7 @@ import { useBookings } from "@/modules/user/contexts/BookingContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { api } from "@/modules/user/lib/api";
 import { toast } from "sonner";
+import SlotSelectionModal from "@/modules/user/components/salon/SlotSelectionModal";
 
 const BookingSummary = () => {
   const navigate = useNavigate();
@@ -63,6 +64,7 @@ const BookingSummary = () => {
   const [isBusyModalOpen, setIsBusyModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [quotePreview, setQuotePreview] = useState(null);
+  const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
 
   // Determine effective booking type
   const effectiveBookingType = bookingParam || contextBookingType || "instant";
@@ -342,10 +344,11 @@ const BookingSummary = () => {
         {/* Date & Time */}
         <motion.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="glass-strong rounded-2xl p-5 border border-border/50 flex justify-between items-center"
+          onClick={() => setIsSlotModalOpen(true)}
+          className="glass-strong rounded-2xl p-5 border border-border/50 flex justify-between items-center cursor-pointer hover:border-primary/50 transition-all group"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
               <Calendar className="w-5 h-5 text-primary" />
             </div>
             <div>
@@ -353,8 +356,8 @@ const BookingSummary = () => {
               <p className="text-sm font-bold mt-1 text-primary">{getFormattedDate(selectedSlot?.date)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 border-l border-border pl-6">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <div className="flex items-center gap-3 border-l border-border pl-6 relative">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
               <Clock className="w-5 h-5 text-primary" />
             </div>
             <div>
@@ -363,6 +366,9 @@ const BookingSummary = () => {
                 {selectedSlot?.time}
                 <span className="block text-[10px] text-muted-foreground mt-0.5">By {selectedSlot?.provider?.name || 'Any Trained Professional'}</span>
               </p>
+            </div>
+            <div className="absolute -right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ChevronRight className="w-4 h-4 text-primary" />
             </div>
           </div>
         </motion.div>
@@ -617,6 +623,14 @@ const BookingSummary = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Slot Selection Modal */}
+      <SlotSelectionModal 
+        isOpen={isSlotModalOpen} 
+        onClose={() => setIsSlotModalOpen(false)} 
+        onSave={() => setIsSlotModalOpen(false)}
+        address={user?.addresses?.[0]}
+      />
     </div>
   );
 };

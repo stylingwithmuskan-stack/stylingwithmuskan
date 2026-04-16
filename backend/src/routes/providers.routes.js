@@ -54,7 +54,11 @@ router.get(
       return res.status(404).json({ error: "Provider not available" });
     }
 
-    const settings = await BookingSettings.findOne().lean();
+    const [bookingSettings, officeSettings] = await Promise.all([
+      BookingSettings.findOne().lean(),
+      OfficeSettings.findOne().lean(),
+    ]);
+    const settings = { ...bookingSettings, ...officeSettings };
     const durationMinutes = Math.max(Number(req.query.durationMinutes || 0), 0);
     const result = await computeAvailableSlots(providerId, date, settings, { requestedDurationMinutes: durationMinutes });
     res.json({ provider: providerCard(provider), ...result });

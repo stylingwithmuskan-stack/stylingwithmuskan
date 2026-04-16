@@ -455,19 +455,25 @@ export default function SPOversight() {
                                             </div>
 
                                             {isEditingCategories ? (
-                                                <div className="space-y-3">
+                                                <div className="space-y-4">
                                                     <div>
-                                                        <p className="text-[10px] font-bold text-muted-foreground mb-1.5">Primary Categories (Parents)</p>
-                                                        <div className="flex flex-wrap gap-1.5">
+                                                        <p className="text-[10px] font-black text-muted-foreground mb-2 uppercase tracking-tight">Step 1: Select Service Types (Parents)</p>
+                                                        <div className="flex flex-wrap gap-1.5 p-3 bg-muted/20 rounded-xl border border-border/50">
                                                             {availableParents.map(parent => {
                                                                 const isSelected = tempCategories.includes(parent.label);
                                                                 return (
                                                                     <Badge 
-                                                                        key={parent._id} 
+                                                                        key={parent._id || parent.id} 
                                                                         variant={isSelected ? "default" : "outline"}
-                                                                        className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-primary border-primary' : 'hover:border-primary/50'}`}
+                                                                        className={`text-[10px] cursor-pointer transition-all py-1 px-2.5 ${isSelected ? 'bg-primary border-primary shadow-sm ring-2 ring-primary/20' : 'hover:border-primary/50 text-muted-foreground'}`}
                                                                         onClick={() => {
-                                                                            if (isSelected) setTempCategories(prev => prev.filter(c => c !== parent.label));
+                                                                            const pid = parent._id || parent.id;
+                                                                            if (isSelected) {
+                                                                                setTempCategories(prev => prev.filter(c => c !== parent.label));
+                                                                                // Auto-remove specializations belonging to this parent
+                                                                                const childNames = availableCategories.filter(c => c.serviceType === pid).map(c => c.name);
+                                                                                setTempSpecializations(prev => prev.filter(s => !childNames.includes(s)));
+                                                                            }
                                                                             else setTempCategories(prev => [...prev, parent.label]);
                                                                         }}
                                                                     >
@@ -477,25 +483,49 @@ export default function SPOversight() {
                                                             })}
                                                         </div>
                                                     </div>
+
                                                     <div>
-                                                        <p className="text-[10px] font-bold text-muted-foreground mb-1.5">Specializations (Subcategories)</p>
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {availableCategories.map(cat => {
-                                                                const isSelected = tempSpecializations.includes(cat.name);
-                                                                return (
-                                                                    <Badge 
-                                                                        key={cat._id} 
-                                                                        variant={isSelected ? "secondary" : "outline"}
-                                                                        className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-primary/10 text-primary border-primary/20' : 'hover:border-primary/50'}`}
-                                                                        onClick={() => {
-                                                                            if (isSelected) setTempSpecializations(prev => prev.filter(s => s !== cat.name));
-                                                                            else setTempSpecializations(prev => [...prev, cat.name]);
-                                                                        }}
-                                                                    >
-                                                                        {cat.name}
-                                                                    </Badge>
-                                                                );
-                                                            })}
+                                                        <p className="text-[10px] font-black text-muted-foreground mb-2 uppercase tracking-tight">Step 2: Select Specializations (Filtered)</p>
+                                                        <div className="space-y-3">
+                                                            {tempCategories.length === 0 ? (
+                                                                <div className="p-4 text-center border border-dashed border-border rounded-xl">
+                                                                    <p className="text-[10px] text-muted-foreground font-bold italic">Please select at least one Service Type above to see options</p>
+                                                                </div>
+                                                            ) : (
+                                                                availableParents
+                                                                    .filter(p => tempCategories.includes(p.label))
+                                                                    .map(parent => {
+                                                                        const pid = parent._id || parent.id;
+                                                                        const children = availableCategories.filter(c => c.serviceType === pid);
+                                                                        if (children.length === 0) return null;
+
+                                                                        return (
+                                                                            <div key={pid} className="space-y-1.5">
+                                                                                <p className="text-[9px] font-black text-primary uppercase tracking-widest px-1 flex items-center gap-1.5 opacity-70">
+                                                                                    <span className="h-1 w-1 rounded-full bg-primary" /> {parent.label} Categories
+                                                                                </p>
+                                                                                <div className="flex flex-wrap gap-1.5 p-2 bg-background border border-border/50 rounded-xl">
+                                                                                    {children.map(cat => {
+                                                                                        const isSelected = tempSpecializations.includes(cat.name);
+                                                                                        return (
+                                                                                            <Badge 
+                                                                                                key={cat._id || cat.id} 
+                                                                                                variant={isSelected ? "secondary" : "outline"}
+                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-primary/15 text-primary border-primary/30 font-bold' : 'text-muted-foreground hover:border-primary/30'}`}
+                                                                                                onClick={() => {
+                                                                                                    if (isSelected) setTempSpecializations(prev => prev.filter(s => s !== cat.name));
+                                                                                                    else setTempSpecializations(prev => [...prev, cat.name]);
+                                                                                                }}
+                                                                                            >
+                                                                                                {cat.name}
+                                                                                            </Badge>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>

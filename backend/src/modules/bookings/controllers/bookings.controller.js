@@ -94,17 +94,20 @@ function bookingServicesToItems(services = []) {
 }
 
 async function loadBookingSettings() {
-  const s = await BookingSettings.findOne().lean();
-  return s || {
+  const [s, office] = await Promise.all([
+    BookingSettings.findOne().lean(),
+    OfficeSettings.findOne().lean()
+  ]);
+  const base = s || {
     minBookingAmount: 500,
     minLeadTimeMinutes: 30,
-    providerBufferMinutes: 60,
+    providerBufferMinutes: 30,
     serviceStartTime: "08:00",
     serviceEndTime: "19:00",
     slotIntervalMinutes: 30,
     maxBookingDays: 6,
     maxServicesPerBooking: 10,
-    providerSearchLimit: 5,
+    providerSearchLimit: 15,
     bookingHoldMinutes: 10,
     maxServiceRadiusKm: 5,
     providerNotificationStartTime: "07:00",
@@ -112,6 +115,10 @@ async function loadBookingSettings() {
     allowPayAfterService: true,
     prebookingRequired: false,
   };
+  if (office?.bufferMinutes !== undefined) {
+    base.bufferMinutes = office.bufferMinutes;
+  }
+  return base;
 }
 
 function parseHHMMToMinutes(v) {
@@ -310,7 +317,9 @@ export async function create(req, res) {
     const slotStart = slotLabelToLocalDateTime(requestedDate, requestedTime);
     if (!slotStart) return res.status(400).json({ error: "Invalid booking slot" });
     const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
-    if (leadMs > 0 && slotStart.getTime() < (now.getTime() + leadMs)) {
+    const bufferMs = Math.max(Number(settings?.bufferMinutes || 0), 0) * 60 * 1000;
+    const effectiveLeadMs = Math.max(leadMs, bufferMs);
+    if (effectiveLeadMs > 0 && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) {
       return res.status(400).json({ error: "Selected slot violates minimum lead time." });
     }
     const maxDays = Math.max(Number(settings?.maxBookingDays || 0), 0);

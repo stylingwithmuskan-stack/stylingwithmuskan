@@ -10,13 +10,13 @@ import { providerMatchesRequestedSpecialties, resolveRequestedSpecialtySets } fr
 const DEFAULT_BOOKING_SETTINGS = {
   minBookingAmount: 500,
   minLeadTimeMinutes: 30,
-  providerBufferMinutes: 60,
+  providerBufferMinutes: 30,
   serviceStartTime: "08:00",
   serviceEndTime: "19:00",
   slotIntervalMinutes: 30,
   maxBookingDays: 6,
   maxServicesPerBooking: 10,
-  providerSearchLimit: 5,
+  providerSearchLimit: 15,
   bookingHoldMinutes: 10,
   maxServiceRadiusKm: 5,
   providerNotificationStartTime: "07:00",
@@ -35,8 +35,12 @@ function escapeRegex(s) {
 
 async function resolveSettings(settings) {
   if (settings) return settings;
-  const s = await BookingSettings.findOne().lean();
-  return s || DEFAULT_BOOKING_SETTINGS;
+  const [s, office] = await Promise.all([
+    BookingSettings.findOne().lean(),
+    OfficeSettings.findOne().lean(),
+  ]);
+  const base = s || DEFAULT_BOOKING_SETTINGS;
+  return { ...base, ...(office || {}) };
 }
 
 async function findProvidersZoneStrict(address, filters = {}) {
@@ -176,7 +180,7 @@ export async function buildAssignmentCandidates({
   }
 
   const configuredLimit = Math.max(Number(resolvedSettings?.providerSearchLimit || 0), 0);
-  const limit = configuredLimit > 0 ? Math.min(configuredLimit, 5) : 5;
+  const limit = configuredLimit > 0 ? Math.min(configuredLimit, 15) : 15;
   const candidateProviders = limit > 0 ? candidates.slice(0, limit) : candidates;
 
   return {
