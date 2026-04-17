@@ -61,6 +61,13 @@ export default function BookingManagement() {
         return <Navigate to="/admin/login" replace />;
     }
 
+    const STATUS_GROUPS = {
+        active: ["accepted", "travelling", "arrived", "in_progress"],
+        pending: ["incoming", "pending", "unassigned", "payment_pending", "documentation", "vendor_assigned", "admin_approved", "user_accepted", "team_assigned", "final_approved", "advance_paid"],
+        completed: ["completed"],
+        missed: ["cancelled", "missed", "rejected"]
+    };
+
     const load = async () => {
         if (!isLoggedIn) return;
         try {
@@ -81,10 +88,10 @@ export default function BookingManagement() {
         const status = (b.status || "").toLowerCase();
 
         let tabMatch = true;
-        if (tab === "active") tabMatch = ["accepted", "travelling", "arrived", "in_progress"].includes(status);
-        else if (tab === "pending") tabMatch = ["incoming", "pending", "unassigned", "vendor_assigned", "admin_approved", "user_accepted", "team_assigned", "final_approved"].includes(status);
-        else if (tab === "completed") tabMatch = status === "completed";
-        else if (tab === "missed") tabMatch = ["cancelled", "missed", "rejected"].includes(status);
+        if (tab === "active") tabMatch = STATUS_GROUPS.active.includes(status);
+        else if (tab === "pending") tabMatch = STATUS_GROUPS.pending.includes(status);
+        else if (tab === "completed") tabMatch = STATUS_GROUPS.completed.includes(status);
+        else if (tab === "missed") tabMatch = STATUS_GROUPS.missed.includes(status);
 
         let typeMatch = true;
         if (typeFilter !== "all") {
@@ -173,7 +180,11 @@ export default function BookingManagement() {
         }
     };
 
-    const unassignedCount = bookings.filter(b => (b.status || "").toLowerCase() === "unassigned").length;
+    const unassignedCount = bookings.filter(b => {
+        const s = (b.status || "").toLowerCase();
+        return s === "unassigned" || s === "incoming" || s === "pending";
+    }).length;
+
     const queuedCount = bookings.filter(b => b.notificationStatus === "queued").length;
 
     const getStatusLabel = (status) => {
@@ -182,7 +193,9 @@ export default function BookingManagement() {
             admin_approved: "Price Approved",
             user_accepted: "User Accepted",
             team_assigned: "Team Assigned",
-            final_approved: "Ready for Service"
+            final_approved: "Ready for Service",
+            payment_pending: "Awaiting Advance",
+            documentation: "Documentation"
         };
         return labels[status] || (status || "").replace(/_/g, " ");
     };
@@ -210,8 +223,8 @@ export default function BookingManagement() {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {[
                         { label: "Total", val: bookings.length, color: "bg-blue-50 text-blue-600 border-blue-200" },
-                        { label: "Active", val: bookings.filter(b => ["accepted", "travelling", "arrived", "in_progress"].includes((b.status || "").toLowerCase())).length, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
-                        { label: "Pending", val: bookings.filter(b => ["incoming", "pending"].includes((b.status || "").toLowerCase())).length, color: "bg-amber-50 text-amber-600 border-amber-200" },
+                        { label: "Active", val: bookings.filter(b => STATUS_GROUPS.active.includes((b.status || "").toLowerCase())).length, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+                        { label: "Pending", val: bookings.filter(b => STATUS_GROUPS.pending.includes((b.status || "").toLowerCase())).length, color: "bg-amber-50 text-amber-600 border-amber-200" },
                         { label: "Unassigned", val: unassignedCount, color: "bg-orange-50 text-orange-600 border-orange-200" },
                         { label: "Queued Notifs", val: queuedCount, color: "bg-yellow-50 text-yellow-600 border-yellow-200" },
                     ].map((s, i) => (

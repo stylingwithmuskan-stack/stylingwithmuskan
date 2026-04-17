@@ -81,7 +81,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     assignedProvider: providerId,
     "slot.date": date,
     status: { $ne: "cancelled" },
-  }).select("slot slotStartAt slotEndAt services status").lean();
+  }).select("slot slotStartAt slotEndAt services status createdAt").lean();
   const bookedSet = new Set((providerBookings || []).map((b) => String(b?.slot?.time || "")).filter(Boolean));
 
   // Buffer: Use providerBufferMinutes from settings or bufferMinutes from officeSettings (fallback 30)
@@ -99,9 +99,18 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     "documentation"
   ]);
   const busyIntervals = [];
+  const TEN_MINUTES_MS = 10 * 60 * 1000;
+
   for (const b of (providerBookings || [])) {
     const st = String(b?.status || "").toLowerCase();
     if (!busyStatuses.has(st)) continue;
+
+    // Special case: payment_pending is only busy if it's less than 10 minutes old (Temporary Hold)
+    if (st === "payment_pending" && b.createdAt) {
+      const age = Date.now() - new Date(b.createdAt).getTime();
+      if (age > TEN_MINUTES_MS) continue; // Skip expired holds
+    }
+
     const start = b?.slotStartAt ? new Date(b.slotStartAt) : slotLabelToLocalDateTime(date, b?.slot?.time);
     if (!start || Number.isNaN(start.getTime())) continue;
     const services = Array.isArray(b?.services) ? b.services : (b.items || []);

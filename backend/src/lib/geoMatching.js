@@ -112,7 +112,7 @@ export async function findProvidersInZone(address, filters = {}) {
           approvalStatus: filters.approvalStatus || "approved",
           registrationComplete: filters.registrationComplete !== undefined ? filters.registrationComplete : true,
           city: { $regex: new RegExp(`^${city}`, "i") },
-          zones: { $in: zonesContainingPoint }
+          zones: { $in: zonesContainingPoint.map(z => new RegExp(`^${String(z).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i")) }
         };
 
         providers = await ProviderAccount.find(query).lean();

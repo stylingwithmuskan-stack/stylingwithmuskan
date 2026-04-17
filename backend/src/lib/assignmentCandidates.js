@@ -1,6 +1,7 @@
 import ProviderAccount from "../models/ProviderAccount.js";
 import UserSubscription from "../models/UserSubscription.js";
 import { BookingSettings } from "../models/Settings.js";
+import { OfficeSettings } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, isIsoDate } from "./slots.js";
 import { computeAvailableSlots } from "./availability.js";
 import { findZonesContainingPoint, sortProvidersByProximity } from "./geoMatching.js";
@@ -75,11 +76,12 @@ async function findProvidersZoneStrict(address, filters = {}) {
     if (typeof lat === "number" && typeof lng === "number") {
       const zonesContainingPoint = await findZonesContainingPoint(lat, lng, city);
       if (zonesContainingPoint.length > 0) {
+        const zoneRegexes = zonesContainingPoint.map((z) => new RegExp(`^${escapeRegex(z)}$`, "i"));
         return ProviderAccount.find({
           ...baseQuery,
           $or: [
-            { zones: { $in: zonesContainingPoint } },
-            { pendingZones: { $in: zonesContainingPoint } },
+            { zones: { $in: zoneRegexes } },
+            { pendingZones: { $in: zoneRegexes } },
           ],
         }).lean();
       }
