@@ -228,7 +228,22 @@ router.delete("/services/:id",
 );
 router.get("/leaves", requireRole("admin"), async (_req, res) => {
   const items = await LeaveRequest.find().sort({ createdAt: -1 }).lean();
-  res.json({ leaves: items });
+  
+  // Enrich leaves with provider name and city
+  const providerIds = [...new Set(items.map(i => i.providerId))].filter(Boolean);
+  const providers = await ProviderAccount.find({ _id: { $in: providerIds } }, "name city").lean();
+  const providerMap = providers.reduce((acc, p) => {
+    acc[p._id.toString()] = p;
+    return acc;
+  }, {});
+
+  const enriched = items.map(item => ({
+    ...item,
+    providerName: providerMap[item.providerId]?.name || "N/A",
+    city: providerMap[item.providerId]?.city || "N/A",
+  }));
+
+  res.json({ leaves: enriched });
 });
 
 router.patch("/leaves/:id/approve", requireRole("admin"), async (req, res) => {

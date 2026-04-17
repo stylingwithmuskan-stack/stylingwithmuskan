@@ -353,8 +353,8 @@ router.post(
     const includesWeekend = isoDateRangeIncludesWeekend(startIso, endIso);
     if (includesWeekend === null) return res.status(400).json({ error: "Invalid date range" });
 
-    const requiresApproval = dayCount > 3 || includesWeekend === true;
-    const status = requiresApproval ? "pending" : "approved";
+    const requiresApproval = true;
+    const status = "pending";
 
     const endAt = isoDateToLocalEnd(endIso);
     if (!endAt) return res.status(400).json({ error: "Invalid end date" });

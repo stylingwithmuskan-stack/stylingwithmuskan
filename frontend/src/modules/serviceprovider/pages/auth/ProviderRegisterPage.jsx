@@ -213,53 +213,23 @@ export default function ProviderRegisterPage() {
             types.filter(st => selectedTypeLabels.has(st.label)).map(st => st.id)
         );
 
+        let cats = [];
         const catsRaw = Array.isArray(categoriesList) ? categoriesList.filter(c => c?.name) : [];
-        
-        // FIXED: Always show all categories, but filter only when primary categories are selected
-        let cats = catsRaw;
-        if (selectedTypeIds.size > 0) {
-            const filtered = catsRaw.filter(c => 
+        if (selectedTypeIds.size > 0 || selectedTypeLabels.size > 0) {
+            cats = catsRaw.filter(c => 
                 selectedTypeIds.has(c.serviceType) || selectedTypeLabels.has(c.serviceType)
             );
-            // Only apply filter if we found matching categories
-            if (filtered.length > 0) {
-                cats = filtered;
-            }
         }
 
         const selectedCatNames = new Set(formData.specializations);
-        const selectedCatIds = new Set(
-            catsRaw.filter(c => selectedCatNames.has(c.name)).map(c => c.id)
-        );
-
-        const servicesRaw = Array.isArray(servicesList) ? servicesList.filter(s => s?.name) : [];
-        const catById = new Map();
-        const catByName = new Map();
-        catsRaw.forEach(c => {
-            if (c.id) catById.set(c.id, c);
-            if (c.name) catByName.set(c.name, c);
-        });
-
-        // FIXED: Improved service filtering logic
-        let services = servicesRaw;
+        const selectedCatIds = new Set(cats.filter(c => selectedCatNames.has(c.name)).map(c => c.id));
         
+        let services = [];
+        const servicesRaw = Array.isArray(servicesList) ? servicesList.filter(s => s?.name) : [];
         if (selectedCatIds.size > 0 || selectedCatNames.size > 0) {
-            // If sub-categories are selected, show only their services
-            const filtered = servicesRaw.filter(s => 
+            services = servicesRaw.filter(s => 
                 selectedCatIds.has(s.category) || selectedCatNames.has(s.category)
             );
-            if (filtered.length > 0) {
-                services = filtered;
-            }
-        } else if (selectedTypeIds.size > 0) {
-            // If only primary categories are selected, show their services
-            const filtered = servicesRaw.filter(s => {
-                const cat = catById.get(s.category) || catByName.get(s.category);
-                return cat && (selectedTypeIds.has(cat.serviceType) || selectedTypeLabels.has(cat.serviceType));
-            });
-            if (filtered.length > 0) {
-                services = filtered;
-            }
         }
 
         return {
@@ -268,6 +238,30 @@ export default function ProviderRegisterPage() {
             serviceOptions: services
         };
     }, [serviceTypesList, categoriesList, servicesList, formData.primaryCategory, formData.specializations]);
+
+    // Auto-cleanup specializations if parent categories are deselected
+    useEffect(() => {
+        if (!catalogLoading && filteredCategories) {
+            const validNames = new Set(filteredCategories.map(c => c.name));
+            const activeSpec = formData.specializations;
+            const validSpec = activeSpec.filter(s => validNames.has(s));
+            if (activeSpec.length !== validSpec.length) {
+                setFormData(prev => ({ ...prev, specializations: validSpec }));
+            }
+        }
+    }, [filteredCategories, catalogLoading]);
+
+    // Auto-cleanup services if subcategories are deselected
+    useEffect(() => {
+        if (!catalogLoading && serviceOptions) {
+            const validNames = new Set(serviceOptions.map(s => s.name));
+            const activeServ = formData.services;
+            const validServ = activeServ.filter(s => validNames.has(s));
+            if (activeServ.length !== validServ.length) {
+                setFormData(prev => ({ ...prev, services: validServ }));
+            }
+        }
+    }, [serviceOptions, catalogLoading]);
 
     // Refs for hidden inputs
     const profileInputRef = useRef(null);

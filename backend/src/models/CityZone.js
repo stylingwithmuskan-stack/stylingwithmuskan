@@ -6,7 +6,7 @@ const ZoneSchema = new mongoose.Schema(
     city: { type: mongoose.Schema.Types.ObjectId, ref: "City", required: true },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     
-    // Coordinates for zone boundary (pentagonal polygon)
+    // Coordinates for zone boundary (flexible polygon: 3-10 points)
     coordinates: {
       type: [{
         lat: { type: Number, required: true },
@@ -22,8 +22,8 @@ const ZoneSchema = new mongoose.Schema(
           // Must be an array
           if (!Array.isArray(coords)) return false;
           
-          // Must have exactly 5 coordinates (pentagonal)
-          if (coords.length !== 5) return false;
+          // Must have between 3 and 10 coordinates (flexible polygon)
+          if (coords.length < 3 || coords.length > 10) return false;
           
           // Each coordinate must have valid lat/lng ranges
           return coords.every(c => 
@@ -31,7 +31,7 @@ const ZoneSchema = new mongoose.Schema(
             c.lng >= -180 && c.lng <= 180
           );
         },
-        message: 'Coordinates must be an array of exactly 5 valid lat/lng pairs'
+        message: 'Coordinates must be an array of 3-10 valid lat/lng pairs'
       }
     },
     
@@ -61,7 +61,7 @@ ZoneSchema.index({ city: 1, name: 1 }, { unique: true });
 
 // Pre-save hook: Auto-generate GeoJSON geometry from coordinates (Phase 1)
 ZoneSchema.pre('save', function(next) {
-  if (this.coordinates && Array.isArray(this.coordinates) && this.coordinates.length === 5) {
+  if (this.coordinates && Array.isArray(this.coordinates) && this.coordinates.length >= 3) {
     // Convert to GeoJSON Polygon format: [[[lng, lat], [lng, lat], ...]]
     // Note: GeoJSON uses [longitude, latitude] order (opposite of our lat/lng)
     const geoCoords = this.coordinates.map(c => [c.lng, c.lat]);
@@ -73,7 +73,7 @@ ZoneSchema.pre('save', function(next) {
       coordinates: [geoCoords]
     };
     
-    console.log(`[CityZone] Generated GeoJSON geometry for zone: ${this.name}`);
+    console.log(`[CityZone] Generated GeoJSON geometry for zone: ${this.name} (${this.coordinates.length} points)`);
   }
   next();
 });
