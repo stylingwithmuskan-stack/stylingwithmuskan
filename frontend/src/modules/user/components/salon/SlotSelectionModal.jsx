@@ -218,7 +218,8 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     const slots = useMemo(() => {
         const startMin = officeSettings?.startTime ? timeToMinutes(officeSettings.startTime) : 0;
         const endMin = officeSettings?.endTime ? timeToMinutes(officeSettings.endTime) : (24 * 60);
-        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+        const buffer = Number(officeSettings?.bufferMinutes || 30);
+        const nowMin = (new Date().getHours() * 60 + new Date().getMinutes()) + buffer;
 
         return availableSlots.filter(s => {
             const currentMin = timeToMinutes(s);
@@ -440,7 +441,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                     </div>
                                 )}
                                 {!slotsLoading && DEFAULT_TIME_SLOTS.map((slot) => {
-                                    const isAvailable = slotMap[slot] === true;
+                                    const isAvailable = slotMap[slot] === true && slots.includes(slot);
                                     const isSelected = tempSlot === slot;
                                     
                                     return (
