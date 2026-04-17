@@ -501,6 +501,37 @@ router.post(
   }
 );
 
+router.post(
+  "/request-category",
+  requireRole("provider"),
+  body("currentCategory").notEmpty(),
+  body("requestedCategory").notEmpty(),
+  async (req, res) => {
+    const providerId = req.auth?.sub;
+    const { currentCategory, requestedCategory } = req.body;
+
+    const p = await ProviderAccount.findById(providerId);
+    if (!p) return res.status(404).json({ error: "Provider not found" });
+
+    try {
+      await notify({
+        recipientId: "ADMIN001",
+        recipientRole: "admin",
+        title: "Category Change Request",
+        message: `Provider ${p.name || p.phone} wants to add/change category: "${requestedCategory}" (Current: ${currentCategory})`,
+        type: "category_request",
+        meta: { 
+          providerId: p._id?.toString?.(), 
+          currentCategory, 
+          requestedCategory 
+        },
+      });
+    } catch {}
+
+    res.json({ success: true, message: "Request sent to admin" });
+  }
+);
+
 router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isString(), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });

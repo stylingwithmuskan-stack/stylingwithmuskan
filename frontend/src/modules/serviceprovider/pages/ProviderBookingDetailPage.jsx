@@ -280,9 +280,40 @@ const ProviderBookingDetailPage = () => {
             }
             case "travelling": return { label: "Mark as Arrived", icon: MapPin, action: () => updateBookingStatus(bookingId, "arrived") };
             case "arrived": return { label: "Verify Customer OTP", icon: Shield, action: () => setShowOTP(true) };
-            case "in_progress": return { label: "Collect Service Payment", icon: IndianRupee, action: () => handleCollectPayment() };
+            case "in_progress": {
+                const hasBefore = (booking.beforeImages || []).length > 0;
+                return {
+                    label: hasBefore ? "Collect Service Payment" : "Upload Before Photos",
+                    icon: IndianRupee,
+                    action: () => {
+                        if (!hasBefore) {
+                            toast.error("Please upload at least one 'Before Service' photo first.");
+                            // Scroll to images section
+                            document.getElementById("verification-section")?.scrollIntoView({ behavior: 'smooth' });
+                            return;
+                        }
+                        handleCollectPayment();
+                    },
+                    className: !hasBefore ? "bg-amber-600 hover:bg-amber-700" : ""
+                };
+            }
             case "payment": return null; // Actions inside payment card
-            case "documentation": return { label: "Finalize & Complete", icon: CheckCircle2, action: () => setShowComplete(true) };
+            case "documentation": {
+                const hasAfter = (booking.afterImages || []).length > 0;
+                return {
+                    label: hasAfter ? "Finalize & Complete" : "Upload After Photos",
+                    icon: CheckCircle2,
+                    action: () => {
+                        if (!hasAfter) {
+                            toast.error("Please upload at least one 'After Service' photo first.");
+                            document.getElementById("verification-section")?.scrollIntoView({ behavior: 'smooth' });
+                            return;
+                        }
+                        setShowComplete(true);
+                    },
+                    className: !hasAfter ? "bg-amber-600 hover:bg-amber-700" : ""
+                };
+            }
             default: return null;
         }
     };
@@ -582,7 +613,7 @@ const ProviderBookingDetailPage = () => {
 
                 {/* Images Section */}
                 {(booking.status === "in_progress" || booking.status === "documentation" || booking.status === "completed") && (
-                    <div className="space-y-4">
+                    <div className="space-y-4" id="verification-section">
                         {/* Provider Verification Section */}
                         <div className="bg-white border border-gray-100 rounded-[20px] p-5 shadow-sm shadow-purple-50">
                             <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2"><Shield className="w-3.5 h-3.5 text-amber-500" /> Provider Verification</h3>
@@ -723,7 +754,7 @@ const ProviderBookingDetailPage = () => {
                             <Button
                                 onClick={nextAction.action}
                                 disabled={statusLoading || nextAction.disabled}
-                                className="w-full sm:flex-1 h-14 rounded-2xl font-black text-xs bg-purple-600 hover:bg-purple-700 text-white shadow-xl shadow-purple-200 flex items-center justify-center gap-2 transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                                className={`w-full sm:flex-1 h-14 rounded-2xl font-black text-xs text-white shadow-xl flex items-center justify-center gap-2 transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed ${nextAction.className || "bg-purple-600 hover:bg-purple-700 shadow-purple-200"}`}
                             >
                                 {statusLoading ? "PROCESSING..." : nextAction.label.toUpperCase()} <ChevronRight className="w-4 h-4" />
                             </Button>

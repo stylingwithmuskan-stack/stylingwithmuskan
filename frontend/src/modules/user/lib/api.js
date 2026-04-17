@@ -348,6 +348,7 @@ export const api = {
     summary: (phone) => request(`/provider/summary/${phone}`),
     getPerformanceCriteria: () => request("/provider/performance-criteria"),
     requestZones: (body) => request("/provider/request-zones", { method: "POST", body }),
+    requestCategory: (body) => request("/provider/request-category", { method: "POST", body }),
     rankings: (city) => request(`/provider/rankings/${city}`),
     credits: (phone) => request(`/provider/credits/${phone}`),
     bookings: (providerId) => request(`/provider/bookings/${providerId}`),

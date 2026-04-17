@@ -226,21 +226,18 @@ export default function ProviderProfile() {
         }
     };
 
-    const handleCategoryRequest = () => {
+    const handleCategoryRequest = async () => {
         if (!provider) return;
-        const requests = JSON.parse(localStorage.getItem("muskan-category-requests") || "[]");
-        const newRequest = {
-            id: `REQ${Date.now()}`,
-            providerId: provider.id,
-            providerName: provider.name,
-            providerPhone: provider.phone,
-            currentCategory: providerDetails.category,
-            status: "pending",
-            createdAt: new Date().toISOString()
-        };
-        requests.unshift(newRequest);
-        localStorage.setItem("muskan-category-requests", JSON.stringify(requests));
-        setCategoryRequested(true);
+        try {
+            await api.provider.requestCategory({
+                currentCategory: providerDetails.category || "N/A",
+                requestedCategory: "New Category Add-on"
+            });
+            setCategoryRequested(true);
+            toast.success("Request sent to admin and city vendor!");
+        } catch (error) {
+            toast.error(error.message || "Failed to send request");
+        }
     };
 
     return (
