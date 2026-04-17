@@ -35,6 +35,11 @@ export function toIsoDateFromAny(input) {
   return "";
 }
 
+export function getIndiaDate() {
+  // Returns "YYYY-MM-DD" in Asia/Kolkata
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
 export function daysBetweenInclusive(startIso, endIso) {
   const s = isoDateToLocalStart(startIso);
   const e = isoDateToLocalStart(endIso);

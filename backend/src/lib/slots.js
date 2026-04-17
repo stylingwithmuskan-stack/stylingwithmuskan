@@ -81,8 +81,10 @@ export function slotLabelToLocalDateTime(dateIso, slotLabel) {
   const hm = parseSlotLabelToHM(slotLabel);
   if (!hm) return null;
   if (typeof dateIso !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return null;
-  const [y, m, d] = dateIso.split("-").map((n) => parseInt(n, 10));
-  const dt = new Date(y, m - 1, d, hm.hour, hm.minute, 0, 0);
+
+  // Create an ISO string with +05:30 offset to ensure absolute time is correct relative to IST
+  const isoStr = `${dateIso}T${String(hm.hour).padStart(2, "0")}:${String(hm.minute).padStart(2, "0")}:00+05:30`;
+  const dt = new Date(isoStr);
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 

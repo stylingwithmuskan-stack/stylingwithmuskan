@@ -3,7 +3,7 @@ import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import { redis } from "../startup/redis.js";
 import { DEFAULT_TIME_SLOTS, defaultSlotsMap, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes } from "./slots.js";
-import { isoDateToLocalEnd, isoDateToLocalStart, toIsoDateFromAny } from "./isoDateTime.js";
+import { isoDateToLocalEnd, isoDateToLocalStart, toIsoDateFromAny, getIndiaDate } from "./isoDateTime.js";
 
 async function getVersion(providerId, date) {
   try {
@@ -112,8 +112,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
 
   const windowStartMin = settings?.serviceStartTime ? parseHHMMToMinutes(settings.serviceStartTime) : null;
   const windowEndMin = settings?.serviceEndTime ? parseHHMMToMinutes(settings.serviceEndTime) : null;
-  const todayKey = toIsoDateFromAny(new Date());
-  const isToday = date === todayKey;
+  const isToday = date === getIndiaDate();
   const now = new Date();
   const bufferMs = Math.max(Number(settings?.bufferMinutes || 30), 0) * 60 * 1000;
   const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
