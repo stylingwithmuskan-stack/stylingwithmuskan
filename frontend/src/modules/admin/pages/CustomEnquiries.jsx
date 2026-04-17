@@ -104,10 +104,12 @@ export default function CustomEnquiries() {
                   <Button onClick={submitQuote} className="rounded-xl h-9 font-bold">Approve Quote</Button>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <Button onClick={() => beginQuote(enq._id)} variant="outline" className="rounded-xl h-9 text-xs font-bold">Price Quote</Button>
-                  <Button onClick={async () => { try { await finalApproveEnquiry(enq._id); toast.success("Booking created."); } catch (e) { toast.error(e?.message || "Booking creation failed"); } }} className="rounded-xl h-9 text-xs font-bold gap-1"><CheckCircle className="h-3 w-3" /> Force Create Booking</Button>
-                </div>
+                enq.status !== "quote_expired" && (
+                  <div className="flex gap-2">
+                    <Button onClick={() => beginQuote(enq._id)} variant="outline" className="rounded-xl h-9 text-xs font-bold">Price Quote</Button>
+                    <Button onClick={async () => { try { await finalApproveEnquiry(enq._id); toast.success("Booking created."); } catch (e) { toast.error(e?.message || "Booking creation failed"); } }} className="rounded-xl h-9 text-xs font-bold gap-1"><CheckCircle className="h-3 w-3" /> Force Create Booking</Button>
+                  </div>
+                )
               )}
             </CardContent>
           </Card>
