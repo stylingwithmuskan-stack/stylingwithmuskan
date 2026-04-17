@@ -22,7 +22,7 @@ const ExplorePage = () => {
     const { totalItems, cartItems, addToCart, updateQuantity, bookingType: contextBookingType, setBookingType, isFloatingSummaryOpen, setIsFloatingSummaryOpen, setIsCartOpen } = useCart();
     const { isLoggedIn, user } = useAuth();
     const { toggleWishlist, isInWishlist } = useWishlist();
-    const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability } = useUserModuleData();
+    const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability, loadCategoryServices, searchServices } = useUserModuleData();
 
     const userLocation = user?.addresses?.[0] || user?.address || null;
 
@@ -47,6 +47,8 @@ const ExplorePage = () => {
     const [preferences, setPreferences] = useState({
         priceRange: null
     });
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchResults, setSearchResults] = useState([]);
 
     // Sync active state with URL
     useEffect(() => {
@@ -67,6 +69,30 @@ const ExplorePage = () => {
             navigate(`/explore/${activeCategory}?type=${activeType}&booking=${contextBookingType}`, { replace: true });
         }
     }, [contextBookingType, activeBooking, activeCategory, activeType, navigate]);
+
+    // Optimize: Load category services on change
+    useEffect(() => {
+        if (activeCategory) {
+            loadCategoryServices(activeCategory);
+        }
+    }, [activeCategory, loadCategoryServices]);
+
+    // Handle Server-side Search
+    useEffect(() => {
+        let timeout;
+        if (searchQuery.length >= 2) {
+            setIsSearching(true);
+            timeout = setTimeout(async () => {
+                const results = await searchServices(searchQuery);
+                setSearchResults(results);
+                setIsSearching(false);
+            }, 500);
+        } else {
+            setSearchResults([]);
+            setIsSearching(false);
+        }
+        return () => clearTimeout(timeout);
+    }, [searchQuery, searchServices]);
 
     const activeTypeData = useMemo(() => SERVICE_TYPES.find(t => t.id === activeType), [activeType]);
 
@@ -93,15 +119,18 @@ const ExplorePage = () => {
     }, [filteredCategories, activeCategory, activeType, activeBooking, navigate]);
 
     const filteredServices = useMemo(() => {
-        return services.filter(s => {
+        const source = searchQuery.length > 0 ? searchResults : services;
+        
+        return source.filter(s => {
             const matchesGender = s.gender === gender;
-            const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                (s.description || "").toLowerCase().includes(searchQuery.toLowerCase());
             const matchesCategory = searchQuery.length > 0 ? true : s.category === activeCategory;
             const isAvailable = checkAvailability(s, userLocation);
 
             let matchesFilter = true;
             if (activeFilter === "Top Selling") matchesFilter = s.rating >= 4.7;
-            else if (activeFilter === "Premium") matchesFilter = s.price > 2000;
+            else if (activeFilter === "Premium") matchesFilter = (s.price || 0) > 2000;
 
             // Price range filter
             let matchesPreferences = true;
@@ -124,7 +153,7 @@ const ExplorePage = () => {
 
             return matchesCategory && matchesGender && matchesSearch && matchesFilter && isAvailable && matchesPreferences;
         });
-    }, [activeCategory, gender, searchQuery, activeFilter, services, checkAvailability, userLocation, preferences]);
+    }, [activeCategory, gender, searchQuery, activeFilter, services, searchResults, checkAvailability, userLocation, preferences]);
 
     const handleTypeChange = (typeId) => {
         const firstCat = categories.find(c =>
@@ -265,14 +294,30 @@ const ExplorePage = () => {
                     <div className="flex-1 overflow-y-auto px-4 pb-32 space-y-4 pt-2">
                         <div className="flex items-center justify-between mb-2">
                             <h2 className="text-sm font-black uppercase tracking-widest text-muted-foreground">
-                                {categories.find(c => c.id === activeCategory)?.name || "Services"}
+                                {searchQuery.length > 0 ? `Results for "${searchQuery}"` : (categories.find(c => c.id === activeCategory)?.name || "Services")}
                             </h2>
                             <span className="text-[10px] font-bold text-muted-foreground bg-accent px-2 py-0.5 rounded-full">
-                                {filteredServices.length} Results
+                                {isSearching ? "Searching..." : `${filteredServices.length} Results`}
                             </span>
                         </div>
 
-                        {filteredServices.map((service, idx) => (
+                        {isSearching && (
+                             <div className="space-y-4">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="h-32 glass-strong rounded-[28px] animate-pulse" />
+                                ))}
+                             </div>
+                        )}
+
+                        {!isSearching && filteredServices.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-20 opacity-40">
+                                <Search className="w-12 h-12 mb-4" />
+                                <p className="font-bold text-sm text-center">No services found.</p>
+                                <p className="text-[10px] mt-1">Try another keyword or category.</p>
+                            </div>
+                        )}
+
+                        {!isSearching && filteredServices.map((service, idx) => (
                             <motion.div
                                 key={service.id}
                                 initial={{ opacity: 0, y: 10 }}

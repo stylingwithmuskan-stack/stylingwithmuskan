@@ -15,10 +15,10 @@ const PopularServices = () => {
   const { isLoggedIn, user } = useAuth();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const navigate = useNavigate();
-  const { services, checkAvailability } = useUserModuleData();
+  const { popularServices, checkAvailability } = useUserModuleData();
 
   const userCity = user?.address?.city || null;
-  const filtered = services.filter((s) => s.gender === gender && checkAvailability(s, userCity));
+  const filtered = popularServices.filter((s) => s.gender === gender && checkAvailability(s, userCity));
 
   const handleAddToCart = (service) => {
     if (!isLoggedIn) {

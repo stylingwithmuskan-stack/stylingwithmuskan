@@ -33,7 +33,7 @@ router.get("/init", async (req, res) => {
       serviceTypes,
       bookingTypes,
       categories,
-      services,
+      popularServices,
       bannersData,
       providers,
       officeSettings,
@@ -44,7 +44,7 @@ router.get("/init", async (req, res) => {
       cached("content:service-types", () => ServiceType.find().lean()),
       cached("content:booking-types", () => BookingType.find().lean()),
       cached("content:categories:all", () => Category.find().lean()),
-      cached("content:services:all:all", () => Service.find({}).lean()),
+      cached("content:services:popular", () => Service.find({ rating: { $gte: 4.5 } }).limit(10).lean()),
       
       // Banners Logic
       cached("content:banners:all", async () => {
@@ -108,7 +108,7 @@ router.get("/init", async (req, res) => {
         serviceTypes: serviceTypes || [],
         bookingTypeConfig: bookingTypes || [],
         categories: categories || [],
-        services: services || [],
+        popularServices: popularServices || [],
         banners: bannersData || { women: [], men: [] },
         providers: providers || [],
         officeSettings,
@@ -227,6 +227,28 @@ router.get("/services", async (req, res) => {
     } catch { }
   }
   res.json({ data });
+});
+
+router.get("/search", async (req, res) => {
+  const { q, gender, category } = req.query;
+  if (!q || q.length < 2) return res.json({ data: [] });
+
+  try {
+    const query = {
+      $or: [
+        { name: { $regex: q, $options: "i" } },
+        { description: { $regex: q, $options: "i" } }
+      ]
+    };
+    if (gender) query.gender = gender;
+    if (category) query.category = category;
+
+    const data = await Service.find(query).limit(50).lean();
+    res.json({ data });
+  } catch (error) {
+    console.error("Search error:", error);
+    res.status(500).json({ error: "Search failed" });
+  }
 });
 
 router.get("/banners", async (req, res) => {

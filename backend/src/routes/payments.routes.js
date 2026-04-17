@@ -11,6 +11,7 @@ import Booking from "../models/Booking.js";
 import BookingLog from "../models/BookingLog.js";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, JWT_SECRET } from "../config.js";
 import { notify } from "../lib/notify.js";
+import { canAssignProviderToBooking } from "../lib/assignment.js";
 
 const router = Router();
 
@@ -250,19 +251,28 @@ router.post(
 
             // Notify provider and user about assignment
             if (b.assignedProvider) {
-              await notify({
-                recipientId: b.assignedProvider,
-                recipientRole: "provider",
-                type: "booking_assigned",
-                meta: { bookingId: b._id.toString() },
-                respectProviderQuietHours: true,
-              });
-              await notify({
-                recipientId: req.user._id.toString(),
-                recipientRole: "user",
-                type: "booking_assigned",
-                meta: { bookingId: b._id.toString() },
-              });
+              const stillEligible = await canAssignProviderToBooking(b.assignedProvider, b);
+              if (!stillEligible) {
+                console.log(`[PaymentVerify] Clearing ineligible/blocked provider ${b.assignedProvider} from booking ${b._id}`);
+                b.assignedProvider = "";
+                b.assignmentIndex = -1;
+                b.expiresAt = null;
+                await b.save();
+              } else {
+                await notify({
+                  recipientId: b.assignedProvider,
+                  recipientRole: "provider",
+                  type: "booking_assigned",
+                  meta: { bookingId: b._id.toString() },
+                  respectProviderQuietHours: true,
+                });
+                await notify({
+                  recipientId: req.user._id.toString(),
+                  recipientRole: "user",
+                  type: "booking_assigned",
+                  meta: { bookingId: b._id.toString() },
+                });
+              }
             }
           } catch (err) {
             console.error("[Payment] Notification error:", err.message);

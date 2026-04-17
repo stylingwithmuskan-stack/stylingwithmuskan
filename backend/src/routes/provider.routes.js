@@ -666,6 +666,33 @@ router.get("/me/:phone", param("phone").matches(/^\d{10}$/), async (req, res) =>
   });
 });
 
+router.patch("/me/profile", 
+  requireRole("provider"),
+  body("name").optional().isString().trim().notEmpty(),
+  body("email").optional().isEmail().normalizeEmail(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    
+    const providerId = req.auth.sub;
+    const { name, email } = req.body;
+    
+    const updates = {};
+    if (name) updates.name = name;
+    if (email !== undefined) updates.email = email;
+
+    const acc = await ProviderAccount.findByIdAndUpdate(
+      providerId,
+      { $set: updates },
+      { new: true }
+    ).lean();
+
+    if (!acc) return res.status(404).json({ error: "Provider not found" });
+    
+    res.json({ success: true, provider: acc });
+  }
+);
+
 router.get("/performance-criteria", requireAnyRole(["admin", "provider"]), async (_req, res) => {
   const s = await PerformanceSettings.findOne().lean();
   res.json({ settings: s || { minWeeklyHours: 20, minRatingThreshold: 4.5, maxCancellationsThreshold: 5 } });

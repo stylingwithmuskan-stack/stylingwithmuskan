@@ -621,6 +621,20 @@ export async function confirmCOD(req, res) {
   }
 
   booking.status = booking.balanceAmount === 0 ? "documentation" : "pending";
+  
+  // Critical Fix: If a provider was already assigned (during slot choice), 
+  // verify they are still approved/active BEFORE confirming and notifying them.
+  if (booking.assignedProvider) {
+    const { canAssignProviderToBooking } = await import("../../../lib/assignment.js");
+    const stillEligible = await canAssignProviderToBooking(booking.assignedProvider, booking);
+    if (!stillEligible) {
+      console.log(`[ConfirmCOD] Clearing ineligible/blocked provider ${booking.assignedProvider} from booking ${booking._id}`);
+      booking.assignedProvider = "";
+      booking.assignmentIndex = -1;
+      booking.expiresAt = null;
+    }
+  }
+
   await booking.save();
 
   try {

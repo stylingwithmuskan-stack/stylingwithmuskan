@@ -60,6 +60,13 @@ const getLocalDateKey = (date = new Date()) => {
     return `${year}-${month}-${day}`;
 };
 
+const DEFAULT_TIME_SLOTS = [
+    "07:00 AM", "07:30 AM", "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM",
+    "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM",
+    "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM", "06:00 PM", "06:30 PM",
+    "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM", "09:00 PM", "09:30 PM", "10:00 PM", "10:30 PM"
+];
+
 const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     const { selectedSlot, setSelectedSlot, cartItems, setBookingType } = useCart();
     const { gender } = useGenderTheme();
@@ -74,6 +81,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     const [bookingMode, setBookingMode] = useState(null);
     const [slotsLoading, setSlotsLoading] = useState(false);
     const [availableSlots, setAvailableSlots] = useState([]);
+    const [slotMap, setSlotMap] = useState({});
 
     const serviceTypes = useMemo(() => {
         return [...new Set((cartItems || []).map(item => item.serviceType).filter(Boolean))];
@@ -156,8 +164,9 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             if (pId) params.providerId = pId;
             if (totalDurationMinutes > 0) params.durationMinutes = String(totalDurationMinutes);
 
-            const { slots: rawSlots } = await api.providers.availableSlotsByDate(params);
+            const { slots: rawSlots, slotMap: rawMap } = await api.providers.availableSlotsByDate(params);
             setAvailableSlots(rawSlots || []);
+            setSlotMap(rawMap || {});
         } catch (e) {
             console.error("Failed to fetch slots:", e);
             setAvailableSlots([]);
@@ -430,25 +439,27 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                         Loading available slots...
                                     </div>
                                 )}
-                                {!slotsLoading && slots.length === 0 && (
-                                    <div className="col-span-4 text-[10px] text-muted-foreground font-bold px-4 py-3 rounded-xl border border-border/40 glass">
-                                        {bookingMode === "new_user"
-                                            ? "No online professionals right now. Please try later."
-                                            : "No slots available for this date. Try another date."}
-                                    </div>
-                                )}
-                                {!slotsLoading && slots.map((slot) => (
-                                    <button
-                                        key={slot}
-                                        onClick={() => setTempSlot(slot)}
-                                        className={`px-2 py-2.5 rounded-xl text-[10px] font-bold text-center border-2 transition-all duration-200 ${tempSlot === slot
-                                            ? "bg-primary text-white border-primary shadow-md scale-105"
-                                            : "glass border-border hover:border-primary/30"
+                                {!slotsLoading && DEFAULT_TIME_SLOTS.map((slot) => {
+                                    const isAvailable = slotMap[slot] === true;
+                                    const isSelected = tempSlot === slot;
+                                    
+                                    return (
+                                        <button
+                                            key={slot}
+                                            onClick={() => isAvailable && setTempSlot(slot)}
+                                            disabled={!isAvailable && !isSelected}
+                                            className={`px-2 py-2.5 rounded-xl text-[10px] font-bold text-center border-2 transition-all duration-200 ${
+                                                isSelected
+                                                    ? "bg-primary text-white border-primary shadow-md scale-105"
+                                                    : isAvailable
+                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-100/50"
+                                                        : "glass border-border text-muted-foreground/40 opacity-50 cursor-not-allowed"
                                             }`}
-                                    >
-                                        {slot}
-                                    </button>
-                                ))}
+                                        >
+                                            {slot}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>

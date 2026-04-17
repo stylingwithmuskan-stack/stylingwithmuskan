@@ -20,6 +20,8 @@ export const UserModuleDataProvider = ({ children }) => {
     const [bookingTypeConfig, setBookingTypeConfig] = useState([]);
     const [categories, setCategories] = useState([]);
     const [services, setServices] = useState([]);
+    const [popularServices, setPopularServices] = useState([]);
+    const [loadedCategories, setLoadedCategories] = useState(new Set());
     const [banners, setBanners] = useState({ women: [], men: [] });
     const [providers, setProviders] = useState([]);
     const [officeSettings, setOfficeSettings] = useState({ startTime: "09:00", endTime: "21:00", autoAssign: true, notificationMessage: "Our pros are sleeping. Service starts at 9:00 AM" });
@@ -42,7 +44,9 @@ export const UserModuleDataProvider = ({ children }) => {
                 setServiceTypes(data.serviceTypes || []);
                 setBookingTypeConfig(data.bookingTypeConfig || []);
                 setCategories(data.categories || []);
-                setServices(data.services || []);
+                setPopularServices(data.popularServices || []);
+                // Initial services pool is just the popular ones
+                setServices(data.popularServices || []);
                 setBanners(data.banners || { women: [], men: [] });
                 setProviders(data.providers || []);
                 if (data.officeSettings) setOfficeSettings(data.officeSettings);
@@ -53,6 +57,7 @@ export const UserModuleDataProvider = ({ children }) => {
                 setServiceTypes(FALLBACK_SERVICE_TYPES);
                 setBookingTypeConfig(FALLBACK_BOOKING_TYPES);
                 setCategories(FALLBACK_CATEGORIES);
+                setPopularServices(FALLBACK_SERVICES.slice(0, 10));
                 setServices(FALLBACK_SERVICES);
                 setBanners(FALLBACK_BANNERS);
                 setProviders(FALLBACK_PROVIDERS);
@@ -65,6 +70,35 @@ export const UserModuleDataProvider = ({ children }) => {
         })();
         return () => { cancelled = true; };
     }, []);
+
+    const loadCategoryServices = async (categoryId) => {
+        if (!categoryId || loadedCategories.has(categoryId)) return;
+
+        try {
+            const res = await api.content.services({ category: categoryId });
+            const newServices = res.data || [];
+            
+            setServices(prev => {
+                const existingIds = new Set(prev.map(s => s.id));
+                const uniqueNew = newServices.filter(s => !existingIds.has(s.id));
+                return [...prev, ...uniqueNew];
+            });
+            setLoadedCategories(prev => new Set(prev).add(categoryId));
+        } catch (e) {
+            console.error("Failed to load category services:", e);
+        }
+    };
+
+    const searchServices = async (query) => {
+        if (!query || query.length < 2) return [];
+        try {
+            const res = await api.content.search({ q: query });
+            return res.data || [];
+        } catch (e) {
+            console.error("Search failed:", e);
+            return [];
+        }
+    };
 
     // CRUD operations
     const addCategory = (category) => setCategories(prev => [...prev, category]);
@@ -131,9 +165,12 @@ export const UserModuleDataProvider = ({ children }) => {
         setOfficeSettings,
         updateOfficeSettings,
         spotlights,
+        popularServices,
         gallery,
         testimonials,
         isLoading,
+        loadCategoryServices,
+        searchServices,
         // Category actions
         addCategory,
         updateCategory,

@@ -8,7 +8,7 @@ export function issueRoleToken(role, subject) {
 }
 
 export function requireRole(role) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     try {
       const cookies = req.cookies || {};
       const headerToken =
@@ -42,6 +42,20 @@ export function requireRole(role) {
         } catch {}
       }
       if (!authed) return res.status(401).json({ error: "Unauthorized" });
+
+      // If the role is provider, check if they are blocked in DB
+      if (authed.role === "provider") {
+        try {
+          const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
+          const acc = await ProviderAccount.findById(authed.sub).select("approvalStatus").lean();
+          if (!acc || acc.approvalStatus !== "approved") {
+            return res.status(403).json({ error: "Account is blocked or not approved", code: "ACCOUNT_RESTRICTED" });
+          }
+        } catch (e) {
+          console.error("[Middleware] Provider status check failed:", e.message);
+        }
+      }
+
       req.auth = authed;
       next();
     } catch {
@@ -51,7 +65,7 @@ export function requireRole(role) {
 }
 
 export function requireAnyRole(allowedRoles = []) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     try {
       const cookies = req.cookies || {};
       const headerToken =
@@ -80,6 +94,20 @@ export function requireAnyRole(allowedRoles = []) {
       }
       
       if (!authed) return res.status(401).json({ error: "Unauthorized" });
+
+      // If the role is provider, check if they are blocked in DB
+      if (authed.role === "provider") {
+        try {
+          const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
+          const acc = await ProviderAccount.findById(authed.sub).select("approvalStatus").lean();
+          if (!acc || acc.approvalStatus !== "approved") {
+            return res.status(403).json({ error: "Account is blocked or not approved", code: "ACCOUNT_RESTRICTED" });
+          }
+        } catch (e) {
+          console.error("[Middleware] Provider status check failed:", e.message);
+        }
+      }
+
       req.auth = authed;
       next();
     } catch {

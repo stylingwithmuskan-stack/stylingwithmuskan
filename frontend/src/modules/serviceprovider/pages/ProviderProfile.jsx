@@ -84,6 +84,9 @@ export default function ProviderProfile() {
     const [submitting, setSubmitting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [editForm, setEditForm] = useState({ name: "", email: "" });
+    const [savingProfile, setSavingProfile] = useState(false);
     
     const [summary, setSummary] = useState(null);
 
@@ -160,6 +163,37 @@ export default function ProviderProfile() {
         }
     };
 
+    const handleUpdateProfile = async () => {
+        if (!editForm.name.trim()) {
+            toast.error("Name cannot be empty");
+            return;
+        }
+        setSavingProfile(true);
+        try {
+            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiBaseUrl}/provider/me/profile`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editForm),
+                credentials: 'include',
+            });
+            
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || "Failed to update profile");
+            }
+            
+            const data = await response.json();
+            if (data.provider) setProvider(data.provider);
+            toast.success("Profile updated successfully");
+            setIsEditingProfile(false);
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setSavingProfile(false);
+        }
+    };
+
     const toggleZone = (name) => {
         setSelectedZones(prev => 
             prev.includes(name) ? prev.filter(z => z !== name) : [...prev, name]
@@ -230,8 +264,22 @@ export default function ProviderProfile() {
                                 <button className="text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors">Profile Details</button>
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden rounded-2xl border-none">
-                                <DialogHeader className="p-6 bg-slate-900 text-white">
+                        <DialogHeader className="p-6 bg-slate-900 text-white flex flex-row items-center justify-between space-y-0">
                                     <DialogTitle className="text-xl font-bold">Registration Details</DialogTitle>
+                                    {!isEditingProfile && (
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => {
+                                                setEditForm({ name: name, email: providerDetails.email });
+                                                setIsEditingProfile(true);
+                                            }}
+                                            className="text-white hover:bg-white/10 h-8 px-3 rounded-lg flex items-center gap-1.5"
+                                        >
+                                            <RefreshCw className="h-3.5 w-3.5" />
+                                            <span className="text-[11px] font-black uppercase tracking-widest">Edit</span>
+                                        </Button>
+                                    )}
                                 </DialogHeader>
                                 <div className="p-6 space-y-6">
                                     <div className="space-y-4">
@@ -239,18 +287,34 @@ export default function ProviderProfile() {
                                             <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
                                                 <User className="h-5 w-5" />
                                             </div>
-                                            <div>
+                                            <div className="flex-1">
                                                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Full Name</p>
-                                                <p className="text-[17px] font-semibold text-slate-900">{name}</p>
+                                                {isEditingProfile ? (
+                                                    <Input 
+                                                        value={editForm.name}
+                                                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                                        className="mt-1 h-10 bg-white border-slate-200"
+                                                    />
+                                                ) : (
+                                                    <p className="text-[17px] font-semibold text-slate-900">{name}</p>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
                                                 <Mail className="h-5 w-5" />
                                             </div>
-                                            <div>
+                                            <div className="flex-1">
                                                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Email Address</p>
-                                                <p className="text-[17px] font-semibold text-slate-900">{providerDetails.email}</p>
+                                                {isEditingProfile ? (
+                                                    <Input 
+                                                        value={editForm.email}
+                                                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                                        className="mt-1 h-10 bg-white border-slate-200"
+                                                    />
+                                                ) : (
+                                                    <p className="text-[17px] font-semibold text-slate-900">{providerDetails.email}</p>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
@@ -307,10 +371,30 @@ export default function ProviderProfile() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="p-4 bg-gray-50 flex justify-center">
-                                    <Button onClick={() => setIsDialogOpen(false)} className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-12 font-bold">
-                                        Close Details
-                                    </Button>
+                                <div className="p-4 bg-gray-50 flex gap-3">
+                                    {isEditingProfile ? (
+                                        <>
+                                            <Button 
+                                                variant="outline"
+                                                onClick={() => setIsEditingProfile(false)} 
+                                                disabled={savingProfile}
+                                                className="flex-1 rounded-xl h-12 font-bold"
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button 
+                                                onClick={handleUpdateProfile} 
+                                                disabled={savingProfile}
+                                                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-12 font-bold"
+                                            >
+                                                {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <Button onClick={() => setIsDialogOpen(false)} className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-12 font-bold">
+                                            Close Details
+                                        </Button>
+                                    )}
                                 </div>
                             </DialogContent>
                         </Dialog>

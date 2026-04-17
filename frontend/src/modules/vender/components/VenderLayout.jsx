@@ -49,8 +49,7 @@ const VenderLayout = () => {
 
     const navLinks = [
         { name: "Dashboard", shortName: "Home", path: "/vender/dashboard", icon: LayoutDashboard },
-        { name: "SP Management", shortName: "SPs", path: "/vender/service-providers", icon: Users },
-        { name: "City Vendors", shortName: "Vendors", path: "/vender/vendors", icon: Store },
+        { name: "SPs Management", shortName: "SPs", path: "/vender/service-providers", icon: Users },
         { name: "Zone Requests", shortName: "Zones", path: "/vender/zone-requests", icon: MapPin },
         { name: "Bookings", shortName: "Bookings", path: "/vender/bookings", icon: CalendarRange },
         { name: "Payouts", shortName: "Payouts", path: "/vender/payouts", icon: Wallet },
