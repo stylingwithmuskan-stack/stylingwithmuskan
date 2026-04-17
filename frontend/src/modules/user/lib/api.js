@@ -314,6 +314,7 @@ export const api = {
     list: (page = 1, limit = 20) => request(`/bookings?page=${page}&limit=${limit}`),
     quote: (payload) => request("/bookings/quote", { method: "POST", body: payload }),
     create: (payload) => request("/bookings", { method: "POST", body: payload }),
+    confirmCOD: (id) => request(`/bookings/${id}/confirm-cod`, { method: "PATCH" }),
     cancel: (id) => request(`/bookings/${id}/cancel`, { method: "PATCH" }),
     track: (id) => request(`/bookings/${id}/track`),
     custom: {

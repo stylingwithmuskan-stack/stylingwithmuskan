@@ -10,6 +10,7 @@ import User from "../models/User.js";
 import { ReferralSettings } from "../models/Settings.js";
 import { getSubscriptionSnapshot, isEliteProvider } from "../lib/subscriptions.js";
 import { ensureCityAndZoneNames, resolveServiceLocation } from "../lib/locationResolution.js";
+import { providerMatchesRequestedSpecialties, resolveRequestedSpecialtySets } from "../lib/serviceMatching.js";
 
 const router = Router();
 
@@ -326,6 +327,17 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
 
   if (subscription.isPlusMember && subscription.eliteAccessEnabled) {
     recentProviders = recentProviders.filter((p) => p.isElite || p.isPro);
+  }
+
+  // ✅ New Fix: Filter by requested specialties
+  const reqServiceTypes = String(req.query.serviceTypes || "").split(",").map(s => s.trim()).filter(Boolean);
+  const reqCategories = String(req.query.categories || "").split(",").map(s => s.trim()).filter(Boolean);
+  if (reqServiceTypes.length > 0 || reqCategories.length > 0) {
+    const requested = await resolveRequestedSpecialtySets({
+      serviceTypeValues: reqServiceTypes,
+      categoryValues: reqCategories
+    });
+    recentProviders = recentProviders.filter(p => providerMatchesRequestedSpecialties(p, requested));
   }
 
   // ✅ FIX 4: Sort by booking frequency first, then rating

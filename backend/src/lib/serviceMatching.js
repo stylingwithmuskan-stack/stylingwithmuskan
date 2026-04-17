@@ -68,11 +68,6 @@ export async function resolveRequestedSpecialtySets({ serviceTypeValues = [], ca
 }
 
 export function providerMatchesRequestedSpecialties(provider, requested = {}) {
-  const spec = Array.isArray(provider?.documents?.specializations) ? provider.documents.specializations : [];
-  const primary = Array.isArray(provider?.documents?.primaryCategory) ? provider.documents.primaryCategory : [];
-  if (spec.length === 0 && primary.length === 0) return true;
-
-  const providerTags = [...spec, ...primary].map(normalizeValue).filter(Boolean);
   const wants = [
     ...(requested.wantCats || []),
     ...(requested.wantTypes || []),
@@ -81,6 +76,13 @@ export function providerMatchesRequestedSpecialties(provider, requested = {}) {
   ].map(normalizeValue).filter(Boolean);
 
   if (wants.length === 0) return true;
+
+  const spec = Array.isArray(provider?.documents?.specializations) ? provider.documents.specializations : [];
+  const primary = Array.isArray(provider?.documents?.primaryCategory) ? provider.documents.primaryCategory : [];
+  const services = Array.isArray(provider?.documents?.services) ? provider.documents.services : [];
+  if (spec.length === 0 && primary.length === 0 && services.length === 0) return false;
+
+  const providerTags = [...spec, ...primary, ...services].map(normalizeValue).filter(Boolean);
 
   return providerTags.some((tag) =>
     wants.some((want) =>

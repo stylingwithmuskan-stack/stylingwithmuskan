@@ -112,6 +112,18 @@ const PaymentPage = () => {
                     setIsProcessing(false);
                     return;
                 }
+                
+                // Confirm the booking on the backend for COD
+                if (bookingId) {
+                    try {
+                        await api.bookings.confirmCOD(bookingId);
+                    } catch (e) {
+                        setError(e?.message || "Failed to confirm booking.");
+                        setIsProcessing(false);
+                        return;
+                    }
+                }
+                
                 await finalizeSuccess();
                 return;
             }

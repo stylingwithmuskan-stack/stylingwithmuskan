@@ -37,7 +37,11 @@ const BookingSummary = () => {
   const { checkAvailability } = useUserModuleData();
 
   const allGroups = getGroupedItems();
-  const displayGroups = checkoutType && allGroups[checkoutType] ? { [checkoutType]: allGroups[checkoutType] } : allGroups;
+  const displayGroupsCheck = checkoutType && allGroups[checkoutType] ? { [checkoutType]: allGroups[checkoutType] } : allGroups;
+  const displayItemsCheck = Object.values(displayGroupsCheck).flatMap(g => g?.items || []).filter(Boolean);
+
+  // If filtered display is empty but cart has items, fallback to all items to avoid empty screen
+  const displayGroups = (displayItemsCheck.length === 0 && cartItems.length > 0) ? allGroups : displayGroupsCheck;
   const displayItems = Object.values(displayGroups).flatMap(g => g?.items || []).filter(Boolean);
   const displayItemsKey = JSON.stringify(displayItems.map((it) => ({
     name: it?.name || "",
@@ -302,7 +306,7 @@ const BookingSummary = () => {
     );
   }
 
-  if (displayItems.length === 0) {
+  if (cartItems.length === 0 && !isProcessing) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6">
         <ShoppingBag className="w-16 h-16 text-muted-foreground mb-4 opacity-20" />

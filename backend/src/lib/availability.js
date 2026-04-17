@@ -86,7 +86,18 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
 
   // Buffer: Use providerBufferMinutes from settings or bufferMinutes from officeSettings (fallback 30)
   const bufferMin = Math.max(Number(settings?.bufferMinutes ?? settings?.providerBufferMinutes ?? 30), 0);
-  const busyStatuses = new Set(["accepted", "travelling", "arrived", "in_progress", "upcoming", "pending"]);
+  const busyStatuses = new Set([
+    "accepted",
+    "travelling",
+    "arrived",
+    "in_progress",
+    "upcoming",
+    "pending",
+    "payment_pending",
+    "advance_paid",
+    "confirmed",
+    "documentation"
+  ]);
   const busyIntervals = [];
   for (const b of (providerBookings || [])) {
     const st = String(b?.status || "").toLowerCase();
@@ -151,7 +162,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   if (useCache) {
     try {
       const key = await cacheKey(providerId, date, settings, requestedDurationMinutes);
-      await redis.set(key, JSON.stringify(result), { EX: 300 });
+      await redis.set(key, JSON.stringify(result), { EX: 60 });
     } catch {}
   }
   return result;

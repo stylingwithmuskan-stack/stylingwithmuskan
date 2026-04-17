@@ -78,6 +78,12 @@ router.get(
   BookingsController.track
 );
 
+router.patch(
+  "/:id/confirm-cod",
+  requireAuth,
+  BookingsController.confirmCOD
+);
+
 router.get(
   "/:id",
   requireAuth,

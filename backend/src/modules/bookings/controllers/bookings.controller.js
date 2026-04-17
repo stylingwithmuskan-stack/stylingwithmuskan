@@ -471,7 +471,7 @@ export async function create(req, res) {
     address: safeAddress,
     slot,
     bookingType,
-    status: advanceAmount > 0 ? "payment_pending" : "pending",
+    status: "payment_pending",
     notificationStatus,
     assignedProvider,
     maintainProvider: preferredProviderId || "",
@@ -600,37 +600,58 @@ export async function create(req, res) {
     });
   }
 
-  // Only notify if no advance is required (e.g. Cash / Free / Instant)
-  if (advanceAmount === 0) {
-    // Notify user: booking created
-    try {
+  // Notifications will be sent after payment verification or COD confirmation.
+}
+
+
+export async function confirmCOD(req, res) {
+  const { id } = req.params;
+  const booking = await Booking.findOne({ _id: id, customerId: req.user._id.toString() });
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+  if (booking.status !== "payment_pending") {
+    return res.json({ success: true, booking });
+  }
+
+  // Safety check: calculate if advance was required
+  const items = bookingServicesToItems(booking.services);
+  const advanceAmount = await computeAdvanceFromCategories(items, booking.bookingType);
+  if (advanceAmount > 0) {
+    return res.status(400).json({ error: "Advance payment is required for this booking." });
+  }
+
+  booking.status = booking.balanceAmount === 0 ? "documentation" : "pending";
+  await booking.save();
+
+  try {
+    const bookingId = booking._id.toString();
+    await notify({
+      recipientId: req.user._id.toString(),
+      recipientRole: "user",
+      type: "booking_created",
+      meta: { bookingId },
+    });
+
+    if (booking.assignedProvider) {
+      await notify({
+        recipientId: booking.assignedProvider,
+        recipientRole: "provider",
+        type: "booking_assigned",
+        meta: { bookingId },
+        respectProviderQuietHours: true,
+      });
       await notify({
         recipientId: req.user._id.toString(),
         recipientRole: "user",
-        type: "booking_created",
+        type: "booking_assigned",
         meta: { bookingId },
       });
-    } catch {}
-
-    // Create notification for the assigned provider
-    if (assignedProvider) {
-      try {
-        await notify({
-          recipientId: assignedProvider,
-          recipientRole: "provider",
-          type: "booking_assigned",
-          meta: { bookingId },
-          respectProviderQuietHours: true,
-        });
-        await notify({
-          recipientId: req.user._id.toString(),
-          recipientRole: "user",
-          type: "booking_assigned",
-          meta: { bookingId },
-        });
-      } catch {}
     }
+  } catch (err) {
+    console.error("[ConfirmCOD] Notification error:", err.message);
   }
+
+  res.json({ success: true, booking });
 }
 
 export async function getById(req, res) {

@@ -32,7 +32,23 @@ export const CartProvider = ({ children }) => {
     const [bookingType, setBookingType] = useState("instant");
     const [customAdvance, setCustomAdvance] = useState(null);
 
-    // no localStorage persistence; keep in-memory for now
+    // Persistence: load from localStorage on init
+    useEffect(() => {
+        const savedCart = localStorage.getItem("swm_cart");
+        if (savedCart) {
+            try {
+                const parsed = JSON.parse(savedCart);
+                if (Array.isArray(parsed)) setCartItems(parsed);
+            } catch (e) {
+                console.error("Failed to load cart from local storage", e);
+            }
+        }
+    }, []);
+
+    // Persistence: save to localStorage on change
+    useEffect(() => {
+        localStorage.setItem("swm_cart", JSON.stringify(cartItems));
+    }, [cartItems]);
 
 
     const totalItems = cartItems.reduce((total, item) => total + (item.quantity || 1), 0);
