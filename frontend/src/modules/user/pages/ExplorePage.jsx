@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    ArrowLeft, Search, Filter, RefreshCcw, Heart, Share2, Plus, Star, MapPin, Menu, X
+    ArrowLeft, Search, Filter, RefreshCcw, Heart, Share2, Plus, Star, MapPin, Menu, X, ShoppingBag
 } from "lucide-react";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
@@ -19,7 +19,7 @@ const ExplorePage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { gender } = useGenderTheme();
-    const { totalItems, cartItems, addToCart, updateQuantity, bookingType: contextBookingType, setBookingType, isFloatingSummaryOpen, setIsFloatingSummaryOpen } = useCart();
+    const { totalItems, cartItems, addToCart, updateQuantity, bookingType: contextBookingType, setBookingType, isFloatingSummaryOpen, setIsFloatingSummaryOpen, setIsCartOpen } = useCart();
     const { isLoggedIn, user } = useAuth();
     const { toggleWishlist, isInWishlist } = useWishlist();
     const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability } = useUserModuleData();
@@ -161,17 +161,31 @@ const ExplorePage = () => {
                             className="w-full h-10 pl-10 bg-accent/50 rounded-xl border-none text-sm focus:ring-2 focus:ring-primary/20 transition-all"
                         />
                     </div>
-                    <button 
-                        onClick={() => setIsFilterModalOpen(true)} 
-                        className="w-10 h-10 rounded-2xl bg-accent flex items-center justify-center transition-all hover:bg-primary/10 relative"
-                    >
-                        <Filter className="w-4 h-4" />
-                        {Object.values(preferences).filter(v => v !== null).length > 0 && (
-                            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center animate-in zoom-in">
-                                {Object.values(preferences).filter(v => v !== null).length}
-                            </span>
-                        )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => setIsFilterModalOpen(true)} 
+                            className="w-10 h-10 rounded-2xl bg-accent flex items-center justify-center transition-all hover:bg-primary/10 relative"
+                        >
+                            <Filter className="w-4 h-4" />
+                            {Object.values(preferences).filter(v => v !== null).length > 0 && (
+                                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center animate-in zoom-in">
+                                    {Object.values(preferences).filter(v => v !== null).length}
+                                </span>
+                            )}
+                        </button>
+                        
+                        <button
+                            onClick={() => setIsCartOpen(true)}
+                            className="w-10 h-10 rounded-2xl bg-accent flex items-center justify-center transition-all hover:bg-primary/10 relative"
+                        >
+                            <ShoppingBag className="w-4 h-4" />
+                            {totalItems > 0 && (
+                                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center animate-in zoom-in">
+                                    {totalItems}
+                                </span>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </header>
 
@@ -309,7 +323,10 @@ const ExplorePage = () => {
                                                         onClick={(e) => { 
                                                             e.stopPropagation(); 
                                                             if (!isLoggedIn) navigate('/login'); 
-                                                            else addToCart(service); 
+                                                            else {
+                                                                addToCart(service); 
+                                                                setIsFloatingSummaryOpen(true);
+                                                            }
                                                         }}
                                                         className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm bg-white text-primary border-2 border-primary/20 hover:bg-primary hover:text-white"
                                                     >
@@ -327,6 +344,7 @@ const ExplorePage = () => {
                                                             navigate('/login');
                                                         } else {
                                                             updateQuantity(service.id, 1);
+                                                            setIsFloatingSummaryOpen(true);
                                                         }
                                                     }}
                                                     onDecrement={() => {
