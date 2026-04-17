@@ -8,6 +8,17 @@ import { AdminAuthContext } from "@/modules/admin/contexts/AdminAuthContext";
 import { AuthContext } from "@/modules/user/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
 import { setupForegroundHandler } from "@/services/pushNotificationService";
+import { toast } from "sonner";
+
+const SOUND_FILES = {
+    ringtone: "/sounds/ringtone.mp3",
+    notification: "/sounds/notification.mp3",
+    doorbell: "/sounds/doorbell.mp3",
+    emergency: "/sounds/emergency.mp3",
+    success: "/sounds/success.mp3",
+    alert: "/sounds/alert.mp3",
+};
+
 
 const NotificationContext = createContext();
 
@@ -55,6 +66,8 @@ export const NotificationProvider = ({ children, role }) => {
         }
     }, [activeRole]);
 
+    const [userInteracted, setUserInteracted] = useState(false);
+
     const currentUserId = activeRole === "provider"
         ? (provider?._id || provider?.id)
         : activeRole === "vendor"
@@ -62,6 +75,56 @@ export const NotificationProvider = ({ children, role }) => {
             : activeRole === "admin"
                 ? (admin?._id || admin?.id)
                 : (user?._id || user?.id);
+
+    // Audio context "warm up" to bypass browser autoplay policies
+    useEffect(() => {
+        const handleInteraction = () => {
+            setUserInteracted(true);
+            // Create and play a silent buffer if needed, but usually a flag is enough 
+            // once user has clicked anywhere on the document.
+            window.removeEventListener("click", handleInteraction);
+            window.removeEventListener("touchstart", handleInteraction);
+        };
+        window.addEventListener("click", handleInteraction);
+        window.addEventListener("touchstart", handleInteraction);
+        return () => {
+            window.removeEventListener("click", handleInteraction);
+            window.removeEventListener("touchstart", handleInteraction);
+        };
+    }, []);
+
+    const playNotificationSound = useCallback((soundType) => {
+        if (!soundType) return;
+        const file = SOUND_FILES[soundType];
+        if (!file) return;
+
+        try {
+            const audio = new Audio(file);
+            audio.volume = 1.0;
+            
+            // Loop for ringtones (providers)
+            if (soundType === "ringtone" || soundType === "emergency") {
+                audio.loop = true;
+                // Auto-stop after 30 seconds to prevent infinite ringing if unattended
+                setTimeout(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }, 30000);
+            }
+
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch((error) => {
+                    console.warn("[NotificationContext] Audio play prevented:", error.message);
+                });
+            }
+            
+            return audio; // Return for manual stop if needed
+        } catch (err) {
+            console.error("[NotificationContext] Audio error:", err);
+        }
+    }, []);
+
 
     const fetchNotifications = useCallback(async () => {
         if (!currentUserId || !activeToken) return;
@@ -94,6 +157,11 @@ export const NotificationProvider = ({ children, role }) => {
             if (targetId === myId && (!targetRole || targetRole === activeRole)) {
                 setNotifications((prev) => insertUniqueNotification(prev, payload.notification));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));
+
+                // Trigger audio alert
+                if (payload.notification?.sound) {
+                    playNotificationSound(payload.notification.sound);
+                }
             }
         });
 
