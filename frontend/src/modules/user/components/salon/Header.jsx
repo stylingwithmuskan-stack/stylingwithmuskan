@@ -36,7 +36,7 @@ const Header = () => {
   const navigate = useNavigate();
   const searchRef = useRef(null);
 
-  const userCity = user?.address?.city || null;
+  const userCity = user?.addresses?.[0]?.city || user?.address?.city || null;
 
   // Filter services based on search query
   const filteredServices = useMemo(() => {
@@ -104,7 +104,7 @@ const Header = () => {
           >
             <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary group-hover:scale-110 transition-transform flex-shrink-0" />
             <span className="font-medium truncate">
-              {user?.address?.city || user?.address?.area || "Location"}
+              {user?.addresses?.[0]?.city || user?.addresses?.[0]?.area || user?.address?.city || user?.address?.area || "Location"}
             </span>
             <ChevronDown className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
           </button>

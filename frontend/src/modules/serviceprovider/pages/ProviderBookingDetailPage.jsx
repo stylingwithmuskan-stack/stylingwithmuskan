@@ -443,8 +443,8 @@ const ProviderBookingDetailPage = () => {
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
-                        <h1 className="font-black text-sm tracking-tight text-gray-900">#{String(bookingId || "").toUpperCase()}</h1>
-                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest">{booking.bookingType}</p>
+                        <h1 className="font-black text-sm tracking-tight text-gray-900">{booking.customerName || "Customer"}</h1>
+                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest">{booking.bookingType} &bull; #{String(bookingId || "").slice(-6).toUpperCase()}</p>
                     </div>
                 </div>
                 <span className={`px-2.5 py-1 text-[9px] font-black uppercase rounded-md tracking-widest ${booking.status === 'in_progress' ? 'bg-amber-100 text-amber-700' : booking.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>

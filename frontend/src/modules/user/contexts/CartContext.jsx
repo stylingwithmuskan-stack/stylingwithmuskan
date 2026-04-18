@@ -53,12 +53,12 @@ export const CartProvider = ({ children }) => {
 
     const totalItems = cartItems.reduce((total, item) => total + (item.quantity || 1), 0);
     const totalPrice = cartItems.reduce((total, item) => total + (item.price * (item.quantity || 1)), 0);
-    const totalSavings = cartItems.reduce((total, item) => {
+    const totalSavings = Math.abs(cartItems.reduce((total, item) => {
         if (item.originalPrice) {
             return total + ((item.originalPrice - item.price) * (item.quantity || 1));
         }
         return total;
-    }, 0);
+    }, 0));
     const [serverTotals, setServerTotals] = useState({ total: 0, discount: 0, finalTotal: 0, couponApplied: null });
 
     const getGroupedItems = () => {

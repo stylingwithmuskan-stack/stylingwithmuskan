@@ -77,10 +77,15 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     })()
     : defaultSlotsMap();
 
+  const excludeBookingId = opts.excludeBookingId ? String(opts.excludeBookingId) : null;
+  if (excludeBookingId) {
+    console.log(`[Availability Debug] Excluding current booking ${excludeBookingId} from busy check`);
+  }
   const providerBookings = await Booking.find({
     assignedProvider: providerId,
     "slot.date": date,
     status: { $ne: "cancelled" },
+    ...(excludeBookingId ? { _id: { $ne: excludeBookingId } } : {}),
   }).select("slot slotStartAt slotEndAt services status createdAt").lean();
   const bookedSet = new Set((providerBookings || []).map((b) => String(b?.slot?.time || "")).filter(Boolean));
 
@@ -116,7 +121,16 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     const services = Array.isArray(b?.services) ? b.services : (b.items || []);
     const totalMinutes = services.reduce((sum, it) => sum + parseDurationToMinutes(it?.duration, 60), 0) || 60;
     const end = new Date(start.getTime() + (totalMinutes + bufferMin) * 60 * 1000);
-    if (!Number.isNaN(end.getTime())) busyIntervals.push({ start, end });
+    if (!Number.isNaN(end.getTime())) {
+      busyIntervals.push({ start, end, bookingId: b._id.toString(), status: b.status });
+    }
+  }
+
+  if (busyIntervals.length > 0) {
+    console.log(`[Availability Debug] Found ${busyIntervals.length} busy intervals for provider ${providerId} on ${date}:`);
+    busyIntervals.forEach(it => {
+      console.log(`   - Booking ${it.bookingId} (${it.status}): ${it.start.toLocaleTimeString()} to ${it.end.toLocaleTimeString()}`);
+    });
   }
 
   const windowStartMin = settings?.serviceStartTime ? parseHHMMToMinutes(settings.serviceStartTime) : null;

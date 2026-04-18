@@ -132,7 +132,40 @@ export async function listBookings(req, res) {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const total = await Booking.countDocuments();
   const items = await Booking.find().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
-  res.json({ bookings: items, page, limit, total });
+
+  // Enrich with provider details
+  const providerIds = Array.from(new Set(
+    items.flatMap(b => [b.assignedProvider, b.maintainProvider, b.maintainerProvider].filter(Boolean))
+  ));
+  
+  const providers = providerIds.length 
+    ? await ProviderAccount.find({ _id: { $in: providerIds } }, "name phone").lean()
+    : [];
+    
+  const provMap = new Map(providers.map(p => [p._id.toString(), p]));
+
+  // Enrich with customer details
+  const customerIds = Array.from(new Set(items.map(b => b.customerId).filter(Boolean)));
+  const customers = customerIds.length
+    ? await User.find({ _id: { $in: customerIds } }, "phone").lean()
+    : [];
+  const custMap = new Map(customers.map(c => [c._id.toString(), c]));
+
+  const enriched = items.map(b => {
+    const p = provMap.get(String(b.assignedProvider || ""));
+    const mp = provMap.get(String(b.maintainProvider || b.maintainerProvider || ""));
+    const c = custMap.get(String(b.customerId || ""));
+    return {
+      ...b,
+      phone: c?.phone || "",
+      assignedProviderName: p?.name || "",
+      assignedProviderPhone: p?.phone || "",
+      maintainProviderName: mp?.name || "",
+      maintainProviderPhone: mp?.phone || ""
+    };
+  });
+
+  res.json({ bookings: enriched, page, limit, total });
 }
 
 export async function listCustomers(req, res) {

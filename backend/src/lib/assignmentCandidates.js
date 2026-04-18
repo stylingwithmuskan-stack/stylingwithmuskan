@@ -123,7 +123,7 @@ export async function buildAssignmentCandidates({
 
   let providers = await findProvidersZoneStrict(
     { ...address, city: bookingCity, cityId: bookingCityId, zone: bookingZone, zoneId: bookingZoneId },
-    { approvalStatus: "approved", registrationComplete: true, isOnline: true }
+    { approvalStatus: "approved", registrationComplete: true }
   );
 
   providers = providers.filter((p) => providerMatchesRequestedSpecialties(p, requestedSpecialties));
