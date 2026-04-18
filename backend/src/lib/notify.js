@@ -44,6 +44,7 @@ const CANONICAL_TYPES = new Set([
   "leave_rejected",
   "reminder",
   "marketing_campaign",
+  "zone_added",
 ]);
 
 function shortId(id) {
@@ -381,6 +382,12 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         message: reasonHuman ? `Your leave request was rejected: ${reasonHuman}.` : "Your leave request was rejected.",
         sound: "alert",
       };
+    case "zone_added":
+      return {
+        title: "New Zone Added!",
+        message: `A new zone "${safeMeta.zoneName || "New Area"}" has been added in your city. Check it out and request access!`,
+        sound: "notification",
+      };
     case "reminder":
       return {
         title: "Booking Reminder",
@@ -461,10 +468,11 @@ export async function notify({
     type,
     link: link || buildNotificationLink({ recipientRole, type, meta: safeMeta }),
     meta: dedupeKey ? { ...safeMeta, dedupeKey } : safeMeta,
+    sound: meta?.sound || templated?.sound || null,
   };
   const notification = await Notification.create({
     ...payload,
-    sound: templated?.sound || null,
+    sound: payload.sound,
   });
 
   let shouldEmit = emit;

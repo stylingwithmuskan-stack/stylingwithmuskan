@@ -90,6 +90,7 @@ export function buildNotificationLink({ recipientRole, type, meta = {} }) {
   if (recipientRole === "provider") {
     if (type === "provider_admin_approved" || type === "provider_vendor_approved" || type === "provider_rejected") return "/provider/profile";
     if (type === "leave_approved" || type === "leave_rejected") return "/provider/profile";
+    if (type === "zone_added") return "/provider/all-zones";
     if (bookingId) return `/provider/bookings`;
     return "/provider/notifications";
   }

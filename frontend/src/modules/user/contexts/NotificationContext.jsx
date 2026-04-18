@@ -12,11 +12,10 @@ import { toast } from "sonner";
 
 const SOUND_FILES = {
     ringtone: "/sounds/ringtone.mp3",
-    notification: "/sounds/notification.mp3",
-    doorbell: "/sounds/doorbell.mp3",
-    emergency: "/sounds/emergency.mp3",
-    success: "/sounds/success.mp3",
+    notification: "/sounds/massege_ting.mp3",
+    emergency: "/sounds/sos_tone.mp3",
     alert: "/sounds/alert.mp3",
+    success: "/sounds/massege_ting.mp3", // Fallback to ting
 };
 
 
@@ -79,24 +78,30 @@ export const NotificationProvider = ({ children, role }) => {
     // Audio context "warm up" to bypass browser autoplay policies
     useEffect(() => {
         const handleInteraction = () => {
+            console.log("[NotificationContext] User interacted, audio unlocked");
             setUserInteracted(true);
-            // Create and play a silent buffer if needed, but usually a flag is enough 
-            // once user has clicked anywhere on the document.
             window.removeEventListener("click", handleInteraction);
             window.removeEventListener("touchstart", handleInteraction);
+            window.removeEventListener("keydown", handleInteraction);
         };
         window.addEventListener("click", handleInteraction);
         window.addEventListener("touchstart", handleInteraction);
+        window.addEventListener("keydown", handleInteraction);
         return () => {
             window.removeEventListener("click", handleInteraction);
             window.removeEventListener("touchstart", handleInteraction);
+            window.removeEventListener("keydown", handleInteraction);
         };
     }, []);
 
     const playNotificationSound = useCallback((soundType) => {
+        console.log(`[NotificationContext] Attempting to play sound: ${soundType}`);
         if (!soundType) return;
         const file = SOUND_FILES[soundType];
-        if (!file) return;
+        if (!file) {
+            console.warn(`[NotificationContext] No sound file mapped for: ${soundType}`);
+            return;
+        }
 
         try {
             const audio = new Audio(file);
@@ -107,6 +112,7 @@ export const NotificationProvider = ({ children, role }) => {
                 audio.loop = true;
                 // Auto-stop after 30 seconds to prevent infinite ringing if unattended
                 setTimeout(() => {
+                    console.log(`[NotificationContext] Auto-stopping loop for: ${soundType}`);
                     audio.pause();
                     audio.currentTime = 0;
                 }, 30000);
@@ -114,8 +120,12 @@ export const NotificationProvider = ({ children, role }) => {
 
             const playPromise = audio.play();
             if (playPromise !== undefined) {
-                playPromise.catch((error) => {
-                    console.warn("[NotificationContext] Audio play prevented:", error.message);
+                playPromise.then(() => {
+                    console.log(`[NotificationContext] Sound playing: ${soundType}`);
+                }).catch((error) => {
+                    console.error("[NotificationContext] Audio play failed:", error.message);
+                    console.info("[NotificationContext] Note: Audio usually requires a user click on the page first.");
+                    toast.info("New notification! (Click anywhere to enable sounds)");
                 });
             }
             
@@ -143,25 +153,47 @@ export const NotificationProvider = ({ children, role }) => {
     }, [currentUserId, activeRole, activeToken]);
 
     useEffect(() => {
-        if (!currentUserId || !activeToken) return;
+        // Expose to window for testing
+        window.__DEBUG_PLAY_SOUND__ = playNotificationSound;
+        
+        if (!currentUserId || !activeToken) {
+            console.log("[NotificationContext] Socket skipped: Missing userId or token");
+            return;
+        }
 
+        console.log(`[NotificationContext] Connecting socket for ${activeRole}: ${currentUserId}`);
         const socket = io(`${API_BASE_URL}/bookings`, {
             auth: { token: activeToken },
+            transports: ["websocket", "polling"], // Ensure websocket is tried first
+        });
+
+        socket.on("connect", () => {
+            console.log("[NotificationContext] Socket connected!");
+        });
+
+        socket.on("connect_error", (err) => {
+            console.error("[NotificationContext] Socket connection error:", err.message);
         });
 
         socket.on("new_notification", (payload) => {
+            console.log("[NotificationContext] Received socket notification:", payload);
             const targetId = String(payload.recipientId);
             const myId = String(currentUserId);
             const targetRole = payload?.notification?.recipientRole || payload?.recipientRole;
 
             if (targetId === myId && (!targetRole || targetRole === activeRole)) {
+                console.log("[NotificationContext] Notification matches current user. Updating UI.");
                 setNotifications((prev) => insertUniqueNotification(prev, payload.notification));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));
 
                 // Trigger audio alert
                 if (payload.notification?.sound) {
                     playNotificationSound(payload.notification.sound);
+                } else {
+                    console.log("[NotificationContext] Notification has no sound assigned.");
                 }
+            } else {
+                console.log("[NotificationContext] Notification ignored (ID or Role mismatch)", { targetId, myId, targetRole, activeRole });
             }
         });
 

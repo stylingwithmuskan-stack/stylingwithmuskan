@@ -9,6 +9,29 @@ import { JWT_SECRET } from "../config.js";
 
 const router = express.Router();
 
+// Public debug route for testing audio (No Auth required for testing)
+router.get("/test-sound", async (req, res) => {
+  try {
+    const { recipientId, role = "provider", sound = "ringtone" } = req.query;
+    if (!recipientId) return res.status(400).send("Missing recipientId query param. Example: /notifications/test-sound?recipientId=123&role=provider");
+    
+    const { notify } = await import("../lib/notify.js");
+    await notify({
+      recipientId,
+      recipientRole: role,
+      type: "booking_assigned",
+      title: "🎵 Audio Alert Test",
+      message: `If you hear this, your ${sound} is working correctly!`,
+      meta: { sound },
+      emit: true
+    });
+    
+    res.send(`<h1>✅ Test Triggered</h1><p>Sound <b>'${sound}'</b> sent to <b>${role}</b> (ID: ${recipientId}).</p><p>Check your browser console for logs!</p>`);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 // Helper to check for ANY role or standard user auth
 const requireAnyAuth = async (req, res, next) => {
   try {
