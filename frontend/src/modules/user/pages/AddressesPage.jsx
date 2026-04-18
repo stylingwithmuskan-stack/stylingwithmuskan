@@ -114,7 +114,7 @@ const AddressesPage = () => {
                 </div>
 
                 <Button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => { setEditAddress(null); setIsModalOpen(true); }}
                     className="w-full h-14 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:border-primary/50 shadow-none gap-2"
                 >
                     <Plus className="w-5 h-5" /> Add New Address

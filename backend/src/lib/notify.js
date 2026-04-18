@@ -44,6 +44,7 @@ const CANONICAL_TYPES = new Set([
   "leave_rejected",
   "reminder",
   "marketing_campaign",
+  "zone_added",
 ]);
 
 function shortId(id) {
@@ -183,70 +184,84 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         return {
           title: "New Booking Assigned",
           message: `You've received ${aBooking}. Please accept or reject.`,
+          sound: "ringtone",
         };
       }
       if (recipientRole === "user") {
         return {
           title: "Professional Assigned",
           message: `A professional has been assigned for ${yourBooking}.`,
+          sound: "notification",
         };
       }
       return {
         title: "Booking Assigned",
         message: `${aBooking} has been assigned to a provider.`,
+        sound: "notification",
       };
     case "booking_reassigned":
       if (recipientRole === "provider") {
         return {
           title: "Booking Reassigned",
           message: `${aBooking} has been reassigned to you.`,
+          sound: "ringtone",
         };
       }
       if (recipientRole === "user") {
         return {
           title: "Provider Reassigned",
           message: `Your ${serviceName ? `${serviceName} booking` : "booking"} has been reassigned to another professional for faster service.`,
+          sound: "notification",
         };
       }
       return {
         title: "Booking Reassigned",
         message: `${aBooking} has been reassigned to a different provider.`,
+        sound: "notification",
       };
     case "booking_status":
+      const sound = safeMeta.status === "reached" ? "doorbell" : "notification";
       if (recipientRole === "user") {
         return {
           title: statusText ? `Booking ${statusText}` : "Booking Update",
           message: statusText ? `Your ${serviceName ? `${serviceName} booking` : "booking"} is now ${statusText}.` : `Your booking status was updated.`,
+          sound,
         };
       }
       return {
         title: statusText ? `Booking ${statusText}` : "Booking Update",
         message: statusText ? `${aBooking} status updated to ${statusText}.` : `Booking status was updated.`,
+        sound,
       };
     case "booking_cancelled":
       return {
         title: "Booking Cancelled",
         message: reasonHuman ? `${yourBooking} was cancelled (${reasonHuman}).` : `${yourBooking} was cancelled.`,
+        sound: "alert",
       };
     case "booking_escalated":
       return {
         title: "Booking Escalated",
         message: `${aBooking}${cityText} needs attention${reasonHuman ? `: ${reasonHuman}` : "."}`,
+        sound: "emergency",
       };
     case "payment_required":
       return {
         title: "Payment Required",
         message: amountText ? `Please complete payment of ${amountText} for ${yourBooking}.` : `Please complete the payment for ${yourBooking} to continue.`,
+        sound: "notification",
       };
     case "payment_success":
       return {
         title: "Payment Successful",
         message: amountText ? `Your payment of ${amountText} for ${servicePlain} was successful. Thank you!` : `Your payment for ${servicePlain} was successful. Thank you!`,
+        sound: "success",
       };
     case "payment_refund":
       return {
         title: "Refund Initiated",
         message: amountText ? `Refund of ${amountText} initiated for ${servicePlain}.` : `Refund initiated for ${servicePlain}.`,
+        sound: "notification",
       };
     case "booking_cancelled_refund":
       return {
@@ -254,6 +269,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         message: amountText
           ? `Your ${servicePlain} booking was cancelled. A refund of ${amountText} is being processed.`
           : `Your ${servicePlain} booking was cancelled. Your refund is being processed.`,
+        sound: "notification",
       };
     case "refund_processed":
       return {
@@ -261,103 +277,130 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         message: amountText
           ? `Your refund of ${amountText} for ${servicePlain} has been processed and will reflect soon.`
           : `Your refund for ${servicePlain} has been processed and will reflect soon.`,
+        sound: "success",
       };
     case "refund_failed":
       return {
         title: "Refund Failed",
         message: `We couldn't process your refund for ${servicePlain}. Please contact support.`,
+        sound: "alert",
       };
     case "wallet_topup":
       return {
         title: "Wallet Top-up Successful",
         message: amountText ? `${amountText} added to your wallet.` : "Wallet top-up successful.",
+        sound: "success",
       };
     case "commission_hold":
       return {
         title: "Commission Held",
         message: amountText ? `Commission hold of ${amountText} applied for ${servicePlain}.` : `Commission hold applied for ${servicePlain}.`,
+        sound: "notification",
       };
     case "commission_refund":
       return {
         title: "Commission Refunded",
         message: amountText ? `Commission refund of ${amountText} processed for ${servicePlain}.` : `Commission refund processed for ${servicePlain}.`,
+        sound: "success",
       };
     case "provider_vendor_approved":
       return {
         title: "Vendor Approval",
         message: "Your profile has been approved by the vendor.",
+        sound: "success",
       };
     case "provider_admin_approved":
       return {
         title: "Admin Approval",
         message: "Your profile has been approved by the admin.",
+        sound: "success",
       };
     case "provider_rejected":
       return {
         title: "Profile Rejected",
         message: reasonHuman ? `Your profile was rejected: ${reasonHuman}.` : "Your profile was rejected.",
+        sound: "alert",
       };
     case "vendor_approved":
       return {
         title: "Vendor Approved",
         message: "Your vendor account has been approved.",
+        sound: "success",
       };
     case "vendor_rejected":
       return {
         title: "Vendor Rejected",
         message: reasonHuman ? `Your vendor account was rejected: ${reasonHuman}.` : "Your vendor account was rejected.",
+        sound: "alert",
       };
     case "custom_quote_submitted":
       if (recipientRole === "user") {
         return {
           title: "Quote Ready",
           message: `Your custom quote for ${servicePlain} is ready. Please review and confirm.`,
+          sound: "notification",
         };
       }
       return {
         title: "New Custom Enquiry",
         message: `A new custom enquiry for ${servicePlain} is waiting for quote.`,
+        sound: "alert",
       };
     case "custom_approved":
       return {
         title: "Booking Approved",
         message: `Your custom booking for ${servicePlain} has been approved and is now active.`,
+        sound: "success",
       };
     case "custom_advance_paid":
       return {
         title: "Advance Payment Received",
         message: `Advance payment received for ${servicePlain}.`,
+        sound: "success",
       };
     case "sos_alert":
       return {
         title: "SOS Alert",
         message: `SOS received for ${servicePlain} booking${cityText}. Immediate attention required.`,
+        sound: "emergency",
       };
     case "leave_requested":
       return {
         title: "Leave Requested",
         message: "A new leave request has been submitted.",
+        sound: "notification",
       };
     case "leave_approved":
       return {
         title: "Leave Approved",
         message: "Your leave request has been approved.",
+        sound: "success",
       };
     case "leave_rejected":
       return {
         title: "Leave Rejected",
         message: reasonHuman ? `Your leave request was rejected: ${reasonHuman}.` : "Your leave request was rejected.",
+        sound: "alert",
+      };
+    case "zone_added":
+      return {
+        title: "New Zone Added!",
+        message: `A new zone "${safeMeta.zoneName || "New Area"}" has been added in your city. Check it out and request access!`,
+        sound: "notification",
       };
     case "reminder":
       return {
         title: "Booking Reminder",
         message: `Reminder: ${yourBooking} is coming up soon${safeMeta.time ? ` at ${safeMeta.time}` : ""}.`,
+        sound: "notification",
       };
     case "marketing_campaign":
       return {
         title: safeMeta.title || titleCase(type) || "Special Update",
         message: safeMeta.message || "You have a new update from Styling With Muskan.",
+        sound: "notification",
       };
+
     default:
       return null;
   }
@@ -425,8 +468,12 @@ export async function notify({
     type,
     link: link || buildNotificationLink({ recipientRole, type, meta: safeMeta }),
     meta: dedupeKey ? { ...safeMeta, dedupeKey } : safeMeta,
+    sound: meta?.sound || templated?.sound || null,
   };
-  const notification = await Notification.create(payload);
+  const notification = await Notification.create({
+    ...payload,
+    sound: payload.sound,
+  });
 
   let shouldEmit = emit;
   if (recipientRole === "provider" && respectProviderQuietHours) {

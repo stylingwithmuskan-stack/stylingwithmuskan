@@ -475,7 +475,9 @@ export default function VenderBookings() {
 
                                                     {booking.assignedProvider && (
                                                         <p className="text-[9px] mt-1.5 text-emerald-600 font-bold flex items-center gap-1">
-                                                            <Zap className="h-3 w-3" /> {(booking.bookingType === "customized" || booking.eventType) ? "Lead Member:" : "Assigned to:"} {booking.assignedProvider}
+                                                            <Zap className="h-3 w-3" /> {(booking.bookingType === "customized" || booking.eventType) ? "Lead Member:" : "Assigned to:"} {
+                                                                providers.find(p => (p.id || p.phone) === booking.assignedProvider)?.name || booking.assignedProvider
+                                                            }
                                                         </p>
                                                     )}
 

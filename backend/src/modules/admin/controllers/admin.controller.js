@@ -132,7 +132,40 @@ export async function listBookings(req, res) {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const total = await Booking.countDocuments();
   const items = await Booking.find().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
-  res.json({ bookings: items, page, limit, total });
+
+  // Enrich with provider details
+  const providerIds = Array.from(new Set(
+    items.flatMap(b => [b.assignedProvider, b.maintainProvider, b.maintainerProvider].filter(Boolean))
+  ));
+  
+  const providers = providerIds.length 
+    ? await ProviderAccount.find({ _id: { $in: providerIds } }, "name phone").lean()
+    : [];
+    
+  const provMap = new Map(providers.map(p => [p._id.toString(), p]));
+
+  // Enrich with customer details
+  const customerIds = Array.from(new Set(items.map(b => b.customerId).filter(Boolean)));
+  const customers = customerIds.length
+    ? await User.find({ _id: { $in: customerIds } }, "phone").lean()
+    : [];
+  const custMap = new Map(customers.map(c => [c._id.toString(), c]));
+
+  const enriched = items.map(b => {
+    const p = provMap.get(String(b.assignedProvider || ""));
+    const mp = provMap.get(String(b.maintainProvider || b.maintainerProvider || ""));
+    const c = custMap.get(String(b.customerId || ""));
+    return {
+      ...b,
+      phone: c?.phone || "",
+      assignedProviderName: p?.name || "",
+      assignedProviderPhone: p?.phone || "",
+      maintainProviderName: mp?.name || "",
+      maintainProviderPhone: mp?.phone || ""
+    };
+  });
+
+  res.json({ bookings: enriched, page, limit, total });
 }
 
 export async function listCustomers(req, res) {
@@ -598,7 +631,49 @@ export async function createZone(req, res) {
   });
   if (coordinates) await syncCityCenterFromZone(cityId, coordinates);
   
+  // Trigger notifications for providers in this city
+  setImmediate(() => {
+    notifyProvidersOfNewZone(cityId, name).catch(err => 
+      console.error("[AdminController] Async notification failed:", err.message)
+    );
+  });
+
   res.json({ zone });
+}
+
+/**
+ * Internal helper to notify all approved providers in a city about a new zone.
+ */
+async function notifyProvidersOfNewZone(cityId, zoneName, excludeId = null) {
+  try {
+    const { notifyMany } = await import("../../../lib/notify.js");
+    // Find all approved providers in this city
+    const query = { 
+      cityId: String(cityId), 
+      approvalStatus: "approved",
+      registrationComplete: true 
+    };
+    if (excludeId) query._id = { $ne: excludeId };
+
+    console.log(`[AdminController] Looking for providers in cityId: ${cityId} to notify about zone: ${zoneName}`);
+    const providers = await ProviderAccount.find(query, "_id").lean();
+
+    if (providers.length > 0) {
+      const recipientIds = providers.map(p => String(p._id));
+      console.log(`[AdminController] Found ${providers.length} providers. IDs:`, recipientIds);
+      await notifyMany(recipientIds, {
+        recipientRole: "provider",
+        type: "zone_added",
+        meta: { zoneName, cityId },
+        emit: true
+      });
+      console.log(`[AdminController] Notified providers about new zone: ${zoneName}`);
+    } else {
+      console.log(`[AdminController] No matching providers found for cityId: ${cityId}`);
+    }
+  } catch (err) {
+    console.error("[AdminController] Error notifying providers of new zone:", err);
+  }
 }
 
 export async function updateCity(req, res) {
@@ -1205,7 +1280,14 @@ export async function createZoneFromRequest(req, res) {
 
     await provider.save();
 
-    // Send notifications
+    // Trigger notifications for other providers in this city
+    setImmediate(() => {
+      notifyProvidersOfNewZone(cityId, zoneName, provider._id).catch(err => 
+        console.error("[AdminController] Async notification failed:", err.message)
+      );
+    });
+
+    // Send notifications to the requesting provider
     try {
       await (await import("../../../lib/notify.js")).notify({
         recipientId: provider._id.toString(),

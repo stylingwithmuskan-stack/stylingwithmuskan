@@ -87,7 +87,7 @@ export const AdminAuthProvider = ({ children }) => {
     // ───── ENQUIRIES (server) ─────
     const getEnquiries = async () => (await api.admin.customEnquiries()).enquiries;
     const priceQuoteEnquiry = async (id, payload) => { await api.admin.customEnquiryPriceQuote(id, payload); };
-    const finalApproveEnquiry = async (id) => { await api.admin.customEnquiryFinalApprove(id); };
+    const finalApproveEnquiry = async (id, payload) => { await api.admin.customEnquiryFinalApprove(id, payload); };
 
     // ───── BOOKINGS ─────
     const getAllBookings = async () => (await api.admin.bookings()).bookings;
@@ -106,7 +106,7 @@ export const AdminAuthProvider = ({ children }) => {
             return;
         }
         if (st === "final_approved") {
-            await api.admin.customEnquiryFinalApprove(bookingId);
+            await api.admin.customEnquiryFinalApprove(bookingId, payload);
             return;
         }
         throw new Error("Unsupported admin action for custom enquiry");

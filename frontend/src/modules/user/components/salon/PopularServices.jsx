@@ -17,7 +17,7 @@ const PopularServices = () => {
   const navigate = useNavigate();
   const { popularServices, checkAvailability } = useUserModuleData();
 
-  const userCity = user?.address?.city || null;
+  const userCity = user?.addresses?.[0]?.city || user?.address?.city || null;
   const filtered = popularServices.filter((s) => s.gender === gender && checkAvailability(s, userCity));
 
   const handleAddToCart = (service) => {

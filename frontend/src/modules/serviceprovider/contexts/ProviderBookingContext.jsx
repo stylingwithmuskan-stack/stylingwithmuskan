@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { ProviderAuthContext } from "./ProviderAuthContext";
 import { api } from "@/modules/user/lib/api";
 
@@ -11,6 +11,8 @@ export const useProviderBookings = () => {
 };
 
 const STORAGE_KEY = null;
+const RINGTONE_SRC = "/sounds/ringtone.mp3";
+const RINGTONE_DURATION_MS = 30_000; // auto-stop after 30 seconds
 
 export const ProviderBookingProvider = ({ children }) => {
     const [bookings, setBookings] = useState([]);
@@ -24,6 +26,59 @@ export const ProviderBookingProvider = ({ children }) => {
     const providerId = provider?._id || provider?.id;
     const normalizeBooking = useCallback((b) => ({ ...b, id: b?.id || b?._id }), []);
     const acceptWindowMs = 10 * 60 * 1000;
+
+    // ─── New-booking ringtone logic ───
+    const knownBookingIdsRef = useRef(new Set());
+    const ringtoneAudioRef = useRef(null);
+    const userInteractedRef = useRef(false);
+    const isFirstLoadRef = useRef(true);
+
+    // Unlock audio on first user interaction (browser autoplay policy)
+    useEffect(() => {
+        const unlock = () => {
+            userInteractedRef.current = true;
+            window.removeEventListener("click", unlock);
+            window.removeEventListener("touchstart", unlock);
+            window.removeEventListener("keydown", unlock);
+        };
+        window.addEventListener("click", unlock);
+        window.addEventListener("touchstart", unlock);
+        window.addEventListener("keydown", unlock);
+        return () => {
+            window.removeEventListener("click", unlock);
+            window.removeEventListener("touchstart", unlock);
+            window.removeEventListener("keydown", unlock);
+        };
+    }, []);
+
+    /** Stop any currently playing ringtone */
+    const stopRingtone = useCallback(() => {
+        try {
+            if (ringtoneAudioRef.current) {
+                ringtoneAudioRef.current.pause();
+                ringtoneAudioRef.current.currentTime = 0;
+                ringtoneAudioRef.current = null;
+            }
+        } catch {}
+    }, []);
+
+    /** Play the ringtone in a loop, auto-stop after RINGTONE_DURATION_MS */
+    const playRingtone = useCallback(() => {
+        if (!userInteractedRef.current) return;
+        stopRingtone();
+        try {
+            const audio = new Audio(RINGTONE_SRC);
+            audio.loop = true;
+            audio.volume = 1.0;
+            const p = audio.play();
+            if (p) p.catch(() => {});
+            ringtoneAudioRef.current = audio;
+            setTimeout(() => stopRingtone(), RINGTONE_DURATION_MS);
+        } catch {}
+    }, [stopRingtone]);
+
+    // Cleanup ringtone on unmount
+    useEffect(() => () => stopRingtone(), [stopRingtone]);
 
     const refreshBookings = useCallback(async () => {
         try {
@@ -112,7 +167,40 @@ export const ProviderBookingProvider = ({ children }) => {
     const completedBookings = myBookings.filter(b => b.status === "completed");
     const cancelledBookings = myBookings.filter(b => ["cancelled", "rejected", "provider_cancelled"].includes(b.status));
 
+    // ─── Detect new incoming bookings and play ringtone ───
+    useEffect(() => {
+        const currentIncomingIds = new Set(incomingBookings.map(b => b.id || b._id).filter(Boolean));
+        const knownIds = knownBookingIdsRef.current;
+
+        // On first load, just seed the known set (don't ring)
+        if (isFirstLoadRef.current) {
+            knownBookingIdsRef.current = currentIncomingIds;
+            if (currentIncomingIds.size > 0) {
+                isFirstLoadRef.current = false;
+            }
+            return;
+        }
+
+        // Check for genuinely new bookings
+        let hasNew = false;
+        for (const id of currentIncomingIds) {
+            if (!knownIds.has(id)) {
+                hasNew = true;
+                break;
+            }
+        }
+
+        // Update known set
+        knownBookingIdsRef.current = currentIncomingIds;
+
+        if (hasNew) {
+            console.log("[ProviderBookings] 🔔 New incoming booking detected — playing ringtone");
+            playRingtone();
+        }
+    }, [incomingBookings, playRingtone]);
+
     const acceptBooking = useCallback(async (id) => {
+        stopRingtone(); // Stop ringtone when provider takes action
         try {
             const { booking } = await api.provider.updateBookingStatus(id, "accepted");
             const normalized = normalizeBooking(booking);
@@ -121,9 +209,10 @@ export const ProviderBookingProvider = ({ children }) => {
             refreshBookings();
             alert(e?.message || "Failed to accept");
         }
-    }, [normalizeBooking, refreshBookings]);
+    }, [normalizeBooking, refreshBookings, stopRingtone]);
 
     const rejectBooking = useCallback(async (id) => {
+        stopRingtone(); // Stop ringtone when provider takes action
         try {
             const { booking } = await api.provider.updateBookingStatus(id, "rejected");
             const normalized = normalizeBooking(booking);
@@ -132,7 +221,7 @@ export const ProviderBookingProvider = ({ children }) => {
             refreshBookings();
             alert(e?.message || "Failed to reject");
         }
-    }, [normalizeBooking, refreshBookings]);
+    }, [normalizeBooking, refreshBookings, stopRingtone]);
 
     const updateBookingStatus = useCallback(async (id, status) => {
         try {
@@ -205,6 +294,7 @@ export const ProviderBookingProvider = ({ children }) => {
             addAfterImages,
             addProductImages,
             addProviderImages,
+            stopRingtone,
         }}>
             {children}
         </ProviderBookingContext.Provider>

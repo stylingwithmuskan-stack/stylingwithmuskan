@@ -29,7 +29,9 @@ async function isProviderEligibleForBooking(providerId, booking) {
   if (!acc) return false;
   if (acc.approvalStatus !== "approved") return false;
   if (acc.registrationComplete !== true) return false;
-  if (acc.isOnline !== true) return false;
+  // Relaxed: Don't strictly require isOnline for eligibility, 
+  // as providers may be available for future slots even if offline now.
+  // if (acc.isOnline !== true) return false;
 
   const date = String(booking?.slot?.date || "").trim();
   const time = String(booking?.slot?.time || "").trim();
@@ -66,10 +68,14 @@ async function isProviderEligibleForBooking(providerId, booking) {
   const avail = await computeAvailableSlots(providerId, date, settings, {
     requestedDurationMinutes,
     useCache: false,
+    excludeBookingId: booking._id ? String(booking._id) : null,
   });
-  if (avail?.slotMap?.[time] !== true) return false;
+  const res = avail?.slotMap?.[time] === true;
+  if (!res) {
+    console.log(`[Assignment Debug] Provider ${providerId} is NOT eligible for booking at ${time}. Reason: slot_busy or window_mismatch. Available slots:`, avail?.slots);
+  }
 
-  return true;
+  return res;
 }
 
 async function loadAssignmentSettings() {
@@ -96,11 +102,15 @@ export function getBookingRequestedDurationMinutes(booking) {
 export async function canAssignProviderToBooking(providerId, booking, opts = {}) {
   if (!providerId || !booking) return false;
   const overrideSlot = opts.slot || booking.slot || {};
+  // Extract _id before spread — Mongoose doc getters are lost during { ...doc }
+  const bookingId = booking._id || booking.id;
   const bookingForCheck = {
-    ...booking,
+    ...(booking.toObject ? booking.toObject() : booking),
+    _id: bookingId,
     slot: overrideSlot,
     services: Array.isArray(booking.services) ? booking.services : booking.items,
   };
+  console.log(`[Assignment Debug] canAssignProviderToBooking: providerId=${providerId}, bookingId=${bookingId}, slot=${overrideSlot?.date} ${overrideSlot?.time}`);
   return isProviderEligibleForBooking(providerId, bookingForCheck);
 }
 

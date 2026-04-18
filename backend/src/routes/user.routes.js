@@ -180,9 +180,9 @@ router.post(
         address: normalizedAddr,
       });
     }
-    req.user.addresses.push(normalizedAddr);
+    req.user.addresses.unshift(normalizedAddr);
     await req.user.save();
-    res.status(201).json({ address: req.user.addresses[req.user.addresses.length - 1], addresses: req.user.addresses });
+    res.status(201).json({ address: req.user.addresses[0], addresses: req.user.addresses });
   }
 );
 

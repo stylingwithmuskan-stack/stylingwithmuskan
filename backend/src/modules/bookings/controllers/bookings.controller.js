@@ -395,16 +395,13 @@ export async function create(req, res) {
   // FUTURE IMPROVEMENT: Pass candidateProvidersBySlot from frontend to backend
   // so we can use the same providers that were shown as available during slot selection
   if (!assignedProvider && candidateProviders.length === 0) {
-    logDevAssignment("Booking create found no candidates for selected slot", {
+    logDevAssignment("Booking create found no candidates for selected slot - allowing escalation", {
       slotDate: requestedDate,
       slotTime: requestedTime,
       city: safeAddress.city || "",
       zone: safeAddress.zone || "",
     });
-    return res.status(409).json({
-      error: "Selected slot is no longer available. Please choose another slot.",
-      code: "SLOT_UNAVAILABLE",
-    });
+    // Proceed to create booking without assigned provider - it will be escalated.
   }
   // candidateProviders already limited in buildAssignmentCandidates
 
@@ -487,7 +484,7 @@ export async function create(req, res) {
     assignmentIndex,
     lastAssignedAt,
     expiresAt,
-    adminEscalated: false,
+    adminEscalated: !assignedProvider,
   });
 
   logDevAssignment("Booking persisted", {
@@ -902,9 +899,9 @@ export async function adminFinalApprove(req, res) {
       slot: { date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10), time: enq.scheduledAt?.timeSlot || "10:00" },
       bookingType: "customized",
       status: "final_approved",
-      assignedProvider: enq.maintainerProvider || "",
-      maintainProvider: enq.maintainerProvider || "",
-      teamMembers: Array.isArray(enq.teamMembers) ? enq.teamMembers : [],
+      assignedProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
+      maintainProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
+      teamMembers: Array.isArray(req.body?.teamMembers) ? req.body.teamMembers : (Array.isArray(enq.teamMembers) ? enq.teamMembers : []),
     });
     enq.bookingId = booking._id.toString();
 
