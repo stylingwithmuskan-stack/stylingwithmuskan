@@ -693,8 +693,70 @@ export async function updateZone(req, res) {
 
 export async function deleteZone(req, res) {
   const { zoneId } = req.params;
-  const zone = await Zone.findByIdAndDelete(zoneId);
+  
+  // 1. Fetch zone details first to get the name (needed for cleanup in string-based arrays)
+  const zone = await Zone.findById(zoneId);
   if (!zone) return res.status(404).json({ error: "Zone not found" });
+
+  const zoneName = zone.name;
+
+  // 2. Delete the zone
+  await Zone.findByIdAndDelete(zoneId);
+
+  // 3. Cleanup ProviderAccount references
+  // Pull from arrays
+  await ProviderAccount.updateMany(
+    { 
+      $or: [
+        { zones: zoneName }, 
+        { zoneIds: zoneId }, 
+        { pendingZones: zoneName }, 
+        { serviceZoneIds: zoneId },
+        { "pendingZoneRequests.resolvedZoneId": zoneId },
+        { "pendingZoneRequests.zoneName": zoneName }
+      ] 
+    },
+    {
+      $pull: {
+        zones: zoneName,
+        zoneIds: zoneId,
+        pendingZones: zoneName,
+        serviceZoneIds: zoneId,
+        pendingZoneRequests: { 
+          $or: [
+            { resolvedZoneId: zoneId },
+            { zoneName: zoneName }
+          ]
+        }
+      }
+    }
+  );
+
+  // Reset baseZoneId if it matches the deleted zone
+  await ProviderAccount.updateMany({ baseZoneId: zoneId }, { $set: { baseZoneId: "" } });
+
+  // 4. Cleanup Vendor references
+  // Pull from arrays
+  await Vendor.updateMany(
+    { 
+      $or: [
+        { zones: zoneName }, 
+        { zoneIds: zoneId }, 
+        { pendingZones: zoneName }
+      ] 
+    },
+    {
+      $pull: {
+        zones: zoneName,
+        zoneIds: zoneId,
+        pendingZones: zoneName
+      }
+    }
+  );
+
+  // Reset baseZoneId if it matches the deleted zone
+  await Vendor.updateMany({ baseZoneId: zoneId }, { $set: { baseZoneId: "" } });
+
   res.json({ success: true });
 }
 
