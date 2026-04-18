@@ -618,7 +618,7 @@ export async function confirmCOD(req, res) {
     return res.status(400).json({ error: "Advance payment is required for this booking." });
   }
 
-  booking.status = booking.balanceAmount === 0 ? "documentation" : "pending";
+  booking.status = "pending";
   
   // Critical Fix: If a provider was already assigned (during slot choice), 
   // verify they are still approved/active BEFORE confirming and notifying them.
@@ -712,6 +712,7 @@ export async function track(req, res) {
 
   res.json({
     bookingId: booking._id?.toString?.() || id,
+    status: booking.status, // Added status for real-time polling updates
     userLocation,
     providerLocation,
     providerMeta,

@@ -126,14 +126,36 @@ export function buildFCMPayload(notification) {
   const title = String(notification.title || "").slice(0, 100);
   const body = String(notification.message || "").slice(0, 200);
   const link = normalizeLink(notification.link);
+  const sound = notification.sound || "default";
 
   return {
     notification: { title, body },
+    android: {
+      notification: {
+        sound: sound === "default" ? "default" : sound,
+        channelId: "high_priority_notifications",
+      },
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: sound === "default" ? "default" : `${sound}.caf`,
+        },
+      },
+    },
+    webpush: {
+      notification: {
+        icon: "/logo.png",
+        badge: "/logo.png",
+        vibrate: [200, 100, 200],
+      },
+    },
     data: {
       notificationId: String(notification._id),
       link: String(link),
       type: String(notification.type),
       role: String(notification.recipientRole),
+      sound: String(sound),
     },
   };
 }

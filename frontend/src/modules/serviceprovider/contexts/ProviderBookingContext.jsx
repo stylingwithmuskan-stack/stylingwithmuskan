@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { ProviderAuthContext } from "./ProviderAuthContext";
-import { api } from "@/modules/user/lib/api";
+import { api, API_BASE_URL } from "@/modules/user/lib/api";
+import { io } from "socket.io-client";
 
 const ProviderBookingContext = createContext(undefined);
 
@@ -136,18 +137,59 @@ export const ProviderBookingProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, [providerId, provider?.phone, refreshBookings]);
 
+    // ─── Real-time Socket Sync ───
+    useEffect(() => {
+        const token = localStorage.getItem("swm_provider_token");
+        if (!providerId || !token) return;
+
+        console.log(`[ProviderBookings] 🔄 Connecting sync socket for provider: ${providerId}`);
+        const socket = io(`${API_BASE_URL}/bookings`, {
+            auth: { token },
+            transports: ["websocket"],
+        });
+
+        socket.on("connect", () => {
+            console.log("[ProviderBookings] ✅ Sync socket connected");
+            refreshBookings(); // Initial catch-up
+        });
+
+        socket.on("new_notification", (payload) => {
+            const targetId = String(payload.recipientId);
+            const myId = String(providerId);
+            if (targetId === myId) {
+                console.log("[ProviderBookings] 🔔 New notification received, refreshing bookings...");
+                refreshBookings();
+            }
+        });
+
+        socket.on("assignment:changed", (payload) => {
+            if (String(payload.toProvider) === String(providerId) || String(payload.fromProvider) === String(providerId)) {
+                console.log("[ProviderBookings] 🚀 Assignment changed, refreshing bookings...");
+                refreshBookings();
+            }
+        });
+
+        return () => {
+            socket.disconnect();
+        };
+    }, [providerId, refreshBookings]);
+
     const isExpiredAssignmentForCurrentProvider = useCallback((booking) => {
         const normalizedStatus = String(booking?.status || "").toLowerCase();
-        if (!["incoming", "pending", "final_approved"].includes(normalizedStatus)) return false;
+        if (!["incoming", "pending", "final_approved", "payment_pending"].includes(normalizedStatus)) return false;
+
+        // Use a 60-second grace period to handle clock skew between server and client
+        const gracePeriodMs = 60000;
+        const nowWithGrace = nowMs - gracePeriodMs;
 
         if (booking?.expiresAt) {
             const expiresAtMs = new Date(booking.expiresAt).getTime();
-            return Number.isFinite(expiresAtMs) && expiresAtMs <= nowMs;
+            return Number.isFinite(expiresAtMs) && expiresAtMs <= nowWithGrace;
         }
 
         if (booking?.lastAssignedAt) {
             const lastAssignedMs = new Date(booking.lastAssignedAt).getTime();
-            return Number.isFinite(lastAssignedMs) && (nowMs - lastAssignedMs) >= acceptWindowMs;
+            return Number.isFinite(lastAssignedMs) && (nowWithGrace - lastAssignedMs) >= acceptWindowMs;
         }
 
         return false;

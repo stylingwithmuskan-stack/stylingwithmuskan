@@ -18,11 +18,16 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || "New Notification";
+  const title = payload.notification?.title || payload.data?.title || "New Notification";
+  const body = payload.notification?.body || payload.data?.body || "";
   const options = {
-    body: payload.notification?.body || "",
+    body,
     icon: payload.notification?.icon || "/logo.png",
+    badge: "/logo.png",
+    vibrate: [200, 100, 200, 100, 200],
     data: payload.data || {},
+    tag: payload.data?.notificationId || "general",
+    renotify: true,
   };
   self.registration.showNotification(title, options);
 });

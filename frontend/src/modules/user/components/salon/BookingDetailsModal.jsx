@@ -14,6 +14,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     const navigate = useNavigate();
     const { cancelBooking } = useBookings();
     const { providers } = useUserModuleData();
+    const [localBooking, setLocalBooking] = useState(booking);
     const [userLocation, setUserLocation] = useState(null);
     const [providerLocation, setProviderLocation] = useState(null);
     const [socketConnected, setSocketConnected] = useState(false);
@@ -21,11 +22,16 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const pollRef = useRef(null);
 
+    // Sync state if prop changes (e.g. initial load)
+    useEffect(() => {
+        if (booking) setLocalBooking(booking);
+    }, [booking]);
+
     const assignedProvider = useMemo(() => {
-        if (!providers || !booking) return null;
-        const pId = booking.assignedProvider || booking.slot?.provider?.id;
+        if (!providers || !localBooking) return null;
+        const pId = localBooking.assignedProvider || localBooking.slot?.provider?.id;
         return providers.find(p => p.id === pId || p._id === pId);
-    }, [providers, booking]);
+    }, [providers, localBooking]);
 
     const getFormattedDate = (dateStr) => {
         if (!dateStr) return "";
@@ -49,7 +55,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
         );
     };
 
-    const currentStatus = (booking.status || 'pending').toLowerCase();
+    const currentStatus = (localBooking.status || 'pending').toLowerCase();
     const showTracking = ['travelling', 'arrived', 'in_progress'].includes(currentStatus);
     const bookingId = booking._id || booking.id;
     const token = useMemo(() => {
@@ -94,6 +100,9 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                 if (!cancelled) {
                     setUserLocation(res.userLocation || null);
                     setProviderLocation(res.providerLocation || null);
+                    if (res.status) {
+                        setLocalBooking(prev => ({ ...prev, status: res.status }));
+                    }
                 }
             } catch {}
         })();
@@ -116,6 +125,14 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                 setProviderLocation({ lat: payload.lat, lng: payload.lng });
             }
         });
+        socket.on("booking:update", (payload) => {
+            console.log("[BookingDetailsModal] Real-time booking update received:", payload);
+            if (payload?.bookingId !== bookingId) return;
+            if (payload.status) {
+                setLocalBooking(prev => ({ ...prev, status: payload.status }));
+                toast.info(`Booking status updated to ${payload.status}`);
+            }
+        });
         socket.on("connect_error", () => {
             setSocketConnected(false);
         });
@@ -135,6 +152,9 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                 const res = await api.bookings.track(bookingId);
                 setUserLocation(res.userLocation || null);
                 setProviderLocation(res.providerLocation || null);
+                if (res.status) {
+                    setLocalBooking(prev => ({ ...prev, status: res.status }));
+                }
             } catch {}
         }, 15000);
         return () => {
@@ -266,15 +286,15 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                             {/* Status Card */}
                             <div className="flex items-center justify-between p-4 bg-accent/30 rounded-2xl border border-border/50">
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-xl ${booking.bookingType === 'instant' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                                        {booking.bookingType === 'instant' ? <Zap className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
+                                    <div className={`p-2 rounded-xl ${localBooking.bookingType === 'instant' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                                        {localBooking.bookingType === 'instant' ? <Zap className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
                                     </div>
                                     <div>
                                         <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-60">Status</p>
-                                        <p className="text-sm font-black mt-0.5">{booking.status || "Booking Accepted"}</p>
+                                        <p className="text-sm font-black mt-0.5">{localBooking.status || "Booking Accepted"}</p>
                                     </div>
                                 </div>
-                                <StatusBadge status={booking.status} />
+                                <StatusBadge status={localBooking.status} />
                             </div>
 
                             {/* Provider Profile Section */}

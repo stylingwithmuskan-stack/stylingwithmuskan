@@ -483,11 +483,24 @@ export async function notify({
   if (shouldEmit) {
     try {
       const io = getIO();
+      // Global notification list refresh
       io?.of("/bookings").emit("new_notification", {
         recipientId: String(recipientId),
         notification,
       });
-    } catch {}
+
+      // Targeted room update for real-time status tracking in modals
+      if (safeMeta.bookingId) {
+        io?.of("/bookings").to(`booking:${safeMeta.bookingId}`).emit("booking:update", {
+          bookingId: safeMeta.bookingId,
+          status: payload.meta?.status || (payload.type.startsWith("booking_") ? payload.type.split("_")[1] : null),
+          type: payload.type,
+          notificationId: notification._id,
+        });
+      }
+    } catch (err) {
+      console.error("[Notify] Socket emit failed:", err.message);
+    }
   }
 
   // Send FCM push notification
