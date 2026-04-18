@@ -3,6 +3,7 @@ import { body, validationResult, param } from "express-validator";
 import jwt from "jsonwebtoken";
 import ProviderAccount from "../models/ProviderAccount.js";
 import Booking from "../models/Booking.js";
+import User from "../models/User.js";
 import ProviderWalletTxn from "../models/ProviderWalletTxn.js";
 import { redis } from "../startup/redis.js";
 import { upload } from "../middleware/upload.js";
@@ -1185,6 +1186,21 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
   };
   let total = await Booking.countDocuments(q);
   const items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+  
+  // Legacy Fallback: If any booking is missing customerPhone, fetch it from the User model
+  const bookingsMissingPhone = items.filter(b => !b.customerPhone && b.customerId);
+  if (bookingsMissingPhone.length > 0) {
+    const customerIds = Array.from(new Set(bookingsMissingPhone.map(b => b.customerId)));
+    const users = await User.find({ _id: { $in: customerIds } }).select("phone").lean();
+    const userPhoneMap = new Map(users.map(u => [u._id.toString(), u.phone]));
+    
+    items.forEach(b => {
+      if (!b.customerPhone && b.customerId && userPhoneMap.has(b.customerId.toString())) {
+        b.customerPhone = userPhoneMap.get(b.customerId.toString());
+      }
+    });
+  }
+
   const bookings = (items || []).map((b) => ({ ...b, id: b._id?.toString?.() || b.id }));
   total = bookings.length;
   res.json({ bookings, page, limit, total });

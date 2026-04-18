@@ -15,6 +15,7 @@ const BookingSchema = new mongoose.Schema(
   {
     customerId: String,
     customerName: String,
+    customerPhone: String,
     services: [ServiceItemSchema],
     totalAmount: Number,
     discount: { type: Number, default: 0 },

@@ -459,6 +459,7 @@ export async function create(req, res) {
   const booking = await Booking.create({
     customerId: req.user._id.toString(),
     customerName: req.user.name || "",
+    customerPhone: req.user.phone || "",
     services: items.map(it => ({
       name: it.name, price: it.price, duration: it.duration, category: it.category, serviceType: it.serviceType,
     })),

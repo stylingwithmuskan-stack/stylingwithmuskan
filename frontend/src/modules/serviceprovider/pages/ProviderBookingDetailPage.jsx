@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, MapPin, Clock, Calendar, Check, Navigation, Camera, ChevronRight,
     Shield, IndianRupee, Map as MapIcon, UserCircle, Package, CheckCircle2,
-    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2
+    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone
 } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { toast } from "sonner";
@@ -453,6 +453,27 @@ const ProviderBookingDetailPage = () => {
             </div>
 
             <div className="max-w-xl mx-auto px-4 py-6 space-y-4">
+                {/* Customer Details Card */}
+                <div className="bg-white border border-gray-100 rounded-[20px] p-5 shadow-sm shadow-purple-50 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                            <UserCircle className="w-7 h-7" />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight">{booking.customerName || "Customer"}</h3>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Client Name</p>
+                        </div>
+                    </div>
+                    {(booking.customerPhone || booking.phone) && (
+                        <a 
+                            href={`tel:${booking.customerPhone || booking.phone}`} 
+                            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 uppercase tracking-widest"
+                        >
+                            <Phone className="w-3.5 h-3.5" /> Call Now
+                        </a>
+                    )}
+                </div>
+
                 {/* Payment Collection UI */}
                 {booking.status === "payment" && (
                     <motion.div

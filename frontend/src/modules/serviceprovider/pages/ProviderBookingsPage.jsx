@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Clock, MapPin, ChevronRight, Check, X, Zap, Calendar, Timer } from "lucide-react";
+import { Clock, MapPin, ChevronRight, Check, X, Zap, Calendar, Timer, Phone } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { Button } from "@/modules/user/components/ui/button";
 
@@ -50,6 +50,7 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                 </div>
                 <div className="flex items-center gap-2">
                     {(type === "incoming" || type === "pending") && booking.expiresAt && <CountdownTimer expiresAt={booking.expiresAt} />}
+                    {booking.status === "payment_pending" && <span className="text-[10px] font-bold uppercase text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 flex items-center gap-1.5"><Timer className="w-3.5 h-3.5" /> Awaiting Customer</span>}
                     {type === "active" && <span className="text-[10px] font-bold uppercase text-green-500 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> {booking.status?.replace("_", " ") || ""}</span>}
                     {type === "assigned" && <span className="text-[10px] font-bold uppercase text-blue-500 flex items-center gap-1.5"><Zap className="w-3 h-3" /> Mandatory Job</span>}
                     {type === "cancelled" && <span className="text-[10px] font-bold uppercase text-red-500 flex items-center gap-1.5">{booking.status?.replace("_", " ") || ""}</span>}
@@ -74,14 +75,49 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                 <p className="text-lg font-black text-gray-900">₹{(booking.totalAmount || 0).toLocaleString()}</p>
                 {(type === "incoming" || type === "pending") && (
                     <div className="flex gap-2">
-                        <Button onClick={() => onReject(bookingId)} variant="ghost" className="h-9 px-3.5 rounded-xl text-red-600 text-xs font-bold hover:bg-red-50">Reject</Button>
-                        <Button onClick={() => onAccept(bookingId)} className="h-9 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-200">Accept</Button>
+                        {(booking.customerPhone || booking.phone) && (
+                            <a 
+                                href={booking.status === "payment_pending" ? "#" : `tel:${booking.customerPhone || booking.phone}`} 
+                                className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${booking.status === "payment_pending" ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"}`}
+                                onClick={(e) => { e.stopPropagation(); if (booking.status === "payment_pending") e.preventDefault(); }}
+                                title={booking.status === "payment_pending" ? "Awaiting Payment" : "Call Customer"}
+                            >
+                                <Phone className="w-4 h-4" />
+                            </a>
+                        )}
+                        <Button 
+                            disabled={booking.status === "payment_pending"}
+                            onClick={() => onReject(bookingId)} 
+                            variant="ghost" 
+                            className="h-9 px-3.5 rounded-xl text-red-600 text-xs font-bold hover:bg-red-50 disabled:opacity-50"
+                        >
+                            Reject
+                        </Button>
+                        <Button 
+                            disabled={booking.status === "payment_pending"}
+                            onClick={() => onAccept(bookingId)} 
+                            className="h-9 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-200 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
+                        >
+                            {booking.status === "payment_pending" ? "Waiting..." : "Accept"}
+                        </Button>
                     </div>
                 )}
                 {(type === "active" || type === "completed" || type === "cancelled" || type === "assigned") && (
-                    <Button onClick={() => onNavigate(bookingId)} variant="outline" className="h-9 px-4 rounded-xl text-xs font-bold border-gray-200 text-gray-700 hover:bg-gray-50 group">
-                        {(type === "active" || type === "assigned") ? "Manage Job" : "View Details"} <ChevronRight className="w-3.5 h-3.5 ml-1.5 text-gray-400 group-hover:translate-x-0.5 transition-all" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {(type === "active" || type === "assigned") && (booking.customerPhone || booking.phone) && (
+                            <a 
+                                href={`tel:${booking.customerPhone || booking.phone}`} 
+                                className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-95"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Call Customer"
+                            >
+                                <Phone className="w-4 h-4" />
+                            </a>
+                        )}
+                        <Button onClick={() => onNavigate(bookingId)} variant="outline" className="h-9 px-4 rounded-xl text-xs font-bold border-gray-200 text-gray-700 hover:bg-gray-50 group">
+                            {(type === "active" || type === "assigned") ? "Manage Job" : "View Details"} <ChevronRight className="w-3.5 h-3.5 ml-1.5 text-gray-400 group-hover:translate-x-0.5 transition-all" />
+                        </Button>
+                    </div>
                 )}
             </div>
         </motion.div>
