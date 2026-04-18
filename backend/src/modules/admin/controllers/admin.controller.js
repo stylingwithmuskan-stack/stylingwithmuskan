@@ -121,7 +121,7 @@ export async function listVendors(req, res) {
 
 export async function listProviders(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
-  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+  const limit = Math.min(parseInt(req.query.limit) || 20, 1000);
   const total = await ProviderAccount.countDocuments({ registrationComplete: true });
   const items = await ProviderAccount.find({ registrationComplete: true }).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
   res.json({ providers: items, page, limit, total });

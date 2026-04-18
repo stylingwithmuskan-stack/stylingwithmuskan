@@ -504,7 +504,10 @@ export const api = {
     approveProviderZones: (id) => request(`/admin/providers/${id}/approve-zones`, { method: "PATCH" }),
     rejectProviderZones: (id) => request(`/admin/providers/${id}/reject-zones`, { method: "PATCH" }),
     customers: () => request("/admin/customers"),
-    providers: () => request("/admin/providers"),
+    providers: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/admin/providers${q ? `?${q}` : ""}`);
+    },
     updateProviderStatus: (id, status) => request(`/admin/providers/${id}/status`, { method: "PATCH", body: { status } }),
     updateProviderProfile: (id, payload) => request(`/admin/providers/${id}/profile`, { method: "PATCH", body: payload }),
     bookings: () => request("/admin/bookings"),

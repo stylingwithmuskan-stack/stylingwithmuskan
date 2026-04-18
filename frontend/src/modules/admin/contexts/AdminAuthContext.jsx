@@ -77,7 +77,7 @@ export const AdminAuthProvider = ({ children }) => {
     const getAllCustomers = async () => (await api.admin.customers()).customers;
 
     // ───── SERVICE PROVIDERS ─────
-    const getAllServiceProviders = async () => (await api.admin.providers()).providers;
+    const getAllServiceProviders = async () => (await api.admin.providers({ limit: 1000 })).providers;
     const updateSPStatus = async (id, status) => { await api.admin.updateProviderStatus(id, status); };
     const updateProviderProfile = async (id, data) => { await api.admin.updateProviderProfile(id, data); };
 

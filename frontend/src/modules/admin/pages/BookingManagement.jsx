@@ -368,7 +368,7 @@ export default function BookingManagement() {
 
                                                     {b.maintainProvider && (
                                                         <p className="text-[9px] mt-1 text-emerald-600 font-bold flex items-center gap-1">
-                                                            <Zap className="h-3 w-3" /> Lead Member: {providers.find(p => (p.id || p.phone) === b.maintainProvider)?.name || b.maintainProvider}
+                                                            <Zap className="h-3 w-3" /> Lead Member: {providers.find(p => String(p._id || p.id || p.phone) === String(b.maintainProvider))?.name || b.maintainProvider}
                                                         </p>
                                                     )}
                                                 </div>
@@ -580,7 +580,7 @@ export default function BookingManagement() {
                                 <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
                                     <p className="text-[10px] font-black uppercase text-emerald-700 mb-1">Lead Member</p>
                                     <p className="text-sm font-black text-emerald-700">
-                                        {providers.find(p => (p.id || p.phone) === adminTeamReviewModal.maintainProvider)?.name || adminTeamReviewModal.maintainProvider}
+                                        {providers.find(p => String(p._id || p.id || p.phone) === String(adminTeamReviewModal.maintainProvider))?.name || adminTeamReviewModal.maintainProvider}
                                     </p>
                                 </div>
                             )}
@@ -875,11 +875,11 @@ export default function BookingManagement() {
                                             {detailModal.assignedProvider ? (
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary">
-                                                        {providers.find(p => (p.id || p.phone) === detailModal.assignedProvider)?.name?.charAt(0) || "P"}
+                                                        {providers.find(p => String(p._id || p.id || p.phone) === String(detailModal.assignedProvider))?.name?.charAt(0) || "P"}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-black">{providers.find(p => (p.id || p.phone) === detailModal.assignedProvider)?.name || "Assigned Provider"}</p>
-                                                        <p className="text-[10px] font-bold text-muted-foreground">{detailModal.assignedProvider}</p>
+                                                        <p className="text-sm font-black">{providers.find(p => String(p._id || p.id || p.phone) === String(detailModal.assignedProvider))?.name || "Assigned Provider"}</p>
+                                                        <p className="text-[10px] font-bold text-muted-foreground">{providers.find(p => String(p._id || p.id || p.phone) === String(detailModal.assignedProvider))?.phone || detailModal.assignedProvider}</p>
                                                     </div>
                                                 </div>
                                             ) : (
