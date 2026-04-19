@@ -76,7 +76,7 @@ const BannerSlider = () => {
     }
 
     // Priority 3: Default fallback to explore page
-    navigate('/explore/facial');
+    navigate('/explore');
   };
 
   const slideVariants = {

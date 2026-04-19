@@ -5,7 +5,7 @@ import { useAuth } from "@/modules/user/contexts/AuthContext";
 
 const leftTabs = [
   { icon: Home, label: "Home", path: "/home" },
-  { icon: Search, label: "Explore", path: "/explore/facial" },
+  { icon: Search, label: "Explore", path: "/explore" },
 ];
 
 const rightTabs = [

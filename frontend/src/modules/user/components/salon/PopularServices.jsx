@@ -35,7 +35,7 @@ const PopularServices = () => {
           Popular Services
         </h2>
         <button
-          onClick={() => navigate("/explore/facial")}
+          onClick={() => navigate("/explore")}
           className="text-xs text-primary font-medium flex items-center gap-0.5"
         >
           View All <ChevronRight className="w-3 h-3" />

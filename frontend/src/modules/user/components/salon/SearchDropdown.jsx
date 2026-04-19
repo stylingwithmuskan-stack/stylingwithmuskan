@@ -31,7 +31,7 @@ const SearchDropdown = ({ isOpen, services, searchQuery, onClose }) => {
   };
 
   const handleViewAll = () => {
-    navigate(`/explore/facial?q=${encodeURIComponent(searchQuery)}`);
+    navigate(`/explore?q=${encodeURIComponent(searchQuery)}`);
     onClose();
   };
 

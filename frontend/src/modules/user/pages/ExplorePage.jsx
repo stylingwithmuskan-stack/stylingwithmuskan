@@ -33,7 +33,10 @@ const ExplorePage = () => {
 
     const searchParams = new URLSearchParams(location.search);
     const queryParam = searchParams.get('q') || "";
-    const typeParam = searchParams.get('type') || "skin";
+    
+    // Pick the first available service type if 'type' param is missing or defaults to 'skin' which might not exist
+    const defaultType = availableServiceTypes.length > 0 ? availableServiceTypes[0].id : "skin";
+    const typeParam = searchParams.get('type') || defaultType;
     const bookingParam = searchParams.get('booking') || contextBookingType;
 
     const [searchQuery, setSearchQuery] = useState(queryParam);
@@ -48,6 +51,7 @@ const ExplorePage = () => {
         priceRange: null
     });
     const [isSearching, setIsSearching] = useState(false);
+    const [isCategoryLoading, setIsCategoryLoading] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
 
     // Sync active state with URL
@@ -73,7 +77,11 @@ const ExplorePage = () => {
     // Optimize: Load category services on change
     useEffect(() => {
         if (activeCategory) {
-            loadCategoryServices(activeCategory);
+            setIsCategoryLoading(true);
+            loadCategoryServices(activeCategory).finally(() => {
+                // Small delay to ensure smooth transition
+                setTimeout(() => setIsCategoryLoading(false), 300);
+            });
         }
     }, [activeCategory, loadCategoryServices]);
 
@@ -156,15 +164,31 @@ const ExplorePage = () => {
     }, [activeCategory, gender, searchQuery, activeFilter, services, searchResults, checkAvailability, userLocation, preferences]);
 
     const handleTypeChange = (typeId) => {
-        const firstCat = categories.find(c =>
+        // Try to find a category in current booking type first
+        let targetCat = categories.find(c =>
             c.serviceType === typeId &&
             c.gender === gender &&
             c.bookingType === activeBooking
         );
+
+        let targetBooking = activeBooking;
+
+        // If not found in current booking type, try to find ANY category for this type
+        if (!targetCat) {
+            targetCat = categories.find(c =>
+                c.serviceType === typeId &&
+                c.gender === gender
+            );
+            if (targetCat) {
+                targetBooking = targetCat.bookingType;
+            }
+        }
+
         setActiveType(typeId);
-        if (firstCat) {
-            setActiveCategory(firstCat.id);
-            navigate(`/explore/${firstCat.id}?type=${typeId}&booking=${activeBooking}`, { replace: true });
+        if (targetCat) {
+            setActiveBooking(targetBooking);
+            setActiveCategory(targetCat.id);
+            navigate(`/explore/${targetCat.id}?type=${typeId}&booking=${targetBooking}`, { replace: true });
         }
     };
 
@@ -301,7 +325,7 @@ const ExplorePage = () => {
                             </span>
                         </div>
 
-                        {isSearching && (
+                        {(isSearching || (isCategoryLoading && filteredServices.length === 0)) && (
                              <div className="space-y-4">
                                 {[1, 2, 3].map(i => (
                                     <div key={i} className="h-32 glass-strong rounded-[28px] animate-pulse" />
@@ -309,7 +333,7 @@ const ExplorePage = () => {
                              </div>
                         )}
 
-                        {!isSearching && filteredServices.length === 0 && (
+                        {!isSearching && !isCategoryLoading && filteredServices.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 opacity-40">
                                 <Search className="w-12 h-12 mb-4" />
                                 <p className="font-bold text-sm text-center">No services found.</p>

@@ -16,7 +16,7 @@ import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext
 
 const desktopNavItems = [
   { icon: Home, label: "Home", path: "/home" },
-  { icon: Compass, label: "Explore", path: "/explore/facial" },
+  { icon: Compass, label: "Explore", path: "/explore" },
   { icon: Calendar, label: "Bookings", path: "/bookings" },
   { icon: User, label: "Profile", path: "/profile" },
 ];
@@ -77,7 +77,7 @@ const Header = () => {
     e.preventDefault();
     if (searchQuery.trim()) {
       // Navigate to explore page with the search query
-      navigate(`/explore/facial?q=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`/explore?q=${encodeURIComponent(searchQuery.trim())}`);
       setIsSearchDropdownOpen(false);
     }
   };

@@ -49,7 +49,7 @@ const CartPage = () => {
                         Looks like you haven't added any services to your cart yet.
                     </p>
                     <button
-                        onClick={() => navigate("/explore/facial")}
+                        onClick={() => navigate("/explore")}
                         className="bg-primary text-white font-bold py-3 px-8 rounded-2xl shadow-lg hover:shadow-xl transition-all active:scale-95"
                     >
                         Explore Services

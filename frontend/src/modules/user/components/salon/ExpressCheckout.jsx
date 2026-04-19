@@ -64,7 +64,7 @@ const ExpressCheckout = () => {
                             <Button
                                 onClick={() => {
                                     setIsCartOpen(false);
-                                    navigate("/explore/facial");
+                                    navigate("/explore");
                                 }}
                                 className="bg-primary text-white font-bold py-3 px-8 rounded-2xl shadow-lg hover:shadow-xl transition-all"
                             >
