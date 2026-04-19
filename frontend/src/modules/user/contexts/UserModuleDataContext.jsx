@@ -159,6 +159,7 @@ export const UserModuleDataProvider = ({ children }) => {
         bookingTypeConfig,
         categories,
         services,
+        setServices,
         banners,
         providers,
         officeSettings,
