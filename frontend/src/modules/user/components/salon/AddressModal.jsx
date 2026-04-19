@@ -42,10 +42,12 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                 zone: initialAddress.zone || "",
                 zoneId: initialAddress.zoneId || "",
                 type: initialAddress.type || "home",
+                lat: initialAddress.lat || null,
+                lng: initialAddress.lng || null,
                 _id: initialAddress._id || initialAddress.id
             });
         } else {
-            setAddress({ houseNo: "", landmark: "", area: "", city: "", cityId: "", zone: "", zoneId: "", type: "home", _id: undefined });
+            setAddress({ houseNo: "", landmark: "", area: "", city: "", cityId: "", zone: "", zoneId: "", type: "home", lat: null, lng: null, _id: undefined });
         }
     }, [initialAddress, isOpen]);
 
@@ -90,6 +92,8 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
             const autocomplete = new window.google.maps.places.Autocomplete(areaInputRef.current, {
                 types: ["geocode"]
             });
+            autocomplete.setFields(["address_components", "geometry", "formatted_address", "name"]);
+
             autocomplete.addListener("place_changed", () => {
                 const place = autocomplete.getPlace();
                 if (!place || !place.geometry) return;
@@ -102,9 +106,11 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
 
                 const houseNo = getComp(["street_number", "premise", "subpremise"]);
                 const landmark = getComp(["neighborhood", "sublocality_level_2", "sublocality_level_3"]);
-                const area = place.formatted_address || place.name || address.area;
+                const area = place.formatted_address || place.name || "";
                 const city = getComp(["locality", "administrative_area_level_2"]);
                 
+                console.log("[AddressModal] Autocomplete selected:", { area, city, lat, lng });
+
                 setAddress(prev => ({ 
                     ...prev, 
                     houseNo: houseNo || prev.houseNo,
@@ -294,7 +300,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                         type="text"
                                         required
                                         value={address.houseNo}
-                                        onChange={e => setAddress({ ...address, houseNo: e.target.value })}
+                                        onChange={e => setAddress(prev => ({ ...prev, houseNo: e.target.value }))}
                                         placeholder="e.g. B-12, 4th Floor"
                                         className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all"
                                     />
@@ -305,7 +311,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                     <input
                                         type="text"
                                         value={address.landmark}
-                                        onChange={e => setAddress({ ...address, landmark: e.target.value })}
+                                        onChange={e => setAddress(prev => ({ ...prev, landmark: e.target.value }))}
                                         placeholder="e.g. Near Central Park"
                                         className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all"
                                     />
@@ -320,7 +326,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                             type="text"
                                             required
                                             value={address.area}
-                                            onChange={e => setAddress({ ...address, area: e.target.value })}
+                                            onChange={e => setAddress(prev => ({ ...prev, area: e.target.value }))}
                                             placeholder="Select your area"
                                             className="w-full h-12 pl-11 pr-32 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all"
                                         />
@@ -342,15 +348,13 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                         value={address.city || ""}
                                         onChange={e => {
                                             const selectedCity = cities.find((c) => c.name === e.target.value);
-                                            setAddress({
-                                                ...address,
+                                            setAddress(prev => ({
+                                                ...prev,
                                                 city: e.target.value,
                                                 cityId: selectedCity?._id || "",
                                                 zone: "",
-                                                zoneId: "",
-                                                lat: undefined, // Clear coordinates on manual change
-                                                lng: undefined
-                                            });
+                                                zoneId: ""
+                                            }));
                                         }}
                                         className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
                                     >
@@ -365,13 +369,11 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                         value={address.zoneId || ""}
                                         onChange={e => {
                                             const selectedZone = zones.find((z) => z._id === e.target.value);
-                                            setAddress({
-                                                ...address,
+                                            setAddress(prev => ({
+                                                ...prev,
                                                 zone: selectedZone?.name || "",
-                                                zoneId: selectedZone?._id || "",
-                                                lat: undefined, // Clear coordinates on manual change
-                                                lng: undefined
-                                            });
+                                                zoneId: selectedZone?._id || ""
+                                            }));
                                         }}
                                         className="w-full h-12 px-4 rounded-xl bg-accent border-none text-base focus:ring-2 focus:ring-primary/20 transition-all appearance-none"
                                         disabled={!address.city || zonesLoading}
@@ -392,7 +394,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                         <button
                                             key={type.id}
                                             type="button"
-                                            onClick={() => setAddress({ ...address, type: type.id })}
+                                            onClick={() => setAddress(prev => ({ ...prev, type: type.id }))}
                                             className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${address.type === type.id ? 'border-primary bg-primary/5 text-primary' : 'border-border grayscale opacity-60'}`}
                                         >
                                             <type.icon className="w-5 h-5" />

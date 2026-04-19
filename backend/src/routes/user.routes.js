@@ -11,6 +11,7 @@ import { ReferralSettings } from "../models/Settings.js";
 import { getSubscriptionSnapshot, isEliteProvider } from "../lib/subscriptions.js";
 import { ensureCityAndZoneNames, resolveServiceLocation } from "../lib/locationResolution.js";
 import { providerMatchesRequestedSpecialties, resolveRequestedSpecialtySets } from "../lib/serviceMatching.js";
+import { Zone } from "../models/CityZone.js";
 
 const router = Router();
 
@@ -78,6 +79,34 @@ async function normalizeResolvedAddress(input = {}) {
     addr.cityId = byName.cityId || addr.cityId;
     addr.zone = byName.zoneName || addr.zone;
     addr.zoneId = byName.zoneId || addr.zoneId;
+
+    // Fallback coordinates if missing
+    if (addr.zoneId && (!addr.lat || !addr.lng)) {
+      console.log(`[normalizeResolvedAddress] Missing coords for zone: ${addr.zoneId}, attempting fallback...`);
+      try {
+        const zoneDoc = await Zone.findById(addr.zoneId).lean();
+        if (zoneDoc) {
+          console.log(`[normalizeResolvedAddress] Found zone: ${zoneDoc.name}, coords:`, zoneDoc.coordinates);
+          if (Array.isArray(zoneDoc.coordinates) && zoneDoc.coordinates.length > 0) {
+            const valid = zoneDoc.coordinates.filter(c => typeof c.lat === 'number' && typeof c.lng === 'number');
+            if (valid.length > 0) {
+              addr.lat = valid.reduce((sum, c) => sum + c.lat, 0) / valid.length;
+              addr.lng = valid.reduce((sum, c) => sum + c.lng, 0) / valid.length;
+              addr.resolvedAt = new Date();
+              console.log(`[normalizeResolvedAddress] Fallback success: ${addr.lat}, ${addr.lng}`);
+            } else {
+              console.log(`[normalizeResolvedAddress] No valid coords in zone doc`);
+            }
+          } else {
+            console.log(`[normalizeResolvedAddress] Zone doc has no coordinates array`);
+          }
+        } else {
+          console.log(`[normalizeResolvedAddress] Zone doc NOT found for ID: ${addr.zoneId}`);
+        }
+      } catch (err) {
+        console.error("[normalizeResolvedAddress] Fallback error:", err);
+      }
+    }
   }
 
   return addr;
