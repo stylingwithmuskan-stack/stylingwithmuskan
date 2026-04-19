@@ -442,12 +442,28 @@ const AvailabilityEditor = ({ formData, setFormData }) => {
 const UserModuleManagement = () => {
     const {
         categories, addCategory, updateCategory, deleteCategory,
-        services, addService, updateService, deleteService,
+        services, setServices, addService, updateService, deleteService,
         serviceTypes, bookingTypeConfig, updateBookingTypeConfig, addServiceType, updateServiceType, deleteServiceType,
         spotlights, addSpotlight, updateSpotlight, deleteSpotlight,
         gallery, addGallery, updateGallery, deleteGallery,
         testimonials, addTestimonial, updateTestimonial, deleteTestimonial
     } = useUserModuleData();
+
+    // Fetch all services on mount to ensure admin sees all 115+ services instead of just popular ones
+    useEffect(() => {
+        const fetchAllContent = async () => {
+            try {
+                const res = await api.admin.getServices();
+                if (res.services) {
+                    setServices(res.services);
+                }
+            } catch (error) {
+                console.error("Failed to fetch full services list for admin:", error);
+                toast.error("Failed to load all services");
+            }
+        };
+        fetchAllContent();
+    }, [setServices]);
 
     const [activeTab, setActiveTab] = useState("parent_categories");
     const [searchTerm, setSearchTerm] = useState("");

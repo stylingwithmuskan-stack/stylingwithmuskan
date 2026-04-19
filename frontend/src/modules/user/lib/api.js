@@ -560,14 +560,14 @@ export const api = {
     deleteParent: (id) => request(`/admin/parents/${id}`, { method: "DELETE" }),
     getCategories: (params = {}) => {
       const query = new URLSearchParams(params).toString();
-      return request(`/admin/categories${query ? `?query` : ""}`);
+      return request(`/admin/categories${query ? `?${query}` : ""}`);
     },
     addCategory: (body) => request("/admin/categories", { method: "POST", body }),
     updateCategory: (id, body) => request(`/admin/categories/${id}`, { method: "PUT", body }),
     deleteCategory: (id) => request(`/admin/categories/${id}`, { method: "DELETE" }),
     getServices: (params = {}) => {
       const query = new URLSearchParams(params).toString();
-      return request(`/admin/services${query ? `?query` : ""}`);
+      return request(`/admin/services${query ? `?${query}` : ""}`);
     },
     addService: (body) => request("/admin/services", { method: "POST", body }),
     updateService: (id, body) => request(`/admin/services/${id}`, { method: "PUT", body }),
