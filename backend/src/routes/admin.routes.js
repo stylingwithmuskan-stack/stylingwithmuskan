@@ -401,6 +401,14 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
 });
 
 router.patch("/providers/:id/profile", requireRole("admin"), param("id").isString(), AdminController.updateProviderProfile);
+router.patch("/providers/:id/wallet/adjust", 
+  requireRole("admin"), 
+  param("id").isString(), 
+  body("amount").isNumeric(),
+  body("type").isIn(["add", "deduct"]),
+  body("reason").optional().isString(),
+  AdminController.adjustProviderWallet
+);
 
 
 router.patch("/providers/:id/approve-zones", requireRole("admin"), param("id").isString(), async (req, res) => {

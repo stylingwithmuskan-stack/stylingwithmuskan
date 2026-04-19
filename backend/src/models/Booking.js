@@ -7,6 +7,7 @@ const ServiceItemSchema = new mongoose.Schema(
     duration: String,
     category: String,
     serviceType: String,
+    quantity: { type: Number, default: 1 },
   },
   { _id: false }
 );

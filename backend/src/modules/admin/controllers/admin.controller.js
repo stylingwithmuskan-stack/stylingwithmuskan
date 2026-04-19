@@ -11,6 +11,7 @@ import { syncCityCenterFromZone } from "../../../lib/locationResolution.js";
 import { validatePolygon } from "../../../lib/polygonValidation.js";
 
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
+import ProviderWalletTxn from "../../../models/ProviderWalletTxn.js";
 
 const DEFAULT_TZ = "Asia/Kolkata";
 
@@ -1437,3 +1438,39 @@ export async function updateProviderProfile(req, res) {
   }
 }
 
+
+export async function adjustProviderWallet(req, res) {
+  const { id } = req.params;
+  const { amount, type, reason } = req.body;
+  const numAmount = Math.abs(Number(amount));
+
+  if (!numAmount || isNaN(numAmount)) {
+    return res.status(400).json({ error: "Invalid amount" });
+  }
+
+  const p = await ProviderAccount.findById(id);
+  if (!p) return res.status(404).json({ error: "Provider not found" });
+
+  const oldCredits = Number(p.credits || 0);
+  if (type === "add") {
+    p.credits = oldCredits + numAmount;
+  } else {
+    p.credits = Math.max(0, oldCredits - numAmount);
+  }
+
+  await p.save();
+
+  await ProviderWalletTxn.create({
+    providerId: p._id.toString(),
+    type: type === "add" ? "admin_credit" : "admin_debit",
+    amount: type === "add" ? numAmount : -numAmount,
+    balanceAfter: p.credits,
+    meta: {
+      title: reason || (type === "add" ? "Manual Credit by Admin" : "Manual Debit by Admin"),
+      source: "admin_adjustment",
+      adjustedBy: "Super Admin", // Could use req.auth.sub if name is available
+    },
+  });
+
+  res.json({ success: true, credits: p.credits, provider: p });
+}

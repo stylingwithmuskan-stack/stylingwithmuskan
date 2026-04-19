@@ -89,7 +89,7 @@ function bookingServicesToItems(services = []) {
     duration: s?.duration || "",
     category: s?.category || "",
     serviceType: s?.serviceType || "",
-    quantity: 1,
+    quantity: Number(s?.quantity) || 1,
   }));
 }
 
@@ -458,7 +458,7 @@ export async function create(req, res) {
     customerName: req.user.name || "",
     customerPhone: req.user.phone || "",
     services: items.map(it => ({
-      name: it.name, price: it.price, duration: it.duration, category: it.category, serviceType: it.serviceType,
+      name: it.name, price: it.price, duration: it.duration, category: it.category, serviceType: it.serviceType, quantity: Number(it.quantity) || 1,
     })),
     totalAmount: totals.finalTotal,
     discount: totals.discount,
