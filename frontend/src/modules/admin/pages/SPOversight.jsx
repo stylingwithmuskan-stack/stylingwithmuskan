@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X, CalendarRange, MapPin } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X, CalendarRange, MapPin, Wallet, Plus } from "lucide-react";
 
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
@@ -35,7 +35,8 @@ export default function SPOversight() {
         updateProviderProfile,
         getLeaves,
         approveLeave,
-        rejectLeave
+        rejectLeave,
+        adjustProviderWallet
     } = useAdminAuth();
 
     const [providers, setProviders] = useState([]);
@@ -56,6 +57,10 @@ export default function SPOversight() {
     const [availableCategories, setAvailableCategories] = useState([]);
     const [availableServices, setAvailableServices] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [isWalletAdjusting, setIsWalletAdjusting] = useState(false);
+    const [walletAmount, setWalletAmount] = useState("");
+    const [walletType, setWalletType] = useState("add");
+    const [walletReason, setWalletReason] = useState("");
 
 
     const [feedback, setFeedback] = useState([]);
@@ -127,6 +132,35 @@ export default function SPOversight() {
         }
     };
 
+
+    const handleWalletAdjust = async () => {
+        if (!walletAmount || isNaN(walletAmount)) {
+            toast.error("Please enter a valid amount");
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await adjustProviderWallet(selectedSP._id || selectedSP.id, {
+                amount: Number(walletAmount),
+                type: walletType,
+                reason: walletReason
+            });
+            toast.success(`Wallet ${walletType === "add" ? "credited" : "debited"} successfully`);
+            setIsWalletAdjusting(false);
+            setWalletAmount("");
+            setWalletReason("");
+            
+            // Refresh providers and update selectedSP
+            const items = await getAllServiceProviders();
+            setProviders(Array.isArray(items) ? items : []);
+            const fresh = (Array.isArray(items) ? items : []).find(p => (p._id || p.id) === (selectedSP._id || selectedSP.id));
+            if (fresh) setSelectedSP(fresh);
+        } catch (error) {
+            toast.error(error?.message || "Failed to adjust wallet");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const getSPRating = (nameOrId) => {
         const spFeedback = feedback.filter(f => (f.providerName === nameOrId || f.assignedProvider === nameOrId || f.providerId === nameOrId) && f.type === "customer_to_provider");
@@ -796,7 +830,90 @@ export default function SPOversight() {
                                     </div>
                                 </div>
 
-                                {/* Documents */}
+                                 {/* Wallet Section */}
+                                 <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+                                     <div className="flex items-center justify-between mb-3">
+                                         <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                             <Wallet className="h-3.5 w-3.5 text-primary" /> Wallet Balance
+                                         </h3>
+                                         <p className="text-xl font-black text-primary">₹{selectedSP.credits || 0}</p>
+                                     </div>
+
+                                     {!isWalletAdjusting ? (
+                                         <Button 
+                                             onClick={() => setIsWalletAdjusting(true)} 
+                                             variant="outline" 
+                                             className="w-full h-9 rounded-xl font-bold text-xs gap-2 border-primary/20 hover:bg-primary/5"
+                                         >
+                                             <Plus className="h-3.5 w-3.5" /> Adjust Balance
+                                         </Button>
+                                     ) : (
+                                         <div className="space-y-3 mt-4 pt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2">
+                                             <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                                                 <Button 
+                                                     size="sm" 
+                                                     className={cn("flex-1 h-8 rounded-md font-bold text-[10px]", walletType === "add" ? "bg-green-600 text-white" : "bg-transparent text-muted-foreground hover:bg-muted-foreground/10")}
+                                                     onClick={() => setWalletType("add")}
+                                                 >
+                                                     Add Money
+                                                 </Button>
+                                                 <Button 
+                                                     size="sm" 
+                                                     className={cn("flex-1 h-8 rounded-md font-bold text-[10px]", walletType === "deduct" ? "bg-red-600 text-white" : "bg-transparent text-muted-foreground hover:bg-muted-foreground/10")}
+                                                     onClick={() => setWalletType("deduct")}
+                                                 >
+                                                     Deduct Money
+                                                 </Button>
+                                             </div>
+                                             
+                                             <div className="grid grid-cols-3 gap-2">
+                                                 <div className="col-span-1">
+                                                     <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 ml-1">Amount</p>
+                                                     <Input 
+                                                         type="number" 
+                                                         placeholder="0" 
+                                                         value={walletAmount}
+                                                         onChange={e => setWalletAmount(e.target.value)}
+                                                         className="h-9 rounded-xl text-xs font-bold"
+                                                     />
+                                                 </div>
+                                                 <div className="col-span-2">
+                                                     <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 ml-1">Reason (Optional)</p>
+                                                     <Input 
+                                                         placeholder="Why this adjustment?" 
+                                                         value={walletReason}
+                                                         onChange={e => setWalletReason(e.target.value)}
+                                                         className="h-9 rounded-xl text-xs"
+                                                     />
+                                                 </div>
+                                             </div>
+
+                                             <div className="flex gap-2">
+                                                 <Button 
+                                                     onClick={handleWalletAdjust} 
+                                                     disabled={isSaving}
+                                                     className={cn("flex-1 h-9 rounded-xl font-black text-xs", walletType === "add" ? "bg-green-600 hover:bg-green-700 text-white" : "bg-red-600 hover:bg-red-700 text-white")}
+                                                 >
+                                                     {isSaving ? "Saving..." : `Confirm ${walletType === "add" ? "Credit" : "Debit"}`}
+                                                 </Button>
+                                                 <Button 
+                                                     onClick={() => {
+                                                         setIsWalletAdjusting(false);
+                                                         setWalletAmount("");
+                                                         setWalletReason("");
+                                                     }} 
+                                                     variant="ghost" 
+                                                     disabled={isSaving}
+                                                     className="h-9 px-3 rounded-xl font-bold text-xs"
+                                                 >
+                                                     Cancel
+                                                 </Button>
+                                             </div>
+                                         </div>
+                                     )}
+                                 </div>
+
+                                 {/* Documents */}
                                 <div>
                                     <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">Documents Verification</h3>
                                     <div className="grid grid-cols-2 gap-4 mb-4">

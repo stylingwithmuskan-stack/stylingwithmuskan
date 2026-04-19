@@ -27,10 +27,25 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
         if (booking) setLocalBooking(booking);
     }, [booking]);
 
+    // Primary source: slot.provider is populated by backend's attachProviderToBookings
+    // with real ProviderAccount data (name, rating, profilePhoto, experience, city)
+    // Fallback: match against Content Providers list from useUserModuleData()
     const assignedProvider = useMemo(() => {
-        if (!providers || !localBooking) return null;
-        const pId = localBooking.assignedProvider || localBooking.slot?.provider?.id;
-        return providers.find(p => p.id === pId || p._id === pId);
+        if (!localBooking) return null;
+        const slotProvider = localBooking.slot?.provider;
+        const pId = localBooking.assignedProvider || slotProvider?.id;
+        // Find from Content Providers list as secondary source
+        const contentProvider = providers?.find(p => p.id === pId || p._id === pId);
+        // Merge: prefer slot.provider (real ProviderAccount data) over content provider
+        if (slotProvider) {
+            return {
+                ...contentProvider,
+                ...slotProvider,
+                // profilePhoto comes from backend, map to image for the UI
+                image: slotProvider.profilePhoto || contentProvider?.image || '',
+            };
+        }
+        return contentProvider || null;
     }, [providers, localBooking]);
 
     const getFormattedDate = (dateStr) => {
@@ -306,9 +321,9 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                     <div className="flex items-center gap-4">
                                         <div className="w-16 h-16 rounded-2xl overflow-hidden bg-accent flex-shrink-0 border-2 border-primary/10">
                                             <img
-                                                src={assignedProvider?.image || "https://placehold.co/100x100"}
+                                                src={assignedProvider?.image || assignedProvider?.profilePhoto || "https://placehold.co/100x100"}
                                                 className="w-full h-full object-cover"
-                                                alt={assignedProvider?.name}
+                                                alt={assignedProvider?.name || 'Provider'}
                                             />
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -319,17 +334,25 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-3 mt-1">
-                                                <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground">
-                                                    <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-                                                    {assignedProvider?.rating || '4.8'}
-                                                </div>
-                                                <div className="text-[10px] font-bold text-muted-foreground">•</div>
+                                                {(assignedProvider?.rating > 0) && (
+                                                    <>
+                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground">
+                                                            <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                                                            {assignedProvider.rating}
+                                                        </div>
+                                                        <div className="text-[10px] font-bold text-muted-foreground">•</div>
+                                                    </>
+                                                )}
+                                                {assignedProvider?.experience && (
+                                                    <>
+                                                        <div className="text-[10px] font-bold text-muted-foreground">
+                                                            {assignedProvider.experience} Exp
+                                                        </div>
+                                                        <div className="text-[10px] font-bold text-muted-foreground">•</div>
+                                                    </>
+                                                )}
                                                 <div className="text-[10px] font-bold text-muted-foreground">
-                                                    {assignedProvider?.experience || '2+ Years'} Exp
-                                                </div>
-                                                <div className="text-[10px] font-bold text-muted-foreground">•</div>
-                                                <div className="text-[10px] font-bold text-muted-foreground">
-                                                    {assignedProvider?.totalJobs || '100+'} Jobs
+                                                    {assignedProvider?.city || 'Professional'}
                                                 </div>
                                             </div>
                                         </div>
@@ -424,8 +447,8 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                                 <div className="flex-1 min-w-0 py-1 flex flex-col justify-between">
                                                     <h4 className="font-bold text-sm truncate">{item.name}</h4>
                                                     <div className="flex items-center justify-between">
-                                                        <span className="text-xs text-muted-foreground font-medium">Qty: 1</span>
-                                                        <span className="font-black text-primary">₹{item.price}</span>
+                                                        <span className="text-xs text-muted-foreground font-medium">Qty: {item.quantity || 1}</span>
+                                                        <span className="font-black text-primary">₹{(item.price * (item.quantity || 1)).toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -449,10 +472,10 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                         <Star className="w-3.5 h-3.5" />
                                         <span className="text-[10px] font-black uppercase tracking-wider">Professional</span>
                                     </div>
-                                    <p className="text-sm font-bold">{booking.slot?.provider?.name || 'Trained Pro'}</p>
+                                    <p className="text-sm font-bold">{assignedProvider?.name || booking.slot?.provider?.name || 'Trained Pro'}</p>
                                     <div className="flex items-center gap-1 text-green-600">
                                         <ShieldCheck className="w-3 h-3" />
-                                        <span className="text-[10px] font-bold">Vaccinated & Verified</span>
+                                        <span className="text-[10px] font-bold">Verified Professional</span>
                                     </div>
                                 </div>
                             </div>

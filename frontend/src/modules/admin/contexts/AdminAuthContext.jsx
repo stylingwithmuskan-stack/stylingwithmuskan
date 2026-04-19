@@ -83,6 +83,7 @@ export const AdminAuthProvider = ({ children }) => {
 
     const approveProviderZones = async (id) => { await api.admin.approveProviderZones(id); };
     const rejectProviderZones = async (id) => { await api.admin.rejectProviderZones(id); };
+    const adjustProviderWallet = async (id, payload) => { await api.admin.adjustProviderWallet(id, payload); };
 
     // ───── ENQUIRIES (server) ─────
     const getEnquiries = async () => (await api.admin.customEnquiries()).enquiries;
@@ -239,7 +240,7 @@ export const AdminAuthProvider = ({ children }) => {
             getAllCustomers,
             getAllServiceProviders, updateSPStatus, updateProviderProfile,
 
-            getAllServiceProviders, updateSPStatus, approveProviderZones, rejectProviderZones,
+            getAllServiceProviders, updateSPStatus, approveProviderZones, rejectProviderZones, adjustProviderWallet,
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,
             getAllBookings, getUserBookings, assignSPToBooking, assignTeamToBooking,
             getCoupons, addCoupon, deleteCoupon,

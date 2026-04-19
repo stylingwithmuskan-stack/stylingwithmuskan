@@ -510,6 +510,7 @@ export const api = {
     },
     updateProviderStatus: (id, status) => request(`/admin/providers/${id}/status`, { method: "PATCH", body: { status } }),
     updateProviderProfile: (id, payload) => request(`/admin/providers/${id}/profile`, { method: "PATCH", body: payload }),
+    adjustProviderWallet: (id, payload) => request(`/admin/providers/${id}/wallet/adjust`, { method: "PATCH", body: payload }),
     bookings: () => request("/admin/bookings"),
 
     assignBooking: (id, providerId) => request(`/admin/bookings/${id}/assign`, { method: "PATCH", body: { providerId } }),
