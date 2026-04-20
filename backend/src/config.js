@@ -23,6 +23,7 @@ export const DEMO_DEFAULT_OTP = process.env.DEMO_DEFAULT_OTP || "";
 export const DEMO_DEFAULT_OTP6 = process.env.DEMO_DEFAULT_OTP6 || "";
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
 export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+export const SUPPORT_PHONE = process.env.SUPPORT_PHONE || "9990000001";
 
 // SMS India Hub
 export const SMSINDIAHUB_API_KEY = process.env.SMSINDIAHUB_API_KEY || "";

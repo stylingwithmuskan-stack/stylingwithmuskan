@@ -127,7 +127,11 @@ export default function VendorSupport() {
                         <p className="text-[10px] text-green-600 font-bold">● Online</p>
                     </div>
                 </div>
-                <Button variant="outline" className="rounded-full border-slate-200 text-slate-700 font-bold gap-2 text-xs">
+                <Button 
+                    variant="outline" 
+                    onClick={() => window.location.href = `tel:+91${import.meta.env.VITE_SUPPORT_PHONE || "9990000001"}`}
+                    className="rounded-full border-slate-200 text-slate-700 font-bold gap-2 text-xs"
+                >
                     <Phone className="h-3.5 w-3.5" /> Call
                 </Button>
             </div>

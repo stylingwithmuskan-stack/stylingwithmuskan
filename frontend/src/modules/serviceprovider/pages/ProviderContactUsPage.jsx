@@ -11,8 +11,11 @@ const ProviderContactUsPage = () => {
     window.scrollTo(0, 0);
   }, []);
 
+  const supportPhone = import.meta.env.VITE_SUPPORT_PHONE || "9990000001";
+  const formattedPhone = `+91 ${supportPhone.slice(0, 5)} ${supportPhone.slice(5)}`;
+
   const contacts = [
-    { icon: Phone, label: "Call Provider Support", value: "+91 999 000 0002", action: "tel:+919990000002" },
+    { icon: Phone, label: "Call Provider Support", value: formattedPhone, action: `tel:+91${supportPhone}` },
     { icon: Mail, label: "Email Support", value: "provider@swm.com", action: "mailto:provider@swm.com" },
     { icon: MessageSquare, label: "Live Chat", value: "Chat with support team", action: "/provider/support" },
     { icon: MapPin, label: "Visit Our Hub", value: "View all service zones on map", action: "/provider/all-zones" },
