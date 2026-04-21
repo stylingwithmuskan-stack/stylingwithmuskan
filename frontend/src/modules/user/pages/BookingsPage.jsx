@@ -17,12 +17,14 @@ import FeedbackModal from "@/modules/user/components/salon/FeedbackModal";
 import ProviderProfileModal from "@/modules/user/components/salon/ProviderProfileModal";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { useCart } from "@/modules/user/contexts/CartContext";
+import { useBookingChat } from "@/modules/user/contexts/BookingChatContext";
 
 const BookingsPage = () => {
     const navigate = useNavigate();
     const { gender } = useGenderTheme();
     const { bookings, enquiries, acceptCustomEnquiry, rejectCustomEnquiry, payAdvanceForCustomEnquiry, loadingEnquiries } = useBookings();
     const { addCustomAdvanceToCart, setIsCartOpen, clearCart, addToCart, setBookingType } = useCart();
+    const { unreadCounts } = useBookingChat();
     useEffect(() => {
         try {
             bookings.forEach(b => {
@@ -348,9 +350,14 @@ const BookingsPage = () => {
                                                                 <>
                                                                     <button
                                                                         onClick={() => setChatBooking(booking)}
-                                                                        className="h-9 w-9 rounded-xl border border-primary/20 bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-colors"
+                                                                        className="h-9 w-9 rounded-xl border border-primary/20 bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-colors relative"
                                                                     >
                                                                         <MessageSquare className="w-4 h-4" />
+                                                                        {(unreadCounts?.[booking._id || booking.id] || 0) > 0 && (
+                                                                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center border border-white font-bold animate-bounce mt-1 mr-1">
+                                                                                {unreadCounts[booking._id || booking.id]}
+                                                                            </span>
+                                                                        )}
                                                                     </button>
                                                                     <button
                                                                         onClick={() => setCallingBooking(booking)}

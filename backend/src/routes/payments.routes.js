@@ -226,10 +226,10 @@ router.post(
         
         // If it was waiting for payment, move it to active statuses
         if (isFirstPayment) {
-          b.status = b.balanceAmount === 0 ? "documentation" : "pending";
+          b.status = "pending";
         } else {
           // Normal status update logic for existing bookings
-          b.status = b.status === "payment_pending" && b.balanceAmount === 0 ? "documentation" : b.status;
+          b.status = b.status === "payment_pending" ? "pending" : b.status;
         }
 
         b.paymentOrder = { id: "", amount: 0, currency: "INR", receipt: "", createdAt: null };

@@ -33,6 +33,7 @@ export const ProviderBookingProvider = ({ children }) => {
     const ringtoneAudioRef = useRef(null);
     const userInteractedRef = useRef(false);
     const isFirstLoadRef = useRef(true);
+    const locationSocketRef = useRef(null);
 
     // Unlock audio on first user interaction (browser autoplay policy)
     useEffect(() => {
@@ -137,42 +138,14 @@ export const ProviderBookingProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, [providerId, provider?.phone, refreshBookings]);
 
-    // ─── Real-time Socket Sync ───
-    useEffect(() => {
-        const token = localStorage.getItem("swm_provider_token");
-        if (!providerId || !token) return;
-
-        console.log(`[ProviderBookings] 🔄 Connecting sync socket for provider: ${providerId}`);
-        const socket = io(`${API_BASE_URL}/bookings`, {
-            auth: { token },
-            transports: ["websocket"],
-        });
-
-        socket.on("connect", () => {
-            console.log("[ProviderBookings] ✅ Sync socket connected");
-            refreshBookings(); // Initial catch-up
-        });
-
-        socket.on("new_notification", (payload) => {
-            const targetId = String(payload.recipientId);
-            const myId = String(providerId);
-            if (targetId === myId) {
-                console.log("[ProviderBookings] 🔔 New notification received, refreshing bookings...");
-                refreshBookings();
-            }
-        });
-
-        socket.on("assignment:changed", (payload) => {
-            if (String(payload.toProvider) === String(providerId) || String(payload.fromProvider) === String(providerId)) {
-                console.log("[ProviderBookings] 🚀 Assignment changed, refreshing bookings...");
-                refreshBookings();
-            }
-        });
-
-        return () => {
-            socket.disconnect();
-        };
-    }, [providerId, refreshBookings]);
+    const playMessageSound = useCallback(() => {
+        if (!userInteractedRef.current) return;
+        try {
+            const audio = new Audio("/sounds/massege_ting.mp3");
+            audio.volume = 1.0;
+            audio.play().catch(() => {});
+        } catch {}
+    }, []);
 
     const isExpiredAssignmentForCurrentProvider = useCallback((booking) => {
         const normalizedStatus = String(booking?.status || "").toLowerCase();
@@ -208,6 +181,88 @@ export const ProviderBookingProvider = ({ children }) => {
     const assignedBookings = myBookings.filter(b => b.status === "vendor_assigned" || b.status === "vendor_reassigned");
     const completedBookings = myBookings.filter(b => b.status === "completed");
     const cancelledBookings = myBookings.filter(b => ["cancelled", "rejected", "provider_cancelled"].includes(b.status));
+
+    // ─── Real-time Socket Sync ───
+    useEffect(() => {
+        const token = localStorage.getItem("swm_provider_token");
+        if (!providerId || !token) return;
+
+        // 1. Bookings status sync
+        console.log(`[ProviderBookings] 🔄 Connecting sync socket for provider: ${providerId}`);
+        const socket = io(`${API_BASE_URL}/bookings`, {
+            auth: { token },
+            transports: ["websocket"],
+        });
+
+        socket.on("connect", () => {
+            console.log("[ProviderBookings] ✅ Sync socket connected");
+            refreshBookings(); // Initial catch-up
+        });
+
+        // ... existing listeners ...
+        socket.on("new_notification", (payload) => {
+            const targetId = String(payload.recipientId);
+            const myId = String(providerId);
+            if (targetId === myId) {
+                console.log("[ProviderBookings] 🔔 New notification received, refreshing bookings...");
+                refreshBookings();
+            }
+        });
+
+        socket.on("assignment:changed", (payload) => {
+            if (String(payload.toProvider) === String(providerId) || String(payload.fromProvider) === String(providerId)) {
+                console.log("[ProviderBookings] 🚀 Assignment changed, refreshing bookings...");
+                refreshBookings();
+            }
+        });
+
+        // 2. Booking Chat sync (Global)
+        const chatSocket = io(`${API_BASE_URL}/booking-chat`, {
+            auth: { token },
+            transports: ["websocket"],
+        });
+
+        chatSocket.on("connect", () => {
+             console.log("[ProviderBookings] 💬 Chat socket connected globally");
+             // Join rooms for all current active/accepted bookings
+             activeBookings.forEach(b => {
+                 chatSocket.emit("join:chat", { bookingId: b.id || b._id });
+             });
+        });
+
+        chatSocket.on("receive:message", (newMessage) => {
+            // If sender is customer, play sound
+            if (newMessage.senderRole === "customer") {
+                console.log("[ProviderBookings] 💬 New chat message from customer");
+                playMessageSound();
+            }
+        });
+
+        // 3. Provider Location tracking socket
+        console.log(`[ProviderBookings] 📍 Connecting location socket for provider: ${providerId}`);
+        const locationSocket = io(`${API_BASE_URL}/provider-location`, {
+            auth: { token },
+            transports: ["websocket"],
+        });
+
+        locationSocket.on("connect", () => {
+            console.log("[ProviderBookings] ✅ Location socket connected");
+            locationSocketRef.current = locationSocket;
+        });
+
+        return () => {
+            socket.disconnect();
+            chatSocket.disconnect();
+            locationSocket.disconnect();
+            locationSocketRef.current = null;
+        };
+    }, [providerId, refreshBookings, activeBookings.length, playMessageSound]);
+
+    const updateLiveLocation = useCallback((lat, lng) => {
+        if (locationSocketRef.current && locationSocketRef.current.connected) {
+            locationSocketRef.current.emit("location:update", { lat, lng });
+        }
+    }, []);
 
     // ─── Detect new incoming bookings and play ringtone ───
     useEffect(() => {
@@ -337,6 +392,7 @@ export const ProviderBookingProvider = ({ children }) => {
             addProductImages,
             addProviderImages,
             stopRingtone,
+            updateLiveLocation,
         }}>
             {children}
         </ProviderBookingContext.Provider>

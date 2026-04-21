@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Button } from "@/modules/user/components/ui/button";
 import LiveMap from "@/components/LiveMap";
 import { api } from "@/modules/user/lib/api";
+import BookingChat from "../components/chat/BookingChat";
 
 const statusSteps = [
     { key: "accepted", label: "Accepted", icon: Check },
@@ -25,7 +26,11 @@ const statusSteps = [
 const ProviderBookingDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { bookings, updateBookingStatus, requestPayment, verifyOTP, addBeforeImages, addAfterImages, addProductImages, addProviderImages } = useProviderBookings();
+    const { 
+        bookings, updateBookingStatus, requestPayment, verifyOTP, 
+        addBeforeImages, addAfterImages, addProductImages, addProviderImages,
+        updateLiveLocation 
+    } = useProviderBookings();
     const booking = bookings.find(b => (b.id || b._id) === id);
     const bookingId = booking?.id || booking?._id;
 
@@ -42,8 +47,9 @@ const ProviderBookingDetailPage = () => {
     const [statusLoading, setStatusLoading] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
-    const [showEarlyStartWarning, setShowEarlyStartWarning] = useState(false);
     const [pendingStatusUpdate, setPendingStatusUpdate] = useState(null);
+    const [showEarlyStartWarning, setShowEarlyStartWarning] = useState(false);
+    const [showChat, setShowChat] = useState(false);
     const lastSentRef = useRef(0);
 
     const handleUpdateStatus = async (next) => {
@@ -181,7 +187,8 @@ const ProviderBookingDetailPage = () => {
                 const now = Date.now();
                 if (now - lastSentRef.current > 5000) {
                     lastSentRef.current = now;
-                    api.provider.updateBookingLocation(bookingId, coords.lat, coords.lng).catch(() => {});
+                    // Switch to real-time socket updates
+                    updateLiveLocation(coords.lat, coords.lng);
                 }
             },
             () => { setGpsStatus("error"); },
@@ -450,6 +457,17 @@ const ProviderBookingDetailPage = () => {
                 <span className={`px-2.5 py-1 text-[9px] font-black uppercase rounded-md tracking-widest ${booking.status === 'in_progress' ? 'bg-amber-100 text-amber-700' : booking.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
                     {booking.status?.replace("_", " ") || ""}
                 </span>
+                
+                {/* Chat Button in Header */}
+                {["accepted", "travelling", "arrived", "in_progress", "payment", "documentation", "completed"].includes(booking?.status?.toLowerCase()) && (
+                    <button 
+                        onClick={() => setShowChat(true)}
+                        className="ml-2 w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 hover:bg-purple-100 transition-colors relative"
+                    >
+                        <MessageSquare className="w-5 h-5" />
+                        <span className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full border border-white shadow-sm" />
+                    </button>
+                )}
             </div>
 
             <div className="max-w-xl mx-auto px-4 py-6 space-y-4">
@@ -564,6 +582,9 @@ const ProviderBookingDetailPage = () => {
                                 height={192}
                                 userLocation={userLocation}
                                 providerLocation={providerLocation}
+                                showSOS={true}
+                                onSOS={() => toast.success("SOS Alert Sent to Support Team!")}
+                                title={`Navigation to ${booking.customerName || "Customer"}`}
                             />
                             <div className="absolute top-3 right-3 bg-white/90 border border-gray-200 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shadow-sm">
                                 {trackingActive ? (gpsStatus === "live" ? "GPS Live" : gpsStatus === "error" ? "GPS Error" : "GPS Waiting") : "Tracking Off"}
@@ -793,6 +814,33 @@ const ProviderBookingDetailPage = () => {
                     </div>
                 </div>
             )}
+
+            {/* Chat Drawer/Overlay */}
+            <AnimatePresence>
+                {showChat && (
+                    <div className="fixed inset-0 z-[250] flex flex-col justify-end">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowChat(false)}
+                            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+                        />
+                        <motion.div
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className="relative w-full max-w-xl mx-auto"
+                        >
+                            <BookingChat 
+                                bookingId={bookingId} 
+                                onClose={() => setShowChat(false)} 
+                            />
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

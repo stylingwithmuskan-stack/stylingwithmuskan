@@ -109,6 +109,11 @@ const BookingSchema = new mongoose.Schema(
     rebookNotifiedAt: { type: Date, default: null },
     vendorReminderSent: { type: Boolean, default: false },
     providerReminderSent: { type: Boolean, default: false },
+    lastProviderLocation: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+      updatedAt: { type: Date, default: null }
+    },
   },
   { timestamps: true }
 );

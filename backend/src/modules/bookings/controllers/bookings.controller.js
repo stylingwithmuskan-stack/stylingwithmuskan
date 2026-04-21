@@ -694,12 +694,22 @@ export async function track(req, res) {
   let providerMeta = null;
   const providerId = String(booking.assignedProvider || "").trim();
   if (providerId) {
+    // 1. First, check if the booking has a persisted location for instant rendering
+    if (booking.lastProviderLocation?.lat && booking.lastProviderLocation?.lng) {
+      providerLocation = { 
+        lat: booking.lastProviderLocation.lat, 
+        lng: booking.lastProviderLocation.lng 
+      };
+    }
+
+    // 2. Fetch the latest from ProviderAccount if possible (fallback/latest)
     let provider = null;
     if (mongoose.isValidObjectId(providerId)) {
       provider = await ProviderAccount.findById(providerId).select("name currentLocation").lean();
     } else if (/^\d{10}$/.test(providerId)) {
       provider = await ProviderAccount.findOne({ phone: providerId }).select("name currentLocation").lean();
     }
+
     if (provider) {
       const plat = provider.currentLocation?.lat;
       const plng = provider.currentLocation?.lng;
@@ -1069,4 +1079,36 @@ export async function cancel(req, res) {
       ? `Booking cancelled. Refund of ₹${refundAmount} is being processed.`
       : "Booking cancelled successfully."
   });
+}
+
+/**
+ * Fetches chat history for a specific booking.
+ * Verified to ensure requester is either the customer or the assigned provider.
+ */
+export async function getChatHistory(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "Invalid booking ID" });
+
+    const booking = await Booking.findById(id).select("customerId assignedProvider status").lean();
+    if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+    const userId = req.user._id.toString();
+    const isCustomer = booking.customerId === userId;
+    const isProvider = booking.assignedProvider === userId;
+
+    if (!isCustomer && !isProvider) {
+      return res.status(403).json({ error: "Unauthorized access to chat history" });
+    }
+
+    const BookingChat = (await import("../../../models/BookingChat.js")).default;
+    const messages = await BookingChat.find({ bookingId: id })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    return res.json({ messages });
+  } catch (err) {
+    console.error("[ChatHistory] Error:", err);
+    return res.status(500).json({ error: "Failed to fetch chat history" });
+  }
 }

@@ -1740,6 +1740,14 @@ router.patch(
     await ProviderAccount.findByIdAndUpdate(providerId, {
       currentLocation: { lat: req.body.lat, lng: req.body.lng },
     });
+    // Persist in Booking for instant loading on user side
+    await Booking.findByIdAndUpdate(bookingId, {
+      lastProviderLocation: {
+        lat: req.body.lat,
+        lng: req.body.lng,
+        updatedAt: new Date()
+      }
+    });
     try {
       const io = getIO();
       io?.of("/bookings").to(`booking:${bookingId}`).emit("booking:location", {

@@ -9,7 +9,7 @@ const leftTabs = [
 ];
 
 const rightTabs = [
-  { icon: Calendar, label: "Bookings", path: "/bookings" },
+  { icon: Calendar, label: "Bookings", path: "/bookings", hasBadge: true },
   { icon: User, label: "Profile", path: "/profile" },
 ];
 

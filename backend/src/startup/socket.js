@@ -4,6 +4,7 @@ import { Server as IOServer } from "socket.io";
 import { ALLOWED_ORIGINS, JWT_SECRET } from "../config.js";
 import Booking from "../models/Booking.js";
 import ProviderAccount from "../models/ProviderAccount.js";
+import BookingChat from "../models/BookingChat.js";
 
 let io = null;
 
@@ -57,6 +58,88 @@ export function initSocket(httpServer) {
       });
     });
 
+    // Booking Chat namespace
+    io.of("/booking-chat").use((socket, next) => {
+      try {
+        const token = socket.handshake.auth?.token || "";
+        if (!token) return next(new Error("Unauthorized"));
+        const payload = jwt.verify(token, JWT_SECRET);
+        socket.data.userId = payload.sub;
+        socket.data.role = payload.role || "customer";
+        next();
+      } catch {
+        next(new Error("Unauthorized"));
+      }
+    }).on("connection", (socket) => {
+      console.log(`[Socket] User ${socket.data.userId} connected to booking-chat (Role: ${socket.data.role})`);
+
+      socket.on("join:chat", async (payload) => {
+        try {
+          const bookingId = String(payload?.bookingId || "").trim();
+          if (!mongoose.isValidObjectId(bookingId)) return;
+
+          // Verify if the user is either the customer or the assigned provider for this booking
+          const booking = await Booking.findById(bookingId).select("customerId assignedProvider status").lean();
+          if (!booking) {
+            return socket.emit("chat:error", { error: "Booking not found" });
+          }
+
+          const isCustomer = booking.customerId === socket.data.userId;
+          const isProvider = booking.assignedProvider === socket.data.userId;
+
+          if (!isCustomer && !isProvider) {
+            return socket.emit("chat:error", { error: "Unauthorized" });
+          }
+
+          socket.join(`chat:${bookingId}`);
+          console.log(`[Socket] User ${socket.data.userId} joined chat room for booking ${bookingId}`);
+          socket.emit("chat:joined", { bookingId });
+        } catch (err) {
+          socket.emit("chat:error", { error: "Failed to join chat" });
+        }
+      });
+
+      socket.on("send:message", async (payload) => {
+        try {
+          const { bookingId, message } = payload;
+          if (!mongoose.isValidObjectId(bookingId) || !message?.trim()) return;
+
+          const booking = await Booking.findById(bookingId).select("customerId assignedProvider").lean();
+          if (!booking) return;
+
+          const isCustomer = booking.customerId === socket.data.userId;
+          const isProvider = booking.assignedProvider === socket.data.userId;
+
+          if (!isCustomer && !isProvider) return;
+
+          const chatMessage = await BookingChat.create({
+            bookingId,
+            senderId: socket.data.userId,
+            senderRole: isCustomer ? "customer" : "provider",
+            message: message.trim(),
+          });
+
+          // Broadcast to everyone in the room (including the sender for ack or handle separately)
+          io.of("/booking-chat").to(`chat:${bookingId}`).emit("receive:message", chatMessage);
+          
+          console.log(`[Socket] Message sent in booking ${bookingId} by ${socket.data.userId}`);
+        } catch (err) {
+          console.error("[Socket] Error sending message:", err);
+          socket.emit("chat:error", { error: "Failed to send message" });
+        }
+      });
+
+      socket.on("leave:chat", (payload) => {
+        const bookingId = String(payload?.bookingId || "").trim();
+        if (!bookingId) return;
+        socket.leave(`chat:${bookingId}`);
+      });
+
+      socket.on("disconnect", () => {
+        console.log(`[Socket] User ${socket.data.userId} disconnected from booking-chat`);
+      });
+    });
+
     // Provider location tracking namespace
     io.of("/provider-location").use((socket, next) => {
       try {
@@ -103,7 +186,31 @@ export function initSocket(httpServer) {
             return;
           }
 
-          // Broadcast location to users tracking this provider
+          // Find active bookings for this provider to relay updates
+          const activeBookings = await Booking.find({
+            assignedProvider: socket.data.providerId,
+            status: { $in: ["travelling", "arrived", "in_progress"] }
+          }).select("_id").lean();
+
+          const ioBookings = io.of("/bookings");
+          for (const ab of activeBookings) {
+            const bookingId = ab._id.toString();
+            
+            // Persist location in Booking document for instant join recovery
+            await Booking.findByIdAndUpdate(bookingId, {
+              lastProviderLocation: { lat, lng, updatedAt: new Date() }
+            });
+
+            // Emit to booking-specific room
+            ioBookings.to(`booking:${bookingId}`).emit("booking:location", {
+              bookingId,
+              lat,
+              lng,
+              updatedAt: new Date().toISOString()
+            });
+          }
+
+          // Broadcast location to users tracking this provider (Legacy/Global tracking)
           socket.broadcast.emit(`provider:${socket.data.providerId}:location`, {
             providerId: socket.data.providerId,
             location: { lat, lng },

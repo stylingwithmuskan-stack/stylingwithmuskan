@@ -90,6 +90,12 @@ router.get(
   BookingsController.getById
 );
 
+router.get(
+  "/:id/chat",
+  requireAuth,
+  BookingsController.getChatHistory
+);
+
 router.patch(
   "/:id/cancel",
   requireAuth,

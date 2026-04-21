@@ -10,6 +10,7 @@ import { GenderThemeProvider } from "@/modules/user/contexts/GenderThemeContext"
 import { CartProvider } from "@/modules/user/contexts/CartContext";
 import { AuthProvider, AuthContext } from "@/modules/user/contexts/AuthContext";
 import { BookingProvider } from "@/modules/user/contexts/BookingContext";
+import { BookingChatProvider } from "@/modules/user/contexts/BookingChatContext";
 import { WishlistProvider } from "@/modules/user/contexts/WishlistContext";
 import { UserModuleDataProvider } from "@/modules/user/contexts/UserModuleDataContext";
 import { NotificationProvider } from "@/modules/user/contexts/NotificationContext";
@@ -199,13 +200,14 @@ const App = () => {
                 <CartProvider>
                   <WishlistProvider>
                     <BookingProvider>
-                      <ProviderAuthProvider>
-                        <ProviderBookingProvider>
-                          <VenderAuthProvider>
-                            <AdminAuthProvider>
-                              <NotificationProvider role="any">
-                                <PushNotificationManager />
-                                <ErrorBoundary>
+                      <BookingChatProvider>
+                        <ProviderAuthProvider>
+                          <ProviderBookingProvider>
+                            <VenderAuthProvider>
+                              <AdminAuthProvider>
+                                <NotificationProvider role="any">
+                                  <PushNotificationManager />
+                                  <ErrorBoundary>
                                   <Toaster />
                                   <Sonner />
                                   <Routes>
@@ -349,6 +351,7 @@ const App = () => {
                           </VenderAuthProvider>
                         </ProviderBookingProvider>
                       </ProviderAuthProvider>
+                      </BookingChatProvider>
                     </BookingProvider>
                   </WishlistProvider>
                 </CartProvider>

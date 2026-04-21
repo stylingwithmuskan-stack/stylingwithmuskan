@@ -239,8 +239,7 @@ export const AdminAuthProvider = ({ children }) => {
             approveVendorZones, rejectVendorZones,
             getAllCustomers,
             getAllServiceProviders, updateSPStatus, updateProviderProfile,
-
-            getAllServiceProviders, updateSPStatus, approveProviderZones, rejectProviderZones, adjustProviderWallet,
+            approveProviderZones, rejectProviderZones, adjustProviderWallet,
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,
             getAllBookings, getUserBookings, assignSPToBooking, assignTeamToBooking,
             getCoupons, addCoupon, deleteCoupon,

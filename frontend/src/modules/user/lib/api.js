@@ -328,6 +328,7 @@ export const api = {
       advancePaid: (id, amount) => request(`/bookings/custom-enquiry/${id}/advance-paid`, { method: "PATCH", body: { amount } }),
       userReject: (id) => request(`/bookings/custom-enquiry/${id}/user-reject`, { method: "PATCH" }),
     },
+    getChatHistory: (id) => request(`/bookings/${id}/chat`),
   },
 
   // Payments
@@ -360,6 +361,10 @@ export const api = {
     availability: {
       get: (date) => request(`/provider/availability/${date}`),
       set: (date, slots) => request(`/provider/availability/${date}`, { method: "PUT", body: { slots } }),
+    },
+    getBookingChatHistory: (id) => {
+      const token = getProviderToken();
+      return requestWithToken(`/bookings/${id}/chat`, {}, token, "provider");
     },
     leaves: {
       list: () => request("/provider/leaves"),

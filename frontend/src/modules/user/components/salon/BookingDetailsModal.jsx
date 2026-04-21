@@ -108,6 +108,14 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
         if (typeof lat === "number" && typeof lng === "number") {
             setUserLocation({ lat, lng });
         }
+
+        // Initialize provider location from booking data if available
+        if (booking.lastProviderLocation?.lat && booking.lastProviderLocation?.lng) {
+            setProviderLocation({ 
+                lat: booking.lastProviderLocation.lat, 
+                lng: booking.lastProviderLocation.lng 
+            });
+        }
         let cancelled = false;
         (async () => {
             try {
@@ -281,17 +289,18 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                         height={192}
                                         userLocation={userLocation}
                                         providerLocation={providerLocation}
+                                        title={`${assignedProvider?.name || 'Professional'}'s Location`}
                                     />
                                     <div className="absolute top-3 right-3 bg-white/90 border border-border/60 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shadow-sm">
                                         {trackingBadge}
                                     </div>
-                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background to-transparent h-24" />
-                                    <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between shadow-lg border border-border/50">
+                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background to-transparent h-24 pointer-events-none" />
+                                    <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between shadow-lg border border-border/50 pointer-events-none">
                                         <div>
                                             <p className="text-sm font-black text-gray-900">{currentStatus === 'travelling' ? 'Provider on the way' : currentStatus === 'arrived' ? 'Provider Arrived at Location' : 'Service in Progress'}</p>
                                             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">{providerLocation ? 'Live tracking enabled' : 'Waiting for provider location'}</p>
                                         </div>
-                                        <button className="h-10 w-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center shadow-sm">
+                                        <button className="h-10 w-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center shadow-sm pointer-events-auto">
                                             <Phone className="w-4 h-4 fill-green-600/20" />
                                         </button>
                                     </div>
