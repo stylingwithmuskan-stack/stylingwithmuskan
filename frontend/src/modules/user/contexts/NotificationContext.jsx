@@ -225,6 +225,16 @@ export const NotificationProvider = ({ children, role }) => {
         }
     };
 
+    const markAsRead = async (id) => {
+        try {
+            await api.notifications.markAsRead(id, { role: activeRole, token: activeToken });
+            setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, isRead: true } : n)));
+            setUnreadCount((prev) => Math.max(0, prev - 1));
+        } catch (err) {
+            console.error("[NotificationContext] Mark single read failed", err);
+        }
+    };
+
     const deleteNotification = async (id) => {
         try {
             await api.notifications.delete(id, { role: activeRole, token: activeToken });
@@ -261,8 +271,10 @@ export const NotificationProvider = ({ children, role }) => {
             notifications,
             unreadCount,
             loading,
+            activeRole,
             fetchNotifications,
             markAllAsRead,
+            markAsRead,
             deleteNotification,
             deleteAllNotifications,
             deleteMultipleNotifications,

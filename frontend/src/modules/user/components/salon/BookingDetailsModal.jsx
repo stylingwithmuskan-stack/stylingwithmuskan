@@ -202,7 +202,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     return (
         <AnimatePresence>
             {/* Cancel Confirmation Modal */}
-            <AnimatePresence>
+            <AnimatePresence key="cancel-confirm-presence">
                 {showCancelConfirm && (
                     <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
                         <motion.div
@@ -249,7 +249,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
             </AnimatePresence>
 
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
+                <div key="booking-details-content" className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}

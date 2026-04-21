@@ -715,6 +715,15 @@ export const api = {
       }
       return request("/notifications/read-all", { method: "PUT" });
     },
+    markAsRead: (id, opts = {}) => {
+      const options = typeof opts === "string" ? { role: opts } : (opts || {});
+      const role = options.role;
+      const token = options.token || (role ? getTokenByRole(role) : "");
+      if (role || token) {
+        return requestWithToken(`/notifications/${id}/read`, { method: "PATCH" }, token, role);
+      }
+      return request(`/notifications/${id}/read`, { method: "PATCH" });
+    },
     delete: (id, opts = {}) => {
       const options = typeof opts === "string" ? { role: opts } : (opts || {});
       const role = options.role;

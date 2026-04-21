@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useBookings } from "@/modules/user/contexts/BookingContext";
 import { toast } from "sonner";
@@ -45,6 +45,34 @@ const BookingsPage = () => {
     const [providerModalData, setProviderModalData] = useState(null);
     const [customEnquiryDetails, setCustomEnquiryDetails] = useState(null);
     const { providers } = useUserModuleData();
+    const location = useLocation();
+
+    // Effect for deep-linking from notifications
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        const idParam = searchParams.get('id');
+        const enquiryParam = searchParams.get('enquiry');
+
+        if (idParam && bookings.length > 0) {
+            const found = bookings.find(b => (b.id || b._id) === idParam);
+            if (found && !detailsBooking) {
+                setDetailsBooking(found);
+            }
+        }
+        
+        if (enquiryParam && enquiries.length > 0) {
+            const foundEnq = enquiries.find(e => (e.id || e._id) === enquiryParam);
+            if (foundEnq) {
+                setMainType("customize");
+                if (!customEnquiryDetails) {
+                    setCustomEnquiryDetails(foundEnq);
+                }
+            } else if (mainType !== "customize") {
+                // If enquiry ID is provided but not found yet, at least switch to the tab
+                setMainType("customize");
+            }
+        }
+    }, [location.search, bookings, enquiries]);
 
     const combinedEnquiries = (Array.isArray(enquiries) ? enquiries : [])
         .slice()

@@ -5,13 +5,16 @@ import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
-import { ScrollArea } from "@/modules/user/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
 
 const NotificationDropdown = ({ isOpen, onClose }) => {
+    const navigate = useNavigate();
     const {
         notifications,
         unreadCount,
+        activeRole,
         markAllAsRead,
+        markAsRead,
         deleteNotification,
         fetchNotifications,
         pushSupported,
@@ -28,13 +31,73 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
 
     useEffect(() => {
         // When the dropdown closes after being open, mark all as read
-        if (wasOpen.current && !isOpen && unreadCount > 0) {
-            markAllAsRead();
-        }
+        // if (wasOpen.current && !isOpen && unreadCount > 0) {
+        //     markAllAsRead();
+        // }
+        // Note: Disabling auto-mark-all-read on close since we now support single click-to-read
         wasOpen.current = isOpen;
-    }, [isOpen, markAllAsRead, unreadCount]);
+    }, [isOpen]);
 
     if (!isOpen) return null;
+
+    const handleNotificationClick = async (n) => {
+        // Mark as read in backend
+        if (!n.isRead) {
+            await markAsRead(n._id);
+        }
+
+        const meta = n.meta || {};
+        const type = n.type || "";
+        const bookingId = meta.bookingId || meta.id;
+        const enquiryId = meta.enquiryId;
+
+        let path = null;
+
+        // 1. Build a specific path if meta data exists (Prioritize over n.link)
+        if (activeRole === "user") {
+            if (bookingId) {
+                path = `/bookings?id=${bookingId}`;
+            } else if (enquiryId) {
+                path = `/bookings?enquiry=${enquiryId}`;
+            } else if (type.startsWith("payment_") || type.includes("payment")) {
+                path = "/payment";
+            }
+        } else if (activeRole === "provider") {
+            if (bookingId) {
+                path = `/provider/booking/${bookingId}`;
+            } else if (type === "zone_added") {
+                path = "/provider/all-zones";
+            } else if (type.includes("leave_")) {
+                path = "/provider/availability";
+            } else if (type === "sos_alert") {
+                path = "/provider/sos";
+            }
+        } else if (activeRole === "vendor") {
+            if (type === "sos_alert") path = "/vender/sos";
+            else if (bookingId) path = `/vender/bookings?search=${bookingId}`;
+        } else if (activeRole === "admin") {
+            if (type === "sos_alert") path = "/admin/sos";
+            else if (type === "leave_requested") path = "/admin/service-providers";
+            else if (bookingId) path = `/admin/bookings?search=${bookingId}`;
+        }
+
+        // 2. Fallback to backend provided link or default role base
+        if (!path) {
+            path = n.link && n.link !== "/notifications" ? n.link : null;
+        }
+
+        if (!path) {
+            if (activeRole === "user") path = "/notifications";
+            else if (activeRole === "provider") path = "/provider/notifications";
+            else if (activeRole === "vendor") path = "/vender/notifications";
+            else if (activeRole === "admin") path = "/admin/notifications";
+        }
+
+        if (path) {
+            navigate(path);
+            onClose();
+        }
+    };
 
     const getIcon = (type) => {
         switch (type) {
@@ -42,6 +105,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
             case 'reassignment': return <AlertTriangle className="w-4 h-4 text-amber-500" />;
             case 'reminder': return <Clock className="w-4 h-4 text-blue-500" />;
             case 'new_booking': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+            case 'sos_alert': return <AlertTriangle className="w-4 h-4 text-red-600" />;
             default: return <Info className="w-4 h-4 text-slate-500" />;
         }
     };
@@ -119,18 +183,19 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: 20 }}
-                                    className="p-4 hover:bg-accent/30 transition-colors relative group bg-primary/5"
+                                    onClick={() => handleNotificationClick(n)}
+                                    className="p-4 hover:bg-accent/30 transition-colors relative group bg-primary/5 cursor-pointer active:scale-[0.98]"
                                 >
-                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary group-hover:w-1.5 transition-all" />
                                     <div className="flex gap-4">
-                                        <div className="mt-1 w-8 h-8 rounded-xl bg-background border border-border flex items-center justify-center flex-shrink-0 shadow-sm">
+                                        <div className="mt-1 w-8 h-8 rounded-xl bg-background border border-border flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform">
                                             {getIcon(n.type)}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[13px] font-black leading-tight mb-1 text-foreground">
+                                            <p className="text-[13px] font-black leading-tight mb-1 text-foreground group-hover:text-primary transition-colors">
                                                 {n.title}
                                             </p>
-                                            <p className="text-[11px] text-muted-foreground leading-relaxed mb-2">
+                                            <p className="text-[11px] text-muted-foreground leading-relaxed mb-2 line-clamp-2">
                                                 {n.message}
                                             </p>
                                             <div className="flex items-center justify-between">
@@ -140,7 +205,10 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                                                 <Button 
                                                     variant="ghost" 
                                                     size="icon" 
-                                                    onClick={() => deleteNotification(n._id)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteNotification(n._id);
+                                                    }}
                                                     className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                                                 >
                                                     <Trash2 className="h-3 w-3" />

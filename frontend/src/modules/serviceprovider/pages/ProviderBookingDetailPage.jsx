@@ -661,10 +661,10 @@ const ProviderBookingDetailPage = () => {
                             <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2"><Shield className="w-3.5 h-3.5 text-amber-500" /> Provider Verification</h3>
                             <div className="grid grid-cols-2 gap-3">
                                         {[
-                                            { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, show: true },
-                                            { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, show: booking.status !== "in_progress" },
-                                            { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, show: true },
-                                            { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, show: booking.status !== "in_progress" }
+                                            { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, show: true, capture: "environment", isMultiple: true },
+                                            { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, show: booking.status !== "in_progress", capture: "environment", isMultiple: true },
+                                            { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, show: true, capture: "environment", isMultiple: true },
+                                            { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, show: booking.status !== "in_progress", capture: "user", isMultiple: false }
                                         ].filter(p => p.show).map(phase => (
                                     <div key={phase.key} className="space-y-3">
                                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">{phase.label} Photo</p>
@@ -683,11 +683,17 @@ const ProviderBookingDetailPage = () => {
                                                     {/* Add more button */}
                                                     {booking.status !== "completed" && (
                                                         <label className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all">
-                                                            <input multiple type="file" accept="image/*" className="hidden"
+                                                            <input 
+                                                                type="file" 
+                                                                accept="image/*" 
+                                                                capture={phase.capture}
+                                                                multiple={phase.isMultiple}
+                                                                className="hidden"
                                                                 onChange={e => {
                                                                     const files = Array.from(e.target.files || []);
                                                                     if (files.length) phase.addFn(booking._id || id, files);
-                                                                }} />
+                                                                }} 
+                                                            />
                                                             <phase.icon className="w-4 h-4 text-gray-400" />
                                                             <span className="text-[8px] font-bold text-gray-400 mt-1">Add</span>
                                                         </label>
@@ -697,11 +703,17 @@ const ProviderBookingDetailPage = () => {
                                                 /* Show upload prompt if no photos OR message if completed */
                                                 booking.status !== "completed" ? (
                                                     <label className="flex flex-col items-center justify-center h-full min-h-[100px] cursor-pointer hover:bg-purple-50 transition-all rounded-xl">
-                                                        <input multiple type="file" accept="image/*" className="hidden"
+                                                        <input 
+                                                            type="file" 
+                                                            accept="image/*" 
+                                                            capture={phase.capture}
+                                                            multiple={phase.isMultiple}
+                                                            className="hidden"
                                                             onChange={e => {
                                                                 const files = Array.from(e.target.files || []);
                                                                 if (files.length) phase.addFn(booking._id || id, files);
-                                                            }} />
+                                                            }} 
+                                                        />
                                                         <phase.icon className="w-6 h-6 text-gray-400 mb-2" />
                                                         <span className="text-[9px] font-black text-gray-400 tracking-widest uppercase">Snap {phase.label}</span>
                                                     </label>

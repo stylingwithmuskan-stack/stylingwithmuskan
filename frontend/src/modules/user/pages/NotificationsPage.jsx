@@ -12,7 +12,9 @@ const NotificationsPage = () => {
     const {
         notifications,
         unreadCount,
+        activeRole,
         markAllAsRead,
+        markAsRead,
         deleteNotification,
         deleteAllNotifications,
         deleteMultipleNotifications,
@@ -47,6 +49,70 @@ const NotificationsPage = () => {
         );
     };
 
+    const handleNotificationClick = async (n) => {
+        // If in select mode, toggle selection instead of redirecting
+        if (isSelectMode) {
+            toggleSelect(n._id);
+            return;
+        }
+
+        // Mark as read in backend
+        if (!n.isRead) {
+            await markAsRead(n._id);
+        }
+
+        const meta = n.meta || {};
+        const type = n.type || "";
+        const bookingId = meta.bookingId || meta.id;
+        const enquiryId = meta.enquiryId;
+
+        let path = null;
+
+        // 1. Build a specific path if meta data exists (Prioritize over n.link)
+        if (activeRole === "user") {
+            if (bookingId) {
+                path = `/bookings?id=${bookingId}`;
+            } else if (enquiryId) {
+                path = `/bookings?enquiry=${enquiryId}`;
+            } else if (type.startsWith("payment_") || type.includes("payment")) {
+                path = "/payment";
+            }
+        } else if (activeRole === "provider") {
+            if (bookingId) {
+                path = `/provider/booking/${bookingId}`;
+            } else if (type === "zone_added") {
+                path = "/provider/all-zones";
+            } else if (type.includes("leave_")) {
+                path = "/provider/availability";
+            } else if (type === "sos_alert") {
+                path = "/provider/sos";
+            }
+        } else if (activeRole === "vendor") {
+            if (type === "sos_alert") path = "/vender/sos";
+            else if (bookingId) path = `/vender/bookings?search=${bookingId}`;
+        } else if (activeRole === "admin") {
+            if (type === "sos_alert") path = "/admin/sos";
+            else if (type === "leave_requested") path = "/admin/service-providers";
+            else if (bookingId) path = `/admin/bookings?search=${bookingId}`;
+        }
+
+        // 2. Fallback to backend provided link or default role base
+        if (!path) {
+            path = n.link && n.link !== "/notifications" ? n.link : null;
+        }
+
+        if (!path) {
+            if (activeRole === "user") path = "/notifications";
+            else if (activeRole === "provider") path = "/provider/notifications";
+            else if (activeRole === "vendor") path = "/vender/notifications";
+            else if (activeRole === "admin") path = "/admin/notifications";
+        }
+
+        if (path) {
+            navigate(path);
+        }
+    };
+
     const handleDeleteSelected = async () => {
         if (selectedIds.length === 0) return;
         if (confirm(`Delete ${selectedIds.length} notifications?`)) {
@@ -70,6 +136,7 @@ const NotificationsPage = () => {
             case 'reassignment': return <AlertTriangle className="w-5 h-5 text-amber-500" />;
             case 'reminder': return <Clock className="w-5 h-5 text-blue-500" />;
             case 'new_booking': return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
+            case 'sos_alert': return <AlertTriangle className="w-5 h-5 text-red-600" />;
             default: return <Info className="w-5 h-5 text-slate-500" />;
         }
     };
@@ -243,8 +310,8 @@ const NotificationsPage = () => {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: idx * 0.05 }}
-                                    onClick={() => isSelectMode && toggleSelect(n._id)}
-                                    className={`relative group rounded-2xl border border-border/50 p-5 transition-all cursor-pointer hover:shadow-md ${isSelectMode && selectedIds.includes(n._id) ? 'ring-2 ring-primary border-transparent' : ''} ${!n.isRead ? 'bg-primary/[0.03] border-primary/20' : 'bg-card'}`}
+                                    onClick={() => handleNotificationClick(n)}
+                                    className={`relative group rounded-2xl border border-border/50 p-5 transition-all cursor-pointer hover:shadow-md active:scale-[0.99] ${isSelectMode && selectedIds.includes(n._id) ? 'ring-2 ring-primary border-transparent' : ''} ${!n.isRead ? 'bg-primary/[0.03] border-primary/20' : 'bg-card'}`}
                                 >
                                     {!n.isRead && (
                                         <div className="absolute left-0 top-6 bottom-6 w-1 bg-primary rounded-r-full" />
@@ -267,7 +334,7 @@ const NotificationsPage = () => {
                                         
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-start justify-between gap-4 mb-1">
-                                                <h3 className="text-base font-black leading-tight text-foreground truncate">
+                                                <h3 className="text-base font-black leading-tight text-foreground truncate group-hover:text-primary transition-colors">
                                                     {n.title}
                                                 </h3>
                                                 {!isSelectMode && (
@@ -282,7 +349,7 @@ const NotificationsPage = () => {
                                                 )}
                                             </div>
                                             
-                                            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                                            <p className="text-sm text-muted-foreground leading-relaxed mb-4 line-clamp-2">
                                                 {n.message}
                                             </p>
                                             
