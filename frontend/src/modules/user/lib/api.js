@@ -175,7 +175,14 @@ async function request(path, options = {}) {
     const e = new Error(err);
     e.status = res.status;
     e.data = data;
-    if (import.meta?.env?.DEV) {
+    if (res.status === 401) {
+      const isSessionCheck = path === "/auth/me" || path === "/provider/me" || path === "/vendor/me";
+      if (import.meta?.env?.DEV && !isSessionCheck) {
+        try {
+          console.warn("[API AUTH]", options.method || "GET", path, { status: res.status, data });
+        } catch {}
+      }
+    } else if (import.meta?.env?.DEV) {
       try {
         console.error("[API ERROR]", options.method || "GET", path, { status: res.status, data });
       } catch {}

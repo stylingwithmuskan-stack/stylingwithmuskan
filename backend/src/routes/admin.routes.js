@@ -7,6 +7,7 @@ import Coupon from "../models/Coupon.js";
 import SOSAlert from "../models/SOSAlert.js";
 import { ReferralSettings, CommissionSettings, BookingSettings, PerformanceSettings, SystemSettings } from "../models/Settings.js";
 import { upload, uploadMedia } from "../middleware/upload.js";
+import { uploadBase64Image } from "../startup/cloudinary.js";
 import { issueRoleToken, requireRole } from "../middleware/roles.js";
 import * as AdminController from "../modules/admin/controllers/admin.controller.js";
 import LeaveRequest from "../models/LeaveRequest.js";
@@ -114,6 +115,9 @@ router.post("/parents",
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (req.body.image) {
+      req.body.image = await uploadBase64Image(req.body.image, "service-types");
+    }
     const doc = await ServiceType.findOneAndUpdate({ id: req.body.id }, { ...req.body }, { new: true, upsert: true });
     await bumpContentVersion();
     res.status(201).json({ parent: doc });
@@ -125,6 +129,9 @@ router.put("/parents/:id",
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (req.body.image) {
+      req.body.image = await uploadBase64Image(req.body.image, "service-types");
+    }
     const doc = await ServiceType.findOneAndUpdate({ id: req.params.id }, { ...req.body }, { new: true });
     if (!doc) return res.status(404).json({ error: "Not found" });
     await bumpContentVersion();
@@ -156,6 +163,8 @@ router.post("/categories",
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "categories");
+    if (req.body.icon) req.body.icon = await uploadBase64Image(req.body.icon, "categories");
     const doc = await Category.findOneAndUpdate({ id: req.body.id, gender: req.body.gender }, { ...req.body }, { new: true, upsert: true });
     await bumpContentVersion();
     res.status(201).json({ category: doc });
@@ -167,6 +176,8 @@ router.put("/categories/:id",
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "categories");
+    if (req.body.icon) req.body.icon = await uploadBase64Image(req.body.icon, "categories");
     const doc = await Category.findOneAndUpdate({ id: req.params.id, gender: req.body.gender }, { ...req.body }, { new: true });
     if (!doc) return res.status(404).json({ error: "Not found" });
     await bumpContentVersion();
@@ -184,12 +195,25 @@ router.delete("/categories/:id",
 );
 
 router.get("/services", requireRole("admin"), async (req, res) => {
-  const { category, gender } = req.query;
+  const { category, gender, page = 1, limit = 10 } = req.query;
   const q = {};
   if (category) q.category = category;
   if (gender) q.gender = gender;
-  const items = await Service.find(q).lean();
-  res.json({ services: items });
+  
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const total = await Service.countDocuments(q);
+  const items = await Service.find(q)
+    .select("-gallery -steps")
+    .skip(skip)
+    .limit(parseInt(limit))
+    .lean();
+    
+  res.json({ 
+    services: items, 
+    total,
+    page: parseInt(page),
+    limit: parseInt(limit)
+  });
 });
 router.post("/services",
   requireRole("admin"),
@@ -200,6 +224,16 @@ router.post("/services",
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "services");
+    if (req.body.gallery && Array.isArray(req.body.gallery)) {
+      req.body.gallery = await Promise.all(req.body.gallery.map(img => uploadBase64Image(img, "services")));
+    }
+    if (req.body.steps && Array.isArray(req.body.steps)) {
+      req.body.steps = await Promise.all(req.body.steps.map(async step => {
+        if (step.image) step.image = await uploadBase64Image(step.image, "services");
+        return step;
+      }));
+    }
     const doc = await Service.findOneAndUpdate({ id: req.body.id }, { ...req.body }, { new: true, upsert: true });
     await bumpContentVersion();
     res.status(201).json({ service: doc });
@@ -211,6 +245,16 @@ router.put("/services/:id",
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "services");
+    if (req.body.gallery && Array.isArray(req.body.gallery)) {
+      req.body.gallery = await Promise.all(req.body.gallery.map(img => uploadBase64Image(img, "services")));
+    }
+    if (req.body.steps && Array.isArray(req.body.steps)) {
+      req.body.steps = await Promise.all(req.body.steps.map(async step => {
+        if (step.image) step.image = await uploadBase64Image(step.image, "services");
+        return step;
+      }));
+    }
     const doc = await Service.findOneAndUpdate({ id: req.params.id }, { ...req.body }, { new: true });
     if (!doc) return res.status(404).json({ error: "Not found" });
     await bumpContentVersion();
@@ -578,6 +622,7 @@ router.post("/spotlights",
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (req.body.poster) req.body.poster = await uploadBase64Image(req.body.poster, "spotlights");
     const doc = await Spotlight.findOneAndUpdate(
       { id: req.body.id },
       { ...req.body, priority: Number(req.body.priority || 1), startAt: req.body.startAt ? new Date(req.body.startAt) : null, endAt: req.body.endAt ? new Date(req.body.endAt) : null },
@@ -588,6 +633,7 @@ router.post("/spotlights",
   }
 );
 router.put("/spotlights/:id", requireRole("admin"), param("id").isString(), async (req, res) => {
+  if (req.body.poster) req.body.poster = await uploadBase64Image(req.body.poster, "spotlights");
   const doc = await Spotlight.findOneAndUpdate(
     { id: req.params.id },
     { ...req.body, priority: Number(req.body.priority || 1), startAt: req.body.startAt ? new Date(req.body.startAt) : null, endAt: req.body.endAt ? new Date(req.body.endAt) : null },
@@ -618,6 +664,7 @@ router.post("/gallery",
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "gallery");
     const doc = await GalleryItem.findOneAndUpdate(
       { id: req.body.id },
       { ...req.body, priority: Number(req.body.priority || 1) },
@@ -628,6 +675,7 @@ router.post("/gallery",
   }
 );
 router.put("/gallery/:id", requireRole("admin"), param("id").isString(), async (req, res) => {
+  if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "gallery");
   const doc = await GalleryItem.findOneAndUpdate(
     { id: req.params.id },
     { ...req.body, priority: Number(req.body.priority || 1) },
@@ -650,6 +698,7 @@ router.post("/testimonials",
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "testimonials");
     const doc = await Testimonial.findOneAndUpdate(
       { id: req.body.id },
       { ...req.body, priority: Number(req.body.priority || 1) },
@@ -660,6 +709,7 @@ router.post("/testimonials",
   }
 );
 router.put("/testimonials/:id", requireRole("admin"), param("id").isString(), async (req, res) => {
+  if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "testimonials");
   const doc = await Testimonial.findOneAndUpdate(
     { id: req.params.id },
     { ...req.body, priority: Number(req.body.priority || 1) },
