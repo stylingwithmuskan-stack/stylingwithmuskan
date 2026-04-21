@@ -58,6 +58,7 @@ const ServiceSchema = new mongoose.Schema({
   gallery: { type: [String], default: [] },
   zones: { type: [String], default: [] },
   disabledDates: { type: [DisabledDateSchema], default: [] },
+  variants: [{ name: String, price: Number }],
   image: String,
 });
 

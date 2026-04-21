@@ -96,21 +96,21 @@ export const CartProvider = ({ children }) => {
     };
 
 
-    const addToCart = (service) => {
-        const cats = getCategories();
-        const cat = service.category ? cats.find(c => c.id === service.category) : null;
-        const mappedServiceType = cat?.serviceType || service.serviceType || "other";
-        const serviceWithType = { ...service, serviceType: mappedServiceType };
+    const addToCart = (service, quantity = 1) => {
+        if (!service) return;
+
         setCartItems((prevItems) => {
-            const existingItem = prevItems.find((item) => item.id === serviceWithType.id && item.serviceType === serviceWithType.serviceType);
-            if (existingItem) {
-                return prevItems.map((item) =>
-                    item.id === serviceWithType.id && item.serviceType === serviceWithType.serviceType
-                        ? { ...item, quantity: (item.quantity || 1) + 1 }
+            const existingItemIndex = prevItems.findIndex((item) => item.id === service.id);
+            const serviceWithType = { ...service, serviceType: service.serviceType || "skin" };
+
+            if (existingItemIndex > -1) {
+                return prevItems.map((item, idx) =>
+                    idx === existingItemIndex
+                        ? { ...item, quantity: (item.quantity || 0) + quantity }
                         : item
                 );
             }
-            return [...prevItems, { ...serviceWithType, quantity: 1 }];
+            return [...prevItems, { ...serviceWithType, quantity }];
         });
     };
 

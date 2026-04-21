@@ -95,13 +95,10 @@ const ServiceDetail = () => {
       return;
     }
 
-    addToCart({
-      ...service,
-      price: service.price * qty,
-    });
-
-    // Open cart modal directly instead of navigating
+    addToCart(service, qty);
+    setAddedToCart(true);
     setIsCartOpen(true);
+    setTimeout(() => setAddedToCart(false), 2000);
   };
 
   const handleBookingAction = () => {

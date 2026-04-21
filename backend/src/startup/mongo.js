@@ -24,8 +24,10 @@ export async function connectMongo() {
       
       await mongoose.connect(uri, {
         dbName,
-        serverSelectionTimeoutMS: 10000, // 10 seconds
-        socketTimeoutMS: 45000, // 45 seconds
+        serverSelectionTimeoutMS: 60000, // 60 seconds
+        socketTimeoutMS: 60000, // 60 seconds
+        connectTimeoutMS: 60000,
+        heartbeatFrequencyMS: 10000,
         family: 4, // Use IPv4, skip trying IPv6
       });
       

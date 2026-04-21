@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Plus, Edit2, Trash2, Search, X, Camera, Image as ImageIcon } from "lucide-react";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
@@ -449,30 +449,95 @@ const UserModuleManagement = () => {
         testimonials, addTestimonial, updateTestimonial, deleteTestimonial
     } = useUserModuleData();
 
-    // Fetch all services on mount to ensure admin sees all 115+ services instead of just popular ones
-    useEffect(() => {
-        const fetchAllContent = async () => {
-            try {
-                const res = await api.admin.getServices();
-                if (res.services) {
-                    setServices(res.services);
-                }
-            } catch (error) {
-                console.error("Failed to fetch full services list for admin:", error);
-                toast.error("Failed to load all services");
-            }
-        };
-        fetchAllContent();
-    }, [setServices]);
-
+    // Admin specific services list to avoid context race conditions
+    const [adminServices, setAdminServices] = useState([]);
+    const [totalServices, setTotalServices] = useState(0);
     const [activeTab, setActiveTab] = useState("parent_categories");
     const [searchTerm, setSearchTerm] = useState("");
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
+    // Fetch services with server-side pagination
+    useEffect(() => {
+        if (activeTab !== "services") return;
+        
+        let cancelled = false;
+        const fetchPaginatedServices = async () => {
+            try {
+                // Try admin API with pagination
+                const res = await api.admin.getServices({ 
+                    page: currentPage, 
+                    limit: itemsPerPage 
+                });
+                
+                if (!cancelled && res.services) {
+                    setAdminServices(res.services);
+                    setTotalServices(res.total || res.services.length);
+                }
+            } catch (err) {
+                console.error("Admin services fetch failed:", err?.message);
+                // Fallback to public API if admin fails
+                try {
+                    const contentRes = await api.content.services({ 
+                        page: currentPage, 
+                        limit: itemsPerPage 
+                    });
+                    if (!cancelled && contentRes.data) {
+                        setAdminServices(contentRes.data);
+                        // For fallback, we don't have total, so we estimate or use length
+                        if (currentPage === 1 && contentRes.data.length < itemsPerPage) {
+                             setTotalServices(contentRes.data.length);
+                        } else if (totalServices === 0) {
+                             setTotalServices(115); // Fallback estimate based on DB count
+                        }
+                    }
+                } catch (fallbackErr) {
+                    console.error("Fallback services fetch failed:", fallbackErr?.message);
+                }
+            }
+        };
+        fetchPaginatedServices();
+        return () => { cancelled = true; };
+    }, [currentPage, activeTab]);
+
+    // Reset page when tab or search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab, searchTerm]);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
 
     // Form state
     const [formData, setFormData] = useState({});
+
+    // Variant discovery logic
+    const existingVariant = useMemo(() => {
+        if (activeTab !== "services" || !formData.name || !adminServices) return null;
+        return adminServices.find(s => 
+            s.name.toLowerCase() === formData.name.toLowerCase() && 
+            s.gender !== formData.gender &&
+            s.id !== formData.id
+        );
+    }, [formData.name, formData.gender, adminServices, activeTab, formData.id]);
+
+    // Auto-fill variant data
+    useEffect(() => {
+        if (existingVariant && !editingItem) {
+            setFormData(prev => ({
+                ...prev,
+                price: prev.price || existingVariant.price,
+                originalPrice: prev.originalPrice || existingVariant.originalPrice,
+                duration: prev.duration || existingVariant.duration,
+                description: prev.description || existingVariant.description,
+                includes: prev.includes || (Array.isArray(existingVariant.includes) ? existingVariant.includes.join(', ') : existingVariant.includes),
+                steps: prev.steps?.length ? prev.steps : existingVariant.steps,
+                gallery: prev.gallery?.length ? prev.gallery : existingVariant.gallery
+            }));
+        }
+    }, [existingVariant, editingItem]);
 
     const handleOpenAdd = () => {
         setEditingItem(null);
@@ -500,7 +565,8 @@ const UserModuleManagement = () => {
                 steps: [],
                 gallery: [],
                 zones: [],
-                disabledDates: []
+                disabledDates: [],
+                variants: []
             });
         }
         setIsAddModalOpen(true);
@@ -543,7 +609,7 @@ const UserModuleManagement = () => {
         if (!ok) return;
         if (activeTab === "parent_categories") deleteServiceType(id);
         else if (activeTab === "categories") deleteCategory(id);
-        else if (activeTab === "services") deleteService(id);
+        else if (activeTab === "services") { deleteService(id); setAdminServices(prev => prev.filter(s => s.id !== id)); }
         else if (activeTab === "spotlights") deleteSpotlight(id);
         else if (activeTab === "gallery") deleteGallery(id);
         else if (activeTab === "testimonials") deleteTestimonial(id);
@@ -570,9 +636,14 @@ const UserModuleManagement = () => {
                 else await api.admin.updateCategory(payload.id, payload);
                 if (isCreate) addCategory(payload); else updateCategory(payload.id, payload);
             } else if (activeTab === "services") {
+                // Inherit image from variant if missing
+                if (existingVariant && !payload.image) {
+                    payload.image = existingVariant.image;
+                }
+                
                 if (isCreate) await api.admin.addService(payload);
                 else await api.admin.updateService(payload.id, payload);
-                if (isCreate) addService(payload); else updateService(payload.id, payload);
+                if (isCreate) { addService(payload); setAdminServices(prev => [...prev, payload]); } else { updateService(payload.id, payload); setAdminServices(prev => prev.map(s => s.id === payload.id ? { ...s, ...payload } : s)); }
             } else if (activeTab === "spotlights") {
                 if (isCreate) await api.admin.addSpotlight(payload);
                 else await api.admin.updateSpotlight(payload.id, payload);
@@ -600,12 +671,19 @@ const UserModuleManagement = () => {
         if (activeTab === "spotlights") return spotlights || [];
         if (activeTab === "gallery") return gallery || [];
         if (activeTab === "testimonials") return testimonials || [];
-        return services || [];
+        return adminServices.length > 0 ? adminServices : services || [];
     };
 
     const filteredData = getDataForTab().filter(item =>
         (item.name || item.label || item.title || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const actualTotal = activeTab === "services" ? totalServices : filteredData.length;
+    const totalPages = Math.ceil(actualTotal / itemsPerPage);
+    
+    // For services, the data is already paginated from the server
+    // For other tabs, we still slice locally
+    const paginatedData = activeTab === "services" ? filteredData : filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     const handleGalleryUpload = (e) => {
         const files = Array.from(e.target.files);
@@ -656,6 +734,7 @@ const UserModuleManagement = () => {
             </div>
 
             {activeTab !== "booking_rules" && activeTab !== "system_settings" ? (
+                <>
                 <div className="bg-background rounded-2xl border border-border shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
@@ -672,7 +751,7 @@ const UserModuleManagement = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
-                                        {filteredData.map((item, i) => (
+                                        {paginatedData.map((item, i) => (
                                             <motion.tr key={item._id || item.id || `row-${i}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                                                 className="hover:bg-accent/5 transition-colors">
                                         <td className="px-3 py-3 md:px-4">
@@ -750,13 +829,48 @@ const UserModuleManagement = () => {
                                         </td>
                                     </motion.tr>
                                 ))}
-                                {filteredData.length === 0 && (
+                                {paginatedData.length === 0 && (
                                     <tr><td colSpan={10} className="px-6 py-12 text-center text-muted-foreground text-sm">No {activeTab} found matching your search.</td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
                 </div>
+                
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between bg-background p-4 rounded-xl border border-border mt-4">
+                        <span className="text-sm text-muted-foreground">
+                            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, actualTotal)} of {actualTotal} entries
+                        </span>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                                Previous
+                            </Button>
+                            <div className="flex items-center gap-1 mx-2">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                    .map((p, i, arr) => (
+                                        <React.Fragment key={p}>
+                                            {i > 0 && arr[i - 1] !== p - 1 && <span className="text-muted-foreground px-1">...</span>}
+                                            <Button
+                                                variant={p === currentPage ? "default" : "ghost"}
+                                                size="sm"
+                                                className={`w-8 h-8 p-0 ${p === currentPage ? "bg-primary text-primary-foreground" : ""}`}
+                                                onClick={() => setCurrentPage(p)}
+                                            >
+                                                {p}
+                                            </Button>
+                                        </React.Fragment>
+                                    ))}
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                                Next
+                            </Button>
+                        </div>
+                    </div>
+                )}
+                </>
             ) : activeTab === "system_settings" ? (
                 <SystemSettingsConfig />
             ) : activeTab === "booking_rules" ? (
@@ -874,11 +988,22 @@ const UserModuleManagement = () => {
                                         <option value="women">Women</option>
                                         <option value="men">Men</option>
                                     </select>
-                                    <ImageUpload
-                                        label="Main Image"
-                                        value={formData.image}
-                                        onChange={(val) => setFormData({ ...formData, image: val })}
-                                    />
+                                    {!existingVariant ? (
+                                        <ImageUpload
+                                            label="Main Image"
+                                            value={formData.image}
+                                            onChange={(val) => setFormData({ ...formData, image: val })}
+                                        />
+                                    ) : (
+                                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-lg overflow-hidden shrink-0">
+                                                <img src={existingVariant.image} className="w-full h-full object-cover" alt="Variant source" />
+                                            </div>
+                                            <p className="text-[10px] text-primary font-medium leading-tight">
+                                                Inheriting image from existing <strong>{existingVariant.gender}</strong> variant.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -1063,6 +1188,59 @@ const UserModuleManagement = () => {
                                                 <div className="py-4 text-center text-[10px] text-muted-foreground border-2 border-dashed border-border rounded-xl">
                                                     No steps added yet.
                                                 </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Variants Section */}
+                                    <div className="space-y-3 p-3 bg-primary/5 rounded-2xl border border-primary/10">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs font-bold text-primary uppercase tracking-wider">Service Variants (Optional)</label>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setFormData({ ...formData, variants: [...(formData.variants || []), { name: '', price: formData.price || 0 }] })}
+                                                className="text-[10px] font-bold bg-primary text-white px-2 py-1 rounded hover:opacity-90 transition-opacity"
+                                            >
+                                                + Add Variant
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                            {(formData.variants || []).map((variant, vIdx) => (
+                                                <div key={vIdx} className="grid grid-cols-[1fr_80px_auto] gap-2 items-center bg-white p-2 rounded-xl border border-border shadow-sm">
+                                                    <input 
+                                                        placeholder="Variant Name (e.g. Basic, Pro)" 
+                                                        value={variant.name} 
+                                                        onChange={e => {
+                                                            const newVariants = [...formData.variants];
+                                                            newVariants[vIdx].name = e.target.value;
+                                                            setFormData({ ...formData, variants: newVariants });
+                                                        }}
+                                                        className="px-2 py-1 bg-muted/30 border border-border rounded text-[11px] text-foreground focus:outline-none"
+                                                    />
+                                                    <div className="relative">
+                                                        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">₹</span>
+                                                        <input 
+                                                            type="number"
+                                                            value={variant.price} 
+                                                            onChange={e => {
+                                                                const newVariants = [...formData.variants];
+                                                                newVariants[vIdx].price = Number(e.target.value);
+                                                                setFormData({ ...formData, variants: newVariants });
+                                                            }}
+                                                            className="w-full pl-4 pr-1 py-1 bg-muted/30 border border-border rounded text-[11px] text-foreground focus:outline-none font-bold"
+                                                        />
+                                                    </div>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => setFormData({ ...formData, variants: formData.variants.filter((_, i) => i !== vIdx) })}
+                                                        className="text-red-500 hover:text-red-600 p-1"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {(!formData.variants || formData.variants.length === 0) && (
+                                                <p className="text-[9px] text-muted-foreground italic text-center py-1">No variants added. Base price will be used.</p>
                                             )}
                                         </div>
                                     </div>

@@ -18,3 +18,16 @@ export function uploadBuffer(buffer, folder, options = {}) {
     stream.end(buffer);
   });
 }
+
+export async function uploadBase64Image(base64Str, folder = "swm-app") {
+  if (!base64Str || !base64Str.startsWith("data:image")) return base64Str;
+  try {
+    const base64Data = base64Str.split(",")[1];
+    const buffer = Buffer.from(base64Data, "base64");
+    const result = await uploadBuffer(buffer, folder);
+    return result.secure_url;
+  } catch (error) {
+    console.error("Failed to upload base64 image to Cloudinary:", error);
+    return base64Str; // fallback to original if it fails
+  }
+}
