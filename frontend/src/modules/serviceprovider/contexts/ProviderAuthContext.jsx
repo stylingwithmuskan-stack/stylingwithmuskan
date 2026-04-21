@@ -13,8 +13,13 @@ const STORAGE_KEY = "swm_provider";
 const TOKEN_KEY = "swm_provider_token";
 
 export const ProviderAuthProvider = ({ children }) => {
-    const [provider, setProviderState] = useState(null);
-    const [hydrated, setHydrated] = useState(false);
+    const [provider, setProviderState] = useState(() => {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+    });
+    const [hydrated, setHydrated] = useState(true); // Set to true immediately since we read in initializer
     const setProvider = (p) => {
         setProviderState(p);
         try {
@@ -29,14 +34,7 @@ export const ProviderAuthProvider = ({ children }) => {
         } catch {}
     };
     useEffect(() => {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (raw) {
-                const p = JSON.parse(raw);
-                setProviderState(p);
-            }
-        } catch {}
-        setHydrated(true);
+        // Hydration now handled synchronously in initializer
     }, []);
 
     useEffect(() => {

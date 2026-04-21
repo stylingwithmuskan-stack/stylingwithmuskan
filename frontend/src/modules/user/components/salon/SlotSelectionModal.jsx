@@ -101,8 +101,16 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     }, [cartItems]);
 
     const providerList = useMemo(() => {
-        return recentProviders;
-    }, [recentProviders]);
+        // Filter providers based on eligibility for the current cart services
+        // A provider must support ALL selected categories to be shown here
+        return recentProviders.filter(p => {
+            if (!serviceCategories || serviceCategories.length === 0) return true;
+            
+            // Check if provider has the required categories
+            const pCats = Array.isArray(p.categories) ? p.categories : [];
+            return serviceCategories.every(catId => pCats.includes(catId));
+        });
+    }, [recentProviders, serviceCategories]);
 
     useEffect(() => {
         let cancelled = false;
