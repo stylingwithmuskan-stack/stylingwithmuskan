@@ -34,40 +34,68 @@ export const UserModuleDataProvider = ({ children }) => {
 
     useEffect(() => {
         let cancelled = false;
-        (async () => {
+        
+        const loadHomePageData = async () => {
             try {
-                const response = await api.content.init();
+                // Phase 1: Critical UI Data - Fetch specifically what's needed for the Home Page viewport
+                // We fetch these in parallel to maximize speed.
+                const [typesRes, catsRes, bannersRes, settingsRes] = await Promise.all([
+                    api.content.serviceTypes(),
+                    api.content.categories(),
+                    api.content.banners(),
+                    api.content.officeSettings()
+                ]);
+                
                 if (cancelled) return;
                 
-                const data = response.data || {};
-                
-                setServiceTypes(data.serviceTypes || []);
-                setBookingTypeConfig(data.bookingTypeConfig || []);
-                setCategories(data.categories || []);
-                setPopularServices(data.popularServices || []);
-                // Initial services pool is just the popular ones
-                setServices(data.popularServices || []);
-                setBanners(data.banners || { women: [], men: [] });
-                setProviders(data.providers || []);
-                if (data.officeSettings) setOfficeSettings(data.officeSettings);
-                setSpotlights(data.spotlights || []);
-                setGallery(data.gallery || []);
-                setTestimonials(data.testimonials || []);
+                const normalize = (items) => (items || []).map(item => ({ ...item, id: item.id || item._id }));
+
+                // Apply critical data immediately
+                if (typesRes.data) setServiceTypes(normalize(typesRes.data));
+                if (catsRes.data) setCategories(normalize(catsRes.data));
+                if (bannersRes.data) setBanners(bannersRes.data);
+                if (settingsRes.data) setOfficeSettings(settingsRes.data);
+
+                // 🔥 Trigger Phase 2: Background Loading for non-critical/below-fold content
+                (async () => {
+                   try {
+                       const initRes = await api.content.init();
+                       if (cancelled) return;
+                       const d = initRes.data || {};
+                       setBookingTypeConfig(d.bookingTypeConfig || []);
+                       setPopularServices(normalize(d.popularServices));
+                       setServices(normalize(d.popularServices));
+                       setSpotlights(normalize(d.spotlights));
+                       setGallery(normalize(d.gallery));
+                       setTestimonials(normalize(d.testimonials));
+                       setProviders(d.providers || []);
+                   } catch {}
+                })();
+
+                setIsLoading(false); // Enable Home Page rendering
             } catch (e) {
-                setServiceTypes(FALLBACK_SERVICE_TYPES);
-                setBookingTypeConfig(FALLBACK_BOOKING_TYPES);
-                setCategories(FALLBACK_CATEGORIES);
-                setPopularServices(FALLBACK_SERVICES.slice(0, 10));
-                setServices(FALLBACK_SERVICES);
-                setBanners(FALLBACK_BANNERS);
-                setProviders(FALLBACK_PROVIDERS);
-                setSpotlights(initialSpotlights);
-                setGallery(initialGallery);
-                setTestimonials(initialTestimonials);
-            } finally {
-                if (!cancelled) setIsLoading(false);
+                console.error("Critical content load failed:", e);
+                // Fallback to full init if individual calls fail
+                try {
+                    const res = await api.content.init();
+                    if (cancelled) return;
+                    const d = res.data || {};
+                    const normalize = (items) => (items || []).map(item => ({ ...item, id: item.id || item._id }));
+                    setServiceTypes(normalize(d.serviceTypes));
+                    setCategories(normalize(d.categories));
+                    setBanners(d.banners);
+                    setPopularServices(normalize(d.popularServices));
+                    setServices(normalize(d.popularServices));
+                    setIsLoading(false);
+                } catch {
+                     setServiceTypes(FALLBACK_SERVICE_TYPES);
+                     setCategories(FALLBACK_CATEGORIES);
+                     setIsLoading(false);
+                }
             }
-        })();
+        };
+
+        loadHomePageData();
         return () => { cancelled = true; };
     }, []);
 
@@ -76,7 +104,8 @@ export const UserModuleDataProvider = ({ children }) => {
 
         try {
             const res = await api.content.services({ category: categoryId });
-            const newServices = res.data || [];
+            const rawServices = res.data || [];
+            const newServices = rawServices.map(s => ({ ...s, id: s.id || s._id }));
             
             setServices(prev => {
                 const existingIds = new Set(prev.map(s => s.id));

@@ -7,11 +7,38 @@ export const AuthContext = createContext();
 const STORAGE_KEY = "swm_user_auth_state";
 
 export const AuthProvider = ({ children }) => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [user, setUser] = useState(null);
+    const [isLoggedIn, setIsLoggedIn] = useState(() => {
+        try {
+            const raw = safeStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const data = JSON.parse(raw);
+                return !!(data.isLoggedIn && data.user);
+            }
+        } catch {}
+        return false;
+    });
+    const [user, setUser] = useState(() => {
+        try {
+            const raw = safeStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const data = JSON.parse(raw);
+                return data.user || null;
+            }
+        } catch {}
+        return null;
+    });
     const [loading, setLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-    const [hasAddress, setHasAddress] = useState(false);
+    const [hasAddress, setHasAddress] = useState(() => {
+        try {
+            const raw = safeStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const data = JSON.parse(raw);
+                return (data.user?.addresses || []).length > 0;
+            }
+        } catch {}
+        return false;
+    });
 
     const clearUserSession = () => {
         setIsLoggedIn(false);
@@ -20,21 +47,9 @@ export const AuthProvider = ({ children }) => {
         safeStorage.removeItem(STORAGE_KEY);
     };
 
-    // Initial hydration from localStorage
+    // Hydration is now handled synchronously in useState initializer.
+    // This effect is kept empty or removed as it's no longer needed for initial load.
     useEffect(() => {
-        try {
-            const raw = safeStorage.getItem(STORAGE_KEY);
-            if (raw) {
-                const data = JSON.parse(raw);
-                if (data.isLoggedIn && data.user) {
-                    setIsLoggedIn(true);
-                    setUser(data.user);
-                    setHasAddress((data.user.addresses || []).length > 0);
-                }
-            }
-        } catch (err) {
-            console.error("[Auth] Hydration failed", err);
-        }
     }, []);
 
     // Persist state to localStorage whenever it changes

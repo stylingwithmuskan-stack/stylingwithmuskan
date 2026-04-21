@@ -33,6 +33,7 @@
     "swagger-ui-express": "^5.0.0"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "fast-check": "^4.6.0",
     "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.1.14",

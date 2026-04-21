@@ -22,7 +22,7 @@ const ExplorePage = () => {
     const { totalItems, cartItems, addToCart, updateQuantity, bookingType: contextBookingType, setBookingType, isFloatingSummaryOpen, setIsFloatingSummaryOpen, setIsCartOpen } = useCart();
     const { isLoggedIn, user } = useAuth();
     const { toggleWishlist, isInWishlist } = useWishlist();
-    const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability, loadCategoryServices, searchServices } = useUserModuleData();
+    const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability, loadCategoryServices, searchServices, isLoading: isInitialLoading } = useUserModuleData();
 
     const userLocation = user?.addresses?.[0] || user?.address || null;
 
@@ -270,24 +270,33 @@ const ExplorePage = () => {
                         </div>
                     )}
 
-                    {availableServiceTypes.map((type) => (
-                        <button
-                            key={type.id}
-                            onClick={() => {
-                                handleTypeChange(type.id);
-                                setIsSidebarHovered(false);
-                                setIsMobileSidebarOpen(false);
-                            }}
-                            className={`flex flex-col items-center gap-1.5 transition-all relative ${activeType === type.id ? "opacity-100" : "opacity-40 grayscale hover:grayscale-0 hover:opacity-80"}`}
-                        >
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all overflow-hidden border-2 ${activeType === type.id ? "border-primary shadow-lg shadow-primary/20 scale-110" : "border-border/50"}`}>
-                                <img src={type.image} alt={type.label} className="w-full h-full object-cover" />
+                    {isInitialLoading && availableServiceTypes.length === 0 ? (
+                        [1, 2, 3].map(i => (
+                            <div key={i} className="flex flex-col items-center gap-1.5 opacity-20">
+                                <div className="w-14 h-14 rounded-2xl bg-accent animate-pulse border-2 border-border/50" />
+                                <div className="w-10 h-2 bg-accent rounded animate-pulse" />
                             </div>
-                            <span className={`text-[10px] font-black uppercase tracking-tight text-center leading-tight ${activeType === type.id ? "text-primary" : "text-muted-foreground"}`}>
-                                {type.label}
-                            </span>
-                        </button>
-                    ))}
+                        ))
+                    ) : (
+                        availableServiceTypes.map((type) => (
+                            <button
+                                key={type.id}
+                                onClick={() => {
+                                    handleTypeChange(type.id);
+                                    setIsSidebarHovered(false);
+                                    setIsMobileSidebarOpen(false);
+                                }}
+                                className={`flex flex-col items-center gap-1.5 transition-all relative ${activeType === type.id ? "opacity-100" : "opacity-40 grayscale hover:grayscale-0 hover:opacity-80"}`}
+                            >
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all overflow-hidden border-2 ${activeType === type.id ? "border-primary shadow-lg shadow-primary/20 scale-110" : "border-border/50"}`}>
+                                    <img src={type.image} alt={type.label} className="w-full h-full object-cover" />
+                                </div>
+                                <span className={`text-[10px] font-black uppercase tracking-tight text-center leading-tight ${activeType === type.id ? "text-primary" : "text-muted-foreground"}`}>
+                                    {type.label}
+                                </span>
+                            </button>
+                        ))
+                    )}
                 </aside>
 
                 {/* Main Content Area */}
@@ -325,15 +334,22 @@ const ExplorePage = () => {
                             </span>
                         </div>
 
-                        {(isSearching || (isCategoryLoading && filteredServices.length === 0)) && (
-                             <div className="space-y-4">
-                                {[1, 2, 3].map(i => (
-                                    <div key={i} className="h-32 glass-strong rounded-[28px] animate-pulse" />
-                                ))}
+                        {(isSearching || isInitialLoading || isCategoryLoading) && (
+                             <div className="flex-1 flex flex-col items-center justify-center py-20 pointer-events-none">
+                                <div className="relative">
+                                    {/* CSS Circular Spinner */}
+                                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                    
+                                    {/* Optional: Add a small glow effect to match SWM theme */}
+                                    <div className="absolute -inset-4 bg-primary/5 blur-2xl rounded-full -z-10" />
+                                </div>
+                                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-primary mt-6 animate-pulse">
+                                    Loading SWM...
+                                </p>
                              </div>
                         )}
 
-                        {!isSearching && !isCategoryLoading && filteredServices.length === 0 && (
+                        {!isSearching && !isInitialLoading && !isCategoryLoading && filteredServices.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 opacity-40">
                                 <Search className="w-12 h-12 mb-4" />
                                 <p className="font-bold text-sm text-center">No services found.</p>

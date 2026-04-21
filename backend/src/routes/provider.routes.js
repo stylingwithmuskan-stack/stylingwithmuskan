@@ -1247,6 +1247,7 @@ router.post("/bookings/:id/request-payment", requireRole("provider"), param("id"
     try {
       const io = getIO();
       io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "payment_pending" });
+      io?.of("/bookings").to(b._id.toString()).emit("booking:update", { id: b._id.toString() });
     } catch {}
     try {
       if (b.customerId) {
@@ -1321,6 +1322,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         const io = getIO();
         io?.of("/bookings").emit("assignment:changed", { id: b._id.toString(), fromProvider: current, toProvider: picked.providerId, reason: "accept_expired" });
         io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
+        io?.of("/bookings").to(b._id.toString()).emit("booking:update", { id: b._id.toString() });
       } catch {}
     } else {
       await handleExhaustedAssignmentChain({
@@ -1700,10 +1702,16 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     }
   } catch {}
   await BookingLog.create({ action: "booking:status", userId: pId, bookingId: req.params.id, meta: { status: effectiveStatus } });
-  try {
-    const io = getIO();
-    io?.of("/bookings").emit("status:update", { id: req.params.id, status: effectiveStatus });
-  } catch {}
+    try {
+      const io = getIO();
+      // Broad cast for generic list refreshes
+      io?.of("/bookings").emit("status:update", { id: req.params.id, status: effectiveStatus });
+      // Direct room emit for modals/tracking pages
+      io?.of("/bookings").to(`booking:${req.params.id}`).emit("booking:update", { 
+        bookingId: req.params.id, 
+        status: effectiveStatus 
+      });
+    } catch {}
   try {
     const notifyStatuses = new Set(["accepted", "travelling", "arrived", "in_progress", "completed", "payment_pending"]);
       if (b.customerId && notifyStatuses.has(effectiveStatus)) {

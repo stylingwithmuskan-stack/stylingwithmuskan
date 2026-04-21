@@ -314,11 +314,15 @@ const BookingsPage = () => {
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${booking.status?.toLowerCase() === "accepted" ? "bg-green-100 text-green-600" :
-                                                            booking.status?.toLowerCase() === "upcoming" ? "bg-blue-100 text-blue-600" :
-                                                                booking.status?.toLowerCase() === "completed" ? "bg-emerald-100 text-emerald-600" :
-                                                                    "bg-gray-100 text-gray-600"
-                                                            }`}>
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                            booking.status?.toLowerCase() === "accepted" ? "bg-green-100 text-green-600" :
+                                                            booking.status?.toLowerCase() === "travelling" ? "bg-amber-100 text-amber-600" :
+                                                            booking.status?.toLowerCase() === "arrived" ? "bg-purple-100 text-purple-600" :
+                                                            booking.status?.toLowerCase() === "in_progress" ? "bg-blue-100 text-blue-600" :
+                                                            booking.status?.toLowerCase() === "completed" ? "bg-emerald-100 text-emerald-600" :
+                                                            booking.status?.toLowerCase() === "cancelled" ? "bg-red-100 text-red-600" :
+                                                            "bg-gray-100 text-gray-600"
+                                                        }`}>
                                                             {booking.status?.toLowerCase() === "completed" ? "Completed" : (booking.status || "Pending")}
                                                         </span>
                                                     </div>

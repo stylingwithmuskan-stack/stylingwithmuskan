@@ -101,8 +101,16 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     }, [cartItems]);
 
     const providerList = useMemo(() => {
-        return recentProviders;
-    }, [recentProviders]);
+        // Filter providers based on eligibility for the current cart services
+        // A provider must support ALL selected categories to be shown here
+        return recentProviders.filter(p => {
+            if (!serviceCategories || serviceCategories.length === 0) return true;
+            
+            // Check if provider has the required categories
+            const pCats = Array.isArray(p.categories) ? p.categories : [];
+            return serviceCategories.every(catId => pCats.includes(catId));
+        });
+    }, [recentProviders, serviceCategories]);
 
     useEffect(() => {
         let cancelled = false;
@@ -116,8 +124,8 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             api.users.providerSuggestions({
                 serviceTypes: serviceTypes.join(","),
                 limit: "10",
-                city: address?.city || "",
-                zone: address?.zone || ""
+                city: address?.city || address?.area || "",
+                zone: address?.zone || address?.area || ""
             }).then((res) => {
                 if (cancelled) return;
                 const recent = Array.isArray(res?.recentProviders) ? res.recentProviders : [];
@@ -125,16 +133,13 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                 const mode = res?.mode === "new_user" || isFirst ? "new_user" : "repeat_user";
                 setRecentProviders(mode === "repeat_user" ? recent : []);
                 setBookingMode(mode);
-                if (mode === "repeat_user") {
-                    // Only set selected provider if one was previously selected in the current session
-                    // or if it's the very first time opening the modal for a repeat user.
-                    const next = selectedSlot?.provider?.id
-                        ? (recent.find(p => p.id === selectedSlot.provider.id) || null)
-                        : (selectedProvider === undefined ? (recent[0] || null) : selectedProvider);
-                    setSelectedProvider(next);
-                } else {
-                    setSelectedProvider(null);
-                }
+                
+                // Prioritize existing selected provider, otherwise default to "Any Professional" (null)
+                // for repeat users to show maximum availability first.
+                const next = selectedSlot?.provider?.id
+                    ? (recent.find(p => p.id === selectedSlot.provider.id) || null)
+                    : (selectedProvider === undefined ? null : selectedProvider);
+                setSelectedProvider(next);
             }).catch(() => {
                 if (cancelled) return;
                 setRecentProviders([]);
@@ -158,8 +163,8 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                 date: tempDate,
                 serviceTypes: serviceTypes.join(","),
                 categories: serviceCategories.join(","),
-                city: address?.city || "",
-                zone: address?.zone || ""
+                city: address?.city || address?.area || "",
+                zone: address?.zone || address?.area || ""
             };
             if (pId) params.providerId = pId;
             if (totalDurationMinutes > 0) params.durationMinutes = String(totalDurationMinutes);
@@ -179,7 +184,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         if (isOpen) {
             fetchSlots();
         }
-    }, [isOpen, tempDate, selectedProvider, totalDurationMinutes, serviceTypes, serviceCategories, address?.city, address?.zone]);
+    }, [isOpen, tempDate, selectedProvider, totalDurationMinutes, serviceTypes, serviceCategories, address?.city, address?.zone, address?.area]);
 
     const dates = useMemo(() => {
         let maxDays = 7; // Default
@@ -216,18 +221,10 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     }, [cartItems, categories, bookingTypeConfig]);
 
     const slots = useMemo(() => {
-        const startMin = officeSettings?.startTime ? timeToMinutes(officeSettings.startTime) : 0;
-        const endMin = officeSettings?.endTime ? timeToMinutes(officeSettings.endTime) : (24 * 60);
-        const buffer = Number(officeSettings?.bufferMinutes || 30);
-        const nowMin = (new Date().getHours() * 60 + new Date().getMinutes()) + buffer;
-
-        return availableSlots.filter(s => {
-            const currentMin = timeToMinutes(s);
-            if (currentMin < startMin || currentMin > endMin) return false;
-            if (tempDate === getLocalDateKey() && currentMin <= nowMin) return false;
-            return true;
-        });
-    }, [availableSlots, officeSettings, tempDate]);
+        // Backend already handles office hours and lead time filtering.
+        // We just use the availableSlots returned.
+        return availableSlots;
+    }, [availableSlots]);
 
     const todayKey = getLocalDateKey();
     const isToday = tempDate === todayKey;
@@ -441,7 +438,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                     </div>
                                 )}
                                 {!slotsLoading && DEFAULT_TIME_SLOTS.map((slot) => {
-                                    const isAvailable = slotMap[slot] === true && slots.includes(slot);
+                                    const isAvailable = slotMap[slot] === true;
                                     const isSelected = tempSlot === slot;
                                     
                                     return (
