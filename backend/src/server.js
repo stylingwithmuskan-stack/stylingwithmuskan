@@ -1,6 +1,9 @@
 import dotenv from "dotenv";
+import dns from "dns";
 import path from "path";
 import { fileURLToPath } from "url";
+
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 

@@ -216,6 +216,16 @@ export const ProviderBookingProvider = ({ children }) => {
             }
         });
 
+        socket.on("status:update", () => {
+            console.log("[ProviderBookings] 🔄 Status updated elsewhere, refreshing...");
+            refreshBookings();
+        });
+
+        socket.on("booking:update", () => {
+            console.log("[ProviderBookings] 🔄 Booking updated elsewhere, refreshing...");
+            refreshBookings();
+        });
+
         // 2. Booking Chat sync (Global)
         const chatSocket = io(`${API_BASE_URL}/booking-chat`, {
             auth: { token },

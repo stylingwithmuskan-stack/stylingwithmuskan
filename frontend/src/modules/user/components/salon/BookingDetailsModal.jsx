@@ -57,15 +57,20 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     };
 
     const StatusBadge = ({ status }) => {
+        const s = (status || "").toLowerCase();
         const styles = {
-            Accepted: "bg-green-100 text-green-600 border-green-200",
-            Upcoming: "bg-blue-100 text-blue-600 border-blue-200",
-            Completed: "bg-gray-100 text-gray-600 border-gray-200",
-            Pending: "bg-amber-100 text-amber-600 border-amber-200",
+            accepted: "bg-green-100 text-green-600 border-green-200",
+            travelling: "bg-amber-100 text-amber-600 border-amber-200",
+            arrived: "bg-purple-100 text-purple-600 border-purple-200",
+            in_progress: "bg-blue-100 text-blue-600 border-blue-200",
+            completed: "bg-emerald-100 text-emerald-600 border-emerald-200",
+            cancelled: "bg-red-100 text-red-600 border-red-200",
+            pending: "bg-amber-100 text-amber-600 border-amber-200",
         };
+        const label = status?.toLowerCase() === 'in_progress' ? 'In Progress' : status;
         return (
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${styles[status] || styles.Pending}`}>
-                {status || "Pending"}
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${styles[s] || styles.pending}`}>
+                {label || "Pending"}
             </span>
         );
     };
@@ -136,7 +141,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
         if (!isOpen || !showTracking || !bookingId || !token) return;
         const socket = io(`${API_BASE_URL}/bookings`, {
             auth: { token },
-            transports: ["websocket"],
+            transports: ["websocket", "polling"],
         });
         socket.on("connect", () => {
             setSocketConnected(true);
@@ -149,11 +154,16 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
             }
         });
         socket.on("booking:update", (payload) => {
-            console.log("[BookingDetailsModal] Real-time booking update received:", payload);
+            console.log("[BookingDetailsModal] Real-time loop update:", payload);
             if (payload?.bookingId !== bookingId) return;
             if (payload.status) {
                 setLocalBooking(prev => ({ ...prev, status: payload.status }));
-                toast.info(`Booking status updated to ${payload.status}`);
+            }
+        });
+        socket.on("status:update", (payload) => {
+            if (payload?.id === bookingId && payload?.status) {
+                console.log("[BookingDetailsModal] Real-time global update:", payload);
+                setLocalBooking(prev => ({ ...prev, status: payload.status }));
             }
         });
         socket.on("connect_error", () => {
@@ -167,7 +177,8 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     }, [isOpen, showTracking, bookingId, token]);
 
     useEffect(() => {
-        if (!isOpen || !showTracking || !bookingId) return;
+        const isActive = ['pending', 'accepted', 'travelling', 'arrived', 'in_progress', 'payment_pending'].includes(currentStatus);
+        if (!isOpen || !isActive || !bookingId) return;
         if (socketConnected) return;
         if (pollRef.current) clearInterval(pollRef.current);
         pollRef.current = setInterval(async () => {

@@ -33,7 +33,7 @@ const BookingSummary = () => {
   const { gender } = useGenderTheme();
   const { cartItems, updateQuantity, clearCart, totalPrice, totalSavings, isCartOpen, setIsCartOpen, selectedSlot, getGroupedItems, bookingType: contextBookingType, customAdvance, setCustomAdvance } = useCart();
   const { user, setIsAddressModalOpen } = useAuth();
-  const { addBooking } = useBookings();
+  const { addBooking, loadBookings } = useBookings();
   const { checkAvailability } = useUserModuleData();
 
   const allGroups = getGroupedItems();
@@ -154,35 +154,140 @@ const BookingSummary = () => {
   
   const remainingAfterAdvance = finalTotal - advanceAmount;
 
-  const goToPayment = ({ totals, serverAdvance, order, bookingId }) => {
-    if (serverAdvance > 0 && order) {
-      navigate("/payment", {
-        state: {
-          discount: totals.total - totals.finalTotal,
-          finalTotal: totals.finalTotal,
-          totalSavings: displayTotalSavings,
-          checkoutType,
-          advanceAmount: serverAdvance,
-          remainingAmount: totals.finalTotal - serverAdvance,
-          isPartiallyPaid: true,
-          order,
-          bookingId
+  const loadRazorpay = () =>
+    new Promise((resolve, reject) => {
+      if (window.Razorpay) return resolve(true);
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => reject(new Error("Razorpay SDK failed to load"));
+      document.body.appendChild(script);
+    });
+
+  const goToPayment = async ({ totals, serverAdvance, order, bookingId, customAdvance, paymentPurpose }) => {
+    try {
+      setIsProcessing(true);
+      await loadRazorpay();
+      
+      const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+      if (!rzpKey) {
+        throw new Error("Razorpay key is not configured.");
+      }
+
+      // If no order exists, create one
+      let finalOrder = order;
+      let purpose = paymentPurpose || (serverAdvance > 0 ? "booking_advance" : "booking_full");
+      
+      if (!finalOrder) {
+        const amountPaise = Math.round((totals?.finalTotal || serverAdvance) * 100);
+        const orderData = await api.payments.createOrder({
+          amount: amountPaise,
+          currency: "INR",
+          purpose,
+          bookingId: bookingId || undefined,
+          enquiryId: customAdvance?.enquiryId || undefined
+        });
+        finalOrder = orderData.order;
+      }
+
+      const options = {
+        key: rzpKey,
+        amount: finalOrder.amount,
+        currency: finalOrder.currency,
+        name: "Styling With Muskan",
+        description: paymentPurpose === "custom_advance" ? "Custom Advance Payment" : (serverAdvance > 0 ? "Advance Payment" : "Full Payment"),
+        order_id: finalOrder.id,
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+          contact: user?.phone || ""
+        },
+        theme: { color: "#7c3aed" },
+        handler: async (response) => {
+          try {
+            setIsProcessing(true);
+            await api.payments.verify({
+              order_id: response.razorpay_order_id,
+              payment_id: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+              amount: finalOrder.amount,
+              purpose,
+              ...(bookingId ? { bookingId } : {}),
+              ...(customAdvance?.enquiryId ? { enquiryId: customAdvance.enquiryId } : {})
+            });
+            
+            toast.success("Payment successful!");
+            loadBookings();
+            clearCart();
+            setShowSuccess(true);
+            setTimeout(() => {
+              navigate("/bookings");
+            }, 2000);
+          } catch (e) {
+            toast.error(e.message || "Payment verification failed");
+            setIsProcessing(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+            // Fallback navigation
+            const state = customAdvance ? {
+              discount: 0,
+              finalTotal: serverAdvance,
+              totalSavings: 0,
+              checkoutType: "custom",
+              advanceAmount: serverAdvance,
+              remainingAmount: 0,
+              isPartiallyPaid: false,
+              customAdvance,
+              paymentPurpose,
+              amountOverride: serverAdvance
+            } : {
+              discount: totals.total - totals.finalTotal,
+              finalTotal: totals.finalTotal,
+              totalSavings: displayTotalSavings,
+              checkoutType,
+              advanceAmount: serverAdvance,
+              remainingAmount: totals.finalTotal - serverAdvance,
+              isPartiallyPaid: serverAdvance > 0,
+              order,
+              bookingId
+            };
+            navigate("/payment", { state });
+          }
         }
-      });
-      return;
-    }
-    navigate("/payment", {
-      state: {
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (e) {
+      console.error("Razorpay Error:", e);
+      setIsProcessing(false);
+      const state = customAdvance ? {
+        discount: 0,
+        finalTotal: serverAdvance,
+        totalSavings: 0,
+        checkoutType: "custom",
+        advanceAmount: serverAdvance,
+        remainingAmount: 0,
+        isPartiallyPaid: false,
+        customAdvance,
+        paymentPurpose,
+        amountOverride: serverAdvance
+      } : {
         discount: totals.total - totals.finalTotal,
         finalTotal: totals.finalTotal,
         totalSavings: displayTotalSavings,
         checkoutType,
-        advanceAmount: 0,
-        remainingAmount: totals.finalTotal,
-        isPartiallyPaid: false,
+        advanceAmount: serverAdvance,
+        remainingAmount: totals.finalTotal - serverAdvance,
+        isPartiallyPaid: serverAdvance > 0,
+        order,
         bookingId
-      }
-    });
+      };
+      navigate("/payment", { state });
+    }
   };
 
   const handlePay = async (allowAutoFallback = false) => {
@@ -192,19 +297,10 @@ const BookingSummary = () => {
         toast.error("Advance amount not available.");
         return;
       }
-      navigate("/payment", {
-        state: {
-          discount: 0,
-          finalTotal: amt,
-          totalSavings: 0,
-          checkoutType: "custom",
-          advanceAmount: amt,
-          remainingAmount: 0,
-          isPartiallyPaid: false,
-          customAdvance: { enquiryId: customAdvanceData.enquiryId, amount: amt },
-          paymentPurpose: "custom_advance",
-          amountOverride: amt
-        }
+      goToPayment({ 
+        serverAdvance: amt, 
+        customAdvance: { enquiryId: customAdvanceData.enquiryId, amount: amt },
+        paymentPurpose: "custom_advance"
       });
       return;
     }
