@@ -41,19 +41,25 @@ export const UserModuleDataProvider = ({ children }) => {
                 
                 const data = response.data || {};
                 
-                setServiceTypes(data.serviceTypes || []);
+                const normalize = (items) => (items || []).map(item => ({
+                    ...item,
+                    id: item.id || item._id
+                }));
+
+                setServiceTypes(normalize(data.serviceTypes));
                 setBookingTypeConfig(data.bookingTypeConfig || []);
-                setCategories(data.categories || []);
-                setPopularServices(data.popularServices || []);
+                setCategories(normalize(data.categories));
+                setPopularServices(normalize(data.popularServices));
                 // Initial services pool is just the popular ones
-                setServices(data.popularServices || []);
+                setServices(normalize(data.popularServices));
                 setBanners(data.banners || { women: [], men: [] });
                 setProviders(data.providers || []);
                 if (data.officeSettings) setOfficeSettings(data.officeSettings);
-                setSpotlights(data.spotlights || []);
-                setGallery(data.gallery || []);
-                setTestimonials(data.testimonials || []);
+                setSpotlights(normalize(data.spotlights));
+                setGallery(normalize(data.gallery));
+                setTestimonials(normalize(data.testimonials));
             } catch (e) {
+                console.error("Content init failed:", e);
                 setServiceTypes(FALLBACK_SERVICE_TYPES);
                 setBookingTypeConfig(FALLBACK_BOOKING_TYPES);
                 setCategories(FALLBACK_CATEGORIES);
@@ -76,7 +82,8 @@ export const UserModuleDataProvider = ({ children }) => {
 
         try {
             const res = await api.content.services({ category: categoryId });
-            const newServices = res.data || [];
+            const rawServices = res.data || [];
+            const newServices = rawServices.map(s => ({ ...s, id: s.id || s._id }));
             
             setServices(prev => {
                 const existingIds = new Set(prev.map(s => s.id));

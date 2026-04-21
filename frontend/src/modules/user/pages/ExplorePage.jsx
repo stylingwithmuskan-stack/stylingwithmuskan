@@ -22,7 +22,7 @@ const ExplorePage = () => {
     const { totalItems, cartItems, addToCart, updateQuantity, bookingType: contextBookingType, setBookingType, isFloatingSummaryOpen, setIsFloatingSummaryOpen, setIsCartOpen } = useCart();
     const { isLoggedIn, user } = useAuth();
     const { toggleWishlist, isInWishlist } = useWishlist();
-    const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability, loadCategoryServices, searchServices } = useUserModuleData();
+    const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability, loadCategoryServices, searchServices, isLoading: isInitialLoading } = useUserModuleData();
 
     const userLocation = user?.addresses?.[0] || user?.address || null;
 
@@ -325,7 +325,7 @@ const ExplorePage = () => {
                             </span>
                         </div>
 
-                        {(isSearching || (isCategoryLoading && filteredServices.length === 0)) && (
+                        {(isSearching || isInitialLoading || (isCategoryLoading && filteredServices.length === 0)) && (
                              <div className="space-y-4">
                                 {[1, 2, 3].map(i => (
                                     <div key={i} className="h-32 glass-strong rounded-[28px] animate-pulse" />
@@ -333,7 +333,7 @@ const ExplorePage = () => {
                              </div>
                         )}
 
-                        {!isSearching && !isCategoryLoading && filteredServices.length === 0 && (
+                        {!isSearching && !isInitialLoading && !isCategoryLoading && filteredServices.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 opacity-40">
                                 <Search className="w-12 h-12 mb-4" />
                                 <p className="font-bold text-sm text-center">No services found.</p>
