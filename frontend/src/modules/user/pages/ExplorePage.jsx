@@ -325,11 +325,23 @@ const ExplorePage = () => {
                             </span>
                         </div>
 
-                        {(isSearching || isInitialLoading || (isCategoryLoading && filteredServices.length === 0)) && (
-                             <div className="space-y-4">
-                                {[1, 2, 3].map(i => (
-                                    <div key={i} className="h-32 glass-strong rounded-[28px] animate-pulse" />
-                                ))}
+                        {(isSearching || isInitialLoading || isCategoryLoading) && (
+                             <div className="flex-1 flex flex-col items-center justify-center py-20 pointer-events-none">
+                                <motion.div
+                                    animate={{ 
+                                        rotate: 360
+                                    }}
+                                    transition={{ 
+                                        duration: 2,
+                                        repeat: Infinity,
+                                        ease: "linear"
+                                    }}
+                                    className="relative"
+                                >
+                                    <img src="/loader.png" alt="Loading..." className="w-24 h-24 object-contain" />
+                                    <div className="absolute -inset-4 bg-primary/5 blur-3xl rounded-full -z-10" />
+                                </motion.div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/40 mt-6 animate-pulse">Loading Services</p>
                              </div>
                         )}
 
