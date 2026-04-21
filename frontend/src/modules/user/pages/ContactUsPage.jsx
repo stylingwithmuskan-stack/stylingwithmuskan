@@ -12,12 +12,15 @@ const ContactUsPage = () => {
     window.scrollTo(0, 0);
   }, []);
 
+    const supportPhone = import.meta.env.VITE_SUPPORT_PHONE || "9990000001";
+    const formattedPhone = `+91 ${supportPhone.slice(0, 5)} ${supportPhone.slice(5)}`;
+
     const contacts = [
         { 
             icon: Phone, 
             label: "Call Us", 
-            value: "+91 999 000 0001", 
-            action: "tel:+919990000001" 
+            value: formattedPhone, 
+            action: `tel:+91${supportPhone}` 
         },
         { 
             icon: Mail, 
@@ -29,7 +32,7 @@ const ContactUsPage = () => {
             icon: MessageSquare, 
             label: "Live Chat", 
             value: "WhatsApp us for instant support", 
-            action: "https://wa.me/919990000001?text=Hello%20Styling%20With%20Muskan,%20I%20need%20assistance." 
+            action: `https://wa.me/91${supportPhone}?text=Hello%20Styling%20With%20Muskan,%20I%20need%20assistance.` 
         },
         { 
             icon: MapPin, 

@@ -29,20 +29,22 @@ const SupportPage = () => {
         f.a.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const supportPhone = import.meta.env.VITE_SUPPORT_PHONE || "9990000001";
+
     const contactOpts = [
         { 
             icon: MessageSquare, 
             label: "Chat", 
             color: "text-blue-500", 
             bg: "bg-blue-50", 
-            action: () => window.open("https://wa.me/919990000001?text=Hi%20SWM%20Support,%20I%20have%20a%20query.", "_blank") 
+            action: () => window.open(`https://wa.me/91${supportPhone}?text=Hi%20SWM%20Support,%20I%20have%20a%20query.`, "_blank") 
         },
         { 
             icon: Phone, 
             label: "Call", 
             color: "text-green-500", 
             bg: "bg-green-50", 
-            action: () => window.location.href = "tel:+919990000001" 
+            action: () => window.location.href = `tel:+91${supportPhone}` 
         },
         { 
             icon: Mail, 
