@@ -102,7 +102,9 @@ export default function ProviderRegisterPage() {
         upiId: "",
         lat: null,
         lng: null,
-        agreed: false
+        agreedCommission: false,
+        agreedGuidelines: false,
+        agreedBackgroundCheck: false
     });
 
     useEffect(() => {
@@ -536,6 +538,22 @@ export default function ProviderRegisterPage() {
                     setStepError("Please enter a valid UPI ID (e.g., 9876543210@paytm or username@upi)");
                     return;
                 }
+            }
+        }
+
+        if (currentStep === 5) {
+            // Validate all agreements are accepted
+            if (!formData.agreedCommission) {
+                setStepError("Please accept the 85/15 Payout Commission Policy");
+                return;
+            }
+            if (!formData.agreedGuidelines) {
+                setStepError("Please agree to follow Safety & Hygiene Guidelines");
+                return;
+            }
+            if (!formData.agreedBackgroundCheck) {
+                setStepError("Please acknowledge the Background Check requirement");
+                return;
             }
         }
 
@@ -1454,19 +1472,31 @@ export default function ProviderRegisterPage() {
 
                                     <div className="space-y-3 pt-2">
                                         <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                                            <Checkbox id="c1" onCheckedChange={(c) => setFormData({ ...formData, agreed: c })} />
+                                            <Checkbox 
+                                                id="c1" 
+                                                checked={formData.agreedCommission}
+                                                onCheckedChange={(c) => setFormData({ ...formData, agreedCommission: c })} 
+                                            />
                                             <label htmlFor="c1" className="text-xs font-bold text-gray-700 leading-snug cursor-pointer">
                                                 I accept the <span className="text-violet-600">85/15 Payout Commission</span> Policy.
                                             </label>
                                         </div>
                                         <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                                            <Checkbox id="c2" />
+                                            <Checkbox 
+                                                id="c2" 
+                                                checked={formData.agreedGuidelines}
+                                                onCheckedChange={(c) => setFormData({ ...formData, agreedGuidelines: c })} 
+                                            />
                                             <label htmlFor="c2" className="text-xs font-bold text-gray-700 leading-snug cursor-pointer">
                                                 I agree to follow the <span className="text-violet-600">Safety & Hygiene Guidelines</span> on every visit.
                                             </label>
                                         </div>
                                         <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                                            <Checkbox id="c3" />
+                                            <Checkbox 
+                                                id="c3" 
+                                                checked={formData.agreedBackgroundCheck}
+                                                onCheckedChange={(c) => setFormData({ ...formData, agreedBackgroundCheck: c })} 
+                                            />
                                             <label htmlFor="c3" className="text-xs font-bold text-gray-700 leading-snug cursor-pointer">
                                                 I understand that my profile will be subject to a <span className="text-violet-600">Background Check</span>.
                                             </label>
@@ -1499,8 +1529,23 @@ export default function ProviderRegisterPage() {
                             )}
                             <Button
                                 onClick={nextStep}
-                                className="flex-[2] h-14 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-lg shadow-xl shadow-violet-200 transition-all border-none"
-                                disabled={isLoading}
+                                className={`flex-[2] h-14 rounded-2xl font-black text-lg shadow-xl transition-all border-none ${
+                                    currentStep === 5 && (
+                                        !formData.agreedCommission || 
+                                        !formData.agreedGuidelines || 
+                                        !formData.agreedBackgroundCheck
+                                    )
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none hover:bg-gray-300'
+                                        : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200'
+                                }`}
+                                disabled={
+                                    isLoading || 
+                                    (currentStep === 5 && (
+                                        !formData.agreedCommission || 
+                                        !formData.agreedGuidelines || 
+                                        !formData.agreedBackgroundCheck
+                                    ))
+                                }
                             >
                                 {isLoading ? <Loader2 className="animate-spin" /> : currentStep === 5 ? "Submit Application" : "Continue"}
                                 {!isLoading && currentStep !== 5 && <ArrowRight className="ml-2 h-5 w-5" />}
