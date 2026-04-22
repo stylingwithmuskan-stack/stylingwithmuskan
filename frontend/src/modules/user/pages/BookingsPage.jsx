@@ -44,7 +44,7 @@ const BookingsPage = () => {
     const [feedbackBooking, setFeedbackBooking] = useState(null);
     const [providerModalData, setProviderModalData] = useState(null);
     const [customEnquiryDetails, setCustomEnquiryDetails] = useState(null);
-    const { providers } = useUserModuleData();
+    const { providers, services: globalServices, loadCategoryServices } = useUserModuleData();
     const location = useLocation();
 
     // Effect for deep-linking from notifications
@@ -113,7 +113,23 @@ const BookingsPage = () => {
             }
         };
         checkAutoFeedback();
-    }, [bookings, feedbackBooking]);
+
+        // 🔥 Pre-fetch missing service data for bookings to ensure images show up
+        if (bookings.length > 0) {
+            bookings.forEach(b => {
+                const serviceId = b.items?.[0]?.id || b.services?.[0]?.id;
+                const hasLocalImage = b.items?.[0]?.image || b.services?.[0]?.image;
+                const hasGlobalImage = globalServices?.some(s => (s.id === serviceId || s._id === serviceId) && s.image);
+                
+                if (!hasLocalImage && !hasGlobalImage) {
+                    const categoryId = b.items?.[0]?.category || b.services?.[0]?.category || b.categoryId;
+                    if (categoryId) {
+                        loadCategoryServices(categoryId);
+                    }
+                }
+            });
+        }
+    }, [bookings, feedbackBooking, loadCategoryServices, globalServices]);
 
     const getFormattedDate = (dateStr) => {
         if (!dateStr) return "";
@@ -288,9 +304,15 @@ const BookingsPage = () => {
                                     >
                                         <div className="p-4">
                                             <div className="flex gap-4">
-                                                        <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-accent">
+                                                <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-accent">
                                                     <img
-                                                        src={booking.items?.[0]?.image || booking.services?.[0]?.image || "https://placehold.co/100x100"}
+                                                        src={
+                                                            booking.items?.[0]?.image || 
+                                                            booking.services?.[0]?.image || 
+                                                            globalServices?.find(s => (s.id === (booking.items?.[0]?.id || booking.services?.[0]?.id)) || (s._id === (booking.items?.[0]?.id || booking.services?.[0]?.id)))?.image ||
+                                                            globalServices?.find(s => s.name === (booking.items?.[0]?.name || booking.services?.[0]?.name))?.image ||
+                                                            "https://placehold.co/100x100"
+                                                        }
                                                         className="w-full h-full object-cover"
                                                         alt="Service"
                                                     />
@@ -318,7 +340,7 @@ const BookingsPage = () => {
                                                             booking.status?.toLowerCase() === "accepted" ? "bg-green-100 text-green-600" :
                                                             booking.status?.toLowerCase() === "travelling" ? "bg-amber-100 text-amber-600" :
                                                             booking.status?.toLowerCase() === "arrived" ? "bg-purple-100 text-purple-600" :
-                                                            booking.status?.toLowerCase() === "in_progress" ? "bg-blue-100 text-blue-600" :
+                                                            booking.status?.toLowerCase() === "in_progress" || booking.status?.toLowerCase() === "documentation" ? "bg-blue-100 text-blue-600" :
                                                             booking.status?.toLowerCase() === "completed" ? "bg-emerald-100 text-emerald-600" :
                                                             booking.status?.toLowerCase() === "cancelled" ? "bg-red-100 text-red-600" :
                                                             "bg-gray-100 text-gray-600"
@@ -334,7 +356,7 @@ const BookingsPage = () => {
                                                         <div className="flex items-center gap-1">
                                                             <Clock className="w-3 h-3" /> {booking.slot?.time}
                                                         </div>
-                                                        {["accepted", "travelling", "arrived", "in_progress"].includes(booking.status?.toLowerCase()) ? (
+                                                        {["accepted", "travelling", "arrived", "in_progress", "documentation"].includes(booking.status?.toLowerCase()) ? (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleProviderClick(booking); }} 
                                                                 className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
@@ -378,7 +400,7 @@ const BookingsPage = () => {
                                                 <div className="flex gap-2">
                                                     {activeTab === "Upcoming" ? (
                                                         <div className="flex gap-2">
-                                                            {["accepted", "travelling", "arrived", "in_progress"].includes(booking.status?.toLowerCase()) && (
+                                                            {["accepted", "travelling", "arrived", "in_progress", "documentation"].includes(booking.status?.toLowerCase()) && (
                                                                 <>
                                                                     <button
                                                                         onClick={() => setChatBooking(booking)}
@@ -561,11 +583,20 @@ const BookingsPage = () => {
                                             {enq.selectedServices && (
                                                 <div>
                                                     <p className="text-[10px] font-black uppercase text-purple-600 mb-1">Services Breakdown:</p>
-                                                    <div className="flex flex-wrap gap-1">
+                                                    <div className="flex flex-wrap gap-2">
                                                         {enq.selectedServices.map((s, idx) => (
-                                                            <span key={idx} className="text-[9px] font-bold px-2 py-1 bg-white border border-purple-200 text-purple-700 rounded-lg">
-                                                                {s.name}
-                                                            </span>
+                                                            <div key={idx} className="flex items-center gap-1.5 px-2 py-1 bg-white border border-purple-200 text-purple-700 rounded-lg">
+                                                                {(s.image || globalServices?.find(gs => gs.id === s.id)?.image) && (
+                                                                    <img 
+                                                                        src={s.image || globalServices?.find(gs => gs.id === s.id)?.image} 
+                                                                        alt="" 
+                                                                        className="w-4 h-4 rounded-sm object-cover" 
+                                                                    />
+                                                                )}
+                                                                <span className="text-[9px] font-bold">
+                                                                    {s.name}
+                                                                </span>
+                                                            </div>
                                                         ))}
                                                     </div>
                                                 </div>
@@ -957,11 +988,21 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry }) => {
                                 {enquiry.selectedServices && enquiry.selectedServices.length > 0 && (
                                     <div>
                                         <p className="text-xs text-muted-foreground mb-2">Requested Services</p>
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="space-y-2">
                                             {enquiry.selectedServices.map((s, idx) => (
-                                                <span key={idx} className="text-xs font-bold px-3 py-1 bg-white border border-purple-200 text-purple-700 rounded-lg">
-                                                    {s.name}
-                                                </span>
+                                                <div key={idx} className="flex items-center gap-3 p-2 bg-white border border-purple-200 rounded-xl">
+                                                    {(s.image || globalServices?.find(gs => gs.id === s.id)?.image) && (
+                                                        <img 
+                                                            src={s.image || globalServices?.find(gs => gs.id === s.id)?.image} 
+                                                            alt={s.name} 
+                                                            className="w-10 h-10 rounded-lg object-cover bg-accent"
+                                                        />
+                                                    )}
+                                                    <div>
+                                                        <p className="text-xs font-bold text-purple-700">{s.name}</p>
+                                                        {s.quantity > 1 && <p className="text-[10px] text-muted-foreground">Quantity: {s.quantity}</p>}
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>

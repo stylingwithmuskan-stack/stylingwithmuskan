@@ -116,6 +116,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             setProvidersLoading(true);
             api.users.providerSuggestions({
                 serviceTypes: serviceTypes.join(","),
+                categories: serviceCategories.join(","),
                 limit: "10",
                 city: address?.city || address?.area || "",
                 zone: address?.zone || address?.area || ""

@@ -196,8 +196,9 @@ export async function updateBookingStatus(req, res) {
 
   await BookingLog.create({ action: "booking:status", userId: pId, bookingId: req.params.id, meta: { status: req.body.status } });
 
-  // Notify customer about the status update
-  if (b && b.customerId) {
+  // Notify customer about specific milestones
+  const notifyStatuses = ["accepted", "completed", "payment_pending"];
+  if (b && b.customerId && notifyStatuses.includes(next)) {
     await notify({
       recipientId: b.customerId,
       recipientRole: "user",

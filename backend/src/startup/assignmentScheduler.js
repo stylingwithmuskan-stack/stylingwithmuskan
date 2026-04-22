@@ -115,12 +115,9 @@ export async function runAssignmentSchedulerOnce(now = new Date()) {
                 meta: { bookingId: b._id.toString() },
                 respectProviderQuietHours: true,
               });
-              await notify({
-                recipientId: b.customerId,
-                recipientRole: "user",
-                type: "booking_assigned",
-                meta: { bookingId: b._id.toString() },
-              });
+
+              // User notification for auto-assignment is removed as per request 
+              // "jab me assign karu tabh hi real time notification ana chiaye"
             } catch {}
             
             // Fetch provider name for logging

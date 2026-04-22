@@ -9,18 +9,37 @@ import { useBookings } from "@/modules/user/contexts/BookingContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { toast } from "sonner";
 
+const StatusBadge = ({ status }) => {
+    const s = (status || "").toLowerCase();
+    const styles = {
+        accepted: "bg-green-100 text-green-600 border-green-200",
+        travelling: "bg-amber-100 text-amber-600 border-amber-200",
+        arrived: "bg-purple-100 text-purple-600 border-purple-200",
+        in_progress: "bg-blue-100 text-blue-600 border-blue-200",
+        documentation: "bg-blue-100 text-blue-600 border-blue-200",
+        completed: "bg-emerald-100 text-emerald-600 border-emerald-200",
+        cancelled: "bg-red-100 text-red-600 border-red-200",
+        pending: "bg-amber-100 text-amber-600 border-amber-200",
+    };
+    const label = status?.toLowerCase() === 'in_progress' ? 'In Progress' : status;
+    return (
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${styles[s] || styles.pending}`}>
+            {label || "Pending"}
+        </span>
+    );
+};
+
 const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
-    if (!booking) return null;
+    const pollRef = useRef(null);
     const navigate = useNavigate();
     const { cancelBooking } = useBookings();
-    const { providers } = useUserModuleData();
+    const { providers, services: globalServices } = useUserModuleData();
     const [localBooking, setLocalBooking] = useState(booking);
     const [userLocation, setUserLocation] = useState(null);
     const [providerLocation, setProviderLocation] = useState(null);
     const [socketConnected, setSocketConnected] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-    const pollRef = useRef(null);
 
     // Sync state if prop changes (e.g. initial load)
     useEffect(() => {
@@ -56,28 +75,9 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
         return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', weekday: 'short', year: 'numeric' });
     };
 
-    const StatusBadge = ({ status }) => {
-        const s = (status || "").toLowerCase();
-        const styles = {
-            accepted: "bg-green-100 text-green-600 border-green-200",
-            travelling: "bg-amber-100 text-amber-600 border-amber-200",
-            arrived: "bg-purple-100 text-purple-600 border-purple-200",
-            in_progress: "bg-blue-100 text-blue-600 border-blue-200",
-            completed: "bg-emerald-100 text-emerald-600 border-emerald-200",
-            cancelled: "bg-red-100 text-red-600 border-red-200",
-            pending: "bg-amber-100 text-amber-600 border-amber-200",
-        };
-        const label = status?.toLowerCase() === 'in_progress' ? 'In Progress' : status;
-        return (
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${styles[s] || styles.pending}`}>
-                {label || "Pending"}
-            </span>
-        );
-    };
-
-    const currentStatus = (localBooking.status || 'pending').toLowerCase();
-    const showTracking = ['travelling', 'arrived', 'in_progress'].includes(currentStatus);
-    const bookingId = booking._id || booking.id;
+    const currentStatus = (localBooking?.status || 'pending').toLowerCase();
+    const showTracking = ['travelling', 'arrived', 'in_progress', 'documentation'].includes(currentStatus);
+    const bookingId = booking?._id || booking?.id;
     const token = useMemo(() => {
         try {
             return localStorage.getItem("swm_token") || "";
@@ -89,7 +89,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
 
     const getStepIndex = () => {
         if (currentStatus === 'completed') return 4;
-        if (currentStatus === 'in_progress') return 3;
+        if (currentStatus === 'in_progress' || currentStatus === 'documentation') return 3;
         if (currentStatus === 'arrived') return 2;
         if (currentStatus === 'travelling') return 1;
         if (currentStatus === 'accepted') return 0;
@@ -198,6 +198,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     }, [isOpen, showTracking, bookingId, socketConnected]);
 
     const handleCancel = async () => {
+        if (!bookingId) return;
         setIsCancelling(true);
         const res = await cancelBooking(bookingId);
         if (res.success) {
@@ -210,11 +211,12 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
         setShowCancelConfirm(false);
     };
 
+    if (!booking || !localBooking) return null;
+
     return (
         <AnimatePresence>
             {/* Cancel Confirmation Modal */}
-            <AnimatePresence key="cancel-confirm-presence">
-                {showCancelConfirm && (
+            {showCancelConfirm && (
                     <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
@@ -257,7 +259,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                         </motion.div>
                     </div>
                 )}
-            </AnimatePresence>
+            {/* </AnimatePresence> */}
 
             {isOpen && (
                 <div key="booking-details-content" className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
@@ -308,7 +310,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background to-transparent h-24 pointer-events-none" />
                                     <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between shadow-lg border border-border/50 pointer-events-none">
                                         <div>
-                                            <p className="text-sm font-black text-gray-900">{currentStatus === 'travelling' ? 'Provider on the way' : currentStatus === 'arrived' ? 'Provider Arrived at Location' : 'Service in Progress'}</p>
+                                            <p className="text-sm font-black text-gray-900">{currentStatus === 'travelling' ? 'Provider on the way' : currentStatus === 'arrived' ? 'Provider Arrived at Location' : (currentStatus === 'documentation' ? 'Documentation in Progress' : 'Service in Progress')}</p>
                                             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">{providerLocation ? 'Live tracking enabled' : 'Waiting for provider location'}</p>
                                         </div>
                                         <button className="h-10 w-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center shadow-sm pointer-events-auto">
@@ -333,7 +335,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                             </div>
 
                             {/* Provider Profile Section */}
-                            {["accepted", "travelling", "arrived", "in_progress", "completed"].includes(currentStatus) && (
+                            {["accepted", "travelling", "arrived", "in_progress", "documentation", "completed"].includes(currentStatus) && (
                                 <div className="p-4 bg-white rounded-2xl border border-border/40 shadow-sm space-y-4 animate-in slide-in-from-top-4 duration-500">
                                     <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                                         <ShieldCheck className="w-3.5 h-3.5 text-green-600" /> Service Professional
@@ -462,7 +464,16 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                         {booking.items.map((item, idx) => (
                                             <div key={idx} className="flex gap-4 p-3 bg-white rounded-2xl border border-border/40 shadow-sm">
                                                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-accent flex-shrink-0">
-                                                    <img src={item.image || "https://placehold.co/100x100"} className="w-full h-full object-cover" alt={item.name} />
+                                                    <img 
+                                                        src={
+                                                            item.image || 
+                                                            globalServices?.find(s => s.id === item.id)?.image ||
+                                                            globalServices?.find(s => s.name === item.name)?.image ||
+                                                            "https://placehold.co/100x100"
+                                                        } 
+                                                        className="w-full h-full object-cover" 
+                                                        alt={item.name} 
+                                                    />
                                                 </div>
                                                 <div className="flex-1 min-w-0 py-1 flex flex-col justify-between">
                                                     <h4 className="font-bold text-sm truncate">{item.name}</h4>
@@ -596,7 +607,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                         {/* Footer Controls */}
                         <div className="p-6 bg-background border-t border-border/50 space-y-3 sticky bottom-0 z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
                             <div className="flex items-center gap-3">
-                                {["accepted", "travelling", "arrived", "in_progress"].includes(currentStatus) ? (
+                                {["accepted", "travelling", "arrived", "in_progress", "documentation"].includes(currentStatus) ? (
                                     <>
                                         <button className="flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 border border-primary/20 bg-primary/5 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary/10 transition-all">
                                             <Phone className="w-4 h-4" /> Call Pro

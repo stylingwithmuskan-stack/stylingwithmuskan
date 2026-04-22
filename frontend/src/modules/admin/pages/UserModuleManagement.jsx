@@ -675,7 +675,7 @@ const UserModuleManagement = () => {
     };
 
     const filteredData = getDataForTab().filter(item =>
-        (item.name || item.label || item.title || "").toLowerCase().includes(searchTerm.toLowerCase())
+        (item.name || item.label || item.title || "").toLowerCase().includes(searchTerm.trim().toLowerCase())
     );
 
     const actualTotal = activeTab === "services" ? totalServices : filteredData.length;

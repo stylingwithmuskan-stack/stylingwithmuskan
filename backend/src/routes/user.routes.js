@@ -27,6 +27,7 @@ function providerCard(p) {
     specialties: Array.isArray(p?.documents?.specializations) ? p.documents.specializations : [],
     isPro: !!p.isPro,
     isElite: !!p.isElite,
+    categories: Array.isArray(p.documents?.primaryCategory) ? p.documents.primaryCategory : [],
   };
 }
 
