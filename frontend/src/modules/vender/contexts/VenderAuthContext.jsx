@@ -167,6 +167,9 @@ export const VenderAuthProvider = ({ children }) => {
     // Get all bookings
     const getAllBookings = async () => (await api.vendor.bookings()).bookings || [];
 
+    // Get available providers for escalated booking
+    const getAvailableProviders = async (bookingId) => (await api.vendor.getAvailableProviders(bookingId)).availableProviders || [];
+
     // Assign SP to a booking
     const assignSPToBooking = async (bookingId, spId) => { await api.vendor.assignBooking(bookingId, spId); };
 
@@ -244,6 +247,7 @@ export const VenderAuthProvider = ({ children }) => {
             approveSPZones,
             rejectSPZones,
             getAllBookings,
+            getAvailableProviders,
             assignSPToBooking,
             reassignBooking,
             expireBooking,

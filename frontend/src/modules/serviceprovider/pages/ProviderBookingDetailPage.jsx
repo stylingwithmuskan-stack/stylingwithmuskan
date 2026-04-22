@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, MapPin, Clock, Calendar, Check, Navigation, Camera, ChevronRight,
     Shield, IndianRupee, Map as MapIcon, UserCircle, Package, CheckCircle2,
-    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone
+    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone, Briefcase
 } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { toast } from "sonner";
@@ -278,7 +278,15 @@ const ProviderBookingDetailPage = () => {
     const getNextAction = () => {
         switch (booking.status) {
             case "vendor_assigned":
-            case "vendor_reassigned":
+            case "vendor_reassigned": {
+                // Mandatory booking - no accept/reject, only "Manage Jobs" button
+                return { 
+                    label: "Manage Jobs", 
+                    icon: Briefcase, 
+                    action: () => updateBookingStatus(bookingId, "accepted"),
+                    disabled: false
+                };
+            }
             case "accepted": {
                 const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
                 return { 

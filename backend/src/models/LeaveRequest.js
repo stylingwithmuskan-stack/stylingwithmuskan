@@ -4,12 +4,12 @@ const LeaveRequestSchema = new mongoose.Schema(
   {
     providerId: { type: String, required: true },
     phone: { type: String, required: true },
-    type: { type: String, enum: ["Full Day", "Half Day"], default: "Full Day" },
+    type: { type: String, default: "Full Day" },
     startAt: { type: Date, required: true },
     // Computed inclusive end datetime (end-of-day local) for overlap queries.
     endAt: { type: Date, default: null },
-    endDate: { type: String, default: "" },
-    reason: { type: String, default: "" },
+    endDate: { type: String, required: true },
+    reason: { type: String, required: true },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
   },
   { timestamps: true }
