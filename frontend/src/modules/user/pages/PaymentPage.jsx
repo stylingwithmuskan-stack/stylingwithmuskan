@@ -79,8 +79,10 @@ const PaymentPage = () => {
         setIsProcessing(true);
         try {
             const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+            console.log("[Payment] Razorpay Key Status:", rzpKey ? "Found" : "NOT FOUND");
+            
             if (!rzpKey) {
-                setError("Razorpay key is not configured.");
+                setError("Razorpay key is not configured in frontend.");
                 setIsProcessing(false);
                 return;
             }
@@ -129,6 +131,7 @@ const PaymentPage = () => {
             }
 
             await loadRazorpay();
+            console.log("[Payment] Creating order for amount:", amountPaise);
             const order = passedState?.order || (await api.payments.createOrder({
                 amount: amountPaise,
                 currency: "INR",
@@ -190,6 +193,7 @@ const PaymentPage = () => {
             });
             rzp.open();
         } catch (e) {
+            console.error("[Payment] Critical Error:", e);
             setError(e?.message || "Payment failed to initialize");
             setIsProcessing(false);
         }

@@ -21,6 +21,7 @@ const BookingSchema = new mongoose.Schema(
     services: [ServiceItemSchema],
     totalAmount: Number,
     discount: { type: Number, default: 0 },
+    discountFundedBy: { type: String, default: "admin" }, // "admin" or "all"
     convenienceFee: { type: Number, default: 0 },
     prepaidAmount: { type: Number, default: 0 },
     balanceAmount: { type: Number, default: 0 },

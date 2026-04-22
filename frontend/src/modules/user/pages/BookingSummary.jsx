@@ -252,10 +252,76 @@ const BookingSummary = () => {
         preferredProviderId: selectedSlot?.provider?.id || selectedSlot?.provider?._id || undefined,
         allowAutoFallback
       };
-      const { booking, totals, advanceAmount: serverAdvance, order } = await api.bookings.create(payload);
+      const { booking, totals, advanceAmount: serverAdvance, order: initialOrder } = await api.bookings.create(payload);
       const bookingId = booking?.id || booking?._id;
-      setIsProcessing(false);
-      goToPayment({ totals, serverAdvance, order, bookingId });
+      
+      // Direct Razorpay Integration
+      const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+      if (!rzpKey) {
+        toast.error("Razorpay key not configured.");
+        setIsProcessing(false);
+        return;
+      }
+
+      await loadRazorpay();
+      
+      // If we don't have an order from the booking creation (e.g. no advance), 
+      // create one for the full final total
+      let order = initialOrder;
+      if (!order) {
+        const orderRes = await api.payments.createOrder({
+          amount: Math.round(finalTotal * 100),
+          currency: "INR",
+          purpose: "booking_full",
+          bookingId
+        });
+        order = orderRes.order;
+      }
+
+      if (!order || !order.id) {
+        throw new Error("Failed to create payment order");
+      }
+
+      const rzp = new window.Razorpay({
+        key: rzpKey,
+        amount: order.amount,
+        currency: order.currency,
+        name: "stylingwithmuskan",
+        description: "Booking Payment",
+        order_id: order.id,
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+          contact: user?.phone || ""
+        },
+        theme: { color: "#7c3aed" },
+        handler: async (response) => {
+          try {
+            await api.payments.verify({
+              order_id: response.razorpay_order_id,
+              payment_id: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+              amount: order.amount,
+              purpose: order.notes?.purpose || "booking_full",
+              bookingId
+            });
+            setIsProcessing(false);
+            setShowSuccess(true);
+            clearCart();
+            // Optional: loadBookings();
+          } catch (e) {
+            toast.error(e?.message || "Payment verification failed");
+            setIsProcessing(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+          }
+        }
+      });
+      
+      rzp.open();
     } catch (e) {
       setIsProcessing(false);
       if (e.code === "PREFERRED_PROVIDER_BUSY") {
@@ -263,7 +329,7 @@ const BookingSummary = () => {
       } else if (e.code === "SLOT_UNAVAILABLE") {
         toast.error("Selected slot is no longer available. Please choose another slot.");
       } else {
-        toast.error(e.message || "Payment initiation failed");
+        toast.error(e.message || "Booking failed");
       }
     }
   };

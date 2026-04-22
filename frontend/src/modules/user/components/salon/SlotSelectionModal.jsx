@@ -98,10 +98,10 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         // A provider must support ALL selected categories to be shown here
         return recentProviders.filter(p => {
             if (!serviceCategories || serviceCategories.length === 0) return true;
-            
-            // Check if provider has the required categories
+
+            // Relaxed check: Provider should match at least ONE of the requested categories
             const pCats = Array.isArray(p.categories) ? p.categories : [];
-            return serviceCategories.every(catId => pCats.includes(catId));
+            return serviceCategories.some(catId => pCats.includes(catId)) || pCats.length === 0;
         });
     }, [recentProviders, serviceCategories]);
 
@@ -127,7 +127,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                 const mode = res?.mode === "new_user" || isFirst ? "new_user" : "repeat_user";
                 setRecentProviders(mode === "repeat_user" ? recent : []);
                 setBookingMode(mode);
-                
+
                 // Prioritize existing selected provider, otherwise default to "Any Professional" (null)
                 // for repeat users to show maximum availability first.
                 const next = selectedSlot?.provider?.id
@@ -239,7 +239,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                 next.provider = selectedProvider;
             }
             setSelectedSlot(next);
-            
+
             // Set booking type based on date: Today = Instant, Future = Scheduled
             const todayKey = getLocalDateKey();
             if (tempDate === todayKey) {
@@ -360,8 +360,8 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                                 <div className="flex items-center gap-2 mb-0.5">
                                                     <h4 className="font-bold text-sm truncate">{provider.name}</h4>
                                                     <span className="text-[8px] font-black uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">
-                                                        {provider.bookingCount > 1 
-                                                            ? `${provider.bookingCount}x Booked` 
+                                                        {provider.bookingCount > 1
+                                                            ? `${provider.bookingCount}x Booked`
                                                             : "Previously booked"}
                                                     </span>
                                                 </div>
@@ -443,18 +443,17 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                     const isAvailable = true;
                                     const isSelected = tempSlot === slot;
                                     const isFirstAvailable = isToday && slot === nextAvailableSlot;
-                                    
+
                                     return (
                                         <button
                                             key={slot}
                                             onClick={() => setTempSlot(slot)}
-                                            className={`relative px-2 py-2.5 rounded-xl text-[10px] font-bold text-center border-2 transition-all duration-200 ${
-                                                isSelected
+                                            className={`relative px-2 py-2.5 rounded-xl text-[10px] font-bold text-center border-2 transition-all duration-200 ${isSelected
                                                     ? "bg-primary text-white border-primary shadow-md scale-105"
                                                     : isAvailable
                                                         ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-100/50"
                                                         : "glass border-border text-muted-foreground/40 opacity-50 cursor-not-allowed"
-                                            }`}
+                                                }`}
                                         >
                                             {isFirstAvailable && (
                                                 <span className="absolute -top-2 -right-1 bg-emerald-600 text-[6px] text-white px-1.5 py-0.5 rounded-full font-black uppercase tracking-tighter border border-white shadow-sm">
