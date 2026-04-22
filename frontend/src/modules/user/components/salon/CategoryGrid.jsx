@@ -45,6 +45,16 @@ const CategoryGrid = () => {
     .filter(t => t.entryCategory)
     .filter(t => checkAvailability(t, userLocation));
 
+  // Prefetch services for the entry categories to make navigation instant
+  const { loadCategoryServices } = useUserModuleData();
+  useEffect(() => {
+    if (mainServiceTypes.length > 0) {
+      mainServiceTypes.forEach(type => {
+        loadCategoryServices(type.entryCategory);
+      });
+    }
+  }, [mainServiceTypes, loadCategoryServices]);
+
   const handleServiceSelect = (type) => {
     // Default to instant for home page selections, but it will be overridden by explore page if needed
     setBookingType("instant");

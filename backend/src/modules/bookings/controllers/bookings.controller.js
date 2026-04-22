@@ -89,6 +89,7 @@ function bookingServicesToItems(services = []) {
     duration: s?.duration || "",
     category: s?.category || "",
     serviceType: s?.serviceType || "",
+    image: s?.image || "",
     quantity: Number(s?.quantity) || 1,
   }));
 }
@@ -441,7 +442,7 @@ export async function create(req, res) {
     customerName: req.user.name || "",
     customerPhone: req.user.phone || "",
     services: items.map(it => ({
-      name: it.name, price: it.price, duration: it.duration, category: it.category, serviceType: it.serviceType, quantity: Number(it.quantity) || 1,
+      name: it.name, price: it.price, duration: it.duration, category: it.category, serviceType: it.serviceType, image: it.image, quantity: Number(it.quantity) || 1,
     })),
     totalAmount: totals.finalTotal,
     discount: totals.discount,
@@ -651,7 +652,9 @@ export async function confirmCOD(req, res) {
       meta: { bookingId },
     });
 
+    // Notify provider and user about assignment
     if (booking.assignedProvider) {
+      // Notify provider
       await notify({
         recipientId: booking.assignedProvider,
         recipientRole: "provider",
@@ -659,12 +662,10 @@ export async function confirmCOD(req, res) {
         meta: { bookingId },
         respectProviderQuietHours: true,
       });
-      await notify({
-        recipientId: req.user._id.toString(),
-        recipientRole: "user",
-        type: "booking_assigned",
-        meta: { bookingId },
-      });
+
+      // NOTE: User notification for 'booking_assigned' is intentionally omitted here 
+      // during the initial creation flow to avoid redundancy with 'booking_created'.
+      // Assignment notifications to the user will be sent when manually assigned by admin/vendor.
     }
   } catch (err) {
     console.error("[ConfirmCOD] Notification error:", err.message);
@@ -740,7 +741,7 @@ export async function createCustomEnquiry(req, res) {
   const { name, phone, eventType, noOfPeople, date, timeSlot, selectedServices, notes, address } = req.body;
   const fallbackAddr = (req.user?.addresses && req.user.addresses[0]) ? req.user.addresses[0] : {};
   const items = (selectedServices || []).map((s) => ({
-    id: s.id, name: s.name, category: s.category, serviceType: s.serviceType, quantity: s.quantity || 1, price: Number(s.price) || 0,
+    id: s.id, name: s.name, category: s.category, serviceType: s.serviceType, quantity: s.quantity || 1, price: Number(s.price) || 0, image: s.image || "",
   }));
   const peopleCount = Number(noOfPeople);
   const doc = await CustomEnquiry.create({

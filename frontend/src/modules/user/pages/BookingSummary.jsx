@@ -94,7 +94,7 @@ const BookingSummary = () => {
 
   const handleApplyCoupon = async () => {
     try {
-      const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType }));
+      const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType, image: it?.image || "" }));
       const quote = await api.bookings.quote({ items, couponCode: coupon, bookingType: effectiveBookingType });
       const { discount: serverDiscount, couponApplied: appliedCode } = quote;
       if (!appliedCode) {
@@ -116,7 +116,7 @@ const BookingSummary = () => {
     let cancelled = false;
     (async () => {
       try {
-        const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType }));
+        const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType, image: it?.image || "" }));
         if (!items.length) return;
         const quote = await api.bookings.quote({
           items,
@@ -233,7 +233,7 @@ const BookingSummary = () => {
     
     setIsProcessing(true);
     try {
-      const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType }));
+      const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType, image: it?.image || "" }));
       const address = {
         houseNo: user.addresses[0].houseNo,
         area: user.addresses[0].area,

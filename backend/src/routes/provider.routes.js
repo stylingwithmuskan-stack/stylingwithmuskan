@@ -1713,7 +1713,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       });
     } catch {}
   try {
-    const notifyStatuses = new Set(["accepted", "travelling", "arrived", "in_progress", "completed", "payment_pending"]);
+    const notifyStatuses = new Set(["accepted", "completed", "payment_pending"]);
       if (b.customerId && notifyStatuses.has(effectiveStatus)) {
         await notify({
           recipientId: b.customerId,

@@ -221,20 +221,49 @@ router.get("/services", async (req, res) => {
 });
 
 router.get("/search", async (req, res) => {
-  const { q, gender, category } = req.query;
+  const { q: rawQ, gender, category } = req.query;
+  const q = (rawQ || "").trim();
   if (!q || q.length < 2) return res.json({ data: [] });
 
   try {
+    const qRegex = new RegExp(q, "i");
+
+    // Find categories that match the query
+    const matchingCategories = await Category.find({ name: qRegex }).select("id");
+    const matchingCategoryIds = matchingCategories.map(c => c.id);
+
     const query = {
       $or: [
-        { name: { $regex: q, $options: "i" } },
-        { description: { $regex: q, $options: "i" } }
+        { name: qRegex },
+        { description: qRegex },
+        { category: { $in: matchingCategoryIds } }
       ]
     };
     if (gender) query.gender = gender;
     if (category) query.category = category;
 
-    const data = await Service.find(query).select("-gallery -steps").limit(50).lean();
+    let data = await Service.find(query).select("-gallery -steps").limit(50).lean();
+
+    // Sort by relevance: Name matches first, then Category matches, then Description matches
+    data.sort((a, b) => {
+      const aNameMatch = a.name.toLowerCase().includes(q.toLowerCase());
+      const bNameMatch = b.name.toLowerCase().includes(q.toLowerCase());
+      const aCatMatch = matchingCategoryIds.includes(a.category);
+      const bCatMatch = matchingCategoryIds.includes(b.category);
+      
+      const getScore = (isName, isCat) => {
+        if (isName) return 0;
+        if (isCat) return 1;
+        return 2;
+      };
+
+      const aScore = getScore(aNameMatch, aCatMatch);
+      const bScore = getScore(bNameMatch, bCatMatch);
+
+      if (aScore !== bScore) return aScore - bScore;
+      return (b.rating || 0) - (a.rating || 0);
+    });
+
     res.json({ data });
   } catch (error) {
     console.error("Search error:", error);

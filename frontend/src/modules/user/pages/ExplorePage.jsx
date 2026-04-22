@@ -22,7 +22,7 @@ const ExplorePage = () => {
     const { totalItems, cartItems, addToCart, updateQuantity, bookingType: contextBookingType, setBookingType, isFloatingSummaryOpen, setIsFloatingSummaryOpen, setIsCartOpen } = useCart();
     const { isLoggedIn, user } = useAuth();
     const { toggleWishlist, isInWishlist } = useWishlist();
-    const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability, loadCategoryServices, searchServices, isLoading: isInitialLoading } = useUserModuleData();
+    const { services, categories, serviceTypes: SERVICE_TYPES, checkAvailability, loadCategoryServices, loadedCategories, searchServices, isLoading: isInitialLoading } = useUserModuleData();
 
     const userLocation = user?.addresses?.[0] || user?.address || null;
 
@@ -51,7 +51,7 @@ const ExplorePage = () => {
         priceRange: null
     });
     const [isSearching, setIsSearching] = useState(false);
-    const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+    const [isCategoryLoading, setIsCategoryLoading] = useState(categoryId ? !loadedCategories.has(categoryId) : false);
     const [searchResults, setSearchResults] = useState([]);
 
     // Sync active state with URL
@@ -77,13 +77,16 @@ const ExplorePage = () => {
     // Optimize: Load category services on change
     useEffect(() => {
         if (activeCategory) {
-            setIsCategoryLoading(true);
+            const isLoaded = loadedCategories.has(activeCategory);
+            if (!isLoaded) setIsCategoryLoading(true);
+            
             loadCategoryServices(activeCategory).finally(() => {
-                // Small delay to ensure smooth transition
-                setTimeout(() => setIsCategoryLoading(false), 300);
+                setIsCategoryLoading(false);
             });
         }
-    }, [activeCategory, loadCategoryServices]);
+    }, [activeCategory, loadCategoryServices, loadedCategories]);
+
+
 
     // Handle Server-side Search
     useEffect(() => {
@@ -94,7 +97,7 @@ const ExplorePage = () => {
                 const results = await searchServices(searchQuery);
                 setSearchResults(results);
                 setIsSearching(false);
-            }, 500);
+            }, 300);
         } else {
             setSearchResults([]);
             setIsSearching(false);
@@ -114,6 +117,17 @@ const ExplorePage = () => {
         [gender, activeType, activeBooking, categories, checkAvailability, userLocation]
     );
 
+    // 🔥 Background Optimization: Pre-fetch all sibling categories for instant tab switching
+    useEffect(() => {
+        if (filteredCategories.length > 0) {
+            filteredCategories.forEach(cat => {
+                if (!loadedCategories.has(cat.id)) {
+                    loadCategoryServices(cat.id);
+                }
+            });
+        }
+    }, [filteredCategories, loadCategoryServices, loadedCategories]);
+
     // If activeCategory is not in the filtered list (e.g. after type change), reset it
     useEffect(() => {
         if (filteredCategories.length > 0) {
@@ -127,14 +141,26 @@ const ExplorePage = () => {
     }, [filteredCategories, activeCategory, activeType, activeBooking, navigate]);
 
     const filteredServices = useMemo(() => {
-        const source = searchQuery.length > 0 ? searchResults : services;
+        const source = searchQuery.trim().length >= 2 ? searchResults : services;
         
         return source.filter(s => {
             const matchesGender = s.gender === gender;
-            const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                (s.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+            const query = searchQuery.trim().toLowerCase();
+            const matchesName = s.name.toLowerCase().includes(query);
+            const matchesDescription = (s.description || "").toLowerCase().includes(query);
+            
+            // Also check category name
+            const category = categories.find(c => c.id === s.category);
+            const matchesCategoryName = category?.name.toLowerCase().includes(query);
+            
+            const matchesSearch = matchesName || matchesDescription || matchesCategoryName;
             const matchesCategory = searchQuery.length > 0 ? true : s.category === activeCategory;
             const isAvailable = checkAvailability(s, userLocation);
+
+            // Store match type for sorting: 0=Name, 1=Category, 2=Description
+            if (matchesName) s._matchType = 0;
+            else if (matchesCategoryName) s._matchType = 1;
+            else s._matchType = 2;
 
             let matchesFilter = true;
             if (activeFilter === "Top Selling") matchesFilter = s.rating >= 4.7;
@@ -160,8 +186,11 @@ const ExplorePage = () => {
             }
 
             return matchesCategory && matchesGender && matchesSearch && matchesFilter && isAvailable && matchesPreferences;
+        }).sort((a, b) => {
+            if (a._matchType !== b._matchType) return a._matchType - b._matchType;
+            return (b.rating || 0) - (a.rating || 0);
         });
-    }, [activeCategory, gender, searchQuery, activeFilter, services, searchResults, checkAvailability, userLocation, preferences]);
+    }, [activeCategory, gender, searchQuery, activeFilter, services, categories, searchResults, checkAvailability, userLocation, preferences]);
 
     const handleTypeChange = (typeId) => {
         // Try to find a category in current booking type first
@@ -362,7 +391,7 @@ const ExplorePage = () => {
                                 key={service.id}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: idx * 0.05 }}
+                                transition={{ delay: idx * 0.005 }}
                                 className="glass-strong rounded-[28px] p-4 border border-border/40 shadow-soft hover:shadow-elevated transition-all flex gap-4"
                                 onClick={() => navigate(`/service/${service.id}`)}
                             >

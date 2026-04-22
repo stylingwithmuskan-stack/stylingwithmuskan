@@ -84,7 +84,8 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                         quantity: 1, 
                         name: service.name, 
                         categoryName: cat?.name || "General",
-                        price: service.price 
+                        price: service.price,
+                        image: service.image
                     }
                 ]
             };

@@ -48,9 +48,9 @@ const HomePage = () => {
               <BannerSlider />
               <CategoryGrid />
               <PopularServices />
-              <WhyChooseUs />
               <ReelsSection />
               <OurGallery />
+              <WhyChooseUs />
               <Testimonials />
             </motion.div>
           )}

@@ -28,7 +28,7 @@ const Header = () => {
   const { totalItems, setIsCartOpen } = useCart();
 
   const { wishlistCount } = useWishlist();
-  const { services, checkAvailability } = useUserModuleData();
+  const { services, categories, checkAvailability } = useUserModuleData();
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
@@ -42,15 +42,31 @@ const Header = () => {
   const filteredServices = useMemo(() => {
     if (searchQuery.trim().length < 2) return [];
     
+    const query = searchQuery.trim().toLowerCase();
+    
     return services.filter(s => {
       const matchesGender = s.gender === gender;
-      const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           s.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesName = s.name.toLowerCase().includes(query);
+      const matchesDescription = s.description?.toLowerCase().includes(query);
+      
+      // Also check category name
+      const category = categories.find(c => c.id === s.category);
+      const matchesCategory = category?.name.toLowerCase().includes(query);
+      
+      const matchesSearch = matchesName || matchesDescription || matchesCategory;
       const isAvailable = checkAvailability(s, userCity);
       
+      // Store match type for sorting: 0=Name, 1=Category, 2=Description
+      if (matchesName) s._matchType = 0;
+      else if (matchesCategory) s._matchType = 1;
+      else s._matchType = 2;
+      
       return matchesGender && matchesSearch && isAvailable;
-    }).sort((a, b) => b.rating - a.rating); // Sort by rating
-  }, [searchQuery, services, gender, userCity, checkAvailability]);
+    }).sort((a, b) => {
+      if (a._matchType !== b._matchType) return a._matchType - b._matchType;
+      return b.rating - a.rating;
+    });
+  }, [searchQuery, services, categories, gender, userCity, checkAvailability]);
 
   // Show dropdown when user types (min 2 characters)
   useEffect(() => {
