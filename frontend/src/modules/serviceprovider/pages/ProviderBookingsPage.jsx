@@ -4,6 +4,29 @@ import { useNavigate } from "react-router-dom";
 import { Clock, MapPin, ChevronRight, Check, X, Zap, Calendar, Timer, Phone } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { Button } from "@/modules/user/components/ui/button";
+import { toast } from "sonner";
+
+const getBookingTimeStatus = (dateStr, timeStr) => {
+    try {
+        if (!dateStr || !timeStr) return { status: "allow" };
+        let scheduledDate = new Date(dateStr);
+        const parts = timeStr.split(' ');
+        if (parts.length !== 2) return { status: "allow" };
+        const [time, period] = parts;
+        let [hours, minutes] = time.split(':').map(Number);
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+        scheduledDate.setHours(hours, minutes, 0, 0);
+        const now = new Date();
+        const timeDiff = scheduledDate.getTime() - now.getTime();
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+        const isFutureDate = dateStr > now.toISOString().split('T')[0];
+        if (isFutureDate || hoursDiff > 2) return { status: "block" };
+        return { status: "allow" };
+    } catch (error) {
+        return { status: "allow" };
+    }
+};
 
 const CountdownTimer = ({ expiresAt }) => {
     const [remaining, setRemaining] = useState(0);
@@ -29,6 +52,9 @@ const CountdownTimer = ({ expiresAt }) => {
 const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate }, ref) => {
     const bookingId = booking?.id || booking?._id;
     const isFirstTime = !booking.customerBookingCount || booking.customerBookingCount <= 1;
+
+    const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
+    const isCallRestricted = timeStatus.status === "block" && ["accepted", "vendor_assigned", "vendor_reassigned", "payment_pending"].includes(booking?.status);
 
     return (
         <motion.div ref={ref} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -77,10 +103,22 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                     <div className="flex gap-2">
                         {(booking.customerPhone || booking.phone) && (
                             <a 
-                                href={booking.status === "payment_pending" ? "#" : `tel:${booking.customerPhone || booking.phone}`} 
-                                className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${booking.status === "payment_pending" ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"}`}
-                                onClick={(e) => { e.stopPropagation(); if (booking.status === "payment_pending") e.preventDefault(); }}
-                                title={booking.status === "payment_pending" ? "Awaiting Payment" : "Call Customer"}
+                                href={isCallRestricted || booking.status === "payment_pending" ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`} 
+                                className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${
+                                    isCallRestricted || booking.status === "payment_pending" 
+                                    ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" 
+                                    : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"
+                                }`}
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if (isCallRestricted) {
+                                        e.preventDefault();
+                                        toast.error(`Call Restricted: Allowed only within 2 hours of the slot (${booking.slot?.time}).`);
+                                    } else if (booking.status === "payment_pending") {
+                                        e.preventDefault();
+                                    }
+                                }}
+                                title={isCallRestricted ? "Call restricted till 2h before slot" : booking.status === "payment_pending" ? "Awaiting Payment" : "Call Customer"}
                             >
                                 <Phone className="w-4 h-4" />
                             </a>
@@ -106,10 +144,20 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                     <div className="flex items-center gap-2">
                         {(type === "active" || type === "assigned") && (booking.customerPhone || booking.phone) && (
                             <a 
-                                href={`tel:${booking.customerPhone || booking.phone}`} 
-                                className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 hover:bg-emerald-100 transition-all active:scale-95"
-                                onClick={(e) => e.stopPropagation()}
-                                title="Call Customer"
+                                href={isCallRestricted ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`} 
+                                className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${
+                                    isCallRestricted 
+                                    ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed opacity-60" 
+                                    : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"
+                                }`}
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if (isCallRestricted) {
+                                        e.preventDefault();
+                                        toast.error(`Call Restricted: Allowed only within 2 hours of the slot (${booking.slot?.time}).`);
+                                    }
+                                }}
+                                title={isCallRestricted ? "Call restricted till 2h before slot" : "Call Customer"}
                             >
                                 <Phone className="w-4 h-4" />
                             </a>
