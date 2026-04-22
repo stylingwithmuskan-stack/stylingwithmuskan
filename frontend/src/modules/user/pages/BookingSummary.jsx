@@ -508,7 +508,7 @@ const BookingSummary = () => {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-strong rounded-2xl p-5 border border-border/50 space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground font-medium">Service Total</span>
-            <span className="font-bold">₹{displayTotalPrice.toLocaleString()}</span>
+            <span className="font-bold">₹{(displayTotalPrice + displayTotalSavings).toLocaleString()}</span>
           </div>
           {displayTotalSavings > 0 && (
             <div className="flex justify-between text-sm">
