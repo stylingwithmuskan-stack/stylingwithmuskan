@@ -446,6 +446,7 @@ export async function create(req, res) {
     })),
     totalAmount: totals.finalTotal,
     discount: totals.discount,
+    discountFundedBy: customerSubscription.discountFundedBy || "admin",
     convenienceFee: customerSubscription.convenienceFee,
     prepaidAmount: 0,
     balanceAmount: totals.finalTotal,

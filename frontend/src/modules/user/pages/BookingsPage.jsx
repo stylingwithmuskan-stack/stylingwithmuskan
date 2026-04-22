@@ -388,11 +388,15 @@ const BookingsPage = () => {
 
                                             <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between">
                                                 <div>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Payment Status</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Booking Value</p>
                                                     <p className="font-bold text-primary flex items-center gap-1">
-                                                        ₹{booking.prepaidAmount ? booking.prepaidAmount.toLocaleString() : ((booking.bookingType || "").toLowerCase() === 'instant' ? (booking.totalAmount || 0)?.toLocaleString() : ((booking.totalAmount || 0) * 0.3)?.toLocaleString())}
-                                                        <span className="text-[8px] font-black text-green-600 bg-green-50 px-1 rounded uppercase">
-                                                            {booking.paymentStatus || ((booking.bookingType || "").toLowerCase() === 'instant' ? 'PAID' : '30% PAID')}
+                                                        ₹{(booking.totalAmount || 0).toLocaleString()}
+                                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${
+                                                            booking.paymentStatus === 'PAID' || booking.balanceAmount === 0 
+                                                            ? "bg-green-100 text-green-600" 
+                                                            : "bg-amber-100 text-amber-600"
+                                                        }`}>
+                                                            {booking.paymentStatus || (booking.balanceAmount === 0 ? 'PAID' : 'ADVANCE PENDING')}
                                                         </span>
                                                     </p>
                                                 </div>

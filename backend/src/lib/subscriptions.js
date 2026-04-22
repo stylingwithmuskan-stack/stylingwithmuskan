@@ -121,7 +121,7 @@ export async function ensureSubscriptionDefaults() {
       $setOnInsert: {
         userQuarterlyDiscountDefault: 10,
         userAnnualDiscountDefault: 15,
-        defaultDiscountFundedBy: "platform",
+        defaultDiscountFundedBy: "admin",
         eliteAccessRule: "Pro + High Rated",
         eliteMinRating: 4.7,
         eliteMinJobs: 25,
@@ -234,7 +234,7 @@ export function buildSubscriptionSnapshot({ userType, active, settings, marketin
     isEnterprise: userType === "vendor" && !!active,
     discountPercentage: Number(planMeta.discountPercentage || 0),
     minCartValueForDiscount: Number(planMeta.minCartValueForDiscount || 0),
-    discountFundedBy: planMeta.discountFundedBy || settings?.defaultDiscountFundedBy || "platform",
+    discountFundedBy: planMeta.discountFundedBy || settings?.defaultDiscountFundedBy || "admin",
     freeCancellationWindowHours: Number(planMeta.freeCancellationWindowHours || 0),
     zeroConvenienceFee: !!planMeta.zeroConvenienceFee,
     zeroTravelFee: !!planMeta.zeroTravelFee,
@@ -436,7 +436,7 @@ export async function calculateCustomerSubscriptionBenefits({
   return {
     snapshot,
     subscriptionDiscount,
-    discountFundedBy: snapshot.discountFundedBy || "platform",
+    discountFundedBy: snapshot.discountFundedBy || "admin",
     convenienceFee: snapshot.zeroConvenienceFee ? 0 : 0,
     travelFee: snapshot.zeroTravelFee ? 0 : 0,
   };

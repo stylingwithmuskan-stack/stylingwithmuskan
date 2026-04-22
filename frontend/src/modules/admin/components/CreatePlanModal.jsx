@@ -5,6 +5,7 @@ import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
 import { Label } from "@/modules/user/components/ui/label";
 import { Switch } from "@/modules/user/components/ui/switch";
+import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 
 const USER_TYPES = [
   {
@@ -34,6 +35,7 @@ const USER_TYPES = [
 ];
 
 export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = false, initialData = null }) {
+  const { getParents, getCategories } = useAdminAuth();
   const [step, setStep] = useState(editMode ? 2 : 1);
   const [selectedType, setSelectedType] = useState(editMode && initialData ? initialData.userType : null);
   const [formData, setFormData] = useState({
@@ -43,6 +45,8 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
     durationDays: 30,
     billingCycle: "monthly",
     tagline: "",
+    parentCategory: "",
+    category: "",
     // Customer fields
     discountPercentage: "",
     minCartValueForDiscount: "",
@@ -65,6 +69,40 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
     vendorPerformanceCommissionValue: "",
   });
 
+  const [parents, setParents] = useState([]);
+  const [allCategories, setAllCategories] = useState([]);
+  const [filteredCategories, setFilteredCategories] = useState([]);
+  const [loadingContent, setLoadingContent] = useState(false);
+
+  // Fetch parents and categories
+  useEffect(() => {
+    if (isOpen) {
+      const loadContent = async () => {
+        setLoadingContent(true);
+        try {
+          const [p, c] = await Promise.all([getParents(), getCategories()]);
+          setParents(p || []);
+          setAllCategories(c || []);
+        } catch (error) {
+          console.error("Failed to load categories:", error);
+        } finally {
+          setLoadingContent(false);
+        }
+      };
+      loadContent();
+    }
+  }, [isOpen]);
+
+  // Filter subcategories when parent changes
+  useEffect(() => {
+    if (formData.parentCategory) {
+      const filtered = allCategories.filter(c => c.serviceType === formData.parentCategory);
+      setFilteredCategories(filtered);
+    } else {
+      setFilteredCategories([]);
+    }
+  }, [formData.parentCategory, allCategories]);
+
   // Load initial data when in edit mode
   useEffect(() => {
     if (editMode && initialData && isOpen) {
@@ -77,6 +115,8 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
         durationDays: initialData.durationDays || 30,
         billingCycle: initialData.billingCycle || "monthly",
         tagline: initialData.tagline || "",
+        parentCategory: initialData.parentCategory || "",
+        category: initialData.category || "",
         // Customer fields
         discountPercentage: initialData.meta?.discountPercentage || "",
         minCartValueForDiscount: initialData.meta?.minCartValueForDiscount || "",
@@ -116,6 +156,8 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
         durationDays: 30,
         billingCycle: "monthly",
         tagline: "",
+        parentCategory: "",
+        category: "",
         discountPercentage: "",
         minCartValueForDiscount: "",
         discountFundedBy: "platform",
@@ -185,6 +227,8 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
       durationDays: Number(formData.durationDays) || 30,
       billingCycle: formData.billingCycle,
       tagline: formData.tagline.trim(),
+      parentCategory: formData.parentCategory || null,
+      category: formData.category || null,
       benefits: [],
       isActive: true,
       meta,
@@ -360,6 +404,46 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
                         className="rounded-xl"
                       />
                     </div>
+                    
+                    {/* Category Selection for Customer Plans */}
+                    {selectedType === "customer" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold">Category (Parent)</Label>
+                          <select
+                            value={formData.parentCategory}
+                            onChange={(e) => {
+                                updateField("parentCategory", e.target.value);
+                                updateField("category", ""); // Reset subcategory
+                            }}
+                            className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
+                            disabled={loadingContent}
+                          >
+                            <option value="">All Categories (Global)</option>
+                            {parents.map((p) => (
+                              <option key={p.id} value={p.id}>{p.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold">Subcategory</Label>
+                          <select
+                            value={formData.category}
+                            onChange={(e) => updateField("category", e.target.value)}
+                            className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
+                            disabled={loadingContent || !formData.parentCategory}
+                          >
+                            <option value="">All Subcategories</option>
+                            {filteredCategories.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name} ({c.gender})</option>
+                            ))}
+                          </select>
+                          {!formData.parentCategory && (
+                              <p className="text-[10px] text-muted-foreground mt-1">Select a parent category first</p>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -395,9 +479,8 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
                           onChange={(e) => updateField("discountFundedBy", e.target.value)}
                           className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
                         >
-                          <option value="platform">Platform</option>
-                          <option value="provider">Provider</option>
-                          <option value="vendor">Vendor</option>
+                          <option value="admin">Admin</option>
+                          <option value="all">All</option>
                         </select>
                       </div>
                       <div className="space-y-3 md:col-span-2">
