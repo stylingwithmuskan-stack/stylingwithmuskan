@@ -11,7 +11,8 @@ import Booking from "../models/Booking.js";
 import BookingLog from "../models/BookingLog.js";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, JWT_SECRET } from "../config.js";
 import { notify } from "../lib/notify.js";
-import { canAssignProviderToBooking } from "../lib/assignment.js";
+import { canAssignProviderToBooking, computeExpiresAt, pickNextProviderForBooking } from "../lib/assignment.js";
+import { invalidateProviderSlots } from "../lib/availability.js";
 
 const router = Router();
 
@@ -238,9 +239,25 @@ router.post(
         await b.save();
         await BookingLog.create({ action: "booking:payment-update", userId: req.user._id.toString(), bookingId: b._id.toString(), meta: { amount, source: "razorpay", paymentId: payment_id } });
 
-        // If this was the initial payment, send the confirmation notifications now
+        // If this was the initial payment, perform deferred assignment now, then notify.
         if (isFirstPayment) {
           try {
+            if (!b.assignedProvider && Array.isArray(b.candidateProviders) && b.candidateProviders.length > 0) {
+              const picked = await pickNextProviderForBooking(b, 0);
+              if (picked?.providerId) {
+                b.assignedProvider = picked.providerId;
+                b.assignmentIndex = picked.index;
+                b.lastAssignedAt = new Date();
+                b.expiresAt = computeExpiresAt(b.lastAssignedAt);
+                b.adminEscalated = false;
+                b.vendorEscalated = false;
+                await b.save();
+                try {
+                  if (b?.slot?.date) await invalidateProviderSlots(b.assignedProvider, b.slot.date);
+                } catch {}
+              }
+            }
+
             // Notify user: booking created
             await notify({
               recipientId: req.user._id.toString(),

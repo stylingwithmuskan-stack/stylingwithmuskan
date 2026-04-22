@@ -20,7 +20,6 @@ const HomePage = () => {
       <Header />
 
       <main className="max-w-6xl mx-auto">
-        <WhyChooseUs />
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
@@ -48,8 +47,9 @@ const HomePage = () => {
             >
               <BannerSlider />
               <CategoryGrid />
-              <ReelsSection />
               <PopularServices />
+              <WhyChooseUs />
+              <ReelsSection />
               <OurGallery />
               <Testimonials />
             </motion.div>

@@ -87,7 +87,7 @@ describe("Realtime slot and nearest-provider flow", () => {
       });
 
     expect(res.status).toBe(201);
-    expect(res.body.booking.assignedProvider).toBe(providers[0]._id.toString());
+    expect(res.body.booking.assignedProvider).toBe("");
     expect(res.body.booking.candidateProviders).toHaveLength(5);
     expect(res.body.booking.candidateProviders[0]).toBe(providers[0]._id.toString());
     expect(res.body.booking.candidateProviders).not.toContain(providers[5]._id.toString());
@@ -176,7 +176,14 @@ describe("Realtime slot and nearest-provider flow", () => {
 
     expect(createRes.status).toBe(201);
     const bookingId = createRes.body.booking?._id || createRes.body.booking?.id;
-    expect(createRes.body.booking.assignedProvider).toBe(p1._id.toString());
+    expect(createRes.body.booking.assignedProvider).toBe("");
+
+    const codConfirmRes = await request(app)
+      .patch(`/bookings/${bookingId}/confirm-cod`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(codConfirmRes.status).toBe(200);
+    expect(codConfirmRes.body.booking.assignedProvider).toBe(p1._id.toString());
 
     const p1Agent = request.agent(app);
     const otpRequestRes = await p1Agent

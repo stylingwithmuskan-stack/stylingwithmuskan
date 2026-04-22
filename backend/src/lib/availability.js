@@ -1,6 +1,7 @@
 import Booking from "../models/Booking.js";
 import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import LeaveRequest from "../models/LeaveRequest.js";
+import mongoose from "mongoose";
 import { redis } from "../startup/redis.js";
 import { DEFAULT_TIME_SLOTS, defaultSlotsMap, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes } from "./slots.js";
 import { isoDateToLocalEnd, isoDateToLocalStart, toIsoDateFromAny, getIndiaDate } from "./isoDateTime.js";
@@ -85,7 +86,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     assignedProvider: providerId,
     "slot.date": date,
     status: { $ne: "cancelled" },
-    ...(excludeBookingId ? { _id: { $ne: excludeBookingId } } : {}),
+    ...(excludeBookingId && mongoose.isValidObjectId(excludeBookingId) ? { _id: { $ne: excludeBookingId } } : {}),
   }).select("slot slotStartAt slotEndAt services status createdAt").lean();
   const bookedSet = new Set((providerBookings || []).map((b) => String(b?.slot?.time || "")).filter(Boolean));
 
@@ -133,13 +134,14 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     });
   }
 
-  const windowStartMin = settings?.serviceStartTime ? parseHHMMToMinutes(settings.serviceStartTime) : null;
-  const windowEndMin = settings?.serviceEndTime ? parseHHMMToMinutes(settings.serviceEndTime) : null;
+  const windowStartMin = (settings?.serviceStartTime || settings?.startTime) ? parseHHMMToMinutes(settings.serviceStartTime || settings.startTime) : null;
+  const windowEndMin = (settings?.serviceEndTime || settings?.endTime) ? parseHHMMToMinutes(settings.serviceEndTime || settings.endTime) : null;
   const isToday = date === getIndiaDate();
   const now = new Date();
   const bufferMs = Math.max(Number(settings?.bufferMinutes || 30), 0) * 60 * 1000;
   const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
   const effectiveLeadMs = Math.max(bufferMs, leadMs);
+  console.log(`[SLOTS DEBUG] Provider: ${providerId}, Date: ${date}, lead: ${settings?.minLeadTimeMinutes}m`);
 
   const slotMap = {};
   const slots = [];
@@ -178,7 +180,14 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     }
     slotMap[s] = ok;
     if (ok) slots.push(s);
+    else {
+      // Small debug log for blocked slots
+      if (isToday && slotStart && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) {
+         // Silently track lead time block
+      }
+    }
   }
+  console.log(`[SLOTS DEBUG] Finished. Found ${slots.length} slots for ${providerId}`);
 
   const result = { date, slots, slotMap };
   if (useCache) {

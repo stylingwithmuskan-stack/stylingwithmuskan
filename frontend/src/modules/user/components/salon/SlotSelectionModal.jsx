@@ -60,13 +60,6 @@ const getLocalDateKey = (date = new Date()) => {
     return `${year}-${month}-${day}`;
 };
 
-const DEFAULT_TIME_SLOTS = [
-    "07:00 AM", "07:30 AM", "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM",
-    "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM",
-    "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM", "06:00 PM", "06:30 PM",
-    "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM", "09:00 PM", "09:30 PM", "10:00 PM", "10:30 PM"
-];
-
 const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     const { selectedSlot, setSelectedSlot, cartItems, setBookingType } = useCart();
     const { gender } = useGenderTheme();
@@ -163,18 +156,26 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                 date: tempDate,
                 serviceTypes: serviceTypes.join(","),
                 categories: serviceCategories.join(","),
-                city: address?.city || address?.area || "",
-                zone: address?.zone || address?.area || ""
+                city: address?.city || "",
+                cityId: address?.cityId || "",
+                zone: address?.zone || "",
+                zoneId: address?.zoneId || ""
             };
             if (pId) params.providerId = pId;
             if (totalDurationMinutes > 0) params.durationMinutes = String(totalDurationMinutes);
 
-            const { slots: rawSlots, slotMap: rawMap } = await api.providers.availableSlotsByDate(params);
-            setAvailableSlots(rawSlots || []);
-            setSlotMap(rawMap || {});
+            const { slots: rawSlots } = await api.providers.availableSlotsByDate(params);
+            const normalizedSlots = Array.from(new Set((rawSlots || []).filter(Boolean)));
+            const normalizedMap = {};
+            normalizedSlots.forEach((slot) => { normalizedMap[slot] = true; });
+            setAvailableSlots(normalizedSlots);
+            setSlotMap(normalizedMap);
+            setTempSlot((prev) => (prev && normalizedMap[prev] === true ? prev : null));
         } catch (e) {
             console.error("Failed to fetch slots:", e);
             setAvailableSlots([]);
+            setSlotMap({});
+            setTempSlot(null);
         } finally {
             setSlotsLoading(false);
         }
@@ -437,16 +438,16 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                         Loading available slots...
                                     </div>
                                 )}
-                                {!slotsLoading && DEFAULT_TIME_SLOTS.map((slot) => {
-                                    const isAvailable = slotMap[slot] === true;
+                                {!slotsLoading && slots.map((slot) => {
+                                    const isAvailable = true;
                                     const isSelected = tempSlot === slot;
+                                    const isFirstAvailable = isToday && slot === nextAvailableSlot;
                                     
                                     return (
                                         <button
                                             key={slot}
-                                            onClick={() => isAvailable && setTempSlot(slot)}
-                                            disabled={!isAvailable && !isSelected}
-                                            className={`px-2 py-2.5 rounded-xl text-[10px] font-bold text-center border-2 transition-all duration-200 ${
+                                            onClick={() => setTempSlot(slot)}
+                                            className={`relative px-2 py-2.5 rounded-xl text-[10px] font-bold text-center border-2 transition-all duration-200 ${
                                                 isSelected
                                                     ? "bg-primary text-white border-primary shadow-md scale-105"
                                                     : isAvailable
@@ -454,6 +455,11 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                                         : "glass border-border text-muted-foreground/40 opacity-50 cursor-not-allowed"
                                             }`}
                                         >
+                                            {isFirstAvailable && (
+                                                <span className="absolute -top-2 -right-1 bg-emerald-600 text-[6px] text-white px-1.5 py-0.5 rounded-full font-black uppercase tracking-tighter border border-white shadow-sm">
+                                                    Early
+                                                </span>
+                                            )}
                                             {slot}
                                         </button>
                                     );

@@ -85,6 +85,16 @@ router.get(
     if (!provider) return res.status(404).json({ error: "Provider not found" });
 
     const settings = await BookingSettings.findOne().lean();
+    const now = new Date();
+    const bufferMs = Math.max(Number(settings?.bufferMinutes || 0), 0) * 60 * 1000;
+    const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
+    const effectiveLeadMs = Math.max(bufferMs, leadMs);
+  
+    console.log(`[SLOTS DEBUG] Provider: ${providerId}, Date: ${date}`);
+    console.log(`[SLOTS DEBUG] Lead Time: ${settings?.minLeadTimeMinutes}m, Buffer: ${settings?.bufferMinutes}m`);
+    console.log(`[SLOTS DEBUG] Office Hours: ${settings?.serviceStartTime || settings?.startTime} to ${settings?.serviceEndTime || settings?.endTime}`);
+    console.log(`[SLOTS DEBUG] Now: ${now.toLocaleTimeString()}, Threshold: ${new Date(now.getTime() + effectiveLeadMs).toLocaleTimeString()}`);
+
     const bufferMin = Math.max(Number(settings?.providerBufferMinutes || 0), 0);
     const bookings = await Booking.find({
       assignedProvider: providerId,
@@ -263,8 +273,8 @@ router.get(
     }
 
     let providers = await ProviderAccount.find(q).lean();
-    console.log(`[SLOTS DEBUG] Query executed:`, JSON.stringify(q, (k,v)=>v instanceof RegExp ? v.toString() : v));
-    console.log(`[SLOTS DEBUG] Initial providers matched: ${providers.length}`);
+    console.log(`[SLOTS DEBUG] Final Query:`, JSON.stringify(q));
+    console.log(`[SLOTS DEBUG] Providers Found: ${providers.length}`);
 
     if (cityGuess && providers.length === 0 && !zoneGuess) {
       providers = await ProviderAccount.find(baseQ).lean();

@@ -359,29 +359,12 @@ export async function create(req, res) {
     });
   }
 
+  // Keep booking unassigned at create-time. Actual provider assignment happens on payment confirmation/COD confirmation.
+  // This keeps slot UX open for other users until assignment stage is reached.
   let assignedProvider = "";
   let assignmentIndex = -1;
   let lastAssignedAt = null;
   let expiresAt = null;
-  if (autoAssignAllowed && candidateProviders.length > 0) {
-    const picked = await pickNextProviderForBooking(
-      { candidateProviders, rejectedProviders: [], slot, _id: null },
-      0
-    );
-    if (picked?.providerId) {
-      assignedProvider = picked.providerId;
-      assignmentIndex = picked.index;
-      lastAssignedAt = new Date();
-      expiresAt = computeExpiresAt(lastAssignedAt);
-      logDevAssignment("Initial auto assignment selected provider", {
-        bookingTempId: "pending-create",
-        assignedProvider,
-        assignmentIndex,
-        expiresAt,
-        candidateProviders,
-      });
-    }
-  }
 
   // If autoAssign is completely OFF or NO providers were found even in candidate list, it stays unassigned/admin-escalated.
   // CHANGED: Don't fail the booking - allow it to be created and escalated to vendor/admin
@@ -435,7 +418,7 @@ export async function create(req, res) {
       candidateProviders,
     });
   } else {
-    console.log(`[Booking] Assignment: NO Provider assigned (pending auto-assign pool)`);
+    console.log(`[Booking] Assignment: Deferred until payment/COD confirmation`);
     logDevAssignment("Booking created without assigned provider", {
       candidateProviders,
       adminEscalated: false,
@@ -484,7 +467,7 @@ export async function create(req, res) {
     assignmentIndex,
     lastAssignedAt,
     expiresAt,
-    adminEscalated: !assignedProvider,
+    adminEscalated: false,
   });
 
   logDevAssignment("Booking persisted", {
@@ -619,6 +602,25 @@ export async function confirmCOD(req, res) {
   }
 
   booking.status = "pending";
+
+  // Assign provider now (deferred assignment model) if still unassigned and candidates exist.
+  if (!booking.assignedProvider && Array.isArray(booking.candidateProviders) && booking.candidateProviders.length > 0) {
+    const picked = await pickNextProviderForBooking(booking, 0);
+    if (picked?.providerId) {
+      booking.assignedProvider = picked.providerId;
+      booking.assignmentIndex = picked.index;
+      booking.lastAssignedAt = new Date();
+      booking.expiresAt = computeExpiresAt(booking.lastAssignedAt);
+      booking.adminEscalated = false;
+      booking.vendorEscalated = false;
+      logDevAssignment("COD confirmation assigned provider", {
+        bookingId: booking._id?.toString?.() || "",
+        assignedProvider: booking.assignedProvider,
+        assignmentIndex: booking.assignmentIndex,
+        expiresAt: booking.expiresAt,
+      });
+    }
+  }
   
   // Critical Fix: If a provider was already assigned (during slot choice), 
   // verify they are still approved/active BEFORE confirming and notifying them.
@@ -634,6 +636,11 @@ export async function confirmCOD(req, res) {
   }
 
   await booking.save();
+  try {
+    if (booking.assignedProvider && booking?.slot?.date) {
+      await invalidateProviderSlots(booking.assignedProvider, booking.slot.date);
+    }
+  } catch {}
 
   try {
     const bookingId = booking._id.toString();
