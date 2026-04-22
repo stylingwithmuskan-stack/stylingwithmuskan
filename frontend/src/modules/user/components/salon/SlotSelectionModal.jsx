@@ -99,9 +99,9 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         return recentProviders.filter(p => {
             if (!serviceCategories || serviceCategories.length === 0) return true;
             
-            // Check if provider has the required categories
+            // Relaxed check: Provider should match at least ONE of the requested categories
             const pCats = Array.isArray(p.categories) ? p.categories : [];
-            return serviceCategories.every(catId => pCats.includes(catId));
+            return serviceCategories.some(catId => pCats.includes(catId)) || pCats.length === 0;
         });
     }, [recentProviders, serviceCategories]);
 
