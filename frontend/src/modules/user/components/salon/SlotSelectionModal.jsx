@@ -61,7 +61,7 @@ const getLocalDateKey = (date = new Date()) => {
 };
 
 const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
-    const { selectedSlot, setSelectedSlot, cartItems, setBookingType } = useCart();
+    const { selectedSlot, setSelectedSlot, cartItems, setBookingType, activeCheckoutType } = useCart();
     const { gender } = useGenderTheme();
     const { bookingTypeConfig, categories, officeSettings } = useUserModuleData();
 
@@ -76,32 +76,38 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     const [availableSlots, setAvailableSlots] = useState([]);
     const [slotMap, setSlotMap] = useState({});
 
+    const focusedItems = useMemo(() => {
+        if (!activeCheckoutType || !Array.isArray(cartItems)) return cartItems || [];
+        return cartItems.filter(item => item.serviceType === activeCheckoutType);
+    }, [cartItems, activeCheckoutType]);
+
     const serviceTypes = useMemo(() => {
-        return [...new Set((cartItems || []).map(item => item.serviceType).filter(Boolean))];
-    }, [cartItems]);
+        return [...new Set((focusedItems || []).map(item => item.serviceType).filter(Boolean))];
+    }, [focusedItems]);
 
     const serviceCategories = useMemo(() => {
-        return [...new Set((cartItems || []).map(item => item.category).filter(Boolean))];
-    }, [cartItems]);
+        const ids = (focusedItems || []).map(item => item.category || item.categoryId).filter(Boolean);
+        return [...new Set(ids)];
+    }, [focusedItems]);
 
     const totalDurationMinutes = useMemo(() => {
-        if (!Array.isArray(cartItems) || cartItems.length === 0) return 0;
-        return cartItems.reduce((sum, item) => {
+        if (!Array.isArray(focusedItems) || focusedItems.length === 0) return 0;
+        return focusedItems.reduce((sum, item) => {
             const per = parseDurationToMinutes(item?.duration, 60);
             const qty = Number(item?.quantity || 1);
             return sum + (per * (Number.isFinite(qty) ? qty : 1));
         }, 0);
-    }, [cartItems]);
+    }, [focusedItems]);
 
     const providerList = useMemo(() => {
         // Filter providers based on eligibility for the current cart services
-        // A provider must support ALL selected categories to be shown here
+        // A provider must support AT LEAST ONE selected category to be shown here
         return recentProviders.filter(p => {
             if (!serviceCategories || serviceCategories.length === 0) return true;
 
-            // Relaxed check: Provider should match at least ONE of the requested categories
             const pCats = Array.isArray(p.categories) ? p.categories : [];
-            return serviceCategories.some(catId => pCats.includes(catId)) || pCats.length === 0;
+            // STRICT FILTER: Provider must have at least one of the requested categories
+            return serviceCategories.some(catId => pCats.includes(catId));
         });
     }, [recentProviders, serviceCategories]);
 
@@ -160,7 +166,8 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                 city: address?.city || "",
                 cityId: address?.cityId || "",
                 zone: address?.zone || "",
-                zoneId: address?.zoneId || ""
+                zoneId: address?.zoneId || "",
+                durationMinutes: totalDurationMinutes
             };
             if (pId) params.providerId = pId;
             if (totalDurationMinutes > 0) params.durationMinutes = String(totalDurationMinutes);
