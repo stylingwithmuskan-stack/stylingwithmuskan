@@ -231,6 +231,7 @@ export async function login(req, res) {
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const v = await Vendor.findOne({ email: req.body.email }).lean();
   if (!v) return res.status(400).json({ error: "Vendor not found" });
+  if (v.status === "blocked") return res.status(403).json({ error: "Your account is blocked by admin . Approve first then login again" });
   if (v.status !== "approved") return res.status(403).json({ error: "Your account is pending admin approval" });
   const token = issueRoleToken("vendor", v._id?.toString() || v.email);
   const subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");
@@ -338,6 +339,7 @@ export async function verifyOtp(req, res) {
   if (!valid) return res.status(400).json({ error: "Invalid OTP" });
   const v = await Vendor.findOne({ phone }).lean();
   if (!v) return res.status(404).json({ error: "No account found. Please register first." });
+  if (v.status === "blocked") return res.status(403).json({ error: "Your account is blocked by admin . Approve first then login again" });
   if (v.status !== "approved") return res.status(403).json({ error: "Your account is pending admin approval" });
   const token = issueRoleToken("vendor", v._id?.toString() || v.email);
   const subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");

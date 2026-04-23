@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarRange, Search, MapPin, Clock, User, Users, RefreshCw, CheckCircle, Bell, BellOff, Settings2, Tag, Zap, X, Phone, MessageSquare, Sparkles, LayoutGrid, CheckSquare, IndianRupee, Percent } from "lucide-react";
+import { CalendarRange, Search, MapPin, Clock, User, Users, RefreshCw, CheckCircle, Bell, BellOff, Settings2, Tag, Zap, X, Phone, MessageSquare, Sparkles, LayoutGrid, CheckSquare, IndianRupee, Percent, Camera, ImageIcon } from "lucide-react";
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -32,7 +32,7 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } 
 const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 
 export default function BookingManagement() {
-    const { isLoggedIn, getAllBookings, getAllServiceProviders, assignSPToBooking, assignTeamToBooking } = useAdminAuth();
+    const { isLoggedIn, getAllBookings, getAllServiceProviders, assignSPToBooking, assignTeamToBooking, approveBookingImages } = useAdminAuth();
     const { officeSettings, updateOfficeSettings, providers: moduleProviders } = useUserModuleData();
     const [bookings, setBookings] = useState([]);
     const [providers, setProviders] = useState([]);
@@ -167,6 +167,21 @@ export default function BookingManagement() {
     useEffect(() => {
         setTempSettings(officeSettings);
     }, [officeSettings]);
+
+    const handleApproveImages = async (bookingId, approved) => {
+        try {
+            setUpdating(true);
+            await approveBookingImages(bookingId, approved);
+            if (detailModal) {
+                setDetailModal({ ...detailModal, imagesApproved: approved });
+            }
+            await load();
+        } catch (e) {
+            alert(e.message || "Failed to update image approval status");
+        } finally {
+            setUpdating(false);
+        }
+    };
 
     const handleSaveSettings = async () => {
         setUpdating(true);
@@ -912,6 +927,80 @@ export default function BookingManagement() {
                                 <div className="bg-pink-50 rounded-2xl p-4 border border-pink-100">
                                     <h4 className="text-[10px] font-black uppercase text-pink-700 tracking-widest mb-1 flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5" /> Customer Notes</h4>
                                     <p className="text-xs font-medium text-pink-900 leading-relaxed italic">"{detailModal.notes}"</p>
+                                </div>
+                            )}
+
+                            {/* Service Photos Section */}
+                            {(detailModal.beforeImages?.length > 0 || detailModal.afterImages?.length > 0) && (
+                                <div className="bg-muted/20 rounded-2xl p-5 border border-border/50 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-[10px] font-black uppercase text-secondary-foreground/60 tracking-widest flex items-center gap-2">
+                                            <Camera className="h-3.5 w-3.5" /> Service Documentation
+                                        </h4>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${detailModal.imagesApproved ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>
+                                                {detailModal.imagesApproved ? "Approved" : "Pending Approval"}
+                                            </span>
+                                            <Button 
+                                                size="sm" 
+                                                className={`h-7 text-[9px] font-black uppercase rounded-lg ${detailModal.imagesApproved ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
+                                                onClick={(e) => { e.stopPropagation(); handleApproveImages(detailModal._id || detailModal.id, !detailModal.imagesApproved); }}
+                                                disabled={updating}
+                                            >
+                                                {detailModal.imagesApproved ? "Revoke Approval" : "Approve Photos"}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Before Images */}
+                                        {detailModal.beforeImages?.length > 0 && (
+                                            <div className="space-y-2">
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Before Service</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {detailModal.beforeImages.map((img, i) => (
+                                                        <div key={i} className="group relative w-20 h-20 rounded-xl overflow-hidden border border-border shadow-sm cursor-zoom-in" onClick={() => window.open(img, '_blank')}>
+                                                            <img src={img} alt="Before" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <Search className="h-4 w-4 text-white" />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* After Images */}
+                                        {detailModal.afterImages?.length > 0 && (
+                                            <div className="space-y-2">
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider ml-1">After Service</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {detailModal.afterImages.map((img, i) => (
+                                                        <div key={i} className="group relative w-20 h-20 rounded-xl overflow-hidden border border-border shadow-sm cursor-zoom-in" onClick={() => window.open(img, '_blank')}>
+                                                            <img src={img} alt="After" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <Search className="h-4 w-4 text-white" />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Product Images (if any) */}
+                                    {detailModal.productImages?.length > 0 && (
+                                        <div className="pt-2 border-t border-border/30">
+                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider ml-1 mb-2">Products Used</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {detailModal.productImages.map((img, i) => (
+                                                    <div key={i} className="group relative w-16 h-16 rounded-xl overflow-hidden border border-border shadow-sm cursor-zoom-in" onClick={() => window.open(img, '_blank')}>
+                                                        <img src={img} alt="Product" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

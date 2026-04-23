@@ -501,4 +501,53 @@ router.get("/booking-settings", async (_req, res) => {
   res.json({ data });
 });
 
+router.get("/services/reviews/:serviceName", async (req, res) => {
+  try {
+    const { serviceName } = req.params;
+    const Feedback = (await import("../models/Feedback.js")).default;
+    const Booking = (await import("../models/Booking.js")).default;
+
+    // 1. Get all active feedback for this service
+    const feedbacks = await Feedback.find({ 
+      serviceName: new RegExp(`^${escapeRegex(serviceName)}$`, "i"),
+      status: "active" 
+    }).sort({ createdAt: -1 }).limit(20).lean();
+
+    // 2. Get all approved images from bookings for this service
+    const bookingsWithImages = await Booking.find({
+      $or: [
+        { "services.name": new RegExp(`^${escapeRegex(serviceName)}$`, "i") },
+        { "items.name": new RegExp(`^${escapeRegex(serviceName)}$`, "i") }
+      ],
+      imagesApproved: true,
+      status: "completed"
+    })
+    .select("beforeImages afterImages productImages customerName createdAt")
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .lean();
+
+    res.json({
+      success: true,
+      data: {
+        feedbacks,
+        gallery: bookingsWithImages.map(b => ({
+          before: b.beforeImages || [],
+          after: b.afterImages || [],
+          products: b.productImages || [],
+          customerName: b.customerName,
+          date: b.createdAt
+        }))
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching service reviews:", error);
+    res.status(500).json({ error: "Failed to fetch reviews" });
+  }
+});
+
+function escapeRegex(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export default router;

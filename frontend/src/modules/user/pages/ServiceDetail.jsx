@@ -13,7 +13,7 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useCart } from "@/modules/user/contexts/CartContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
-import { shareContent } from "@/modules/user/lib/utils";
+import { api, API_BASE_URL } from "@/modules/user/lib/api";
 
 const ServiceDetail = () => {
   const { id } = useParams();
@@ -32,6 +32,8 @@ const ServiceDetail = () => {
   const { toggleWishlist, isInWishlist } = useWishlist();
   const isFav = isInWishlist(id);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [reviewsData, setReviewsData] = useState({ feedbacks: [], gallery: [] });
+  const [loadingReviews, setLoadingReviews] = useState(true);
   const stepsRef = useRef(null);
 
   const userLocation = user?.addresses?.[0] || user?.address || null;
@@ -42,16 +44,48 @@ const ServiceDetail = () => {
   // Scroll to top when page loads
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [id]);
+    
+    // Fetch real reviews and approved images
+    const fetchReviews = async () => {
+      if (!service?.name) return;
+      try {
+        setLoadingReviews(true);
+        const res = await api.content.getServiceReviews(service.name);
+        if (res.success) {
+          setReviewsData(res.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch reviews:", error);
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+    fetchReviews();
+  }, [id, service?.name]);
 
-  const { realRating, realReviews } = useMemo(() => {
-    if (!service) return { realRating: 0, realReviews: 0 };
-    const allFeedback = JSON.parse(localStorage.getItem('muskan-feedback') || '[]');
-    const serviceReviews = allFeedback.filter(f => f.serviceName === service.name && f.type === 'customer_to_provider');
-    if (serviceReviews.length === 0) return { realRating: service.rating, realReviews: service.reviews };
-    const sum = serviceReviews.reduce((a, b) => a + b.rating, 0);
-    return { realRating: (sum / serviceReviews.length).toFixed(1), realReviews: serviceReviews.length };
-  }, [service]);
+  const { realRating, realReviews, allFeedbacks } = useMemo(() => {
+    if (!service) return { realRating: 0, realReviews: 0, allFeedbacks: [] };
+    
+    // Combine local storage feedback with API feedback
+    const localFeedback = JSON.parse(localStorage.getItem('muskan-feedback') || '[]');
+    const serviceLocalFeedback = localFeedback.filter(f => f.serviceName === service.name && f.type === 'customer_to_provider');
+    
+    // Merge both, avoid duplicates by bookingId
+    const combined = [...reviewsData.feedbacks];
+    serviceLocalFeedback.forEach(lf => {
+      if (!combined.some(cf => (cf.bookingId || cf.id) === (lf.bookingId || lf.id))) {
+        combined.push(lf);
+      }
+    });
+
+    if (combined.length === 0) return { realRating: service.rating || 0, realReviews: service.reviews || 0, allFeedbacks: [] };
+    const sum = combined.reduce((a, b) => a + (b.rating || 0), 0);
+    return { 
+      realRating: (sum / combined.length).toFixed(1), 
+      realReviews: combined.length,
+      allFeedbacks: combined.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    };
+  }, [service, reviewsData.feedbacks]);
 
   // Filter providers based on the service category/type
   const availableProviders = useMemo(() => {
@@ -113,7 +147,7 @@ const ServiceDetail = () => {
   return (
     <div className="min-h-screen bg-background pb-32">
       {/* Hero Image */}
-      <div className="relative h-56 md:h-80 lg:h-[420px]">
+      <div className="relative h-48 md:h-64 lg:h-[380px]">
         <img
           src={service.image}
           alt={service.name}
@@ -157,7 +191,7 @@ const ServiceDetail = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-strong rounded-2xl p-4 md:p-6 shadow-elevated relative overflow-hidden"
+          className="glass-strong rounded-2xl p-4 md:p-5 shadow-elevated relative overflow-hidden"
         >
           {/* Discount Badge - Moved here for visibility */}
           {discountPercent > 0 && (
@@ -316,55 +350,48 @@ const ServiceDetail = () => {
         )}
 
         {/* ===== WORK GALLERY (Before/After) ===== */}
-        {service.gallery && service.gallery.length > 0 && (
+        {(service.gallery?.length > 0 || reviewsData.gallery?.length > 0) && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
-            className="mt-6"
+            className="mt-4"
           >
             <h3 className={`font-semibold text-base mb-4 px-1 flex items-center gap-2 ${gender === "women" ? "font-display" : "font-heading-men"}`}>
               <Camera className="w-5 h-5 text-primary" />
-              Work Gallery (Before/After)
+              Real Service Results (Approved)
             </h3>
             <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2 px-1">
-              {/* Pair images for before/after effect if there are many, or just show them individual if few */}
-              {service.gallery.reduce((acc, curr, i, arr) => {
-                if (i % 2 === 0) {
-                  acc.push(arr.slice(i, i + 2));
-                }
-                return acc;
-              }, []).map((pair, idx) => (
-                <div key={idx} className="flex-shrink-0 w-[280px] space-y-3">
-                  <div className="relative h-44 rounded-2xl overflow-hidden group shadow-lg border border-border">
-                    <div className="absolute inset-0 flex">
-                      <div className={`relative ${pair.length > 1 ? "w-1/2" : "w-full"}`}>
-                        <img
-                          src={pair[0]}
-                          alt="Before"
-                          className={`w-full h-full object-cover ${pair.length > 1 ? "grayscale group-hover:grayscale-0 transition-all duration-500" : ""}`}
-                        />
-                        {pair.length > 1 && (
+              {/* Combine Hardcoded Gallery with Approved Booking Images */}
+              {[
+                ...(service.gallery || []).map(img => ({ type: 'hardcoded', url: img })),
+                ...(reviewsData.gallery || []).map(g => ({ 
+                  type: 'approved', 
+                  before: g.before, 
+                  after: g.after, 
+                  products: g.products || g.productImages || [],
+                  customer: g.customerName 
+                }))
+              ].map((item, idx) => (
+                <div key={idx} className="flex-shrink-0 w-[300px] space-y-3">
+                  <div className="relative h-44 rounded-2xl overflow-hidden group shadow-lg border border-border bg-accent/30">
+                    {item.type === 'hardcoded' ? (
+                      <img src={item.url} alt="Work" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="absolute inset-0 flex">
+                        <div className={`relative ${item.after?.length > 0 ? "w-1/2" : "w-full"}`}>
+                          <img src={item.before?.[0]} alt="Before" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
                           <div className="absolute top-2 left-2 bg-black/60 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase backdrop-blur-md">Before</div>
+                        </div>
+                        {item.after?.length > 0 && (
+                          <div className="w-1/2 relative">
+                            <img src={item.after?.[0]} alt="After" className="w-full h-full object-cover" />
+                            <div className="absolute top-2 right-2 bg-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase shadow-lg">After</div>
+                          </div>
                         )}
                       </div>
-                      {pair.length > 1 && (
-                        <div className="w-1/2 relative border-l-2 border-primary/50">
-                          <img
-                            src={pair[1]}
-                            alt="After"
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute top-2 right-2 bg-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase shadow-lg">After</div>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground font-medium px-1 leading-tight">
-                    {pair.length > 1
-                      ? `Real results from our ${service.name} session.`
-                      : `Detailed transformation view.`}
-                  </p>
                 </div>
               ))}
             </div>
@@ -438,28 +465,23 @@ const ServiceDetail = () => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.18 }}
-          className="mt-6 mb-12"
+          className="mt-4 mb-8"
         >
           <div className="flex items-center justify-between mb-4 px-1">
             <h3 className={`font-semibold text-base flex items-center gap-2 ${gender === "women" ? "font-display" : "font-heading-men"}`}>
               <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
               Customer Reviews
             </h3>
-            <span className="text-xs font-bold text-primary">All Reviews ({
-              JSON.parse(localStorage.getItem('muskan-feedback') || '[]')
-                .filter(f => f.serviceName === service.name && f.type === 'customer_to_provider').length
-            })</span>
+            <span className="text-xs font-bold text-primary">All Reviews ({allFeedbacks.length})</span>
           </div>
 
           <div className="space-y-3">
             {(() => {
-              const allFeedback = JSON.parse(localStorage.getItem('muskan-feedback') || '[]');
-              const serviceReviews = allFeedback
-                .filter(f => f.serviceName === service.name && f.type === 'customer_to_provider')
-                .reverse()
-                .slice(0, 5);
+              if (loadingReviews) {
+                return <div className="py-8 text-center text-xs text-muted-foreground">Loading reviews...</div>;
+              }
 
-              if (serviceReviews.length === 0) {
+              if (allFeedbacks.length === 0) {
                 return (
                   <div className="glass-strong rounded-2xl p-6 text-center border border-dashed border-border/60">
                     <MessageSquare className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -469,9 +491,9 @@ const ServiceDetail = () => {
                 );
               }
 
-              return serviceReviews.map((rev, i) => (
+              return allFeedbacks.slice(0, 10).map((rev, i) => (
                 <motion.div
-                  key={rev.id}
+                  key={rev._id || rev.id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.05 }}
