@@ -456,10 +456,10 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                             key={slot}
                                             onClick={() => setTempSlot(slot)}
                                             className={`relative px-2 py-2.5 rounded-xl text-[10px] font-bold text-center border-2 transition-all duration-200 ${isSelected
-                                                    ? "bg-primary text-white border-primary shadow-md scale-105"
-                                                    : isAvailable
-                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-100/50"
-                                                        : "glass border-border text-muted-foreground/40 opacity-50 cursor-not-allowed"
+                                                ? "bg-primary text-white border-primary shadow-md scale-105"
+                                                : isAvailable
+                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-100/50"
+                                                    : "glass border-border text-muted-foreground/40 opacity-50 cursor-not-allowed"
                                                 }`}
                                         >
                                             {isFirstAvailable && (

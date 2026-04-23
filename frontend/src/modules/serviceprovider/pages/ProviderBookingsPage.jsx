@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Clock, MapPin, ChevronRight, Check, X, Zap, Calendar, Timer, Phone } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
+import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { Button } from "@/modules/user/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/modules/user/components/ui/tooltip";
 import { toast } from "sonner";
 
 const getBookingTimeStatus = (dateStr, timeStr) => {
@@ -53,8 +55,14 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
     const bookingId = booking?.id || booking?._id;
     const isFirstTime = !booking.customerBookingCount || booking.customerBookingCount <= 1;
 
+    const { provider } = useProviderAuth();
     const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
     const isCallRestricted = timeStatus.status === "block" && ["accepted", "vendor_assigned", "vendor_reassigned", "payment_pending"].includes(booking?.status);
+
+    const isPendingActivation = (booking.status === "vendor_assigned" || booking.status === "vendor_reassigned") && 
+                               booking.commissionAmount > 0 && !booking.commissionChargedAt;
+    const walletBalance = provider?.credits || 0;
+    const canAfford = walletBalance >= booking.commissionAmount;
 
     return (
         <motion.div ref={ref} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -162,9 +170,26 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                                 <Phone className="w-4 h-4" />
                             </a>
                         )}
-                        <Button onClick={() => onNavigate(bookingId)} variant="outline" className="h-9 px-4 rounded-xl text-xs font-bold border-gray-200 text-gray-700 hover:bg-gray-50 group">
-                            {(type === "active" || type === "assigned") ? "Manage Job" : "View Details"} <ChevronRight className="w-3.5 h-3.5 ml-1.5 text-gray-400 group-hover:translate-x-0.5 transition-all" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="flex">
+                                    <Button 
+                                        onClick={() => onNavigate(bookingId)} 
+                                        disabled={isPendingActivation && !canAfford}
+                                        variant={isPendingActivation ? "default" : "outline"} 
+                                        className={`h-9 px-4 rounded-xl text-xs font-bold border-gray-200 transition-all group ${isPendingActivation ? "bg-amber-600 hover:bg-amber-700 text-white border-transparent" : "text-gray-700 hover:bg-gray-50"} disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                        {isPendingActivation ? "Activate Job" : (type === "active" || type === "assigned") ? "Manage Job" : "View Details"} 
+                                        <ChevronRight className={`w-3.5 h-3.5 ml-1.5 transition-all group-hover:translate-x-0.5 ${isPendingActivation ? "text-white/80" : "text-gray-400"}`} />
+                                    </Button>
+                                </div>
+                            </TooltipTrigger>
+                            {isPendingActivation && !canAfford && (
+                                <TooltipContent className="bg-gray-900 text-white border-gray-800 text-[10px] font-bold py-2 px-3 rounded-xl mb-2">
+                                    Recharge your wallet to activate this job
+                                </TooltipContent>
+                            )}
+                        </Tooltip>
                     </div>
                 )}
             </div>

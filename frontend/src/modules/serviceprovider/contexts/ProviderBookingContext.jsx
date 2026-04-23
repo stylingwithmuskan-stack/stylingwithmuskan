@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { ProviderAuthContext } from "./ProviderAuthContext";
 import { api, API_BASE_URL } from "@/modules/user/lib/api";
 import { io } from "socket.io-client";
+import { toast } from "sonner";
 
 const ProviderBookingContext = createContext(undefined);
 
@@ -175,7 +176,7 @@ export const ProviderBookingProvider = ({ children }) => {
         return !isExpiredAssignmentForCurrentProvider(b);
     });
 
-    const incomingBookings = myBookings.filter(b => ["incoming", "pending", "Pending", "final_approved", "payment_pending", "vendor_assigned", "vendor_reassigned"].includes(b.status));
+    const incomingBookings = myBookings.filter(b => ["incoming", "pending", "Pending", "final_approved", "payment_pending"].includes(b.status));
     const pendingBookings = myBookings.filter(b => ["pending", "Pending", "final_approved", "payment_pending"].includes(b.status));
     const activeBookings = myBookings.filter(b => ["accepted", "travelling", "arrived", "in_progress", "vendor_assigned", "vendor_reassigned", "payment", "documentation"].includes(b.status));
     const assignedBookings = myBookings.filter(b => b.status === "vendor_assigned" || b.status === "vendor_reassigned");
@@ -352,9 +353,9 @@ export const ProviderBookingProvider = ({ children }) => {
         }
     }, [normalizeBooking, refreshBookings, stopRingtone]);
 
-    const updateBookingStatus = useCallback(async (id, status) => {
+    const updateBookingStatus = useCallback(async (id, status, payload = {}) => {
         try {
-            const { booking } = await api.provider.updateBookingStatus(id, status);
+            const { booking } = await api.provider.updateBookingStatus(id, status, payload);
             const normalized = normalizeBooking(booking);
             setBookings(prev => prev.map(b => b._id === normalized._id ? normalized : b));
         } catch (e) {
@@ -403,6 +404,29 @@ export const ProviderBookingProvider = ({ children }) => {
     const addProductImages = useCallback((id, files) => uploadImages(id, "product-images", files), [uploadImages]);
     const addProviderImages = useCallback((id, files) => uploadImages(id, "provider-images", files), [uploadImages]);
 
+    const activateManualAssignment = useCallback(async (id) => {
+        try {
+            const res = await api.provider.activateManualAssignment(id);
+            if (res.success) {
+                toast.success("Job activated successfully!");
+                // Play sound trigger
+                try {
+                    const audio = new Audio("/sounds/massege_ting.mp3");
+                    audio.play().catch(() => {});
+                } catch {}
+                refreshBookings();
+                // Optionally update provider credits in auth context if needed
+                if (res.credits !== undefined && providerAuth?.setProvider) {
+                    providerAuth.setProvider(prev => ({ ...prev, credits: res.credits }));
+                }
+            }
+            return res;
+        } catch (e) {
+            toast.error(e?.message || "Failed to activate job");
+            throw e;
+        }
+    }, [refreshBookings, providerAuth]);
+
     return (
         <ProviderBookingContext.Provider value={{
             bookings,
@@ -416,6 +440,7 @@ export const ProviderBookingProvider = ({ children }) => {
             acceptBooking,
             rejectBooking,
             updateBookingStatus,
+            activateManualAssignment,
             requestPayment,
             cancelBooking,
             verifyOTP,
