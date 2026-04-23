@@ -140,7 +140,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   const now = new Date();
   const bufferMs = Math.max(Number(settings?.bufferMinutes || 30), 0) * 60 * 1000;
   const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
-  const effectiveLeadMs = Math.max(bufferMs, leadMs);
+  const effectiveLeadMs = Math.max(bufferMs, leadMs) + (10 * 60 * 1000); // Add 10-min UI buffer for checkout window
   console.log(`[SLOTS DEBUG] Provider: ${providerId}, Date: ${date}, lead: ${settings?.minLeadTimeMinutes}m`);
 
   const slotMap = {};

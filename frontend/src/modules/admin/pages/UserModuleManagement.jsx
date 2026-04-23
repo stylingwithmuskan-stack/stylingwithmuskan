@@ -674,9 +674,20 @@ const UserModuleManagement = () => {
         return adminServices.length > 0 ? adminServices : services || [];
     };
 
-    const filteredData = getDataForTab().filter(item =>
-        (item.name || item.label || item.title || "").toLowerCase().includes(searchTerm.trim().toLowerCase())
-    );
+    const filteredData = getDataForTab().filter(item => {
+        const term = searchTerm.trim().toLowerCase();
+        const matchesMain = (item.name || item.label || item.title || "").toLowerCase().includes(term);
+        
+        // Extended search for services: include category and parent category names
+        if (activeTab === "services" && !matchesMain) {
+            const subCat = categories?.find(c => c.id === item.category);
+            const parentCat = serviceTypes?.find(st => st.id === subCat?.serviceType);
+            return (subCat?.name || "").toLowerCase().includes(term) || 
+                   (parentCat?.label || "").toLowerCase().includes(term);
+        }
+        
+        return matchesMain;
+    });
 
     const actualTotal = activeTab === "services" ? totalServices : filteredData.length;
     const totalPages = Math.ceil(actualTotal / itemsPerPage);
@@ -784,7 +795,14 @@ const UserModuleManagement = () => {
                                                         <span className="text-xs text-muted-foreground">Type: <span className="font-medium text-foreground">{bookingTypeConfig?.find(bt => bt.id === item.bookingType)?.label || item.bookingType || 'Unknown'}</span></span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[11px] text-muted-foreground capitalize">{item.category}</span>
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-xs font-medium text-foreground">
+                                                            {categories?.find(c => c.id === item.category)?.name || item.category || 'N/A'}
+                                                        </span>
+                                                        <span className="text-[10px] text-muted-foreground italic">
+                                                            Parent: {serviceTypes?.find(st => st.id === categories?.find(c => c.id === item.category)?.serviceType)?.label || 'No Parent'}
+                                                        </span>
+                                                    </div>
                                                 )}
                                             </td>
                                         )}
@@ -1064,9 +1082,14 @@ const UserModuleManagement = () => {
                                             <select required value={formData.category || ''} onChange={e => setFormData({ ...formData, category: e.target.value })}
                                                 className="w-full px-3 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground">
                                                 <option value="">Select Subcategory</option>
-                                                {categories?.filter(c => c.gender === formData.gender).map(c => (
-                                                    <option key={c.id + '-' + c.bookingType} value={c.id}>{c.name} ({c.bookingType})</option>
-                                                ))}
+                                                {categories?.filter(c => c.gender === formData.gender).map(c => {
+                                                    const parent = serviceTypes?.find(st => st.id === c.serviceType);
+                                                    return (
+                                                        <option key={c.id + '-' + c.bookingType} value={c.id}>
+                                                            {c.name} ({parent?.label || 'Unknown'}) - {c.bookingType}
+                                                        </option>
+                                                    );
+                                                })}
                                             </select>
                                         </div>
                                     </div>

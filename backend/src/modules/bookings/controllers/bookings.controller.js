@@ -320,7 +320,8 @@ export async function create(req, res) {
     const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
     const bufferMs = Math.max(Number(settings?.bufferMinutes || 0), 0) * 60 * 1000;
     const effectiveLeadMs = Math.max(leadMs, bufferMs);
-    if (effectiveLeadMs > 0 && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) {
+    const GRACE_PERIOD_MS = 5 * 60 * 1000; // 5 minute grace period for checkout delays
+    if (effectiveLeadMs > 0 && slotStart.getTime() < (now.getTime() + effectiveLeadMs - GRACE_PERIOD_MS)) {
       return res.status(400).json({ error: "Selected slot violates minimum lead time." });
     }
     const maxDays = Math.max(Number(settings?.maxBookingDays || 0), 0);
