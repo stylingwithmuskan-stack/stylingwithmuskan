@@ -78,7 +78,7 @@ export default function VenderStatusPage() {
             icon: AlertTriangle,
             iconClass: "bg-amber-50 text-amber-600",
             title: "Account Blocked",
-            description: "Your vendor account has been temporarily blocked by admin. Please reach out to support for assistance.",
+            description: "Your account is blocked by admin approve first then login again",
             badge: "Blocked",
             badgeClass: "bg-amber-100 text-amber-900",
             buttonText: "Contact Support",

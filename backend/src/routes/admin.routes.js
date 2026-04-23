@@ -493,6 +493,8 @@ router.patch("/providers/:id/reject-zones", requireRole("admin"), param("id").is
 });
 
 router.get("/bookings", requireRole("admin"), AdminController.listBookings);
+router.patch("/bookings/:id/approve-images", requireRole("admin"), param("id").isString(), AdminController.approveBookingImages);
+
 
 router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(), body("providerId").isString().notEmpty(), async (req, res) => {
   const now = new Date();

@@ -318,6 +318,7 @@ export const api = {
       const q = new URLSearchParams(params).toString();
       return request(`/content/resolve-location${q ? `?${q}` : ""}`);
     },
+    getServiceReviews: (serviceName) => request(`/content/services/reviews/${encodeURIComponent(serviceName)}`),
   },
 
   // Customer bookings + enquiries
@@ -524,6 +525,8 @@ export const api = {
     updateProviderProfile: (id, payload) => request(`/admin/providers/${id}/profile`, { method: "PATCH", body: payload }),
     adjustProviderWallet: (id, payload) => request(`/admin/providers/${id}/wallet/adjust`, { method: "PATCH", body: payload }),
     bookings: () => request("/admin/bookings"),
+    approveBookingImages: (id, approved) => request(`/admin/bookings/${id}/approve-images`, { method: "PATCH", body: { approved } }),
+
 
     assignBooking: (id, providerId) => request(`/admin/bookings/${id}/assign`, { method: "PATCH", body: { providerId } }),
     customEnquiries: () => request("/admin/custom-enquiries"),

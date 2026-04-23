@@ -128,8 +128,10 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                 if (!cancelled) {
                     setUserLocation(res.userLocation || null);
                     setProviderLocation(res.providerLocation || null);
-                    if (res.status) {
-                        setLocalBooking(prev => ({ ...prev, status: res.status }));
+                    if (res.booking) {
+                        setLocalBooking(res.booking);
+                    } else if (res.status) {
+                        setLocalBooking(prev => ({ ...prev, ...res }));
                     }
                 }
             } catch {}
@@ -156,14 +158,17 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
         socket.on("booking:update", (payload) => {
             console.log("[BookingDetailsModal] Real-time loop update:", payload);
             if (payload?.bookingId !== bookingId) return;
-            if (payload.status) {
-                setLocalBooking(prev => ({ ...prev, status: payload.status }));
+            if (payload.booking) {
+                setLocalBooking(payload.booking);
+            } else if (payload.status) {
+                setLocalBooking(prev => ({ ...prev, ...payload }));
             }
         });
         socket.on("status:update", (payload) => {
-            if (payload?.id === bookingId && payload?.status) {
-                console.log("[BookingDetailsModal] Real-time global update:", payload);
-                setLocalBooking(prev => ({ ...prev, status: payload.status }));
+            if (payload.booking) {
+                setLocalBooking(payload.booking);
+            } else if (payload.status) {
+                setLocalBooking(prev => ({ ...prev, ...payload }));
             }
         });
         socket.on("connect_error", () => {
@@ -186,8 +191,10 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                 const res = await api.bookings.track(bookingId);
                 setUserLocation(res.userLocation || null);
                 setProviderLocation(res.providerLocation || null);
-                if (res.status) {
-                    setLocalBooking(prev => ({ ...prev, status: res.status }));
+                if (res.booking) {
+                    setLocalBooking(res.booking);
+                } else if (res.status) {
+                    setLocalBooking(prev => ({ ...prev, ...res }));
                 }
             } catch {}
         }, 15000);
@@ -513,6 +520,74 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Service Documentation (Before/After/Product Images) */}
+                            {(localBooking.beforeImages?.length > 0 || localBooking.afterImages?.length > 0 || localBooking.productImages?.length > 0) && localBooking.imagesApproved && (
+                                <div className="space-y-6 pt-4 border-t border-border/30">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                            <Camera className="w-4 h-4 text-primary" /> Service Documentation
+                                        </h3>
+                                        <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 uppercase tracking-tighter">Verified Result</span>
+                                    </div>
+
+                                    {/* Transformation Section */}
+                                    {(localBooking.beforeImages?.length > 0 || localBooking.afterImages?.length > 0) && (
+                                        <div className="space-y-3">
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">Transformation Gallery</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <div className="aspect-[4/5] rounded-2xl overflow-hidden border border-border/40 shadow-sm bg-accent/20 group relative">
+                                                        <img 
+                                                            src={localBooking.beforeImages?.[0] || "https://placehold.co/400x500?text=Before"} 
+                                                            className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500" 
+                                                            alt="Before" 
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
+                                                        <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-white text-[8px] font-black px-2 py-1 rounded uppercase tracking-widest">Before</div>
+                                                    </div>
+                                                    {localBooking.beforeImages?.length > 1 && (
+                                                        <p className="text-[8px] text-center font-bold text-muted-foreground">+{localBooking.beforeImages.length - 1} more photos</p>
+                                                    )}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="aspect-[4/5] rounded-2xl overflow-hidden border-2 border-primary/20 shadow-lg shadow-primary/5 bg-accent/20 relative group">
+                                                        <img 
+                                                            src={localBooking.afterImages?.[0] || "https://placehold.co/400x500?text=After"} 
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                                                            alt="After" 
+                                                        />
+                                                        <div className="absolute top-2 right-2 bg-primary text-white text-[8px] font-black px-2 py-1 rounded uppercase tracking-widest shadow-lg">After</div>
+                                                    </div>
+                                                    {localBooking.afterImages?.length > 1 && (
+                                                        <p className="text-[8px] text-center font-bold text-muted-foreground">+{localBooking.afterImages.length - 1} more photos</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Products Used Section */}
+                                    {localBooking.productImages?.length > 0 && (
+                                        <div className="space-y-3">
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">Products & Tools Used</p>
+                                            <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
+                                                {localBooking.productImages.map((img, idx) => (
+                                                    <div key={idx} className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-border/40 shadow-sm bg-white p-1">
+                                                        <img src={img} className="w-full h-full object-contain" alt={`Product ${idx + 1}`} />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="bg-primary/5 p-3 rounded-2xl border border-primary/10">
+                                        <p className="text-[9px] text-primary/80 font-bold leading-relaxed text-center italic">
+                                            "Verified Transformation: These photos document the actual service results and products used, ensuring 100% transparency and quality."
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Payment Summary */}
                             <div className="space-y-4">

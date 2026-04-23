@@ -93,6 +93,7 @@ const BookingSchema = new mongoose.Schema(
     ],
     beforeImages: [String],
     afterImages: [String],
+    imagesApproved: { type: Boolean, default: false },
     productImages: [String],
     providerImages: [String],
     providerFeedback: String,

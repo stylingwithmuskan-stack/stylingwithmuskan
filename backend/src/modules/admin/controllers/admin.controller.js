@@ -1474,3 +1474,18 @@ export async function adjustProviderWallet(req, res) {
 
   res.json({ success: true, credits: p.credits, provider: p });
 }
+
+export async function approveBookingImages(req, res) {
+  const { id } = req.params;
+  const { approved } = req.body;
+
+  try {
+    const b = await Booking.findByIdAndUpdate(id, { imagesApproved: !!approved }, { new: true });
+    if (!b) return res.status(404).json({ error: "Booking not found" });
+    res.json({ success: true, booking: b });
+  } catch (error) {
+    console.error("[Admin] Failed to approve images:", error);
+    res.status(500).json({ error: "Failed to approve images" });
+  }
+}
+
