@@ -32,7 +32,7 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } 
 const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 
 export default function BookingManagement() {
-    const { isLoggedIn, getAllBookings, getAllServiceProviders, assignSPToBooking, assignTeamToBooking, approveBookingImages } = useAdminAuth();
+    const { isLoggedIn, getAllBookings, getAllServiceProviders, getAvailableProvidersForBooking, assignSPToBooking, assignTeamToBooking, approveBookingImages } = useAdminAuth();
     const { officeSettings, updateOfficeSettings, providers: moduleProviders } = useUserModuleData();
     const [bookings, setBookings] = useState([]);
     const [providers, setProviders] = useState([]);
@@ -40,6 +40,8 @@ export default function BookingManagement() {
     const [tab, setTab] = useState("all");
     const [typeFilter, setTypeFilter] = useState("all");
     const [assignModal, setAssignModal] = useState(null);
+    const [availableProviders, setAvailableProviders] = useState([]);
+    const [loadingProviders, setLoadingProviders] = useState(false);
     const [selectedSP, setSelectedSP] = useState("");
     const [showSettings, setShowSettings] = useState(false);
     const [tempSettings, setTempSettings] = useState(officeSettings);
@@ -101,6 +103,21 @@ export default function BookingManagement() {
 
         return ms && tabMatch && typeMatch;
     });
+    
+    const handleOpenAssignModal = async (b) => {
+        setAssignModal(b);
+        setSelectedSP("");
+        setAvailableProviders([]);
+        setLoadingProviders(true);
+        try {
+            const list = await getAvailableProvidersForBooking(b._id || b.id);
+            setAvailableProviders(list);
+        } catch (e) {
+            console.error("Failed to fetch available providers", e);
+        } finally {
+            setLoadingProviders(false);
+        }
+    };
 
     const handleAssign = async () => {
         if (assignModal && selectedSP) {
@@ -410,7 +427,7 @@ export default function BookingManagement() {
                                                     ) : (
                                                         /* Enable Assign toggle for any unassigned or pending booking in Admin panel */
                                                         ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected"].includes(b.status) && (
-                                                            <Button size="sm" className="h-8 text-[10px] font-bold bg-primary rounded-lg gap-1" onClick={(e) => { e.stopPropagation(); setAssignModal(b); }}>
+                                                            <Button size="sm" className="h-8 text-[10px] font-bold bg-primary rounded-lg gap-1" onClick={(e) => { e.stopPropagation(); handleOpenAssignModal(b); }}>
                                                                 <Users className="h-3 w-3" />{b.assignedProvider ? "Re-assign" : "Assign"}
                                                             </Button>
                                                         )
@@ -668,14 +685,22 @@ export default function BookingManagement() {
                                         <SelectValue placeholder="Pick a service provider" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl">
-                                        {providers.length > 0 ? providers.map(p => (
+                                        {loadingProviders ? (
+                                            <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                                                <RefreshCw className="h-3 w-3 animate-spin" /> Loading available providers...
+                                            </div>
+                                        ) : availableProviders.length > 0 ? availableProviders.map(p => (
                                             <SelectItem key={p._id || p.id || p.phone} value={String(p._id || p.id || p.phone)} className="rounded-lg">
                                                 <div className="flex flex-col py-0.5">
                                                     <span className="font-bold text-sm">{p.name}</span>
                                                     <span className="text-[10px] text-muted-foreground">{p.phone} {p.specialties ? `• ${p.specialties.join(", ")}` : ""}</span>
                                                 </div>
                                             </SelectItem>
-                                        )) : <p className="p-4 text-center text-xs text-muted-foreground">No providers available</p>}
+                                        )) : (
+                                            <div className="p-4 text-center text-xs text-red-500 font-bold">
+                                                No providers available for this slot
+                                            </div>
+                                        )}
                                     </SelectContent>
                                 </Select>
                             </div>

@@ -526,6 +526,7 @@ export const api = {
     updateProviderProfile: (id, payload) => request(`/admin/providers/${id}/profile`, { method: "PATCH", body: payload }),
     adjustProviderWallet: (id, payload) => request(`/admin/providers/${id}/wallet/adjust`, { method: "PATCH", body: payload }),
     bookings: () => request("/admin/bookings"),
+    getAvailableProviders: (bookingId) => request(`/admin/bookings/${bookingId}/available-providers`),
     approveBookingImages: (id, approved) => request(`/admin/bookings/${id}/approve-images`, { method: "PATCH", body: { approved } }),
 
 

@@ -334,6 +334,74 @@ const BookingSummary = () => {
     }
   };
 
+  const handlePayAfterService = async () => {
+    if (!user?.addresses || user.addresses.length === 0) {
+      setIsAddressModalOpen(true);
+      return;
+    }
+    if (!selectedSlot?.date || !selectedSlot?.time) {
+      toast.error("Please select a booking slot (date & time)");
+      return;
+    }
+    
+    const userAddress = user.addresses[0];
+    if (displayItems.length > 0) {
+      const hasUnavailableServices = displayItems.some((item) => !checkAvailability(item, userAddress));
+      if (hasUnavailableServices) {
+        toast.error("Currently this service is not available in your zone.");
+        return;
+      }
+    }
+    
+    setIsProcessing(true);
+    try {
+      const items = displayItems.filter(Boolean).map(it => ({ 
+        name: it?.name || "", 
+        price: it?.price || 0, 
+        quantity: it?.quantity || 1, 
+        duration: it?.duration, 
+        category: it?.category, 
+        serviceType: it?.serviceType, 
+        image: it?.image || "" 
+      }));
+      const address = {
+        houseNo: userAddress.houseNo,
+        area: userAddress.area,
+        landmark: userAddress.landmark || "",
+        city: userAddress.city || userAddress.area || "",
+        zone: userAddress.zone || userAddress.area || "",
+        lat: userAddress.lat ?? null,
+        lng: userAddress.lng ?? null
+      };
+      const payload = {
+        items,
+        slot: selectedSlot,
+        address,
+        bookingType: effectiveBookingType,
+        couponCode: couponApplied?.code || undefined,
+        preferredProviderId: selectedSlot?.provider?.id || selectedSlot?.provider?._id || undefined,
+        allowAutoFallback: false
+      };
+
+      const { booking } = await api.bookings.create(payload);
+      const bookingId = booking?.id || booking?._id;
+
+      if (!bookingId) {
+        throw new Error("Failed to create booking");
+      }
+
+      // Confirm COD (Pay After Service)
+      await api.bookings.confirmCOD(bookingId);
+      
+      setIsProcessing(false);
+      setShowSuccess(true);
+      clearCart();
+    } catch (e) {
+      setIsProcessing(false);
+      toast.error(e.message || "Booking failed");
+    }
+  };
+
   const getFormattedDate = (dateStr) => {
     if (!dateStr) return "";
     if (dateStr === "Today") return "Today";
@@ -646,23 +714,43 @@ const BookingSummary = () => {
 
       {/* Bottom CTA */}
       <div className="fixed bottom-0 left-0 right-0 glass-strong border-t border-border p-5 z-40">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex flex-col">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase">{advanceAmount > 0 ? "Grand Total" : "Grand Total"}</p>
-            <p className="text-2xl font-black text-primary leading-none">₹{finalTotal.toLocaleString()}</p>
-          </div>
-          <Button 
-            onClick={() => handlePay(false)} 
-            disabled={isProcessing}
-            className="flex-1 h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-bold shadow-xl shadow-primary/20 gap-2 group border-none"
-          >
-            {isProcessing ? "Processing..." : (advanceAmount > 0 ? `PAY ADVANCE ₹${advanceAmount.toLocaleString()}` : "PROCEED TO PAY")}
-            {!isProcessing && (
-              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform">
-                <ChevronRight className="w-5 h-5" />
-              </div>
+        <div className="max-w-2xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center justify-between md:justify-start gap-4">
+            <div className="flex flex-col">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase">{advanceAmount > 0 ? "Grand Total" : "Grand Total"}</p>
+              <p className="text-2xl font-black text-primary leading-none">₹{finalTotal.toLocaleString()}</p>
+            </div>
+            {displayTotalSavings + discount + plusDiscount > 0 && (
+               <div className="md:hidden bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-lg">
+                 SAVED ₹{(displayTotalSavings + discount + plusDiscount).toLocaleString()}
+               </div>
             )}
-          </Button>
+          </div>
+
+          <div className="flex gap-3 flex-1">
+            {effectiveBookingType === 'instant' && advanceAmount === 0 && (
+              <Button
+                onClick={handlePayAfterService}
+                disabled={isProcessing}
+                variant="outline"
+                className="flex-1 h-14 rounded-2xl border-2 border-primary/20 hover:border-primary/40 text-primary font-bold bg-white/50 backdrop-blur-sm"
+              >
+                {isProcessing ? "..." : "PAY AFTER SERVICE"}
+              </Button>
+            )}
+            <Button 
+              onClick={() => handlePay(false)} 
+              disabled={isProcessing}
+              className={`${(effectiveBookingType === 'instant' && advanceAmount === 0) ? 'flex-1' : 'w-full md:flex-1'} h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-bold shadow-xl shadow-primary/20 gap-2 group border-none`}
+            >
+              {isProcessing ? "Processing..." : (advanceAmount > 0 ? `PAY ADVANCE ₹${advanceAmount.toLocaleString()}` : "PROCEED TO PAY")}
+              {!isProcessing && (
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                  <ChevronRight className="w-5 h-5" />
+                </div>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 

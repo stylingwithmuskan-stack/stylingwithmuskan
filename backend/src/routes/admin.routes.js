@@ -9,6 +9,8 @@ import { ReferralSettings, CommissionSettings, BookingSettings, PerformanceSetti
 import { upload, uploadMedia } from "../middleware/upload.js";
 import { uploadBase64Image } from "../startup/cloudinary.js";
 import { issueRoleToken, requireRole } from "../middleware/roles.js";
+import ProviderWalletTxn from "../models/ProviderWalletTxn.js";
+import { getIO } from "../startup/socket.js";
 import * as AdminController from "../modules/admin/controllers/admin.controller.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../config.js";
@@ -493,55 +495,169 @@ router.patch("/providers/:id/reject-zones", requireRole("admin"), param("id").is
 });
 
 router.get("/bookings", requireRole("admin"), AdminController.listBookings);
+router.get("/bookings/:id/available-providers", requireRole("admin"), AdminController.getAvailableProvidersForBooking);
 router.patch("/bookings/:id/approve-images", requireRole("admin"), param("id").isString(), AdminController.approveBookingImages);
 
 
 router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(), body("providerId").isString().notEmpty(), async (req, res) => {
-  const now = new Date();
-  const existing = await Booking.findById(req.params.id);
-  if (!existing) return res.status(404).json({ error: "Not found" });
-  const providerId = String(req.body.providerId || "").trim();
-  const allowed = await canAssignProviderToBooking(providerId, existing.toObject());
-  if (!allowed) {
-    return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
-  }
-  const previousProviderId = String(existing.assignedProvider || "").trim();
-  existing.assignedProvider = providerId;
-  existing.status = "pending";
-  existing.adminEscalated = false;
-  existing.lastAssignedAt = now;
-  existing.expiresAt = computeExpiresAt(now);
-  const b = await existing.save();
   try {
-    if (b?.slot?.date) {
-      const ids = Array.from(new Set([previousProviderId, providerId].filter(Boolean)));
-      for (const id of ids) {
-        // Keep slot cache in sync for both old and new assignee.
-        // eslint-disable-next-line no-await-in-loop
-        await invalidateProviderSlots(id, b.slot.date);
+    const now = new Date();
+    const { id } = req.params;
+    const providerId = String(req.body.providerId || "").trim();
+
+    const existing = await Booking.findById(id);
+    if (!existing) return res.status(404).json({ error: "Booking not found" });
+
+    const provider = await ProviderAccount.findById(providerId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    // 1. Check availability
+    const allowed = await canAssignProviderToBooking(providerId, existing.toObject());
+    if (!allowed) {
+      return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
+    }
+
+    const previousProviderId = String(existing.assignedProvider || "").trim();
+    
+    // 2. Commission handling logic (aligned with vendor.controller.js)
+    const commissionSettings = await CommissionSettings.findOne().lean();
+    const rate = Number(commissionSettings?.rate || 20);
+    const totalAmount = Number(existing.totalAmount || 0);
+    const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+
+    if (required > 0) {
+      // Refund previous provider if commission was already charged
+      if (existing.commissionChargedAt && previousProviderId && previousProviderId !== providerId) {
+        const prevProvider = await ProviderAccount.findById(previousProviderId);
+        if (prevProvider && existing.commissionAmount > 0) {
+          prevProvider.credits = Number(prevProvider.credits || 0) + existing.commissionAmount;
+          await prevProvider.save();
+
+          await ProviderWalletTxn.create({
+            providerId: previousProviderId,
+            bookingId: existing._id.toString(),
+            type: "commission_refund",
+            amount: existing.commissionAmount,
+            balanceAfter: prevProvider.credits,
+            meta: { reason: "admin_reassignment" },
+          });
+
+          try {
+            await notify({
+              recipientId: previousProviderId,
+              recipientRole: "provider",
+              type: "commission_refund",
+              meta: { bookingId: existing._id.toString(), amount: existing.commissionAmount },
+              respectProviderQuietHours: true,
+            });
+          } catch (notifyErr) {}
+        }
       }
-    }
-  } catch {}
-  try {
-    if (b?.assignedProvider) {
-      await notify({
-        recipientId: b.assignedProvider,
-        recipientRole: "provider",
-        type: "booking_assigned",
-        meta: { bookingId: b._id.toString() },
-        respectProviderQuietHours: true,
+
+      // Check new provider balance
+      if (Number(provider.credits || 0) < required) {
+        return res.status(409).json({
+          error: "Selected provider does not have sufficient wallet balance to cover the platform commission.",
+          code: "INSUFFICIENT_WALLET",
+          required,
+          available: Number(provider.credits || 0),
+        });
+      }
+
+      // Deduct commission from new provider
+      provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
+      await provider.save();
+
+      // Update booking commission details
+      existing.commissionAmount = required;
+      existing.commissionChargedAt = new Date();
+      existing.commissionRefundedAt = null;
+
+      // Create transaction record
+      await ProviderWalletTxn.create({
+        providerId: provider._id.toString(),
+        bookingId: existing._id.toString(),
+        type: "commission_hold",
+        amount: -required,
+        balanceAfter: provider.credits,
+        meta: { rate, totalAmount, source: "admin_assignment" },
       });
+
+      // Notify new provider about commission deduction
+      try {
+        await notify({
+          recipientId: providerId,
+          recipientRole: "provider",
+          type: "commission_hold",
+          meta: { bookingId: existing._id.toString(), amount: required },
+          respectProviderQuietHours: true,
+        });
+      } catch (notifyErr) {}
     }
-    if (b?.customerId) {
-      await notify({
-        recipientId: b.customerId,
-        recipientRole: "user",
-        type: "booking_assigned",
-        meta: { bookingId: b._id.toString() },
+
+    // 3. Update Booking Status and Assignee
+    existing.assignedProvider = providerId;
+    // Set status to "vendor_assigned" so it appears in the "Assigned" tab in Provider Panel
+    existing.status = "vendor_assigned";
+    existing.adminEscalated = false;
+    existing.lastAssignedAt = now;
+    existing.expiresAt = null; // Manual assignment should not expire automatically
+    
+    const b = await existing.save();
+
+    // 4. Notifications and Sync
+    try {
+      const io = getIO();
+      io?.of("/bookings").emit("assignment:changed", {
+        id: b._id.toString(),
+        bookingId: b._id.toString(),
+        toProvider: providerId,
+        fromProvider: previousProviderId,
+        reason: "admin_assigned",
+        status: "vendor_assigned"
       });
-    }
-  } catch {}
-  res.json({ booking: b });
+      io?.of("/bookings").emit("status:update", { 
+        id: b._id.toString(), 
+        status: "vendor_assigned" 
+      });
+    } catch (ioErr) {}
+
+    // Invalidate slot cache
+    try {
+      if (b?.slot?.date) {
+        const ids = Array.from(new Set([previousProviderId, providerId].filter(Boolean)));
+        for (const pid of ids) {
+          await invalidateProviderSlots(pid, b.slot.date);
+        }
+      }
+    } catch (slotErr) {}
+
+    // Send push/app notifications
+    try {
+      if (b?.assignedProvider) {
+        await notify({
+          recipientId: b.assignedProvider,
+          recipientRole: "provider",
+          type: "booking_assigned",
+          meta: { bookingId: b._id.toString(), reason: "admin_assigned" },
+          respectProviderQuietHours: true,
+        });
+      }
+      if (b?.customerId) {
+        await notify({
+          recipientId: b.customerId,
+          recipientRole: "user",
+          type: "booking_assigned",
+          meta: { bookingId: b._id.toString() },
+        });
+      }
+    } catch (notifyErr) {}
+
+    res.json({ booking: b });
+  } catch (error) {
+    console.error("[Admin] Assignment Error:", error);
+    res.status(500).json({ error: "Failed to assign provider" });
+  }
 });
 
 router.get("/coupons", requireRole("admin"), AdminController.listCoupons);

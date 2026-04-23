@@ -314,6 +314,9 @@ export default function VenderBookings() {
         } else {
             // Open price setting modal
             setAssignModal(booking);
+            if (!(booking.bookingType === "customized" || booking.eventType)) {
+                fetchAvailableProviders(booking.id);
+            }
             setCustomPrice(booking.totalAmount || 0);
             setDiscountPrice(booking.discountPrice || 0);
             setPrebookAmount(booking.prebookAmount || 0);
@@ -740,12 +743,20 @@ export default function VenderBookings() {
                                     <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Select Service Provider</label>
                                     <Select value={selectedProvider} onValueChange={setSelectedProvider}>
                                         <SelectTrigger className="h-11 rounded-xl">
-                                            <SelectValue placeholder="Select a professional" />
+                                            <SelectValue placeholder={loadingAvailableProviders ? "Loading available professionals..." : "Select a professional"} />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {providers.map(p => (
-                                                <SelectItem key={p.id || p.phone} value={String(p.id || p.phone)}>{p.name} ({p.phone})</SelectItem>
-                                            ))}
+                                            {loadingAvailableProviders ? (
+                                                <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                                                    <RefreshCw className="h-3 w-3 animate-spin" /> Fetching available professionals...
+                                                </div>
+                                            ) : availableProviders.length > 0 ? availableProviders.map(p => (
+                                                <SelectItem key={p._id || p.id || p.phone} value={String(p._id || p.id || p.phone)}>{p.name} ({p.phone})</SelectItem>
+                                            )) : (
+                                                <div className="p-4 text-center text-xs text-red-500 font-bold">
+                                                    No providers available for this slot
+                                                </div>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>

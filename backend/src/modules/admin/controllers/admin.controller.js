@@ -12,6 +12,7 @@ import { validatePolygon } from "../../../lib/polygonValidation.js";
 
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 import ProviderWalletTxn from "../../../models/ProviderWalletTxn.js";
+import { canAssignProviderToBooking } from "../../../lib/assignment.js";
 
 const DEFAULT_TZ = "Asia/Kolkata";
 
@@ -167,6 +168,50 @@ export async function listBookings(req, res) {
   });
 
   res.json({ bookings: enriched, page, limit, total });
+}
+
+export async function getAvailableProvidersForBooking(req, res) {
+  const bookingId = req.params.id;
+  const booking = await Booking.findById(bookingId).lean();
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+  const city = booking.address?.city || "";
+  const cityId = booking.address?.cityId || "";
+  
+  let pQuery = {
+    approvalStatus: "approved",
+    registrationComplete: true,
+  };
+  
+  if (cityId) {
+    pQuery.cityId = cityId;
+  } else if (city) {
+    const escaped = city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    pQuery.city = new RegExp(`^${escaped}`, "i");
+  }
+
+  const allProviders = await ProviderAccount.find(pQuery).lean();
+  
+  const availableProviders = [];
+  for (const provider of allProviders) {
+    // eslint-disable-next-line no-await-in-loop
+    const isAvailable = await canAssignProviderToBooking(
+      provider._id.toString(), 
+      booking
+    );
+    if (isAvailable) {
+      availableProviders.push({
+        _id: provider._id,
+        name: provider.name,
+        phone: provider.phone,
+        rating: provider.rating || 0,
+        totalJobs: provider.totalJobs || 0,
+        credits: provider.credits || 0,
+      });
+    }
+  }
+  
+  res.json({ availableProviders });
 }
 
 export async function listCustomers(req, res) {

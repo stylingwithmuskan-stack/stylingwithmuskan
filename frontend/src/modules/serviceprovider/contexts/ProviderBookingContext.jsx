@@ -211,6 +211,12 @@ export const ProviderBookingProvider = ({ children }) => {
                     console.log("[ProviderBookings] 🚨 Vendor assignment notification - playing ringtone");
                     playRingtone();
                 }
+
+                // Play message ting for commission deduction or refund
+                if (payload.type === "commission_hold" || payload.type === "commission_refund") {
+                    console.log("[ProviderBookings] 💰 Wallet adjustment notification - playing message sound");
+                    playMessageSound();
+                }
                 
                 refreshBookings();
             }

@@ -95,6 +95,7 @@ export const AdminAuthProvider = ({ children }) => {
     const getUserBookings = async () => (await api.admin.bookings()).bookings;
     const approveBookingImages = async (id, approved) => { await api.admin.approveBookingImages(id, approved); };
     const assignSPToBooking = async (bookingId, spId) => { await api.admin.assignBooking(bookingId, spId); };
+    const getAvailableProvidersForBooking = async (bookingId) => (await api.admin.getAvailableProviders(bookingId)).availableProviders || [];
 
     const assignTeamToBooking = async (bookingId, payload) => {
         // This handles customized bookings through various stages via API
@@ -242,7 +243,7 @@ export const AdminAuthProvider = ({ children }) => {
             getAllServiceProviders, updateSPStatus, updateProviderProfile,
             approveProviderZones, rejectProviderZones, adjustProviderWallet,
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,
-            getAllBookings, getUserBookings, approveBookingImages, assignSPToBooking, assignTeamToBooking,
+            getAllBookings, getUserBookings, approveBookingImages, assignSPToBooking, getAvailableProvidersForBooking, assignTeamToBooking,
             getCoupons, addCoupon, deleteCoupon,
             getBanners, addBanner, deleteBanner,
             getReferralSettings, updateReferralSettings,
