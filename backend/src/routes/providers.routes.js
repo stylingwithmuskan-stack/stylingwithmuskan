@@ -276,9 +276,10 @@ router.get(
     console.log(`[SLOTS DEBUG] Final Query:`, JSON.stringify(q));
     console.log(`[SLOTS DEBUG] Providers Found: ${providers.length}`);
 
-    if (cityGuess && providers.length === 0 && !zoneGuess) {
-      providers = await ProviderAccount.find(baseQ).lean();
-      console.log(`[SLOTS DEBUG] Fallback to baseQ providers: ${providers.length}`);
+    // Removed broad fallback to ensure strict zone/city enforcement as per user request
+    if (providers.length === 0) {
+      console.log(`[SLOTS DEBUG] No providers found in specified zone/city. Returning empty slots.`);
+      return res.json({ date, slots: [], slotMap: {}, candidateProvidersBySlot: {}, city: cityGuess, zoneId: zoneIdGuess });
     }
 
     if (serviceTypes.length > 0 || categories.length > 0) {

@@ -96,8 +96,8 @@ async function findProvidersZoneStrict(address, filters = {}) {
     }).lean();
   }
 
-  // No zone provided: fallback to city-wide search
-  return ProviderAccount.find(baseQuery).lean();
+  // No zone provided or matched: return empty to ensure strict zone enforcement as per user request
+  return [];
 }
 
 export async function buildAssignmentCandidates({
