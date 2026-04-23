@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     CalendarRange, Search, MapPin, Clock, User, ChevronDown, ArrowRight,
-    RefreshCw, CheckCircle, Users, AlertTriangle, Tag, Bell, BellOff, Zap, X, Phone, LayoutGrid, IndianRupee, Percent,
+    RefreshCw, CheckCircle, Users, AlertTriangle, Tag, Bell, BellOff, Zap, X, Phone, LayoutGrid, IndianRupee, Percent, Star, Wallet,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
@@ -42,7 +42,7 @@ const statusColors = {
 };
 
 export default function VenderBookings() {
-    const { getAllBookings, getServiceProviders, getCustomEnquiries, assignSPToBooking, hydrated, isLoggedIn, assignTeamToBooking, reassignBooking, expireBooking } = useVenderAuth();
+    const { getAllBookings, getServiceProviders, getCustomEnquiries, assignSPToBooking, hydrated, isLoggedIn, assignTeamToBooking, reassignBooking, expireBooking, getAvailableProviders } = useVenderAuth();
   
     const [bookings, setBookings] = useState([]);
     const [providers, setProviders] = useState([]);
@@ -65,6 +65,12 @@ export default function VenderBookings() {
     // Reassignment for provider-cancelled bookings
     const [reassignModal, setReassignModal] = useState(null);
     const [reassignProvider, setReassignProvider] = useState("");
+
+    // Escalated bookings assignment
+    const [escalatedAssignModal, setEscalatedAssignModal] = useState(null);
+    const [availableProviders, setAvailableProviders] = useState([]);
+    const [loadingAvailableProviders, setLoadingAvailableProviders] = useState(false);
+    const [escalatedSelectedProvider, setEscalatedSelectedProvider] = useState("");
 
     const load = async () => {
         try {
@@ -112,6 +118,7 @@ export default function VenderBookings() {
         else if (tab === "completed") tabMatch = status === "completed";
         else if (tab === "cancelled") tabMatch = ["cancelled", "rejected", "quote_expired"].includes(status);
         else if (tab === "provider_cancelled") tabMatch = status === "provider_cancelled";
+        else if (tab === "escalated") tabMatch = status === "pending" && b.vendorEscalated === true && !b.assignedProvider;
 
         let typeMatch = true;
         if (typeFilter !== "all") {
@@ -267,6 +274,10 @@ export default function VenderBookings() {
         if (st === "provider_cancelled") {
             return isReassignmentExpired(booking) ? "Expired" : "Reassign";
         }
+        // Escalated bookings
+        if (st === "pending" && booking.vendorEscalated === true && !booking.assignedProvider) {
+            return "Assign Provider";
+        }
         if (booking.bookingType === "customized" || booking.eventType) {
             if (st === "advance_paid") return "Assign Team";
             if (st === "quote_submitted") return "Modify Quote";
@@ -288,6 +299,13 @@ export default function VenderBookings() {
             }
             return;
         }
+        // Handle escalated bookings
+        if (st === "pending" && booking.vendorEscalated === true && !booking.assignedProvider) {
+            setEscalatedAssignModal(booking);
+            setEscalatedSelectedProvider("");
+            fetchAvailableProviders(booking.id);
+            return;
+        }
         if ((booking.bookingType === "customized" || booking.eventType) && st === "advance_paid") {
             // Open team assignment modal
             setTeamAssignModal(booking);
@@ -307,10 +325,40 @@ export default function VenderBookings() {
     const canShowAction = (booking) => {
         const st = (booking.status || "").toLowerCase();
         if (st === "provider_cancelled") return true;
+        // Escalated bookings need assignment
+        if (st === "pending" && booking.vendorEscalated === true && !booking.assignedProvider) return true;
         if (booking.bookingType === "customized" || booking.eventType) {
             return ["enquiry_created", "quote_submitted", "advance_paid"].includes(st);
         }
         return ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected"].includes(booking.status);
+    };
+
+    const fetchAvailableProviders = async (bookingId) => {
+        setLoadingAvailableProviders(true);
+        try {
+            const providers = await getAvailableProviders(bookingId);
+            setAvailableProviders(providers || []);
+        } catch (error) {
+            console.error("Error fetching available providers:", error);
+            toast.error("Failed to load available providers");
+            setAvailableProviders([]);
+        } finally {
+            setLoadingAvailableProviders(false);
+        }
+    };
+
+    const handleEscalatedAssign = async () => {
+        if (!escalatedAssignModal || !escalatedSelectedProvider) return;
+        try {
+            await assignSPToBooking(escalatedAssignModal.id, escalatedSelectedProvider);
+            toast.success("Provider assigned successfully to escalated booking.");
+            load();
+            setEscalatedAssignModal(null);
+            setEscalatedSelectedProvider("");
+            setAvailableProviders([]);
+        } catch (e) {
+            toast.error(e?.message || "Assignment failed");
+        }
     };
 
     return (
@@ -328,11 +376,12 @@ export default function VenderBookings() {
             </motion.div>
 
             {/* Stats */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 md:grid-cols-6 gap-3">
                 {[
                     { label: "Total", val: bookings.length, color: "bg-blue-50 text-blue-600 border-blue-200" },
                     { label: "Active", val: bookings.filter(b => ["accepted", "travelling", "arrived", "in_progress", "service_confirmed"].includes((b.status || "").toLowerCase())).length, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
                     { label: "Pending", val: bookings.filter(b => ["incoming", "pending", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid"].includes((b.status || "").toLowerCase())).length, color: "bg-amber-50 text-amber-600 border-amber-200" },
+                    { label: "Escalated", val: bookings.filter(b => (b.status || "").toLowerCase() === "pending" && b.vendorEscalated === true && !b.assignedProvider).length, color: "bg-red-50 text-red-600 border-red-200" },
                     { label: "Unassigned", val: bookings.filter(b => (b.status || "").toLowerCase() === "unassigned").length, color: "bg-orange-50 text-orange-600 border-orange-200" },
                     { label: "Completed", val: bookings.filter(b => (b.status || "").toLowerCase() === "completed").length, color: "bg-green-50 text-green-600 border-green-200" },
                 ].map((s, i) => (
@@ -355,6 +404,7 @@ export default function VenderBookings() {
                     >
                         <option value="all">All Status</option>
                         <option value="pending">Pending</option>
+                        <option value="escalated">🚨 Escalated</option>
                         <option value="active">Active</option>
                         <option value="completed">Done</option>
                         <option value="cancelled">Cancelled</option>
@@ -378,10 +428,13 @@ export default function VenderBookings() {
                         <TabsList className="bg-muted/50 rounded-xl p-1 flex-wrap h-auto">
                             <TabsTrigger value="all" className="rounded-lg text-xs font-bold">All</TabsTrigger>
                             <TabsTrigger value="pending" className="rounded-lg text-xs font-bold">Pending</TabsTrigger>
+                            <TabsTrigger value="escalated" className="rounded-lg text-xs font-bold data-[state=active]:bg-red-600 data-[state=active]:text-white flex gap-1.5 items-center">
+                                🚨 Escalated
+                            </TabsTrigger>
                             <TabsTrigger value="active" className="rounded-lg text-xs font-bold">Active</TabsTrigger>
                             <TabsTrigger value="completed" className="rounded-lg text-xs font-bold">Done</TabsTrigger>
                             <TabsTrigger value="cancelled" className="rounded-lg text-xs font-bold">Cancelled</TabsTrigger>
-                            <TabsTrigger value="provider_cancelled" className="rounded-lg text-xs font-bold data-[state=active]:bg-red-500 data-[state=active]:text-white flex gap-1.5 items-center">
+                            <TabsTrigger value="provider_cancelled" className="rounded-lg text-xs font-bold data-[state=active]:bg-orange-500 data-[state=active]:text-white flex gap-1.5 items-center">
                                 <AlertTriangle className="w-3.5 h-3.5" /> Reassign
                             </TabsTrigger>
                         </TabsList>
@@ -876,6 +929,132 @@ export default function VenderBookings() {
                                     <CheckCircle className="h-4 w-4" /> Confirm Reassign
                                 </Button>
                                 <Button variant="outline" className="h-11 rounded-xl font-bold" onClick={() => setReassignModal(null)}>Cancel</Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* ═══════ ESCALATED BOOKING ASSIGNMENT MODAL ═══════ */}
+            <AnimatePresence>
+                {escalatedAssignModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                            onClick={() => setEscalatedAssignModal(null)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-[420px] bg-card rounded-[24px] shadow-2xl border border-border p-4 space-y-3 overflow-y-auto max-h-[90vh]"
+                        >
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-black">🚨 Escalated Booking</h3>
+                                <button onClick={() => setEscalatedAssignModal(null)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center transition-colors"><X className="h-4 w-4" /></button>
+                            </div>
+
+                            <div className="bg-red-50 rounded-xl p-3 border border-red-100 space-y-2">
+                                <p className="text-[10px] font-black uppercase text-red-600 tracking-widest flex items-center gap-1.5">
+                                    <AlertTriangle className="h-3 w-3" /> 5 Providers Rejected
+                                </p>
+                                <p className="text-xs font-medium text-red-700">
+                                    This booking has been escalated to you after 5 providers rejected or timed out. Please assign an available provider immediately.
+                                </p>
+                            </div>
+
+                            <div className="bg-muted/50 rounded-2xl p-3 space-y-2 border border-border/50 shadow-inner">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Booking</p>
+                                        <p className="text-sm font-black">#{escalatedAssignModal.id}</p>
+                                    </div>
+                                    <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-600 border-purple-200">{escalatedAssignModal.serviceType}</Badge>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-0.5">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Customer</p>
+                                        <p className="text-xs font-black">{escalatedAssignModal.customerName}</p>
+                                    </div>
+                                    <div className="space-y-0.5 text-right">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Slot</p>
+                                        <p className="text-xs font-black">{escalatedAssignModal.slot?.time}</p>
+                                        <p className="text-[9px] text-muted-foreground">{escalatedAssignModal.slot?.date}</p>
+                                    </div>
+                                </div>
+                                <div className="pt-2 border-t border-border/50">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Services</p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {(escalatedAssignModal.services || escalatedAssignModal.items || []).map((s, i) => (
+                                            <span key={i} className="text-[9px] font-semibold bg-white px-1.5 py-0.5 rounded-md border border-border">{s.name}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {loadingAvailableProviders ? (
+                                <div className="py-8 text-center">
+                                    <RefreshCw className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3 animate-spin" />
+                                    <p className="text-sm font-bold text-muted-foreground">Loading available providers...</p>
+                                </div>
+                            ) : availableProviders.length === 0 ? (
+                                <div className="bg-amber-50 rounded-xl p-4 border border-amber-100 text-center">
+                                    <AlertTriangle className="h-8 w-8 text-amber-600 mx-auto mb-2" />
+                                    <p className="text-xs font-bold text-amber-900">No Available Providers</p>
+                                    <p className="text-[10px] text-amber-700 mt-1">All providers are busy for this time slot.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 flex items-center gap-1.5">
+                                        <Users className="h-3 w-3 text-emerald-600" /> Available Providers ({availableProviders.length})
+                                    </label>
+                                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                                        {availableProviders.map(p => (
+                                            <button
+                                                key={p._id}
+                                                onClick={() => setEscalatedSelectedProvider(p._id)}
+                                                className={`w-full p-3 rounded-xl text-left border-2 transition-all ${
+                                                    escalatedSelectedProvider === p._id
+                                                        ? "border-emerald-600 bg-emerald-50"
+                                                        : "border-border bg-muted/20 hover:border-emerald-300"
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-black">{p.name}</p>
+                                                        <p className="text-[10px] text-muted-foreground font-medium">{p.phone}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="flex items-center gap-1 text-amber-600">
+                                                            <Star className="h-3 w-3 fill-amber-600" />
+                                                            <span className="text-xs font-black">{p.rating || 0}</span>
+                                                        </div>
+                                                        <p className="text-[9px] text-muted-foreground font-bold">{p.totalJobs || 0} jobs</p>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-2 pt-2 border-t border-border/50">
+                                                    <p className="text-[9px] font-bold text-emerald-600 flex items-center gap-1">
+                                                        <Wallet className="h-2.5 w-2.5" /> Wallet: ₹{p.credits || 0}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex gap-2">
+                                <Button 
+                                    className="flex-1 h-11 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700" 
+                                    onClick={handleEscalatedAssign} 
+                                    disabled={!escalatedSelectedProvider || loadingAvailableProviders}
+                                >
+                                    <CheckCircle className="h-4 w-4" /> Assign Provider
+                                </Button>
+                                <Button variant="outline" className="h-11 rounded-xl font-bold" onClick={() => setEscalatedAssignModal(null)}>Cancel</Button>
                             </div>
                         </motion.div>
                     </div>

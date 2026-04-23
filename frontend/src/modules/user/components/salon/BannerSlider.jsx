@@ -4,6 +4,7 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import CountdownTimer from "./CountdownTimer";
 
 const BannerSlider = () => {
   const { gender } = useGenderTheme();
@@ -14,11 +15,50 @@ const BannerSlider = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [items, setItems] = useState(banners[gender] || []);
 
+  // Filter out expired banners and sort by priority
   useEffect(() => {
-    const combined = [...(banners[gender] || [])];
+    const now = new Date().getTime();
+    const combined = [...(banners[gender] || [])].filter(banner => {
+      // Filter out banners that have expired
+      if (banner.endAt) {
+        const endTime = new Date(banner.endAt).getTime();
+        if (endTime < now) {
+          return false; // Banner has expired
+        }
+      }
+      return true;
+    });
     combined.sort((a, b) => (b.priority || 0) - (a.priority || 0));
     setItems(combined);
   }, [gender, banners]);
+
+  // Auto-refresh to remove expired banners
+  useEffect(() => {
+    // Check every minute for expired banners
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      setItems(prevItems => {
+        const filtered = prevItems.filter(banner => {
+          if (banner.endAt) {
+            const endTime = new Date(banner.endAt).getTime();
+            return endTime >= now;
+          }
+          return true;
+        });
+        // Only update if items changed
+        if (filtered.length !== prevItems.length) {
+          // Reset to first slide if current slide was removed
+          if (current >= filtered.length && filtered.length > 0) {
+            setCurrent(0);
+          }
+          return filtered;
+        }
+        return prevItems;
+      });
+    }, 60000); // Check every 60 seconds
+
+    return () => clearInterval(interval);
+  }, [current]);
 
   const goTo = useCallback(
     (index) => {
@@ -128,6 +168,16 @@ const BannerSlider = () => {
 
             {/* Subtle colored overlay from theme */}
             {banner && <div className={`absolute inset-0 bg-gradient-to-r ${banner.gradient} opacity-20 mix-blend-overlay`} />}
+
+            {/* Countdown Timer - Top Right Corner */}
+            {banner?.endAt && (
+              <div className="absolute top-4 right-4 z-20">
+                <CountdownTimer 
+                  endDate={banner.endAt} 
+                  compact={true}
+                />
+              </div>
+            )}
 
             {/* Content */}
             <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10 lg:px-12 z-10">

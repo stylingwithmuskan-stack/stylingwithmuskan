@@ -327,8 +327,8 @@ router.post(
   requireRole("provider"),
   body("type").optional().isString(),
   body("startAt").isString(),
-  body("endDate").optional().isString(),
-  body("reason").optional().isString(),
+  body("endDate").isString().notEmpty().withMessage("End date is required"),
+  body("reason").isString().notEmpty().trim().withMessage("Reason is required"),
   ensureFourHourLeadTime,
   async (req, res) => {
     const errors = validationResult(req);
@@ -343,8 +343,13 @@ router.post(
     const startIso = toIsoDateFromAny(startAt);
     if (!startIso) return res.status(400).json({ error: "Invalid start date" });
 
-    const wantsEnd = (req.body.type || "Full Day") === "Full Day" && !!req.body.endDate;
-    const endIsoRaw = wantsEnd ? toIsoDateFromAny(req.body.endDate) : "";
+    // endDate is now required
+    const endDateStr = req.body.endDate;
+    if (!endDateStr || !endDateStr.trim()) {
+      return res.status(400).json({ error: "End date is required" });
+    }
+
+    const endIsoRaw = toIsoDateFromAny(endDateStr);
     const endIso = endIsoRaw || startIso;
     if (!endIso) return res.status(400).json({ error: "Invalid end date" });
 
@@ -360,14 +365,20 @@ router.post(
     const endAt = isoDateToLocalEnd(endIso);
     if (!endAt) return res.status(400).json({ error: "Invalid end date" });
 
+    // Validate reason is not empty
+    const reason = (req.body.reason || "").trim();
+    if (!reason) {
+      return res.status(400).json({ error: "Reason is required" });
+    }
+
     const item = await LeaveRequest.create({
       providerId: pId,
       phone: prov.phone,
-      type: req.body.type || "Full Day",
+      type: "Full Day",
       startAt,
       endAt,
-      endDate: (endIso !== startIso) ? endIso : "",
-      reason: req.body.reason || "",
+      endDate: endDateStr,
+      reason: reason,
       status,
     });
     try {
@@ -1713,7 +1724,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       });
     } catch {}
   try {
-    const notifyStatuses = new Set(["accepted", "travelling", "arrived", "in_progress", "completed", "payment_pending"]);
+    const notifyStatuses = new Set(["accepted", "completed", "payment_pending"]);
       if (b.customerId && notifyStatuses.has(effectiveStatus)) {
         await notify({
           recipientId: b.customerId,

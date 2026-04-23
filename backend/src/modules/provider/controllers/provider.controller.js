@@ -176,8 +176,22 @@ export async function updateBookingStatus(req, res) {
   // SWM Pro Partner commission logic
   if (next === "completed") {
     const commissionRate = await getProviderCommissionRate(pId);
-    const commission = Math.round(Number(b.totalAmount || 0) * (Number(commissionRate || 0) / 100));
-    b.commissionAmount = commission;
+    let commission = 0;
+    const totalPaidByCustomer = Number(b.totalAmount || 0);
+    const discountAmount = Number(b.discount || 0);
+    const fundedBy = String(b.discountFundedBy || "admin").toLowerCase();
+
+    // Logic: 
+    // - if funded by admin/platform: discount is deducted from the admin's commission
+    // - if funded by all: discount is deducted from booking total, and commission is calculated on the net amount
+    if (fundedBy === "admin" || fundedBy === "platform") {
+      const originalTotal = totalPaidByCustomer + discountAmount;
+      commission = Math.round(originalTotal * (Number(commissionRate || 0) / 100)) - discountAmount;
+    } else {
+      commission = Math.round(totalPaidByCustomer * (Number(commissionRate || 0) / 100));
+    }
+
+    b.commissionAmount = Math.max(commission, 0);
     await createLedgerEntry({
       userId: String(pId),
       userType: "provider",
@@ -185,19 +199,23 @@ export async function updateBookingStatus(req, res) {
       planId: "",
       entryType: "provider_settlement_adjustment",
       direction: "debit",
-      amount: commission,
+      amount: b.commissionAmount,
       meta: {
         bookingId: b._id.toString(),
         status: next,
         commissionRate,
+        originalTotal: totalPaidByCustomer + discountAmount,
+        discountAmount,
+        fundedBy,
       },
     });
   }
 
   await BookingLog.create({ action: "booking:status", userId: pId, bookingId: req.params.id, meta: { status: req.body.status } });
 
-  // Notify customer about the status update
-  if (b && b.customerId) {
+  // Notify customer about specific milestones
+  const notifyStatuses = ["accepted", "completed", "payment_pending"];
+  if (b && b.customerId && notifyStatuses.includes(next)) {
     await notify({
       recipientId: b.customerId,
       recipientRole: "user",

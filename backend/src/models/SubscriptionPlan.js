@@ -14,6 +14,8 @@ const SubscriptionPlanSchema = new mongoose.Schema(
       default: "custom",
     },
     tagline: { type: String, default: "" },
+    parentCategory: { type: String, default: null }, // Reference to ServiceType.id
+    category: { type: String, default: null },       // Reference to Category.id
     benefits: { type: [String], default: [] },
     sortOrder: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
@@ -22,8 +24,8 @@ const SubscriptionPlanSchema = new mongoose.Schema(
       minCartValueForDiscount: { type: Number, default: 0 },
       discountFundedBy: {
         type: String,
-        enum: ["platform", "provider", "vendor"],
-        default: "platform",
+        enum: ["admin", "all", "platform", "provider", "vendor"], // Keeping old ones for compat, but primary will be admin/all
+        default: "admin",
       },
       freeCancellationWindowHours: { type: Number, default: 0 },
       zeroConvenienceFee: { type: Boolean, default: false },

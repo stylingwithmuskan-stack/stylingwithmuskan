@@ -493,7 +493,7 @@ export async function notify({
       if (safeMeta.bookingId) {
         io?.of("/bookings").to(`booking:${safeMeta.bookingId}`).emit("booking:update", {
           bookingId: safeMeta.bookingId,
-          status: payload.meta?.status || (payload.type.startsWith("booking_") ? payload.type.split("_")[1] : null),
+          status: payload.meta?.status || (payload.type.startsWith("booking_") && payload.type !== "booking_status" ? payload.type.split("_")[1] : null),
           type: payload.type,
           notificationId: notification._id,
         });

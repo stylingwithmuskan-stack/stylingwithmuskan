@@ -479,6 +479,7 @@ export const api = {
     approveSPZones: (id, body) => request(`/vendor/providers/${id}/approve-zones`, { method: "PATCH", body: body || {} }),
     rejectSPZones: (id, body) => request(`/vendor/providers/${id}/reject-zones`, { method: "PATCH", body: body || {} }),
     bookings: () => request("/vendor/bookings"),
+    getAvailableProviders: (bookingId) => request(`/vendor/bookings/${bookingId}/available-providers`),
     assignBooking: (id, providerId) => request(`/vendor/bookings/${id}/assign`, { method: "PATCH", body: { providerId } }),
     reassignBooking: (id, providerId) => request(`/vendor/bookings/${id}/reassign`, { method: "PATCH", body: { providerId } }),
     expireBooking: (id) => request(`/vendor/bookings/${id}/expire`, { method: "PATCH" }),

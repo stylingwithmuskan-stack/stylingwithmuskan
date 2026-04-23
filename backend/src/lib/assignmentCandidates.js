@@ -182,7 +182,11 @@ export async function buildAssignmentCandidates({
   }
 
   const configuredLimit = Math.max(Number(resolvedSettings?.providerSearchLimit || 0), 0);
-  const limit = configuredLimit > 0 ? Math.min(configuredLimit, 15) : 15;
+  // Hard limit to 5 providers for vendor escalation flow
+  const MAX_PROVIDERS_BEFORE_VENDOR_ESCALATION = 5;
+  const limit = configuredLimit > 0 
+    ? Math.min(configuredLimit, MAX_PROVIDERS_BEFORE_VENDOR_ESCALATION) 
+    : MAX_PROVIDERS_BEFORE_VENDOR_ESCALATION;
   const candidateProviders = limit > 0 ? candidates.slice(0, limit) : candidates;
 
   return {

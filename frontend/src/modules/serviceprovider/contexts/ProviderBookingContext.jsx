@@ -175,7 +175,7 @@ export const ProviderBookingProvider = ({ children }) => {
         return !isExpiredAssignmentForCurrentProvider(b);
     });
 
-    const incomingBookings = myBookings.filter(b => ["incoming", "pending", "Pending", "final_approved", "payment_pending"].includes(b.status));
+    const incomingBookings = myBookings.filter(b => ["incoming", "pending", "Pending", "final_approved", "payment_pending", "vendor_assigned", "vendor_reassigned"].includes(b.status));
     const pendingBookings = myBookings.filter(b => ["pending", "Pending", "final_approved", "payment_pending"].includes(b.status));
     const activeBookings = myBookings.filter(b => ["accepted", "travelling", "arrived", "in_progress", "vendor_assigned", "vendor_reassigned", "payment", "documentation"].includes(b.status));
     const assignedBookings = myBookings.filter(b => b.status === "vendor_assigned" || b.status === "vendor_reassigned");
@@ -205,6 +205,13 @@ export const ProviderBookingProvider = ({ children }) => {
             const myId = String(providerId);
             if (targetId === myId) {
                 console.log("[ProviderBookings] 🔔 New notification received, refreshing bookings...");
+                
+                // Play ringtone for vendor assignment notifications
+                if (payload.type === "booking_assigned" && (payload.meta?.reason === "vendor_assigned" || payload.meta?.reason === "vendor_reassigned")) {
+                    console.log("[ProviderBookings] 🚨 Vendor assignment notification - playing ringtone");
+                    playRingtone();
+                }
+                
                 refreshBookings();
             }
         });
@@ -212,6 +219,15 @@ export const ProviderBookingProvider = ({ children }) => {
         socket.on("assignment:changed", (payload) => {
             if (String(payload.toProvider) === String(providerId) || String(payload.fromProvider) === String(providerId)) {
                 console.log("[ProviderBookings] 🚀 Assignment changed, refreshing bookings...");
+                
+                // Play ringtone for new assignments to this provider
+                if (String(payload.toProvider) === String(providerId)) {
+                    if (payload.reason === "vendor_assigned" || payload.reason === "vendor_reassigned") {
+                        console.log("[ProviderBookings] 🚨 Vendor assigned booking - playing ringtone");
+                        playRingtone();
+                    }
+                }
+                
                 refreshBookings();
             }
         });

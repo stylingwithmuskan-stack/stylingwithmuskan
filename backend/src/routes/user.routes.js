@@ -27,6 +27,7 @@ function providerCard(p) {
     specialties: Array.isArray(p?.documents?.specializations) ? p.documents.specializations : [],
     isPro: !!p.isPro,
     isElite: !!p.isElite,
+    categories: Array.isArray(p.documents?.primaryCategory) ? p.documents.primaryCategory : [],
   };
 }
 
@@ -315,8 +316,8 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   const recentBookings = await Booking.find({
     customerId,
     assignedProvider: { $ne: "" },
-    status: "completed",  // ✅ Only completed bookings
-    createdAt: { $gte: sixMonthsAgo }  // ✅ Last 6 months only
+    status: { $in: ["completed", "accepted", "assigned", "in_progress"] }, // ✅ Include active bookings
+    createdAt: { $gte: sixMonthsAgo }
   }).sort({ createdAt: -1 }).limit(50).lean();
 
   const recentIds = [];
@@ -354,9 +355,10 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   const byId = new Map(decoratedRecent.map((p) => [p._id.toString(), p]));
   let recentProviders = recentIds.map((id) => byId.get(id)).filter(Boolean);
 
-  if (subscription.isPlusMember && subscription.eliteAccessEnabled) {
-    recentProviders = recentProviders.filter((p) => p.isElite || p.isPro);
-  }
+  // Remove the PlusMember filter for Previous Professionals - users should always see who they've booked before
+  // if (subscription.isPlusMember && subscription.eliteAccessEnabled) {
+  //   recentProviders = recentProviders.filter((p) => p.isElite || p.isPro);
+  // }
 
   // ✅ New Fix: Filter by requested specialties
   const reqServiceTypes = String(req.query.serviceTypes || "").split(",").map(s => s.trim()).filter(Boolean);

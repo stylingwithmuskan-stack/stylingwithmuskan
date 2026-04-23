@@ -50,7 +50,6 @@ export default function AvailabilityCalendar() {
 
     // Leave states
     const [showLeaveModal, setShowLeaveModal] = useState(false);
-    const [leaveType, setLeaveType] = useState("Full Day");
     const [leaveStartDate, setLeaveStartDate] = useState("");
     const [leaveStartTime, setLeaveStartTime] = useState("");
     const [leaveEndDate, setLeaveEndDate] = useState("");
@@ -263,42 +262,58 @@ export default function AvailabilityCalendar() {
     };
 
     const handleLeaveSubmit = async () => {
-        if (!leaveStartDate || !leaveStartTime) return;
+        // Validate all required fields
+        if (!leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime || !leaveReason.trim()) {
+            toast.error("Please fill all required fields");
+            return;
+        }
+
         try {
             const startAt = `${leaveStartDate}T${leaveStartTime}:00`;
             const start = new Date(startAt);
             const now = new Date();
             const diffHours = (start.getTime() - now.getTime()) / (1000 * 60 * 60);
+            
             if (isNaN(start.getTime())) {
                 toast.error("Please select a valid start date & time");
                 return;
             }
+            
             if (diffHours < 24) {
                 toast.error("Leave must be at least 24 hours in advance");
                 return;
             }
 
-            if (leaveEndDate) {
-                const endDateTimeStr = leaveEndTime ? `${leaveEndDate}T${leaveEndTime}:00` : `${leaveEndDate}T23:59:59`;
-                const end = new Date(endDateTimeStr);
-                if (end < start) {
-                    toast.error("End date/time cannot be before start date/time");
-                    return;
-                }
+            // Validate end date/time (now mandatory)
+            const endDateTimeStr = `${leaveEndDate}T${leaveEndTime}:00`;
+            const end = new Date(endDateTimeStr);
+            
+            if (isNaN(end.getTime())) {
+                toast.error("Please select a valid end date & time");
+                return;
+            }
+            
+            if (end < start) {
+                toast.error("End date/time cannot be before start date/time");
+                return;
             }
 
             const payload = {
-                type: leaveType,
+                type: "Full Day",
                 startAt: startAt,
-                endDate: leaveEndDate ? (leaveEndTime ? `${leaveEndDate}T${leaveEndTime}:00` : leaveEndDate) : undefined,
-                reason: leaveReason
+                endDate: endDateTimeStr,
+                reason: leaveReason.trim()
             };
 
             const res = await api.provider.leaves.create(payload);
             const { leaves: latest } = await api.provider.leaves.list();
             setLeaves(latest || []);
             setShowLeaveModal(false);
-            setLeaveStartDate(""); setLeaveStartTime(""); setLeaveEndDate(""); setLeaveEndTime(""); setLeaveReason("");
+            setLeaveStartDate(""); 
+            setLeaveStartTime(""); 
+            setLeaveEndDate(""); 
+            setLeaveEndTime(""); 
+            setLeaveReason("");
             const status = res?.leave?.status || "pending";
             toast.success(status === "approved" ? "Leave approved" : "Leave request submitted - Pending approval");
         } catch (e) {
@@ -541,71 +556,74 @@ export default function AvailabilityCalendar() {
                             </div>
 
                             <div className="space-y-5 flex-1 overflow-y-auto custom-scrollbar pr-1">
-                                <div className="grid grid-cols-2 gap-3 mb-2">
-                                    <button
-                                        onClick={() => setLeaveType("Full Day")}
-                                        className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${leaveType === "Full Day" ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-100'}`}
-                                    >
-                                        Full Day
-                                    </button>
-                                    <button
-                                        onClick={() => setLeaveType("Half Day")}
-                                        className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${leaveType === "Half Day" ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-100'}`}
-                                    >
-                                        Half Day
-                                    </button>
-                                </div>
-
                                 <div className="space-y-3">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Start Date</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                                            Start Date <span className="text-red-500">*</span>
+                                        </label>
                                         <input
                                             type="date"
                                             value={leaveStartDate}
                                             onChange={e => setLeaveStartDate(e.target.value)}
+                                            required
+                                            aria-required="true"
                                             className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-inner"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Start Time</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                                            Start Time <span className="text-red-500">*</span>
+                                        </label>
                                         <input
                                             type="time"
                                             value={leaveStartTime}
                                             onChange={e => setLeaveStartTime(e.target.value)}
+                                            required
+                                            aria-required="true"
                                             className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-inner"
                                         />
                                     </div>
                                 </div>
 
-                                {leaveType === "Full Day" && (
-                                    <div className="space-y-3">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">End Date (Optional)</label>
-                                            <input
-                                                type="date"
-                                                value={leaveEndDate}
-                                                onChange={e => setLeaveEndDate(e.target.value)}
-                                                className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none shadow-inner focus:ring-2 focus:ring-purple-500 transition-all"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">End Time (Optional)</label>
-                                            <input
-                                                type="time"
-                                                value={leaveEndTime}
-                                                onChange={e => setLeaveEndTime(e.target.value)}
-                                                className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none shadow-inner focus:ring-2 focus:ring-purple-500 transition-all"
-                                            />
-                                        </div>
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                                            End Date <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={leaveEndDate}
+                                            onChange={e => setLeaveEndDate(e.target.value)}
+                                            required
+                                            aria-required="true"
+                                            className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none shadow-inner focus:ring-2 focus:ring-purple-500 transition-all"
+                                        />
                                     </div>
-                                )}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                                            End Time <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="time"
+                                            value={leaveEndTime}
+                                            onChange={e => setLeaveEndTime(e.target.value)}
+                                            required
+                                            aria-required="true"
+                                            className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none shadow-inner focus:ring-2 focus:ring-purple-500 transition-all"
+                                        />
+                                    </div>
+                                </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Reason</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
+                                        Reason <span className="text-red-500">*</span>
+                                    </label>
                                     <textarea
                                         value={leaveReason}
                                         onChange={e => setLeaveReason(e.target.value)}
                                         placeholder="Brief explanation..."
+                                        required
+                                        aria-required="true"
                                         className="w-full h-24 px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium outline-none resize-none focus:ring-2 focus:ring-purple-500 transition-all shadow-inner"
                                     />
                                 </div>
@@ -613,11 +631,16 @@ export default function AvailabilityCalendar() {
                             <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex gap-3">
                                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                                     <p className="text-[10px] text-amber-800 font-bold leading-tight uppercase tracking-tighter">
-                                    Leaves must be applied at least 24 hours prior.Admin approval is required for leaves.
+                                    All fields are required. Leaves must be applied at least 24 hours prior. Admin approval is required.
                                     </p>
                                 </div>
 
-                                <Button onClick={handleLeaveSubmit} disabled={!leaveStartDate || !leaveStartTime} className="w-full h-14 rounded-2xl font-black text-sm bg-slate-900 text-white shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
+                                <Button 
+                                    onClick={handleLeaveSubmit} 
+                                    disabled={!leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime || !leaveReason.trim()} 
+                                    className="w-full h-14 rounded-2xl font-black text-sm bg-slate-900 text-white shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                    title={(!leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime || !leaveReason.trim()) ? "Please fill all required fields" : ""}
+                                >
                                     SUBMIT REQUEST
                                 </Button>
                             </div>

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, MapPin, Clock, Calendar, Check, Navigation, Camera, ChevronRight,
     Shield, IndianRupee, Map as MapIcon, UserCircle, Package, CheckCircle2,
-    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone
+    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone, Briefcase
 } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { toast } from "sonner";
@@ -167,6 +167,9 @@ const ProviderBookingDetailPage = () => {
     const currentIdx = statusSteps.findIndex(s => s.key === booking?.status);
     const trackingActive = ["travelling", "arrived", "in_progress"].includes(String(booking?.status || "").toLowerCase());
 
+    const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
+    const isCallRestricted = timeStatus.status === "block" && ["accepted", "vendor_assigned", "vendor_reassigned"].includes(booking?.status);
+
     useEffect(() => {
         if (!booking) return;
         const lat = booking.address?.lat;
@@ -275,7 +278,15 @@ const ProviderBookingDetailPage = () => {
     const getNextAction = () => {
         switch (booking.status) {
             case "vendor_assigned":
-            case "vendor_reassigned":
+            case "vendor_reassigned": {
+                // Mandatory booking - no accept/reject, only "Manage Jobs" button
+                return { 
+                    label: "Manage Jobs", 
+                    icon: Briefcase, 
+                    action: () => updateBookingStatus(bookingId, "accepted"),
+                    disabled: false
+                };
+            }
             case "accepted": {
                 const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
                 return { 
@@ -484,8 +495,18 @@ const ProviderBookingDetailPage = () => {
                     </div>
                     {(booking.customerPhone || booking.phone) && (
                         <a 
-                            href={`tel:${booking.customerPhone || booking.phone}`} 
-                            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 uppercase tracking-widest"
+                            href={isCallRestricted ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`} 
+                            onClick={(e) => {
+                                if (isCallRestricted) {
+                                    e.preventDefault();
+                                    toast.error(`Call Restricted: Communication is allowed only within 2 hours of the scheduled slot (${booking.slot?.time}).`);
+                                }
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black transition-all active:scale-95 uppercase tracking-widest ${
+                                isCallRestricted 
+                                ? "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none" 
+                                : "bg-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700"
+                            }`}
                         >
                             <Phone className="w-3.5 h-3.5" /> Call Now
                         </a>

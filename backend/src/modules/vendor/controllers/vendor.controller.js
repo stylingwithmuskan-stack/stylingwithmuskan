@@ -691,9 +691,20 @@ export async function listBookings(req, res) {
     .filter((provider) => belongsToCity(provider, cityId, city));
   const providerIds = providers.map((p) => p._id?.toString());
 
-  // Bookings assigned to these providers
+  // Bookings assigned to these providers OR escalated to this vendor
   let byProvider = providerIds.length
-    ? await Booking.find({ assignedProvider: { $in: providerIds } }).sort({ createdAt: -1 }).lean()
+    ? await Booking.find({
+        $or: [
+          { assignedProvider: { $in: providerIds } },
+          { 
+            vendorEscalated: true, 
+            assignedProvider: "", 
+            "address.city": new RegExp(`^${escapeRegex(city)}`, "i")
+          }
+        ]
+      })
+      .sort({ createdAt: -1 })
+      .lean()
     : [];
 
   // Bookings in vendor's areas (by address)
@@ -723,6 +734,58 @@ export async function listBookings(req, res) {
   res.json({ bookings });
 }
 
+export async function getAvailableProvidersForBooking(req, res) {
+  const vendorId = req.auth.sub;
+  const bookingId = req.params.bookingId;
+  
+  const vendor = await Vendor.findById(vendorId).lean();
+  if (!vendor) return res.status(404).json({ error: "Vendor not found" });
+  
+  const booking = await Booking.findById(bookingId).lean();
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+  
+  // Get all providers in vendor's city
+  const city = vendor.city || "";
+  const cityId = vendor.cityId || "";
+  
+  let pQuery = {};
+  if (cityId) {
+    pQuery = { cityId };
+  } else if (city) {
+    pQuery = { city: new RegExp(`^${escapeRegex(city)}`, "i") };
+  } else {
+    return res.json({ availableProviders: [] });
+  }
+  
+  const allProviders = await ProviderAccount.find({
+    ...pQuery,
+    approvalStatus: "approved",
+    registrationComplete: true,
+  }).lean();
+  
+  // Filter providers who are available for this booking's slot
+  const availableProviders = [];
+  for (const provider of allProviders) {
+    // eslint-disable-next-line no-await-in-loop
+    const isAvailable = await canAssignProviderToBooking(
+      provider._id.toString(), 
+      booking
+    );
+    if (isAvailable) {
+      availableProviders.push({
+        _id: provider._id,
+        name: provider.name,
+        phone: provider.phone,
+        rating: provider.rating || 0,
+        totalJobs: provider.totalJobs || 0,
+        credits: provider.credits || 0,
+      });
+    }
+  }
+  
+  res.json({ availableProviders });
+}
+
 export async function assignBooking(req, res) {
   const now = new Date();
   const existing = await Booking.findById(req.params.id);
@@ -732,6 +795,61 @@ export async function assignBooking(req, res) {
   if (!allowed) {
     return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
   }
+  
+  // Get provider account for commission deduction
+  const provider = await ProviderAccount.findById(providerId);
+  if (!provider) {
+    return res.status(404).json({ error: "Provider not found" });
+  }
+  
+  // Calculate and deduct commission from provider's wallet
+  const commissionSettings = await CommissionSettings.findOne().lean();
+  const rate = Number(commissionSettings?.rate || 20);
+  const totalAmount = Number(existing.totalAmount || 0);
+  const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+  
+  // Check if commission not already charged
+  if (!existing.commissionChargedAt && required > 0) {
+    // Check provider wallet balance
+    if (Number(provider.credits || 0) < required) {
+      return res.status(409).json({
+        error: "Selected provider does not have sufficient wallet balance to cover the platform commission.",
+        code: "INSUFFICIENT_WALLET",
+        required,
+        available: Number(provider.credits || 0),
+      });
+    }
+    
+    // Deduct commission from provider's wallet
+    provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
+    await provider.save();
+    
+    // Update booking with commission details
+    existing.commissionAmount = required;
+    existing.commissionChargedAt = new Date();
+    
+    // Create wallet transaction record
+    await ProviderWalletTxn.create({
+      providerId: provider._id.toString(),
+      bookingId: existing._id.toString(),
+      type: "commission_hold",
+      amount: -required,
+      balanceAfter: provider.credits,
+      meta: { rate, totalAmount, source: "vendor_assignment" },
+    });
+    
+    // Notify provider about commission deduction
+    try {
+      await notify({
+        recipientId: providerId,
+        recipientRole: "provider",
+        type: "commission_hold",
+        meta: { bookingId: existing._id.toString(), amount: required },
+        respectProviderQuietHours: true,
+      });
+    } catch {}
+  }
+  
   const previousProviderId = String(existing.assignedProvider || "").trim();
   existing.assignedProvider = providerId;
   existing.status = "vendor_assigned";
@@ -739,6 +857,25 @@ export async function assignBooking(req, res) {
   existing.expiresAt = null;
   existing.adminEscalated = false;
   const b = await existing.save();
+  
+  // Emit socket events for real-time updates
+  try {
+    const { getIO } = await import("../../../startup/socket.js");
+    const io = getIO();
+    io?.of("/bookings").emit("assignment:changed", { 
+      id: b._id.toString(), 
+      fromProvider: previousProviderId, 
+      toProvider: providerId, 
+      reason: "vendor_assigned" 
+    });
+    io?.of("/bookings").emit("status:update", { 
+      id: b._id.toString(), 
+      status: "vendor_assigned" 
+    });
+  } catch (err) {
+    console.error("Socket notification failed:", err);
+  }
+  
   try {
     if (b?.slot?.date) {
       const ids = Array.from(new Set([previousProviderId, providerId].filter(Boolean)));
@@ -754,7 +891,7 @@ export async function assignBooking(req, res) {
           recipientId: b.assignedProvider,
           recipientRole: "provider",
           type: "booking_assigned",
-          meta: { bookingId: b._id.toString() },
+          meta: { bookingId: b._id.toString(), reason: "vendor_assigned" },
           respectProviderQuietHours: true,
         });
       }
@@ -779,13 +916,117 @@ export async function reassignBooking(req, res) {
   if (!allowed) {
     return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
   }
+  
   const previousProviderId = String(existing.assignedProvider || "").trim();
+  
+  // Get new provider account for commission deduction
+  const provider = await ProviderAccount.findById(providerId);
+  if (!provider) {
+    return res.status(404).json({ error: "Provider not found" });
+  }
+  
+  // Calculate and deduct commission from new provider's wallet
+  const commissionSettings = await CommissionSettings.findOne().lean();
+  const rate = Number(commissionSettings?.rate || 20);
+  const totalAmount = Number(existing.totalAmount || 0);
+  const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+  
+  // Handle commission for reassignment
+  if (required > 0) {
+    // If previous provider had commission charged, refund it first
+    if (existing.commissionChargedAt && previousProviderId && previousProviderId !== providerId) {
+      const prevProvider = await ProviderAccount.findById(previousProviderId);
+      if (prevProvider && existing.commissionAmount > 0) {
+        prevProvider.credits = Number(prevProvider.credits || 0) + existing.commissionAmount;
+        await prevProvider.save();
+        
+        await ProviderWalletTxn.create({
+          providerId: previousProviderId,
+          bookingId: existing._id.toString(),
+          type: "commission_refund",
+          amount: existing.commissionAmount,
+          balanceAfter: prevProvider.credits,
+          meta: { reason: "booking_reassigned" },
+        });
+        
+        try {
+          await notify({
+            recipientId: previousProviderId,
+            recipientRole: "provider",
+            type: "commission_refund",
+            meta: { bookingId: existing._id.toString(), amount: existing.commissionAmount },
+            respectProviderQuietHours: true,
+          });
+        } catch {}
+      }
+    }
+    
+    // Check new provider wallet balance
+    if (Number(provider.credits || 0) < required) {
+      return res.status(409).json({
+        error: "Selected provider does not have sufficient wallet balance to cover the platform commission.",
+        code: "INSUFFICIENT_WALLET",
+        required,
+        available: Number(provider.credits || 0),
+      });
+    }
+    
+    // Deduct commission from new provider's wallet
+    provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
+    await provider.save();
+    
+    // Update booking with new commission details
+    existing.commissionAmount = required;
+    existing.commissionChargedAt = new Date();
+    existing.commissionRefundedAt = null;
+    
+    // Create wallet transaction record
+    await ProviderWalletTxn.create({
+      providerId: provider._id.toString(),
+      bookingId: existing._id.toString(),
+      type: "commission_hold",
+      amount: -required,
+      balanceAfter: provider.credits,
+      meta: { rate, totalAmount, source: "vendor_reassignment" },
+    });
+    
+    // Notify new provider about commission deduction
+    try {
+      await notify({
+        recipientId: providerId,
+        recipientRole: "provider",
+        type: "commission_hold",
+        meta: { bookingId: existing._id.toString(), amount: required },
+        respectProviderQuietHours: true,
+      });
+    } catch {}
+  }
+  
   existing.assignedProvider = providerId;
   existing.status = "vendor_reassigned";
   existing.lastAssignedAt = now;
   existing.expiresAt = null;
   existing.adminEscalated = false;
   const b = await existing.save();
+  
+  // Emit socket events for real-time updates
+  try {
+    const { getIO } = await import("../../../startup/socket.js");
+    const io = getIO();
+    io?.of("/bookings").emit("assignment:changed", { 
+      id: b._id.toString(), 
+      fromProvider: previousProviderId, 
+      toProvider: providerId, 
+      reason: "vendor_reassigned" 
+    });
+    io?.of("/bookings").emit("status:update", { 
+      id: b._id.toString(), 
+      status: "vendor_reassigned" 
+    });
+  } catch (err) {
+    console.error("Socket notification failed:", err);
+  }
+  
   try {
     if (b?.slot?.date) {
       const ids = Array.from(new Set([previousProviderId, providerId].filter(Boolean)));
@@ -801,7 +1042,7 @@ export async function reassignBooking(req, res) {
           recipientId: b.assignedProvider,
           recipientRole: "provider",
           type: "booking_reassigned",
-          meta: { bookingId: b._id.toString() },
+          meta: { bookingId: b._id.toString(), reason: "vendor_reassigned" },
           respectProviderQuietHours: true,
         });
       }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { api } from "@/modules/user/lib/api";
 import { isContentAvailable } from "@/modules/user/lib/contentAvailability";
 import {
@@ -64,7 +64,12 @@ export const UserModuleDataProvider = ({ children }) => {
                        const d = initRes.data || {};
                        setBookingTypeConfig(d.bookingTypeConfig || []);
                        setPopularServices(normalize(d.popularServices));
-                       setServices(normalize(d.popularServices));
+                       setServices(prev => {
+                           const pop = normalize(d.popularServices);
+                           const existingIds = new Set(prev.map(s => s.id));
+                           const uniquePop = pop.filter(s => !existingIds.has(s.id));
+                           return [...prev, ...uniquePop];
+                       });
                        setSpotlights(normalize(d.spotlights));
                        setGallery(normalize(d.gallery));
                        setTestimonials(normalize(d.testimonials));
@@ -85,7 +90,12 @@ export const UserModuleDataProvider = ({ children }) => {
                     setCategories(normalize(d.categories));
                     setBanners(d.banners);
                     setPopularServices(normalize(d.popularServices));
-                    setServices(normalize(d.popularServices));
+                    setServices(prev => {
+                        const pop = normalize(d.popularServices);
+                        const existingIds = new Set(prev.map(s => s.id));
+                        const uniquePop = pop.filter(s => !existingIds.has(s.id));
+                        return [...prev, ...uniquePop];
+                    });
                     setIsLoading(false);
                 } catch {
                      setServiceTypes(FALLBACK_SERVICE_TYPES);
@@ -99,23 +109,45 @@ export const UserModuleDataProvider = ({ children }) => {
         return () => { cancelled = true; };
     }, []);
 
+    // Track in-flight requests to avoid duplicates and handle concurrent calls
+    const [pendingCategories, setPendingCategories] = useState(new Set());
+    const activeRequests = useRef(new Map());
+
     const loadCategoryServices = async (categoryId) => {
         if (!categoryId || loadedCategories.has(categoryId)) return;
 
-        try {
-            const res = await api.content.services({ category: categoryId });
-            const rawServices = res.data || [];
-            const newServices = rawServices.map(s => ({ ...s, id: s.id || s._id }));
-            
-            setServices(prev => {
-                const existingIds = new Set(prev.map(s => s.id));
-                const uniqueNew = newServices.filter(s => !existingIds.has(s.id));
-                return [...prev, ...uniqueNew];
-            });
-            setLoadedCategories(prev => new Set(prev).add(categoryId));
-        } catch (e) {
-            console.error("Failed to load category services:", e);
+        // If a request is already in flight, return that promise
+        if (activeRequests.current.has(categoryId)) {
+            return activeRequests.current.get(categoryId);
         }
+
+        const requestPromise = (async () => {
+            setPendingCategories(prev => new Set(prev).add(categoryId));
+            try {
+                const res = await api.content.services({ category: categoryId });
+                const rawServices = res.data || [];
+                const newServices = rawServices.map(s => ({ ...s, id: s.id || s._id }));
+                
+                setServices(prev => {
+                    const existingIds = new Set(prev.map(s => s.id));
+                    const uniqueNew = newServices.filter(s => !existingIds.has(s.id));
+                    return [...prev, ...uniqueNew];
+                });
+                setLoadedCategories(prev => new Set(prev).add(categoryId));
+            } catch (e) {
+                console.error("Failed to load category services:", e);
+            } finally {
+                setPendingCategories(prev => {
+                    const next = new Set(prev);
+                    next.delete(categoryId);
+                    return next;
+                });
+                activeRequests.current.delete(categoryId);
+            }
+        })();
+
+        activeRequests.current.set(categoryId, requestPromise);
+        return requestPromise;
     };
 
     const searchServices = async (query) => {
@@ -183,6 +215,20 @@ export const UserModuleDataProvider = ({ children }) => {
         return false;
     };
 
+    // 🔥 Sequential Background Pre-fetcher for Instant Navigation
+    // Once the app is ready, we slowly load all other category services in the background
+    // so that when the user clicks, the data is already available.
+    useEffect(() => {
+        if (!isLoading && categories.length > 0) {
+            const timer = setTimeout(() => {
+                categories.forEach(cat => {
+                    loadCategoryServices(cat.id).catch(() => {});
+                });
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [isLoading, categories, loadCategoryServices]);
+
     const value = {
         serviceTypes,
         bookingTypeConfig,
@@ -200,6 +246,7 @@ export const UserModuleDataProvider = ({ children }) => {
         testimonials,
         isLoading,
         loadCategoryServices,
+        loadedCategories,
         searchServices,
         // Category actions
         addCategory,

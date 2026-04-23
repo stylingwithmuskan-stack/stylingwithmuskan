@@ -28,6 +28,7 @@ router.patch("/providers/:id/approve-zones", requireRole("vendor"), param("id").
 router.patch("/providers/:id/reject-zones", requireRole("vendor"), param("id").isString(), VendorController.rejectSPZones);
 
 router.get("/bookings", requireRole("vendor"), VendorController.listBookings);
+router.get("/bookings/:bookingId/available-providers", requireRole("vendor"), param("bookingId").isString(), VendorController.getAvailableProvidersForBooking);
 router.patch(
   "/bookings/:id/assign",
   requireRole("vendor"),

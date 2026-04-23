@@ -63,20 +63,6 @@ const WhyChooseUs = () => {
         ))}
       </div>
 
-      {/* Trust Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mt-4 p-3 rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/10 flex items-center gap-3"
-      >
-        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-          <ShieldCheck className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <p className="text-[11px] font-bold">stylingwithmuskan Protect</p>
-          <p className="text-[9px] text-muted-foreground">Every service is backed by our ₹10,000 insurance & hygiene guarantee.</p>
-        </div>
-      </motion.div>
     </div>
   );
 };

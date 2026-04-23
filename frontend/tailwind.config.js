@@ -99,6 +99,26 @@ export default {
           "0%, 100%": { boxShadow: "0 0 20px -5px hsl(var(--primary) / 0.3)" },
           "50%": { boxShadow: "0 0 30px -3px hsl(var(--primary) / 0.5)" },
         },
+        "blink-urgent": {
+          "0%, 100%": { 
+            opacity: "1",
+            boxShadow: "0 0 20px rgba(239, 68, 68, 0.6), 0 0 40px rgba(239, 68, 68, 0.3)"
+          },
+          "50%": { 
+            opacity: "0.85",
+            boxShadow: "0 0 30px rgba(239, 68, 68, 0.8), 0 0 60px rgba(239, 68, 68, 0.5)"
+          },
+        },
+        "blink-warning": {
+          "0%, 100%": { 
+            opacity: "1",
+            boxShadow: "0 0 15px rgba(249, 115, 22, 0.5), 0 0 30px rgba(249, 115, 22, 0.2)"
+          },
+          "50%": { 
+            opacity: "0.9",
+            boxShadow: "0 0 25px rgba(249, 115, 22, 0.7), 0 0 50px rgba(249, 115, 22, 0.4)"
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -110,6 +130,8 @@ export default {
         shimmer: "shimmer 2s linear infinite",
         float: "float 3s ease-in-out infinite",
         pulse_glow: "pulse_glow 2s ease-in-out infinite",
+        "blink-urgent": "blink-urgent 1s ease-in-out infinite",
+        "blink-warning": "blink-warning 1.5s ease-in-out infinite",
       },
     },
   },

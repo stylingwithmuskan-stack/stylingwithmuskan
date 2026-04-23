@@ -6,6 +6,7 @@ const EnquiryItemSchema = new mongoose.Schema(
     name: String,
     category: String,
     serviceType: String,
+    image: String,
     quantity: { type: Number, default: 1 },
     price: { type: Number, default: 0 },
   },

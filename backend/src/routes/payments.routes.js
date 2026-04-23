@@ -283,12 +283,10 @@ router.post(
                   meta: { bookingId: b._id.toString() },
                   respectProviderQuietHours: true,
                 });
-                await notify({
-                  recipientId: req.user._id.toString(),
-                  recipientRole: "user",
-                  type: "booking_assigned",
-                  meta: { bookingId: b._id.toString() },
-                });
+                
+                // NOTE: User notification for 'booking_assigned' is intentionally omitted here
+                // during the initial payment flow to avoid redundancy with 'booking_created'.
+                // User will be notified when an admin/vendor manually assigns or re-assigns.
               }
             }
           } catch (err) {
