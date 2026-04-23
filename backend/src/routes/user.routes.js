@@ -138,22 +138,22 @@ router.get("/me", requireAuth, async (req, res) => {
 router.patch(
   "/me",
   requireAuth,
-    body("name").optional().isString().isLength({ min: 1, max: 80 }),
-    body("email").optional().isEmail().withMessage("Invalid email address"),
-    body("referralCode").optional().isString().isLength({ max: 32 }),
-    body("avatar").optional().isString(),
-    async (req, res) => {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-      
-      const u = req.user;
-      if (req.body.name !== undefined) u.name = String(req.body.name).trim();
-      if (req.body.email !== undefined) u.email = String(req.body.email).trim().toLowerCase();
-      if (req.body.referralCode !== undefined) u.referralCode = String(req.body.referralCode).trim();
-      if (req.body.avatar !== undefined) u.avatar = req.body.avatar;
-    
-      await u.save();
-      const subscription = await getSubscriptionSnapshot(u._id.toString(), "customer");
+  body("name").optional().isString().isLength({ min: 1, max: 80 }),
+  body("email").optional().isEmail().withMessage("Invalid email address"),
+  body("referralCode").optional().isString().isLength({ max: 32 }),
+  body("avatar").optional().isString(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const u = req.user;
+    if (req.body.name !== undefined) u.name = String(req.body.name).trim();
+    if (req.body.email !== undefined) u.email = String(req.body.email).trim().toLowerCase();
+    if (req.body.referralCode !== undefined) u.referralCode = String(req.body.referralCode).trim();
+    if (req.body.avatar !== undefined) u.avatar = req.body.avatar;
+
+    await u.save();
+    const subscription = await getSubscriptionSnapshot(u._id.toString(), "customer");
     res.json({
       success: true,
       user: {
@@ -332,15 +332,15 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   const recentIds = [];
   const seen = new Set();
   const bookingCounts = {};
-  
+
   for (const b of recentBookings) {
     // First try assignedProvider, then fall back to first candidateProvider
-    const pid = String(b.assignedProvider || "").trim() 
+    const pid = String(b.assignedProvider || "").trim()
       || String((Array.isArray(b.candidateProviders) ? b.candidateProviders[0] : "") || "").trim();
     if (!pid) continue;
-    
+
     bookingCounts[pid] = (bookingCounts[pid] || 0) + 1;
-    
+
     if (!seen.has(pid)) {
       seen.add(pid);
       recentIds.push(pid);
@@ -392,9 +392,9 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
     });
 
   const isFirstBooking = recentIds.length === 0;
-  
+
   console.log(`[Provider Suggestions] User: ${customerId}, Bookings: ${recentBookings.length}, Unique IDs: ${recentIds.length}, Found Docs: ${recentDocs.length}, Mode: ${isFirstBooking ? "new_user" : "repeat_user"}`);
-  
+
   res.json({
     mode: isFirstBooking ? "new_user" : "repeat_user",
     isFirstBooking,
@@ -407,21 +407,21 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
 router.get("/me/referral", requireAuth, async (_req, res) => {
   const u = _req.user;
   const s = await ReferralSettings.findOne().lean();
-  
+
   // Real Referral Stats
   const User = (await import("../models/User.js")).default;
   const totalReferrals = await User.countDocuments({ referredBy: u._id.toString() });
-  
+
   const totalEarnings = (u.wallet?.transactions || [])
     .filter(t => t.type === "credit" && (t.title || "").includes("Referral"))
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-  res.json({ 
-    referralCode: u.referralCode || "", 
+  res.json({
+    referralCode: u.referralCode || "",
     settings: s || { referrerBonus: 100, refereeBonus: 50, maxReferrals: 10, isActive: true },
     stats: {
-        totalReferrals,
-        totalEarnings
+      totalReferrals,
+      totalEarnings
     }
   });
 });
@@ -430,25 +430,25 @@ router.get("/me/referral", requireAuth, async (_req, res) => {
 router.delete("/me/account", requireAuth, async (req, res) => {
   try {
     const userId = req.user._id.toString();
-    
+
     // Check for active bookings
     const activeBookings = await Booking.countDocuments({
       customerId: userId,
       status: { $in: ["pending", "assigned", "accepted", "in_progress"] }
     });
-    
+
     if (activeBookings > 0) {
-      return res.status(400).json({ 
-        error: "Cannot delete account with active bookings. Please complete or cancel all active bookings first." 
+      return res.status(400).json({
+        error: "Cannot delete account with active bookings. Please complete or cancel all active bookings first."
       });
     }
-    
+
     // Delete user account
     await req.user.deleteOne();
-    
+
     // Clear auth cookie
     res.clearCookie("token");
-    
+
     res.json({ success: true, message: "Account deleted successfully" });
   } catch (error) {
     console.error("Error deleting user account:", error);
@@ -520,16 +520,16 @@ router.get(
   async (req, res) => {
     try {
       const u = req.user;
-      
+
       // 1. Fetch recent bookings (last 10)
       const bookings = await Booking.find({ customerId: u._id.toString() })
         .sort({ createdAt: -1 })
         .limit(10)
         .lean();
-        
+
       // 2. Extract wallet transactions (last 10)
       const transactions = (u.wallet?.transactions || []).slice(0, 10);
-      
+
       // 3. Map to common activity format
       const activityFromBookings = bookings.map(b => ({
         id: `booking-${b._id}`,
@@ -540,7 +540,7 @@ router.get(
         rawDate: new Date(b.createdAt),
         color: b.status === "completed" ? "text-emerald-500" : b.status === "cancelled" ? "text-red-500" : "text-primary"
       }));
-      
+
       const activityFromWallet = transactions.map(t => ({
         id: `wallet-${t._id || Math.random()}`,
         type: "wallet",
@@ -550,12 +550,12 @@ router.get(
         rawDate: new Date(t.at || new Date()),
         color: t.type === "credit" ? "text-emerald-500" : "text-amber-500"
       }));
-      
+
       // 4. Combine and Sort
       const allActivity = [...activityFromBookings, ...activityFromWallet]
         .sort((a, b) => b.rawDate - a.rawDate)
         .slice(0, 20);
-        
+
       res.json({ success: true, activities: allActivity });
     } catch (error) {
       console.error("[UserActivity] Error:", error);

@@ -728,7 +728,7 @@ const BookingSummary = () => {
           </div>
 
           <div className="flex gap-3 flex-1">
-            {effectiveBookingType === 'instant' && advanceAmount === 0 && (
+            {advanceAmount === 0 && (
               <Button
                 onClick={handlePayAfterService}
                 disabled={isProcessing}
@@ -741,7 +741,7 @@ const BookingSummary = () => {
             <Button 
               onClick={() => handlePay(false)} 
               disabled={isProcessing}
-              className={`${(effectiveBookingType === 'instant' && advanceAmount === 0) ? 'flex-1' : 'w-full md:flex-1'} h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-bold shadow-xl shadow-primary/20 gap-2 group border-none`}
+              className={`${(advanceAmount === 0) ? 'flex-1' : 'w-full md:flex-1'} h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-bold shadow-xl shadow-primary/20 gap-2 group border-none`}
             >
               {isProcessing ? "Processing..." : (advanceAmount > 0 ? `PAY ADVANCE ₹${advanceAmount.toLocaleString()}` : "PROCEED TO PAY")}
               {!isProcessing && (
