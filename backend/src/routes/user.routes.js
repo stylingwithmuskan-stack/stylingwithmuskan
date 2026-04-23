@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { body, validationResult, param } from "express-validator";
+import mongoose from "mongoose";
 import { requireAuth } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
 import { uploadBuffer } from "../startup/cloudinary.js";
@@ -313,73 +314,76 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
+  const customerPhone = String(req.user.phone || "").trim();
+  const phoneDigits = customerPhone.replace(/\D/g, "");
+  const phoneLast10 = phoneDigits.slice(-10);
+
   const recentBookings = await Booking.find({
-    customerId,
-    assignedProvider: { $ne: "" },
-    status: { $in: ["completed", "accepted", "assigned", "in_progress"] }, // ✅ Include active bookings
-    createdAt: { $gte: sixMonthsAgo }
-  }).sort({ createdAt: -1 }).limit(50).lean();
+    $or: [
+      { customerId: customerId },
+      { customerId: mongoose.isValidObjectId(customerId) ? new mongoose.Types.ObjectId(customerId) : customerId },
+      { customerPhone: { $regex: phoneLast10 + "$" } }
+    ],
+    status: { $nin: ["cancelled", "failed", "expired"] }
+  }).sort({ createdAt: -1 }).lean();
+
+  console.log(`[Provider Suggestions] User: ${customerId}, Phone: ${customerPhone}, Found Bookings: ${recentBookings.length}`);
 
   const recentIds = [];
   const seen = new Set();
-  const bookingCounts = {};  // ✅ FIX 3: Track booking count per provider
+  const bookingCounts = {};
   
   for (const b of recentBookings) {
-    const pid = String(b.assignedProvider || "").trim();
+    // First try assignedProvider, then fall back to first candidateProvider
+    const pid = String(b.assignedProvider || "").trim() 
+      || String((Array.isArray(b.candidateProviders) ? b.candidateProviders[0] : "") || "").trim();
     if (!pid) continue;
     
-    // Count bookings per provider
     bookingCounts[pid] = (bookingCounts[pid] || 0) + 1;
     
     if (!seen.has(pid)) {
       seen.add(pid);
       recentIds.push(pid);
-      if (recentIds.length >= limit) break;
     }
   }
 
-  // ✅ FIX 2: Remove city/zone filter for previous providers
-  // User should see ALL their previous providers regardless of location
+  // Support both ObjectIds and Phone numbers in history
+  const idQuery = recentIds.filter(id => mongoose.isValidObjectId(id));
+  const phoneQuery = recentIds.filter(id => /^\d{10,12}$/.test(id));
+
+  // REMOVED approvalStatus and registrationComplete filter for debugging/maximum visibility
   const recentDocs = recentIds.length
     ? await ProviderAccount.find({
-      _id: { $in: recentIds },
-      approvalStatus: "approved",
-      registrationComplete: true,
+      $or: [
+        { _id: { $in: idQuery } },
+        { phone: { $in: phoneQuery } }
+      ]
     }).lean()
     : [];
+
+  console.log(`[Provider Suggestions] Unique IDs: ${recentIds.length}, Found Provider Docs: ${recentDocs.length}`);
+
   const decoratedRecent = await Promise.all(recentDocs.map(async (p) => ({
     ...p,
     isPro: !!(await getSubscriptionSnapshot(p._id.toString(), "provider")).isPro,
     isElite: await isEliteProvider(p),
   })));
-  const byId = new Map(decoratedRecent.map((p) => [p._id.toString(), p]));
+
+  const byId = new Map();
+  decoratedRecent.forEach(p => {
+    byId.set(p._id.toString(), p);
+    if (p.phone) byId.set(String(p.phone), p);
+  });
+
   let recentProviders = recentIds.map((id) => byId.get(id)).filter(Boolean);
 
-  // Remove the PlusMember filter for Previous Professionals - users should always see who they've booked before
-  // if (subscription.isPlusMember && subscription.eliteAccessEnabled) {
-  //   recentProviders = recentProviders.filter((p) => p.isElite || p.isPro);
-  // }
-
-  // ✅ New Fix: Filter by requested specialties
-  const reqServiceTypes = String(req.query.serviceTypes || "").split(",").map(s => s.trim()).filter(Boolean);
-  const reqCategories = String(req.query.categories || "").split(",").map(s => s.trim()).filter(Boolean);
-  if (reqServiceTypes.length > 0 || reqCategories.length > 0) {
-    const requested = await resolveRequestedSpecialtySets({
-      serviceTypeValues: reqServiceTypes,
-      categoryValues: reqCategories
-    });
-    recentProviders = recentProviders.filter(p => providerMatchesRequestedSpecialties(p, requested));
-  }
-
-  // ✅ FIX 4: Sort by booking frequency first, then rating
-  // Add booking count to each provider
+  // Sorting
   recentProviders = recentProviders
     .map(p => ({
       ...providerCard(p),
-      bookingCount: bookingCounts[p._id.toString()] || 0  // ✅ Add booking count
+      bookingCount: bookingCounts[p._id.toString()] || bookingCounts[p.phone] || 0
     }))
     .sort((a, b) => {
-      // Sort: Most booked → Elite → Pro → Highest rated → Most jobs
       if (b.bookingCount !== a.bookingCount) return b.bookingCount - a.bookingCount;
       if (Number(b.isElite) !== Number(a.isElite)) return Number(b.isElite) - Number(a.isElite);
       if (Number(b.isPro) !== Number(a.isPro)) return Number(b.isPro) - Number(a.isPro);
@@ -389,7 +393,8 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
 
   const isFirstBooking = recentIds.length === 0;
   
-  console.log(`[Provider Suggestions] User: ${customerId}, Mode: ${isFirstBooking ? "new_user" : "repeat_user"}, Providers: ${recentProviders.length}`);
+  console.log(`[Provider Suggestions] User: ${customerId}, Bookings: ${recentBookings.length}, Unique IDs: ${recentIds.length}, Found Docs: ${recentDocs.length}, Mode: ${isFirstBooking ? "new_user" : "repeat_user"}`);
+  
   res.json({
     mode: isFirstBooking ? "new_user" : "repeat_user",
     isFirstBooking,

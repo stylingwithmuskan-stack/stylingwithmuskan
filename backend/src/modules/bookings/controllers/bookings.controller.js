@@ -119,6 +119,12 @@ async function loadBookingSettings() {
   if (office?.bufferMinutes !== undefined) {
     base.bufferMinutes = office.bufferMinutes;
   }
+  if (office?.startTime) {
+    base.serviceStartTime = office.startTime;
+  }
+  if (office?.endTime) {
+    base.serviceEndTime = office.endTime;
+  }
   return base;
 }
 
