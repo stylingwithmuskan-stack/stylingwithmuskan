@@ -7,8 +7,10 @@ import {
     Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone, Briefcase
 } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
+import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { toast } from "sonner";
 import { Button } from "@/modules/user/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/modules/user/components/ui/tooltip";
 import LiveMap from "@/components/LiveMap";
 import { api } from "@/modules/user/lib/api";
 import BookingChat from "../components/chat/BookingChat";
@@ -29,8 +31,9 @@ const ProviderBookingDetailPage = () => {
     const { 
         bookings, updateBookingStatus, requestPayment, verifyOTP, 
         addBeforeImages, addAfterImages, addProductImages, addProviderImages,
-        updateLiveLocation 
+        updateLiveLocation, activateManualAssignment
     } = useProviderBookings();
+    const { provider } = useProviderAuth();
     const booking = bookings.find(b => (b.id || b._id) === id);
     const bookingId = booking?.id || booking?._id;
 
@@ -272,13 +275,29 @@ const ProviderBookingDetailPage = () => {
             await requestPayment(bookingId);
             return;
         }
-        updateBookingStatus(bookingId, "documentation");
+        updateBookingStatus(bookingId, "documentation", { paymentMethod: "cash" });
     };
 
     const getNextAction = () => {
         switch (booking.status) {
             case "vendor_assigned":
             case "vendor_reassigned": {
+                // Check if commission is pending activation
+                const isPendingActivation = booking.commissionAmount > 0 && !booking.commissionChargedAt;
+                
+                if (isPendingActivation) {
+                    const walletBalance = provider?.credits || 0;
+                    const canAfford = walletBalance >= booking.commissionAmount;
+
+                    return {
+                        label: "Activate Job",
+                        icon: Wallet,
+                        action: () => activateManualAssignment(bookingId),
+                        disabled: !canAfford,
+                        tooltip: !canAfford ? "Recharge your wallet to activate this job" : "Pay commission and activate job"
+                    };
+                }
+
                 // Mandatory booking - no accept/reject, only "Manage Jobs" button
                 return { 
                     label: "Manage Jobs", 
@@ -826,13 +845,24 @@ const ProviderBookingDetailPage = () => {
                 <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 p-4 pb-20 sm:pb-4 z-50 safe-area-bottom shadow-2xl">
                     <div className="max-w-xl mx-auto flex flex-col sm:flex-row gap-3">
                         {nextAction && (
-                            <Button
-                                onClick={nextAction.action}
-                                disabled={statusLoading || nextAction.disabled}
-                                className={`w-full sm:flex-1 h-14 rounded-2xl font-black text-xs text-white shadow-xl flex items-center justify-center gap-2 transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed ${nextAction.className || "bg-purple-600 hover:bg-purple-700 shadow-purple-200"}`}
-                            >
-                                {statusLoading ? "PROCESSING..." : nextAction.label.toUpperCase()} <ChevronRight className="w-4 h-4" />
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="w-full sm:flex-1">
+                                        <Button
+                                            onClick={nextAction.action}
+                                            disabled={statusLoading || nextAction.disabled}
+                                            className={`w-full h-14 rounded-2xl font-black text-xs text-white shadow-xl flex items-center justify-center gap-2 transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed ${nextAction.className || "bg-purple-600 hover:bg-purple-700 shadow-purple-200"}`}
+                                        >
+                                            {statusLoading ? "PROCESSING..." : nextAction.label.toUpperCase()} <ChevronRight className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </TooltipTrigger>
+                                {nextAction.tooltip && (
+                                    <TooltipContent className="bg-gray-900 text-white border-gray-800 text-[10px] font-bold py-2 px-3 rounded-xl mb-2">
+                                        {nextAction.tooltip}
+                                    </TooltipContent>
+                                )}
+                            </Tooltip>
                         )}
                         {["accepted", "travelling", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase()) && (
                             <button

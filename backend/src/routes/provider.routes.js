@@ -1627,6 +1627,36 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     // For other provider-driven statuses (travelling, arrived, in_progress, completed, etc.)
     // store normalized lower-case.
     b.status = next;
+
+    // Handle manual cash payment confirmation from provider
+    if (req.body.paymentMethod === "cash" && b.balanceAmount > 0) {
+      const amountCollected = b.balanceAmount;
+      b.paymentStatus = "Fully Paid";
+      b.paymentSources = b.paymentSources || [];
+      b.paymentSources.push({
+        source: "cod",
+        amount: amountCollected,
+        paidAt: new Date()
+      });
+      b.balanceAmount = 0;
+      
+      await BookingLog.create({ 
+        action: "booking:payment-update", 
+        userId: pId, 
+        bookingId: b._id.toString(), 
+        meta: { amount: amountCollected, source: "cash", method: "provider_confirmed" } 
+      });
+
+      try {
+        const io = getIO();
+        io?.of("/bookings").to(`booking:${b._id}`).emit("booking:update", { 
+          id: b._id.toString(), 
+          paymentStatus: "Fully Paid",
+          balanceAmount: 0
+        });
+      } catch {}
+    }
+
     if (next !== "pending") b.expiresAt = null;
     if (next === "completed") {
       const activeSub = await getActiveSubscription(pId, "provider");
@@ -1873,5 +1903,76 @@ router.post(
     res.json({ booking });
   }
 );
+
+router.patch("/bookings/:id/activate-manual-assignment", requireRole("provider"), param("id").isString(), async (req, res) => {
+  const providerId = req.auth?.sub;
+  const booking = await Booking.findById(req.params.id);
+  
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+  if (String(booking.assignedProvider) !== String(providerId)) {
+    return res.status(403).json({ error: "Forbidden: Booking not assigned to you" });
+  }
+  
+  if (booking.commissionChargedAt) {
+    return res.status(400).json({ error: "Commission already paid for this booking" });
+  }
+  
+  const required = Number(booking.commissionAmount || 0);
+  if (required <= 0) {
+    // If no commission required, just mark it as charged
+    booking.commissionChargedAt = new Date();
+    await booking.save();
+    return res.json({ success: true, booking });
+  }
+  
+  const acc = await ProviderAccount.findById(providerId);
+  if (!acc) return res.status(404).json({ error: "Provider not found" });
+  
+  if (Number(acc.credits || 0) < required) {
+    return res.status(409).json({ 
+      error: "Insufficient wallet balance to activate this booking.",
+      required,
+      available: Number(acc.credits || 0)
+    });
+  }
+  
+  // Deduct
+  acc.credits = Math.max(Number(acc.credits || 0) - required, 0);
+  await acc.save();
+  
+  booking.commissionChargedAt = new Date();
+  await booking.save();
+  
+  // Transaction
+  await ProviderWalletTxn.create({
+    providerId,
+    bookingId: booking._id.toString(),
+    type: "commission_hold",
+    amount: -required,
+    balanceAfter: acc.credits,
+    meta: { source: "manual_activation", amount: required },
+  });
+  
+  // Sockets & Notifications
+  try {
+    const io = getIO();
+    io?.of("/bookings").emit("status:update", { id: booking._id.toString(), status: booking.status });
+    io?.of("/bookings").to(booking._id.toString()).emit("booking:update", { id: booking._id.toString(), commissionPaid: true });
+    // Sound trigger via specialized event
+    io?.of("/bookings").emit("provider:commission_paid", { providerId, bookingId: booking._id.toString(), amount: required });
+  } catch {}
+  
+  try {
+    await notify({
+      recipientId: providerId,
+      recipientRole: "provider",
+      type: "commission_hold",
+      meta: { bookingId: booking._id.toString(), amount: required },
+      respectProviderQuietHours: true,
+    });
+  } catch {}
+  
+  res.json({ success: true, credits: acc.credits, booking });
+});
 
 export default router;

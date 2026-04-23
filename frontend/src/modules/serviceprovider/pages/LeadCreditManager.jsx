@@ -18,7 +18,7 @@ import { toast } from "sonner";
 
 export default function LeadCreditManager() {
     const navigate = useNavigate();
-    const { provider } = useProviderAuth();
+    const { provider, refreshProvider } = useProviderAuth();
     const [balance, setBalance] = useState(0);
     const [transactions, setTransactions] = useState([]);
     const [rechargeBusy, setRechargeBusy] = useState(false);
@@ -66,6 +66,11 @@ export default function LeadCreditManager() {
             const { credits, transactions } = await api.provider.credits(provider.phone);
             setBalance(credits || 0);
             setTransactions(Array.isArray(transactions) ? transactions.map(normalizeTxn) : []);
+            
+            // Update global provider state in auth context
+            if (refreshProvider) {
+                await refreshProvider();
+            }
         } catch {}
     };
 

@@ -555,44 +555,44 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
       }
 
       // Check new provider balance
-      if (Number(provider.credits || 0) < required) {
-        return res.status(409).json({
-          error: "Selected provider does not have sufficient wallet balance to cover the platform commission.",
-          code: "INSUFFICIENT_WALLET",
-          required,
-          available: Number(provider.credits || 0),
-        });
-      }
+      const hasBalance = Number(provider.credits || 0) >= required;
+      
+      if (hasBalance) {
+        // Deduct commission from new provider
+        provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
+        await provider.save();
 
-      // Deduct commission from new provider
-      provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
-      await provider.save();
+        // Update booking commission details
+        existing.commissionAmount = required;
+        existing.commissionChargedAt = new Date();
+        existing.commissionRefundedAt = null;
 
-      // Update booking commission details
-      existing.commissionAmount = required;
-      existing.commissionChargedAt = new Date();
-      existing.commissionRefundedAt = null;
-
-      // Create transaction record
-      await ProviderWalletTxn.create({
-        providerId: provider._id.toString(),
-        bookingId: existing._id.toString(),
-        type: "commission_hold",
-        amount: -required,
-        balanceAfter: provider.credits,
-        meta: { rate, totalAmount, source: "admin_assignment" },
-      });
-
-      // Notify new provider about commission deduction
-      try {
-        await notify({
-          recipientId: providerId,
-          recipientRole: "provider",
+        // Create transaction record
+        await ProviderWalletTxn.create({
+          providerId: provider._id.toString(),
+          bookingId: existing._id.toString(),
           type: "commission_hold",
-          meta: { bookingId: existing._id.toString(), amount: required },
-          respectProviderQuietHours: true,
+          amount: -required,
+          balanceAfter: provider.credits,
+          meta: { rate, totalAmount, source: "admin_assignment" },
         });
-      } catch (notifyErr) {}
+
+        // Notify new provider about commission deduction
+        try {
+          await notify({
+            recipientId: providerId,
+            recipientRole: "provider",
+            type: "commission_hold",
+            meta: { bookingId: existing._id.toString(), amount: required },
+            respectProviderQuietHours: true,
+          });
+        } catch (notifyErr) {}
+      } else {
+        // Low balance: Assign but leave commissionChargedAt as null for manual activation
+        existing.commissionAmount = required;
+        existing.commissionChargedAt = null;
+        existing.commissionRefundedAt = null;
+      }
     }
 
     // 3. Update Booking Status and Assignee
