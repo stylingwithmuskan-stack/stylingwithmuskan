@@ -17,7 +17,7 @@ const DEFAULT_BOOKING_SETTINGS = {
   slotIntervalMinutes: 30,
   maxBookingDays: 6,
   maxServicesPerBooking: 10,
-  providerSearchLimit: 15,
+  providerSearchLimit: 5,
   bookingHoldMinutes: 10,
   maxServiceRadiusKm: 5,
   providerNotificationStartTime: "07:00",
@@ -57,7 +57,7 @@ async function findProvidersZoneStrict(address, filters = {}) {
   const baseQuery = {
     approvalStatus: filters.approvalStatus || "approved",
     registrationComplete: filters.registrationComplete !== undefined ? filters.registrationComplete : true,
-    isOnline: filters.isOnline !== undefined ? filters.isOnline : true,
+    ...(filters.isOnline !== undefined ? { isOnline: filters.isOnline } : {}),
     ...(cityId ? { cityId } : { city: { $regex: new RegExp(`^${escapeRegex(city)}$`, "i") } }),
   };
 

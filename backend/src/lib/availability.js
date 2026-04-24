@@ -149,7 +149,8 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     let ok = baseMap[s] === true && !bookedSet.has(s);
     const slotStart = ok ? slotLabelToLocalDateTime(date, s) : null;
     if (ok && isToday && slotStart) {
-      if (slotStart.getTime() < (now.getTime() + effectiveLeadMs)) ok = false;
+      // FIX: Bypass lead time check if ignoreLeadTime is true (for manual assignment)
+      if (!opts.ignoreLeadTime && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) ok = false;
     }
     if (ok && windowStartMin !== null && windowEndMin !== null) {
       const hm = parseSlotLabelToHM(s);
@@ -182,7 +183,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     if (ok) slots.push(s);
     else {
       // Small debug log for blocked slots
-      if (isToday && slotStart && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) {
+      if (isToday && slotStart && !opts.ignoreLeadTime && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) {
          // Silently track lead time block
       }
     }

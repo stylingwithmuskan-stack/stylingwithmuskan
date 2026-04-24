@@ -108,7 +108,7 @@ async function loadBookingSettings() {
     slotIntervalMinutes: 30,
     maxBookingDays: 6,
     maxServicesPerBooking: 10,
-    providerSearchLimit: 15,
+    providerSearchLimit: 5,
     bookingHoldMinutes: 10,
     maxServiceRadiusKm: 5,
     providerNotificationStartTime: "07:00",

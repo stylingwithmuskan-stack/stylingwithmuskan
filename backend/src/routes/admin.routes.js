@@ -512,7 +512,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
     if (!provider) return res.status(404).json({ error: "Provider not found" });
 
     // 1. Check availability
-    const allowed = await canAssignProviderToBooking(providerId, existing.toObject());
+    const allowed = await canAssignProviderToBooking(providerId, existing.toObject(), { ignoreLeadTime: true });
     if (!allowed) {
       return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
     }
@@ -597,9 +597,11 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
 
     // 3. Update Booking Status and Assignee
     existing.assignedProvider = providerId;
-    // Set status to "vendor_assigned" so it appears in the "Assigned" tab in Provider Panel
-    existing.status = "vendor_assigned";
+    // Set status to "accepted" so it appears as mandatory in Provider Panel
+    existing.status = "accepted";
+    existing.isMandatory = true;
     existing.adminEscalated = false;
+    existing.vendorEscalated = false;
     existing.lastAssignedAt = now;
     existing.expiresAt = null; // Manual assignment should not expire automatically
     
@@ -614,7 +616,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
         toProvider: providerId,
         fromProvider: previousProviderId,
         reason: "admin_assigned",
-        status: "vendor_assigned"
+        status: "accepted"
       });
       io?.of("/bookings").emit("status:update", { 
         id: b._id.toString(), 
