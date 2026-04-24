@@ -113,8 +113,8 @@ export default function VenderBookings() {
         const status = (b.status || "").toLowerCase();
 
         let tabMatch = true;
-        if (tab === "active") tabMatch = ["accepted", "travelling", "arrived", "in_progress", "service_confirmed", "vendor_assigned", "vendor_reassigned"].includes(status);
-        else if (tab === "pending") tabMatch = ["incoming", "pending", "unassigned", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid"].includes(status);
+        if (tab === "active") tabMatch = ["accepted", "travelling", "arrived", "in_progress", "service_confirmed"].includes(status);
+        else if (tab === "pending") tabMatch = ["incoming", "pending", "unassigned", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid", "provider_cancelled", "vendor_assigned", "vendor_reassigned"].includes(status);
         else if (tab === "completed") tabMatch = status === "completed";
         else if (tab === "cancelled") tabMatch = ["cancelled", "rejected", "quote_expired"].includes(status);
         else if (tab === "provider_cancelled") tabMatch = status === "provider_cancelled";
@@ -327,13 +327,22 @@ export default function VenderBookings() {
 
     const canShowAction = (booking) => {
         const st = (booking.status || "").toLowerCase();
-        if (st === "provider_cancelled") return true;
-        // Escalated bookings need assignment
+        
+        // Statuses that require vendor action (Assign or Re-assign)
+        const vendorActionRequired = [
+            "incoming", "pending", "unassigned", "unassigned", 
+            "rejected", "provider_cancelled", "vendor_assigned", "vendor_reassigned"
+        ];
+        
+        if (vendorActionRequired.includes(st)) return true;
+
+        // Escalated bookings need assignment (often status is still 'pending')
         if (st === "pending" && booking.vendorEscalated === true && !booking.assignedProvider) return true;
+
         if (booking.bookingType === "customized" || booking.eventType) {
             return ["enquiry_created", "quote_submitted", "advance_paid"].includes(st);
         }
-        return ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected"].includes(booking.status);
+        return false;
     };
 
     const fetchAvailableProviders = async (bookingId) => {
@@ -383,7 +392,7 @@ export default function VenderBookings() {
                 {[
                     { label: "Total", val: bookings.length, color: "bg-blue-50 text-blue-600 border-blue-200" },
                     { label: "Active", val: bookings.filter(b => ["accepted", "travelling", "arrived", "in_progress", "service_confirmed"].includes((b.status || "").toLowerCase())).length, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
-                    { label: "Pending", val: bookings.filter(b => ["incoming", "pending", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid"].includes((b.status || "").toLowerCase())).length, color: "bg-amber-50 text-amber-600 border-amber-200" },
+                    { label: "Pending", val: bookings.filter(b => ["incoming", "pending", "unassigned", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid", "provider_cancelled", "vendor_assigned", "vendor_reassigned"].includes((b.status || "").toLowerCase())).length, color: "bg-amber-50 text-amber-600 border-amber-200" },
                     { label: "Escalated", val: bookings.filter(b => (b.status || "").toLowerCase() === "pending" && b.vendorEscalated === true && !b.assignedProvider).length, color: "bg-red-50 text-red-600 border-red-200" },
                     { label: "Unassigned", val: bookings.filter(b => (b.status || "").toLowerCase() === "unassigned").length, color: "bg-orange-50 text-orange-600 border-orange-200" },
                     { label: "Completed", val: bookings.filter(b => (b.status || "").toLowerCase() === "completed").length, color: "bg-green-50 text-green-600 border-green-200" },

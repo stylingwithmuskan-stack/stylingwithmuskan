@@ -602,6 +602,8 @@ export const api = {
     // System Settings
     getSystemSettings: () => request("/admin/system-settings"),
     updateSystemSettings: (payload) => request("/admin/system-settings", { method: "PUT", body: payload }),
+    getBookingSettings: () => request("/admin/booking-settings"),
+    updateBookingSettings: (payload) => request("/admin/booking-settings", { method: "PUT", body: payload }),
 
     // Performance Criteria
     getPerformanceCriteria: () => request("/admin/performance-criteria"),

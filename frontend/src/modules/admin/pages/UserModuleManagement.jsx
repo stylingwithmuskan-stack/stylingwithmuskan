@@ -190,15 +190,26 @@ const BookingRulesConfig = ({ config, onUpdate }) => {
 
 const SystemSettingsConfig = () => {
     const [menEnabled, setMenEnabled] = useState(false);
+    const [minBookingAmount, setMinBookingAmount] = useState(500);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        api.admin.getSystemSettings()
-            .then(data => {
-                setMenEnabled(data.settings?.menSectionEnabled || false);
-            })
-            .catch(() => toast.error("Failed to load system settings"))
-            .finally(() => setLoading(false));
+        const fetchData = async () => {
+            try {
+                const [sysData, bookData] = await Promise.all([
+                    api.admin.getSystemSettings(),
+                    api.admin.getBookingSettings()
+                ]);
+                setMenEnabled(sysData.settings?.menSectionEnabled || false);
+                setMinBookingAmount(bookData.settings?.minBookingAmount ?? 500);
+            } catch {
+                toast.error("Failed to load settings");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
     }, []);
 
     const handleToggle = async () => {
@@ -212,23 +223,67 @@ const SystemSettingsConfig = () => {
         }
     };
 
+    const handleSaveBookingSettings = async () => {
+        setSaving(true);
+        try {
+            await api.admin.updateBookingSettings({ minBookingAmount: Number(minBookingAmount) });
+            toast.success("Booking constraints updated successfully!");
+        } catch {
+            toast.error("Failed to update booking settings");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     if (loading) return null;
 
     return (
-        <div className="bg-background rounded-2xl border border-border shadow-sm overflow-hidden p-6 space-y-6">
-            <h2 className="text-lg font-bold text-foreground">Global System Settings</h2>
-            <div className="p-4 rounded-xl border border-border/60 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h3 className="font-bold text-foreground">Enable Men Section</h3>
-                    <p className="text-xs text-muted-foreground mt-1">If disabled, users cannot access the Men panel. They will see a 'coming soon' message.</p>
+        <div className="bg-background rounded-2xl border border-border shadow-sm overflow-hidden p-6 space-y-8">
+            <div className="space-y-4">
+                <h2 className="text-lg font-bold text-foreground">Global System Settings</h2>
+                <div className="p-4 rounded-xl border border-border/60 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 className="font-bold text-foreground">Enable Men Section</h3>
+                        <p className="text-xs text-muted-foreground mt-1">If disabled, users cannot access the Men panel. They will see a 'coming soon' message.</p>
+                    </div>
+                    <button 
+                        onClick={handleToggle}
+                        title={menEnabled ? 'Disable' : 'Enable'}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 shadow-inner border border-black/10 ${menEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                    >
+                        <span className={`${menEnabled ? 'translate-x-[22px]' : 'translate-x-[2px]'} inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow`} />
+                    </button>
                 </div>
-                <button 
-                    onClick={handleToggle}
-                    title={menEnabled ? 'Disable' : 'Enable'}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 shadow-inner border border-black/10 ${menEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
-                >
-                    <span className={`${menEnabled ? 'translate-x-[22px]' : 'translate-x-[2px]'} inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow`} />
-                </button>
+            </div>
+
+            <div className="space-y-4 pt-6 border-t border-border/50">
+                <h2 className="text-lg font-bold text-foreground">Booking Constraints</h2>
+                <div className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h3 className="font-bold text-foreground">Minimum Booking Amount</h3>
+                            <p className="text-xs text-muted-foreground mt-1">Users cannot book if the final total is less than this amount.</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-bold text-sm">₹</span>
+                            <input 
+                                type="number" 
+                                value={minBookingAmount} 
+                                onChange={(e) => setMinBookingAmount(e.target.value)}
+                                className="w-24 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground font-bold"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end">
+                        <Button 
+                            disabled={saving} 
+                            onClick={handleSaveBookingSettings}
+                            className="bg-primary text-primary-foreground text-xs h-8 px-4 font-bold"
+                        >
+                            {saving ? "Saving..." : "Save Constraint"}
+                        </Button>
+                    </div>
+                </div>
             </div>
         </div>
     );
