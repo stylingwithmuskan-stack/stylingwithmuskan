@@ -16,7 +16,7 @@ function providerCard(p) {
   return {
     id: p._id?.toString(),
     name: p.name || "",
-    profilePhoto: p.profilePhoto || "",
+    profilePhoto: p.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || "P")}&background=random&color=fff`,
     rating: Number(p.rating || 0),
     experience: p.experience || "",
     totalJobs: Number(p.totalJobs || 0),
