@@ -190,6 +190,19 @@ export async function getAvailableProvidersForBooking(req, res) {
     pQuery.city = new RegExp(`^${escaped}`, "i");
   }
 
+  const zoneId = booking.address?.zoneId || "";
+  const area = booking.address?.area || booking.address?.zone || "";
+  if (zoneId) {
+    pQuery.$or = [
+      { serviceZoneIds: zoneId },
+      { zoneIds: zoneId },
+      { baseZoneId: zoneId }
+    ];
+  } else if (area) {
+    const escapedArea = area.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    pQuery.zones = { $in: [new RegExp(`^${escapedArea}$`, "i")] };
+  }
+
   const allProviders = await ProviderAccount.find(pQuery).lean();
   
   const availableProviders = [];
@@ -197,7 +210,8 @@ export async function getAvailableProvidersForBooking(req, res) {
     // eslint-disable-next-line no-await-in-loop
     const isAvailable = await canAssignProviderToBooking(
       provider._id.toString(), 
-      booking
+      booking,
+      { ignoreLeadTime: true }
     );
     if (isAvailable) {
       availableProviders.push({
@@ -213,6 +227,7 @@ export async function getAvailableProvidersForBooking(req, res) {
   
   res.json({ availableProviders });
 }
+
 
 export async function listCustomers(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);

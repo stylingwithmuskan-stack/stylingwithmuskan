@@ -113,8 +113,8 @@ export default function VenderBookings() {
         const status = (b.status || "").toLowerCase();
 
         let tabMatch = true;
-        if (tab === "active") tabMatch = ["accepted", "travelling", "arrived", "in_progress", "service_confirmed", "vendor_assigned", "vendor_reassigned"].includes(status);
-        else if (tab === "pending") tabMatch = ["incoming", "pending", "unassigned", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid"].includes(status);
+        if (tab === "active") tabMatch = ["accepted", "travelling", "arrived", "in_progress", "service_confirmed"].includes(status);
+        else if (tab === "pending") tabMatch = ["incoming", "pending", "unassigned", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid", "provider_cancelled", "vendor_assigned", "vendor_reassigned"].includes(status);
         else if (tab === "completed") tabMatch = status === "completed";
         else if (tab === "cancelled") tabMatch = ["cancelled", "rejected", "quote_expired"].includes(status);
         else if (tab === "provider_cancelled") tabMatch = status === "provider_cancelled";
@@ -327,13 +327,22 @@ export default function VenderBookings() {
 
     const canShowAction = (booking) => {
         const st = (booking.status || "").toLowerCase();
-        if (st === "provider_cancelled") return true;
-        // Escalated bookings need assignment
+        
+        // Statuses that require vendor action (Assign or Re-assign)
+        const vendorActionRequired = [
+            "incoming", "pending", "unassigned", "unassigned", 
+            "rejected", "provider_cancelled", "vendor_assigned", "vendor_reassigned"
+        ];
+        
+        if (vendorActionRequired.includes(st)) return true;
+
+        // Escalated bookings need assignment (often status is still 'pending')
         if (st === "pending" && booking.vendorEscalated === true && !booking.assignedProvider) return true;
+
         if (booking.bookingType === "customized" || booking.eventType) {
             return ["enquiry_created", "quote_submitted", "advance_paid"].includes(st);
         }
-        return ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected"].includes(booking.status);
+        return false;
     };
 
     const fetchAvailableProviders = async (bookingId) => {
@@ -383,7 +392,7 @@ export default function VenderBookings() {
                 {[
                     { label: "Total", val: bookings.length, color: "bg-blue-50 text-blue-600 border-blue-200" },
                     { label: "Active", val: bookings.filter(b => ["accepted", "travelling", "arrived", "in_progress", "service_confirmed"].includes((b.status || "").toLowerCase())).length, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
-                    { label: "Pending", val: bookings.filter(b => ["incoming", "pending", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid"].includes((b.status || "").toLowerCase())).length, color: "bg-amber-50 text-amber-600 border-amber-200" },
+                    { label: "Pending", val: bookings.filter(b => ["incoming", "pending", "unassigned", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid", "provider_cancelled", "vendor_assigned", "vendor_reassigned"].includes((b.status || "").toLowerCase())).length, color: "bg-amber-50 text-amber-600 border-amber-200" },
                     { label: "Escalated", val: bookings.filter(b => (b.status || "").toLowerCase() === "pending" && b.vendorEscalated === true && !b.assignedProvider).length, color: "bg-red-50 text-red-600 border-red-200" },
                     { label: "Unassigned", val: bookings.filter(b => (b.status || "").toLowerCase() === "unassigned").length, color: "bg-orange-50 text-orange-600 border-orange-200" },
                     { label: "Completed", val: bookings.filter(b => (b.status || "").toLowerCase() === "completed").length, color: "bg-green-50 text-green-600 border-green-200" },
@@ -609,44 +618,71 @@ export default function VenderBookings() {
                                 </h3>
                                 <button onClick={() => setAssignModal(null)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center transition-colors"><X className="h-4 w-4" /></button>
                             </div>
-                            <div className="bg-muted/50 rounded-2xl p-3 space-y-2 border border-border/50 shadow-inner">
+                            <div className="bg-muted/50 rounded-2xl p-4 space-y-4 border border-border/50 shadow-inner">
                                 <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Enquiry Reference</p>
-                                        <p className="text-sm font-black mt-0.5">#{assignModal.id}</p>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Reference</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-black">#{assignModal.id}</p>
+                                            {assignModal.bookingType && (
+                                                <Badge variant="secondary" className="text-[8px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 font-black uppercase tracking-tighter">
+                                                    {assignModal.bookingType}
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </div>
-                                    <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-600 border-purple-200"><Tag className="h-2.5 w-2.5 mr-1" />{assignModal.serviceType}</Badge>
+                                    <span className="text-sm font-black text-primary bg-primary/10 px-3 py-1 rounded-full italic">₹{assignModal.totalAmount?.toLocaleString()}</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-0.5">
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Customer</p>
-                                        <p className="text-xs font-black">{assignModal.customerName}</p>
-                                        <p className="text-[10px] font-medium text-muted-foreground italic flex items-center gap-1"><Phone className="h-2.5 w-2.5" /> {assignModal.phone || "No phone"}</p>
+
+                                <div className="grid grid-cols-2 gap-4 py-3 border-y border-border/40">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Schedule</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="h-3 w-3 text-primary" />
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black leading-none">{assignModal.slot?.date}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground mt-0.5">{assignModal.slot?.time}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-0.5">
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">Group Size</p>
-                                        <p className="text-xs font-black flex items-center gap-1.5 text-primary"><Users className="h-3 w-3" /> {assignModal.noOfPeople || "N/A"} People</p>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Location</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <MapPin className="h-3 w-3 text-primary" />
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-xs font-black truncate leading-none">{assignModal.address?.area || "N/A"}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground mt-0.5 truncate">{assignModal.address?.city}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {(assignModal.categoryName || assignModal.selectedServices) && (
-                                    <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100 flex flex-col gap-2">
-                                        <div>
-                                            <p className="text-[9px] font-black uppercase text-purple-600 mb-1 flex items-center gap-1"><LayoutGrid className="h-3 w-3" /> Service Category:</p>
-                                            <p className="text-xs font-bold">{assignModal.categoryName || assignModal.serviceType}</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Customer</p>
+                                        <div className="flex flex-col">
+                                            <p className="text-xs font-black leading-none">{assignModal.customerName}</p>
+                                            <p className="text-[10px] font-medium text-muted-foreground italic flex items-center gap-1 mt-1"><Phone className="h-2.5 w-2.5 text-primary" /> {assignModal.phone || "No phone"}</p>
                                         </div>
-                                        {assignModal.selectedServices && (
-                                            <div>
-                                                <p className="text-[9px] font-black uppercase text-purple-600 mb-1">Services Needed:</p>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {assignModal.selectedServices.map((s, idx) => (
-                                                        <span key={idx} className="text-[9px] font-bold px-1.5 py-0.5 bg-white border border-purple-200 text-purple-700 rounded-md">
-                                                            {s.name}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider text-right">Group Size</p>
+                                        <p className="text-xs font-black flex items-center justify-end gap-1.5 text-primary mt-1"><Users className="h-3 w-3" /> {assignModal.noOfPeople || "N/A"} People</p>
+                                    </div>
+                                </div>
+
+                                {(assignModal.categoryName || assignModal.selectedServices || assignModal.services || assignModal.items) && (
+                                    <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 flex flex-col gap-2">
+                                        <div>
+                                            <p className="text-[9px] font-black uppercase text-primary mb-1 flex items-center gap-1"><LayoutGrid className="h-3 w-3" /> Services Needed:</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {(assignModal.selectedServices || assignModal.services || assignModal.items || []).map((s, idx) => (
+                                                    <span key={idx} className="text-[9px] font-black px-2 py-0.5 bg-card border border-primary/20 text-primary rounded-lg shadow-sm">
+                                                        {s.name}
+                                                    </span>
+                                                ))}
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                 )}
 
@@ -796,25 +832,38 @@ export default function VenderBookings() {
                             </div>
 
                             {/* Booking Quick Info */}
-                            <div className="bg-muted/50 rounded-2xl p-3 space-y-2 border border-border/50">
+                            <div className="bg-muted/50 rounded-2xl p-4 space-y-4 border border-border/50">
                                 <div className="flex justify-between items-start">
-                                    <div>
+                                    <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Booking</p>
                                         <p className="text-sm font-black">#{teamAssignModal.id}</p>
                                     </div>
-                                    <div className="text-right">
-                                        <Badge variant="outline" className="text-[9px] bg-teal-50 text-teal-600 border-teal-200">Advance Paid ✓</Badge>
+                                    <Badge variant="outline" className="text-[9px] bg-teal-50 text-teal-600 border-teal-200">Advance Paid ✓</Badge>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 py-3 border-y border-border/40">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Schedule</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="h-3 w-3 text-primary" />
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black leading-none">{teamAssignModal.slot?.date}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground mt-0.5">{teamAssignModal.slot?.time}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider text-right">Price Details</p>
+                                        <div className="flex flex-col items-end">
+                                            <p className="text-xs font-black text-primary italic">₹{teamAssignModal.totalAmount?.toLocaleString()}</p>
+                                            <p className="text-[10px] font-bold text-muted-foreground mt-0.5">Total Amount</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Customer</p>
-                                        <p className="text-xs font-black">{teamAssignModal.customerName}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Price</p>
-                                        <p className="text-xs font-black text-primary">₹{teamAssignModal.totalAmount?.toLocaleString()}</p>
-                                    </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Customer</p>
+                                    <p className="text-xs font-black">{teamAssignModal.customerName}</p>
                                 </div>
                             </div>
 
@@ -901,23 +950,41 @@ export default function VenderBookings() {
                                 </p>
                             </div>
 
-                            <div className="bg-muted/50 rounded-2xl p-3 space-y-2 border border-border/50 shadow-inner">
+                            <div className="bg-muted/50 rounded-2xl p-4 space-y-4 border border-border/50 shadow-inner">
                                 <div className="flex justify-between items-start">
-                                    <div>
+                                    <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Booking</p>
                                         <p className="text-sm font-black">#{reassignModal.id}</p>
                                     </div>
-                                    <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-600 border-purple-200">{reassignModal.serviceType}</Badge>
+                                    <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-600 border-purple-200 uppercase font-black tracking-widest">{reassignModal.serviceType}</Badge>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-0.5">
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Customer</p>
-                                        <p className="text-xs font-black">{reassignModal.customerName}</p>
+
+                                <div className="grid grid-cols-2 gap-4 py-3 border-y border-border/40">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Schedule</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="h-3 w-3 text-primary" />
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black leading-none">{reassignModal.slot?.date}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground mt-0.5">{reassignModal.slot?.time}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-0.5 text-right">
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Slot</p>
-                                        <p className="text-xs font-black">{reassignModal.slot?.time}</p>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider text-right">Location</p>
+                                        <div className="flex items-center justify-end gap-1.5">
+                                            <div className="flex flex-col items-end min-w-0">
+                                                <span className="text-xs font-black truncate leading-none text-right w-full">{reassignModal.address?.area || "N/A"}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground mt-0.5 truncate text-right w-full">{reassignModal.address?.city}</span>
+                                            </div>
+                                            <MapPin className="h-3 w-3 text-primary" />
+                                        </div>
                                     </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Customer</p>
+                                    <p className="text-xs font-black">{reassignModal.customerName}</p>
                                 </div>
                             </div>
 
@@ -977,30 +1044,56 @@ export default function VenderBookings() {
                                 </p>
                             </div>
 
-                            <div className="bg-muted/50 rounded-2xl p-3 space-y-2 border border-border/50 shadow-inner">
+                            <div className="bg-muted/50 rounded-2xl p-4 space-y-4 border border-border/50 shadow-inner">
                                 <div className="flex justify-between items-start">
-                                    <div>
+                                    <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Booking</p>
                                         <p className="text-sm font-black">#{escalatedAssignModal.id}</p>
                                     </div>
-                                    <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-600 border-purple-200">{escalatedAssignModal.serviceType}</Badge>
+                                    <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-600 border-purple-200 uppercase font-black tracking-widest">{escalatedAssignModal.serviceType}</Badge>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-0.5">
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Customer</p>
-                                        <p className="text-xs font-black">{escalatedAssignModal.customerName}</p>
+
+                                <div className="grid grid-cols-2 gap-4 py-3 border-y border-border/40">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Schedule</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="h-3 w-3 text-primary" />
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black leading-none">{escalatedAssignModal.slot?.date}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground mt-0.5">{escalatedAssignModal.slot?.time}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-0.5 text-right">
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Slot</p>
-                                        <p className="text-xs font-black">{escalatedAssignModal.slot?.time}</p>
-                                        <p className="text-[9px] text-muted-foreground">{escalatedAssignModal.slot?.date}</p>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider text-right">Location</p>
+                                        <div className="flex items-center justify-end gap-1.5">
+                                            <div className="flex flex-col items-end min-w-0">
+                                                <span className="text-xs font-black truncate leading-none text-right w-full">{escalatedAssignModal.address?.area || "N/A"}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground mt-0.5 truncate text-right w-full">{escalatedAssignModal.address?.city}</span>
+                                            </div>
+                                            <MapPin className="h-3 w-3 text-primary" />
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="pt-2 border-t border-border/50">
-                                    <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Services</p>
-                                    <div className="flex flex-wrap gap-1">
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Customer</p>
+                                        <p className="text-xs font-black leading-none">{escalatedAssignModal.customerName}</p>
+                                    </div>
+                                    <div className="space-y-1 text-right">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total Amount</p>
+                                        <p className="text-xs font-black text-primary italic mt-1">₹{escalatedAssignModal.totalAmount?.toLocaleString()}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Services Needed</p>
+                                    <div className="flex flex-wrap gap-1.5">
                                         {(escalatedAssignModal.services || escalatedAssignModal.items || []).map((s, i) => (
-                                            <span key={i} className="text-[9px] font-semibold bg-white px-1.5 py-0.5 rounded-md border border-border">{s.name}</span>
+                                            <span key={i} className="text-[9px] font-black px-2 py-0.5 bg-card border border-border/50 text-foreground rounded-lg shadow-sm">
+                                                {s.name}
+                                            </span>
                                         ))}
                                     </div>
                                 </div>

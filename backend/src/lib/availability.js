@@ -134,28 +134,40 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     });
   }
 
-  const windowStartMin = (settings?.serviceStartTime || settings?.startTime) ? parseHHMMToMinutes(settings.serviceStartTime || settings.startTime) : null;
-  const windowEndMin = (settings?.serviceEndTime || settings?.endTime) ? parseHHMMToMinutes(settings.serviceEndTime || settings.endTime) : null;
+  // Priority: startTime (OfficeSettings/Admin) > serviceStartTime (BookingSettings/Default)
+  const windowStartMin = (settings?.startTime || settings?.serviceStartTime) ? parseHHMMToMinutes(settings.startTime || settings.serviceStartTime) : null;
+  const windowEndMin = (settings?.endTime || settings?.serviceEndTime) ? parseHHMMToMinutes(settings.endTime || settings.serviceEndTime) : null;
+  
   const isToday = date === getIndiaDate();
   const now = new Date();
+  
+  // Use bufferMinutes from OfficeSettings (Admin) or fallback to lead time
   const bufferMs = Math.max(Number(settings?.bufferMinutes || 30), 0) * 60 * 1000;
   const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
-  const effectiveLeadMs = Math.max(bufferMs, leadMs) + (10 * 60 * 1000); // Add 10-min UI buffer for checkout window
-  console.log(`[SLOTS DEBUG] Provider: ${providerId}, Date: ${date}, lead: ${settings?.minLeadTimeMinutes}m`);
+  
+  // Dynamic Lead Time Calculation with 10-minute UI buffer for checkout window
+  const effectiveLeadMs = Math.max(bufferMs, leadMs) + (10 * 60 * 1000); 
+  
+  console.log(`[SLOTS DEBUG] Provider: ${providerId}, Date: ${date}, effectiveLead: ${Math.round(effectiveLeadMs/60000)}m`);
 
   const slotMap = {};
   const slots = [];
   for (const s of DEFAULT_TIME_SLOTS) {
     let ok = baseMap[s] === true && !bookedSet.has(s);
     const slotStart = ok ? slotLabelToLocalDateTime(date, s) : null;
+    
     if (ok && isToday && slotStart) {
-      if (slotStart.getTime() < (now.getTime() + effectiveLeadMs)) ok = false;
+      // Enforce Dynamic Lead Time for today's slots
+      if (!opts.ignoreLeadTime && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) ok = false;
     }
+    
     if (ok && windowStartMin !== null && windowEndMin !== null) {
       const hm = parseSlotLabelToHM(s);
       if (hm) {
         const slotMin = hm.hour * 60 + hm.minute;
+        // Strict enforcement of Admin Office Hours
         if (slotMin < windowStartMin || slotMin > windowEndMin) ok = false;
+        
         if (ok && requestedDurationMinutes > 0) {
           const requiredEndMin = slotMin + requestedDurationMinutes + bufferMin;
           if (requiredEndMin > windowEndMin) ok = false;
@@ -182,7 +194,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     if (ok) slots.push(s);
     else {
       // Small debug log for blocked slots
-      if (isToday && slotStart && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) {
+      if (isToday && slotStart && !opts.ignoreLeadTime && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) {
          // Silently track lead time block
       }
     }

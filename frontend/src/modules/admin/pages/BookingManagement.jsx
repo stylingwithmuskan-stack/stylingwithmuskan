@@ -650,27 +650,72 @@ export default function BookingManagement() {
                                     <X className="h-4 w-4" />
                                 </button>
                             </div>
-                            <div className="bg-muted/50 rounded-2xl p-4 space-y-3 border border-border/50 shadow-inner">
+                            <div className="bg-muted/50 rounded-2xl p-4 space-y-4 border border-border/50 shadow-inner">
                                 <div className="flex justify-between items-start">
-                                    <div>
+                                    <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Reference</p>
-                                        <p className="text-sm font-black">#{assignModal.id}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-black">#{assignModal.id}</p>
+                                            {assignModal.bookingType && (
+                                                <Badge variant="secondary" className="text-[8px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 font-black uppercase tracking-tighter">
+                                                    {assignModal.bookingType}
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </div>
                                     <span className="text-sm font-black text-primary bg-primary/10 px-3 py-1 rounded-full italic">₹{assignModal.totalAmount?.toLocaleString()}</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-0.5">
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Customer</p>
-                                        <p className="text-xs font-black">{assignModal.customerName}</p>
-                                        <p className="text-[10px] font-medium text-muted-foreground italic flex items-center gap-1"><Phone className="h-2.5 w-2.5 text-primary" /> {assignModal.phone || "No phone"}</p>
+
+                                <div className="grid grid-cols-2 gap-4 py-3 border-y border-border/40">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Schedule</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="h-3 w-3 text-primary" />
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black leading-none">{assignModal.slot?.date}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground mt-0.5">{assignModal.slot?.time}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-0.5">
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Service Category</p>
-                                        <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20 uppercase tracking-wider font-black px-1.5 py-0">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Location</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <MapPin className="h-3 w-3 text-primary" />
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-xs font-black truncate leading-none">{assignModal.address?.area || "N/A"}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground mt-0.5 truncate">{assignModal.address?.city}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Customer</p>
+                                        <div className="flex flex-col">
+                                            <p className="text-xs font-black leading-none">{assignModal.customerName}</p>
+                                            <p className="text-[10px] font-medium text-muted-foreground italic flex items-center gap-1 mt-1"><Phone className="h-2.5 w-2.5 text-primary" /> {assignModal.phone || "No phone"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Service Category</p>
+                                        <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20 uppercase tracking-wider font-black px-1.5 py-0 h-5">
                                             {assignModal.serviceType || "General"}
                                         </Badge>
                                     </div>
                                 </div>
+
+                                <div className="space-y-2">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Services Needed</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {(assignModal.services || assignModal.items || []).map((s, i) => (
+                                            <span key={i} className="text-[9px] font-black px-2 py-0.5 bg-card border border-border/50 text-foreground rounded-lg shadow-sm">
+                                                {s.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 {assignModal.notes && (
                                     <div className="p-3 bg-white/50 rounded-xl border border-border/40">
                                         <p className="text-[9px] font-black uppercase text-pink-600 mb-1 flex items-center gap-1"><MessageSquare className="h-2.5 w-2.5" /> Enquiry Notes:</p>

@@ -756,6 +756,19 @@ export async function getAvailableProvidersForBooking(req, res) {
   } else {
     return res.json({ availableProviders: [] });
   }
+
+  const zoneId = booking.address?.zoneId || "";
+  const area = booking.address?.area || booking.address?.zone || "";
+  if (zoneId) {
+    pQuery.$or = [
+      { serviceZoneIds: zoneId },
+      { zoneIds: zoneId },
+      { baseZoneId: zoneId }
+    ];
+  } else if (area) {
+    const escapedArea = area.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    pQuery.zones = { $in: [new RegExp(`^${escapedArea}$`, "i")] };
+  }
   
   const allProviders = await ProviderAccount.find({
     ...pQuery,
@@ -769,7 +782,8 @@ export async function getAvailableProvidersForBooking(req, res) {
     // eslint-disable-next-line no-await-in-loop
     const isAvailable = await canAssignProviderToBooking(
       provider._id.toString(), 
-      booking
+      booking,
+      { ignoreLeadTime: true }
     );
     if (isAvailable) {
       availableProviders.push({
@@ -791,7 +805,7 @@ export async function assignBooking(req, res) {
   const existing = await Booking.findById(req.params.id);
   if (!existing) return res.status(404).json({ error: "Not found" });
   const providerId = String(req.body.providerId || "").trim();
-  const allowed = await canAssignProviderToBooking(providerId, existing.toObject());
+  const allowed = await canAssignProviderToBooking(providerId, existing.toObject(), { ignoreLeadTime: true });
   if (!allowed) {
     return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
   }
@@ -850,10 +864,12 @@ export async function assignBooking(req, res) {
   
   const previousProviderId = String(existing.assignedProvider || "").trim();
   existing.assignedProvider = providerId;
-  existing.status = "vendor_assigned";
+  existing.status = "accepted";
   existing.lastAssignedAt = now;
   existing.expiresAt = null;
+  existing.isMandatory = true;
   existing.adminEscalated = false;
+  existing.vendorEscalated = false;
   const b = await existing.save();
   
   // Emit socket events for real-time updates
@@ -910,7 +926,7 @@ export async function reassignBooking(req, res) {
   const existing = await Booking.findById(req.params.id);
   if (!existing) return res.status(404).json({ error: "Not found" });
   const providerId = String(req.body.providerId || "").trim();
-  const allowed = await canAssignProviderToBooking(providerId, existing.toObject());
+  const allowed = await canAssignProviderToBooking(providerId, existing.toObject(), { ignoreLeadTime: true });
   if (!allowed) {
     return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
   }
@@ -1000,10 +1016,12 @@ export async function reassignBooking(req, res) {
     }
   
   existing.assignedProvider = providerId;
-  existing.status = "vendor_reassigned";
+  existing.status = "accepted";
   existing.lastAssignedAt = now;
   existing.expiresAt = null;
+  existing.isMandatory = true;
   existing.adminEscalated = false;
+  existing.vendorEscalated = false;
   const b = await existing.save();
   
   // Emit socket events for real-time updates

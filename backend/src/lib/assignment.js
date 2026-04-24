@@ -9,6 +9,7 @@ import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
 import { computeAvailableSlots } from "./availability.js";
 import { DEFAULT_TIME_SLOTS, defaultSlotsMap, isIsoDate, parseDurationToMinutes, slotLabelToLocalDateTime } from "./slots.js";
+import { resolveBookingSettings } from "./settings.js";
 import { isoDateToLocalEnd, isoDateToLocalStart } from "./isoDateTime.js";
 import { notify } from "./notify.js";
 import { processSmartRefund } from "./refund.service.js";
@@ -24,7 +25,7 @@ export function computeExpiresAt(now = new Date()) {
   return new Date(now.getTime() + getAcceptWindowMs());
 }
 
-async function isProviderEligibleForBooking(providerId, booking) {
+async function isProviderEligibleForBooking(providerId, booking, opts = {}) {
   const acc = await ProviderAccount.findById(providerId).lean();
   if (!acc) return false;
   if (acc.approvalStatus !== "approved") return false;
@@ -69,6 +70,7 @@ async function isProviderEligibleForBooking(providerId, booking) {
     requestedDurationMinutes,
     useCache: false,
     excludeBookingId: booking._id ? String(booking._id) : null,
+    ignoreLeadTime: opts.ignoreLeadTime === true,
   });
   const res = avail?.slotMap?.[time] === true;
   if (!res) {
@@ -79,11 +81,7 @@ async function isProviderEligibleForBooking(providerId, booking) {
 }
 
 async function loadAssignmentSettings() {
-  const [bookingSettings, officeSettings] = await Promise.all([
-    BookingSettings.findOne().lean(),
-    OfficeSettings.findOne().lean(),
-  ]);
-  return { ...(bookingSettings || {}), ...(officeSettings || {}) };
+  return resolveBookingSettings();
 }
 
 export function getBookingRequestedDurationMinutes(booking) {
@@ -110,8 +108,8 @@ export async function canAssignProviderToBooking(providerId, booking, opts = {})
     slot: overrideSlot,
     services: Array.isArray(booking.services) ? booking.services : booking.items,
   };
-  console.log(`[Assignment Debug] canAssignProviderToBooking: providerId=${providerId}, bookingId=${bookingId}, slot=${overrideSlot?.date} ${overrideSlot?.time}`);
-  return isProviderEligibleForBooking(providerId, bookingForCheck);
+  console.log(`[Assignment Debug] canAssignProviderToBooking: providerId=${providerId}, bookingId=${bookingId}, slot=${overrideSlot?.date} ${overrideSlot?.time}, ignoreLeadTime=${opts.ignoreLeadTime}`);
+  return isProviderEligibleForBooking(providerId, bookingForCheck, opts);
 }
 
 export async function pickNextProviderForBooking(booking, startIndex = 0) {

@@ -209,7 +209,7 @@ const App = () => {
                                   <PushNotificationManager />
                                   <ErrorBoundary>
                                   <Toaster />
-                                  <Sonner />
+                                  <Sonner position="top-right" />
                                   <Routes>
                                 {/* User Routes */}
                                 <Route path="/" element={<SplashScreen />} />

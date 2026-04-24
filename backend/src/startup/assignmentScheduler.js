@@ -306,6 +306,38 @@ export async function runAssignmentSchedulerOnce(now = new Date()) {
       }
     }
   } catch {}
+
+  // 3) Global Expiry Guard: Auto-cancel escalated bookings that remain unassigned within 1 hour of slot
+  try {
+    const critical = await Booking.find({
+      status: { $in: ["pending", "vendor_assigned", "vendor_reassigned"] },
+      $or: [{ vendorEscalated: true }, { adminEscalated: true }]
+    }).limit(50);
+
+    for (const b of critical) {
+      const slotStart = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
+      if (!slotStart) continue;
+
+      const diffMs = slotStart.getTime() - now.getTime();
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+
+      if (diffMs < ONE_HOUR_MS) {
+        logDevSchedulerFlow("Scheduler auto-cancelling critical escalated booking (within 1-hour window)", {
+          bookingId: b._id.toString(),
+          slotTime: b.slot?.time,
+          remainingMinutes: Math.round(diffMs / 60000),
+        });
+        // eslint-disable-next-line no-await-in-loop
+        await handleExhaustedAssignmentChain({
+          booking: b,
+          now,
+          cancellationReason: "No professional assigned within safety window",
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[Scheduler] Error in Global Expiry Guard:", err);
+  }
 }
 
 export function startAssignmentScheduler() {
