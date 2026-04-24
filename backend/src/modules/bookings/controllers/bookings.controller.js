@@ -12,6 +12,7 @@ import Feedback from "../../../models/Feedback.js";
 import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes } from "../../../lib/slots.js";
 import { isIsoDate } from "../../../lib/isoDateTime.js";
 import { computeExpiresAt, pickNextProviderForBooking } from "../../../lib/assignment.js";
+import { resolveBookingSettings } from "../../../lib/settings.js";
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../../../config.js";
 import { getIO } from "../../../startup/socket.js";
@@ -95,37 +96,7 @@ function bookingServicesToItems(services = []) {
 }
 
 async function loadBookingSettings() {
-  const [s, office] = await Promise.all([
-    BookingSettings.findOne().lean(),
-    OfficeSettings.findOne().lean()
-  ]);
-  const base = s || {
-    minBookingAmount: 500,
-    minLeadTimeMinutes: 30,
-    providerBufferMinutes: 30,
-    serviceStartTime: "08:00",
-    serviceEndTime: "19:00",
-    slotIntervalMinutes: 30,
-    maxBookingDays: 6,
-    maxServicesPerBooking: 10,
-    providerSearchLimit: 5,
-    bookingHoldMinutes: 10,
-    maxServiceRadiusKm: 5,
-    providerNotificationStartTime: "07:00",
-    providerNotificationEndTime: "22:00",
-    allowPayAfterService: true,
-    prebookingRequired: false,
-  };
-  if (office?.bufferMinutes !== undefined) {
-    base.bufferMinutes = office.bufferMinutes;
-  }
-  if (office?.startTime) {
-    base.serviceStartTime = office.startTime;
-  }
-  if (office?.endTime) {
-    base.serviceEndTime = office.endTime;
-  }
-  return base;
+  return resolveBookingSettings();
 }
 
 function parseHHMMToMinutes(v) {
@@ -268,10 +239,9 @@ export async function create(req, res) {
   if (settings?.maxServicesPerBooking && Array.isArray(items) && items.length > Number(settings.maxServicesPerBooking)) {
     return res.status(400).json({ error: `Maximum ${settings.maxServicesPerBooking} services allowed per booking.` });
   }
-  const office = await OfficeSettings.findOne().lean();
   const now = new Date();
-  const [startH, startM] = (office?.startTime || "09:00").split(":").map(Number);
-  const [endH, endM] = (office?.endTime || "21:00").split(":").map(Number);
+  const [startH, startM] = (settings?.startTime || settings?.serviceStartTime || "09:00").split(":").map(Number);
+  const [endH, endM] = (settings?.endTime || settings?.serviceEndTime || "21:00").split(":").map(Number);
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const startMinutes = startH * 60 + startM;
   const endMinutes = endH * 60 + endM;
@@ -279,7 +249,7 @@ export async function create(req, res) {
   let notificationStatus = withinOffice ? "immediate" : "queued";
   
   // Admin toggle check: If autoAssign is false in OfficeSettings, global auto-assign is disabled
-  const autoAssignAllowed = office?.autoAssign !== false;
+  const autoAssignAllowed = settings?.autoAssign !== false;
   
   // Use admin setting as base, but also respect if user explicitly asked for autoAssign (or if we want to force it)
   const autoAssign = autoAssignAllowed; 
@@ -337,8 +307,8 @@ export async function create(req, res) {
         return res.status(400).json({ error: "Selected slot exceeds maximum advance booking days." });
       }
     }
-    const windowStartMin = parseHHMMToMinutes(settings?.serviceStartTime || "");
-    const windowEndMin = parseHHMMToMinutes(settings?.serviceEndTime || "");
+    const windowStartMin = parseHHMMToMinutes(settings?.startTime || settings?.serviceStartTime || "");
+    const windowEndMin = parseHHMMToMinutes(settings?.endTime || settings?.serviceEndTime || "");
     const hm = parseSlotLabelToHM(requestedTime);
     if (windowStartMin !== null && windowEndMin !== null && hm) {
       const slotMin = hm.hour * 60 + hm.minute;

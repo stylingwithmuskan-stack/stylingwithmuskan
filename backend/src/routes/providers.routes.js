@@ -8,6 +8,7 @@ import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, isIsoDate, slotLabelToLocalDateTime, parseDurationToMinutes } from "../lib/slots.js";
 import { computeAvailableSlots } from "../lib/availability.js";
+import { resolveBookingSettings } from "../lib/settings.js";
 import { providerMatchesRequestedSpecialties, resolveRequestedSpecialtySets } from "../lib/serviceMatching.js";
 
 const router = Router();
@@ -54,11 +55,7 @@ router.get(
       return res.status(404).json({ error: "Provider not available" });
     }
 
-    const [bookingSettings, officeSettings] = await Promise.all([
-      BookingSettings.findOne().lean(),
-      OfficeSettings.findOne().lean(),
-    ]);
-    const settings = { ...bookingSettings, ...officeSettings };
+    const settings = await resolveBookingSettings();
     const durationMinutes = Math.max(Number(req.query.durationMinutes || 0), 0);
     const result = await computeAvailableSlots(providerId, date, settings, { requestedDurationMinutes: durationMinutes });
     res.json({ provider: providerCard(provider), ...result });
@@ -158,7 +155,7 @@ router.get(
         : await ProviderAccount.find(baseQ).lean();
     }
 
-    const settings = await BookingSettings.findOne().lean();
+    const settings = await resolveBookingSettings();
     const slotMap = {};
     const candidateProvidersBySlot = {};
     DEFAULT_TIME_SLOTS.forEach((s) => {
@@ -209,9 +206,7 @@ router.get(
 
     if (!isIsoDate(date)) return res.status(400).json({ error: "Invalid date" });
 
-    const bookingSettings = await BookingSettings.findOne().lean();
-    const officeSettings = await OfficeSettings.findOne().lean();
-    const settings = { ...bookingSettings, ...officeSettings };
+    const settings = await resolveBookingSettings();
     const durationMinutes = Math.max(Number(req.query.durationMinutes || 0), 0);
 
     // Case 1: Specific Provider Requested

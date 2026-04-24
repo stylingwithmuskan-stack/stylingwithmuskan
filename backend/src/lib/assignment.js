@@ -9,6 +9,7 @@ import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
 import { computeAvailableSlots } from "./availability.js";
 import { DEFAULT_TIME_SLOTS, defaultSlotsMap, isIsoDate, parseDurationToMinutes, slotLabelToLocalDateTime } from "./slots.js";
+import { resolveBookingSettings } from "./settings.js";
 import { isoDateToLocalEnd, isoDateToLocalStart } from "./isoDateTime.js";
 import { notify } from "./notify.js";
 import { processSmartRefund } from "./refund.service.js";
@@ -80,11 +81,7 @@ async function isProviderEligibleForBooking(providerId, booking, opts = {}) {
 }
 
 async function loadAssignmentSettings() {
-  const [bookingSettings, officeSettings] = await Promise.all([
-    BookingSettings.findOne().lean(),
-    OfficeSettings.findOne().lean(),
-  ]);
-  return { ...(bookingSettings || {}), ...(officeSettings || {}) };
+  return resolveBookingSettings();
 }
 
 export function getBookingRequestedDurationMinutes(booking) {

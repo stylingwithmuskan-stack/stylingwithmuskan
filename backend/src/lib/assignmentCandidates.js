@@ -2,6 +2,7 @@ import ProviderAccount from "../models/ProviderAccount.js";
 import UserSubscription from "../models/UserSubscription.js";
 import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
+import { resolveBookingSettings } from "./settings.js";
 import { DEFAULT_TIME_SLOTS, isIsoDate } from "./slots.js";
 import { computeAvailableSlots } from "./availability.js";
 import { findZonesContainingPoint, sortProvidersByProximity } from "./geoMatching.js";
@@ -36,12 +37,7 @@ function escapeRegex(s) {
 
 async function resolveSettings(settings) {
   if (settings) return settings;
-  const [s, office] = await Promise.all([
-    BookingSettings.findOne().lean(),
-    OfficeSettings.findOne().lean(),
-  ]);
-  const base = s || DEFAULT_BOOKING_SETTINGS;
-  return { ...base, ...(office || {}) };
+  return resolveBookingSettings();
 }
 
 async function findProvidersZoneStrict(address, filters = {}) {
