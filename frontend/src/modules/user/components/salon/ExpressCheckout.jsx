@@ -196,15 +196,7 @@ const ExpressCheckout = () => {
                                 </p>
                             </div>
                             <div className="flex items-center gap-3">
-                                {activeCheckoutType ? (
-                                    <button onClick={() => setActiveCheckoutType(null)} className="text-[10px] font-bold text-primary hover:underline uppercase tracking-tight">
-                                        Show All
-                                    </button>
-                                ) : (
-                                    <button onClick={clearCart} className="text-[10px] font-bold text-destructive hover:underline uppercase tracking-tight">
-                                        Clear All
-                                    </button>
-                                )}
+
                                 <button onClick={() => setIsCartOpen(false)} className="p-2 rounded-full hover:bg-accent transition-colors">
                                     <X className="w-5 h-5" />
                                 </button>
@@ -335,12 +327,7 @@ const ExpressCheckout = () => {
                                                         <h3 className="text-sm font-black text-white">{group.label}</h3>
                                                         <p className="text-[10px] font-bold text-white/70 uppercase">{group.items.length} {group.items.length === 1 ? 'Service' : 'Services'}</p>
                                                     </div>
-                                                    <button
-                                                        onClick={() => clearGroup(type)}
-                                                        className="w-8 h-8 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-black/40 transition-all"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+
                                                 </div>
                                             </div>
                                         </div>

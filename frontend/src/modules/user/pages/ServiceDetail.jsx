@@ -22,13 +22,14 @@ const ServiceDetail = () => {
   const { cartItems, addToCart, setIsCartOpen, selectedSlot: globalSlot, setSelectedSlot: setGlobalSlot } = useCart();
   const { isLoggedIn, user } = useAuth();
   const { services, categories, serviceTypes, providers: mockProviders, checkAvailability } = useUserModuleData();
-  const service = services.find((s) => s.id === id);
+  const [service, setService] = useState(services.find((s) => s.id === id));
 
   const [qty, setQty] = useState(1);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const { toggleWishlist, isInWishlist } = useWishlist();
   const isFav = isInWishlist(id);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -41,9 +42,32 @@ const ServiceDetail = () => {
     return checkAvailability(service, userLocation, selectedDate, selectedSlot?.split(' ')[0]);
   }, [service, userLocation, selectedDate, selectedSlot, checkAvailability]);
 
-  // Scroll to top when page loads
+  // Scroll to top and fetch full details if needed
   useEffect(() => {
     window.scrollTo(0, 0);
+
+    const loadFullDetails = async () => {
+      // Find current summary
+      const summary = services.find((s) => s.id === id);
+      if (summary) setService(summary);
+
+      // If we don't have steps or gallery, fetch full object
+      if (!summary || !summary.steps || summary.steps.length === 0) {
+        try {
+          setIsLoadingDetails(true);
+          const res = await api.content.getService(id);
+          if (res.data) {
+            setService(res.data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch service details:", error);
+        } finally {
+          setIsLoadingDetails(false);
+        }
+      }
+    };
+
+    loadFullDetails();
     
     // Fetch real reviews and approved images
     const fetchReviews = async () => {
@@ -98,6 +122,14 @@ const ServiceDetail = () => {
       setSelectedProvider(availableProviders[0]);
     }
   }, [availableProviders, selectedProvider]);
+
+  if (isLoadingDetails && !service) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   if (!service) {
     return (

@@ -301,6 +301,7 @@ export const api = {
       const q = new URLSearchParams(params).toString();
       return request(`/content/search${q ? `?${q}` : ""}`);
     },
+    getService: (id) => request(`/content/services/${id}`),
     banners: (gender) => request(`/content/banners${gender ? `?gender=${gender}` : ""}`),
     spotlights: (gender) => request(`/content/spotlights${gender ? `?gender=${gender}` : ""}`),
     toggleSpotlightLike: (spotlightId) => request(`/content/spotlights/${spotlightId}/like`, { method: "POST" }),

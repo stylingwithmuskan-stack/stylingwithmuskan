@@ -600,7 +600,7 @@ const BookingSummary = () => {
                 <option value="">Choose coupon</option>
                 {availableCoupons.map((c) => (
                   <option key={c.code} value={c.code}>
-                    {c.code} ({c.type === "FIXED" ? `₹${c.value}` : `${c.value}%`})
+                    {c.code} ({c.discountType ? (c.discountType === "flat" ? `₹${c.discountValue}` : `${c.discountValue}%`) : (c.type === "FIXED" ? `₹${c.value}` : `${c.value}%`)})
                   </option>
                 ))}
               </select>

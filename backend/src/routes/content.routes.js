@@ -220,6 +220,17 @@ router.get("/services", async (req, res) => {
   res.json({ data });
 });
 
+router.get("/services/:id", async (req, res) => {
+  try {
+    const service = await Service.findOne({ id: req.params.id }).lean();
+    if (!service) return res.status(404).json({ error: "Service not found" });
+    res.json({ data: service });
+  } catch (error) {
+    console.error("Fetch service error:", error);
+    res.status(500).json({ error: "Failed to fetch service details" });
+  }
+});
+
 router.get("/search", async (req, res) => {
   const { q: rawQ, gender, category } = req.query;
   const q = (rawQ || "").trim();

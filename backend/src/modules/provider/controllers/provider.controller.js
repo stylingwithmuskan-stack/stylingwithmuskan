@@ -182,9 +182,9 @@ export async function updateBookingStatus(req, res) {
     const fundedBy = String(b.discountFundedBy || "admin").toLowerCase();
 
     // Logic: 
-    // - if funded by admin/platform: discount is deducted from the admin's commission
-    // - if funded by all: discount is deducted from booking total, and commission is calculated on the net amount
-    if (fundedBy === "admin" || fundedBy === "platform") {
+    // - if funded by admin: discount is deducted from the admin's commission
+    // - if funded by platform/all: discount is applied to booking total, and commission is calculated on the net amount
+    if (fundedBy === "admin") {
       const originalTotal = totalPaidByCustomer + discountAmount;
       commission = Math.round(originalTotal * (Number(commissionRate || 0) / 100)) - discountAmount;
     } else {

@@ -295,7 +295,16 @@ router.post(
 router.get("/me/coupons", requireAuth, async (req, res) => {
   const all = await Coupon.find({ isActive: true }).lean();
   const count = await Booking.countDocuments({ customerId: req.user._id.toString() });
-  const filtered = all.filter((c) => (c.firstTimeOnly ? count === 0 : true));
+  const now = new Date();
+  const filtered = all.filter((c) => {
+    if (c.firstTimeOnly && count > 0) return false;
+    // Filter out expired coupons
+    if (c.expiryDate) {
+      const expiry = new Date(c.expiryDate);
+      if (!isNaN(expiry.getTime()) && expiry < now) return false;
+    }
+    return true;
+  });
   res.json({ coupons: filtered });
 });
 

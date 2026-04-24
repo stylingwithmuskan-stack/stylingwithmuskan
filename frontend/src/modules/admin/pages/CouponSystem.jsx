@@ -24,6 +24,7 @@ export default function CouponSystem() {
         code: "", discountType: "percentage", discountValue: 10, minOrder: 0,
         maxDiscount: 500, perUserLimit: 1, totalLimit: 100, category: "All",
         zone: "", firstTimeOnly: false, expiryDate: "", isActive: true,
+        discountBorneBy: "admin"
     });
 
     const load = async () => {
@@ -39,7 +40,7 @@ export default function CouponSystem() {
     const handleAdd = async (e) => {
         e.preventDefault();
         await addCoupon(form);
-        setForm({ code: "", discountType: "percentage", discountValue: 10, minOrder: 0, maxDiscount: 500, perUserLimit: 1, totalLimit: 100, category: "All", zone: "", firstTimeOnly: false, expiryDate: "", isActive: true });
+        setForm({ code: "", discountType: "percentage", discountValue: 10, minOrder: 0, maxDiscount: 500, perUserLimit: 1, totalLimit: 100, category: "All", zone: "", firstTimeOnly: false, expiryDate: "", isActive: true, discountBorneBy: "admin" });
         setShowForm(false);
         load();
     };
@@ -115,7 +116,7 @@ export default function CouponSystem() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Expiry Date</Label>
-                                        <Input type="date" value={form.expiryDate} onChange={e => update("expiryDate", e.target.value)} className="rounded-xl h-10 bg-muted/30" />
+                                        <Input type="date" value={form.expiryDate} onChange={e => update("expiryDate", e.target.value)} className="rounded-xl h-10 bg-muted/30 [&::-webkit-calendar-picker-indicator]:invert dark:[color-scheme:dark]" />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Zone (Optional)</Label>
@@ -124,6 +125,16 @@ export default function CouponSystem() {
                                     <div className="flex items-center gap-3 pt-6">
                                         <Switch checked={form.firstTimeOnly} onCheckedChange={v => update("firstTimeOnly", v)} />
                                         <Label className="text-xs font-bold">First-time booking only</Label>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold">Discount Borne By</Label>
+                                        <Select value={form.discountBorneBy} onValueChange={v => update("discountBorneBy", v)}>
+                                            <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="admin">Admin (Deducted from Commission)</SelectItem>
+                                                <SelectItem value="platform">Platform (Shared/Calculated on Net)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="md:col-span-3 flex gap-2 mt-2">
                                         <Button type="submit" className="rounded-xl font-bold gap-2"><Save className="h-4 w-4" />Save Coupon</Button>
@@ -170,6 +181,7 @@ export default function CouponSystem() {
                                         {c.zone && <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 bg-muted/50"><MapPin className="h-2 w-2 mr-0.5" />{c.zone}</Badge>}
                                         {c.firstTimeOnly && <Badge className="text-[8px] font-black h-4 px-1.5 bg-amber-500/15 text-amber-400 border-amber-500/30">1st Booking</Badge>}
                                         {c.expiryDate && <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 bg-muted/50"><Calendar className="h-2 w-2 mr-0.5" />{c.expiryDate}</Badge>}
+                                        <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 bg-primary/10 text-primary border-primary/20">Borne by: {c.discountBorneBy || "admin"}</Badge>
                                     </div>
                                 </CardContent>
                             </Card>

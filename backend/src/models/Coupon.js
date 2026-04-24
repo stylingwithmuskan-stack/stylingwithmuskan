@@ -19,6 +19,7 @@ const CouponSchema = new mongoose.Schema(
     category: { type: String, default: "All" },
     zone: { type: String, default: "" },
     firstTimeOnly: { type: Boolean, default: false },
+    discountBorneBy: { type: String, enum: ["admin", "platform"], default: "admin" },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

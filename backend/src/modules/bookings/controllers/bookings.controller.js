@@ -58,17 +58,17 @@ function computeTotals(items = [], coupon) {
   const total = items.reduce((sum, it) => sum + (Number(it.price) * (Number(it.quantity) || 1)), 0);
   let discount = 0;
   if (coupon) {
-    if (coupon.type) {
-      if (String(coupon.type).toUpperCase() === "FIXED") {
-        discount = Number(coupon.value);
-      } else {
-        discount = Math.round(total * (Number(coupon.value) / 100));
-      }
-    } else if (coupon.discountType) {
+    if (coupon.discountType && coupon.discountValue > 0) {
       if (coupon.discountType === "flat") {
         discount = Number(coupon.discountValue);
       } else {
         discount = Math.round(total * (Number(coupon.discountValue) / 100));
+      }
+    } else if (coupon.type) {
+      if (String(coupon.type).toUpperCase() === "FIXED") {
+        discount = Number(coupon.value);
+      } else {
+        discount = Math.round(total * (Number(coupon.value) / 100));
       }
     }
     if (coupon.maxDiscount && coupon.maxDiscount > 0) {
@@ -211,8 +211,17 @@ export async function quote(req, res) {
   let coupon = null;
   if (req.body.couponCode) {
     coupon = await Coupon.findOne({ code: req.body.couponCode, isActive: true }).lean();
+    // Invalidate expired coupons
+    if (coupon && coupon.expiryDate) {
+      const expiry = new Date(coupon.expiryDate);
+      if (!isNaN(expiry.getTime()) && expiry < new Date()) {
+        console.log(`[Quote] Coupon ${coupon.code} expired on ${coupon.expiryDate}, ignoring.`);
+        coupon = null;
+      }
+    }
   }
   const totals = computeTotals(req.body.items, coupon);
+  console.log(`[Quote] couponCode=${req.body.couponCode}, found=${!!coupon}, discount=${totals.discount}, total=${totals.total}, finalTotal=${totals.finalTotal}`);
   const subBenefits = await calculateCustomerSubscriptionBenefits({
     userId: req.user._id.toString(),
     total: totals.total,
@@ -227,7 +236,7 @@ export async function quote(req, res) {
     advanceAmount,
     subscription: subBenefits.snapshot,
     subscriptionDiscount: subBenefits.subscriptionDiscount,
-    discountFundedBy: subBenefits.discountFundedBy,
+    discountFundedBy: coupon?.discountBorneBy || subBenefits.discountFundedBy || "admin",
   });
 }
 
@@ -250,7 +259,15 @@ export async function create(req, res) {
   };
   const preferredProviderId = String(req.body.preferredProviderId || "").trim();
   let coupon = null;
-  if (couponCode) coupon = await Coupon.findOne({ code: couponCode, isActive: true }).lean();
+  if (couponCode) {
+    coupon = await Coupon.findOne({ code: couponCode, isActive: true }).lean();
+    if (coupon && coupon.expiryDate) {
+      const expiry = new Date(coupon.expiryDate);
+      if (!isNaN(expiry.getTime()) && expiry < new Date()) {
+        coupon = null;
+      }
+    }
+  }
   const totals = computeTotals(items, coupon);
   const customerSubscription = await calculateCustomerSubscriptionBenefits({
     userId: req.user._id.toString(),
@@ -453,7 +470,7 @@ export async function create(req, res) {
     })),
     totalAmount: totals.finalTotal,
     discount: totals.discount,
-    discountFundedBy: customerSubscription.discountFundedBy || "admin",
+    discountFundedBy: coupon?.discountBorneBy || customerSubscription.discountFundedBy || "admin",
     convenienceFee: customerSubscription.convenienceFee,
     prepaidAmount: 0,
     balanceAmount: totals.finalTotal,
