@@ -338,11 +338,21 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
 
   console.log(`[Provider Suggestions] User: ${customerId}, Phone: ${customerPhone}, Found Bookings: ${recentBookings.length}`);
 
+  const categories = String(req.query.categories || "").split(",").map(s => s.trim()).filter(Boolean);
+
   const recentIds = [];
   const seen = new Set();
   const bookingCounts = {};
 
   for (const b of recentBookings) {
+    // ✅ STRICT SERVICE MATCH: Only extract provider if this past booking contained the requested categories
+    const bServices = Array.isArray(b.services) ? b.services : [];
+    const hasServiceMatch = categories.length === 0 || bServices.some(s => 
+      categories.includes(String(s.category).trim())
+    );
+
+    if (!hasServiceMatch) continue;
+
     // First try assignedProvider, then fall back to first candidateProvider
     const pid = String(b.assignedProvider || "").trim()
       || String((Array.isArray(b.candidateProviders) ? b.candidateProviders[0] : "") || "").trim();
@@ -360,13 +370,15 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   const idQuery = recentIds.filter(id => mongoose.isValidObjectId(id));
   const phoneQuery = recentIds.filter(id => /^\d{10,12}$/.test(id));
 
-  // REMOVED approvalStatus and registrationComplete filter for debugging/maximum visibility
+  // ✅ SECURITY FIX: Enforce approvalStatus and registrationComplete
   const recentDocs = recentIds.length
     ? await ProviderAccount.find({
       $or: [
         { _id: { $in: idQuery } },
         { phone: { $in: phoneQuery } }
-      ]
+      ],
+      approvalStatus: "approved",
+      registrationComplete: true
     }).lean()
     : [];
 
@@ -384,24 +396,8 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
     if (p.phone) byId.set(String(p.phone), p);
   });
 
-  const categories = String(req.query.categories || "").split(",").map(s => s.trim()).filter(Boolean);
   let recentProviders = recentIds.map((id) => byId.get(id)).filter(Boolean);
 
-  // Filter by categories if provided
-  if (categories.length > 0) {
-    recentProviders = recentProviders.filter(p => {
-      const pCats = Array.isArray(p.documents?.primaryCategory) ? p.documents.primaryCategory : [];
-      const pSpecs = Array.isArray(p.documents?.specializations) ? p.documents.specializations : [];
-      
-      // Combine all relevant category/spec strings for the provider
-      const providerCategoryIds = [...pCats, ...pSpecs].map(c => String(c).trim());
-      const requestedCats = categories.map(c => String(c).trim());
-      
-      // Check if there is ANY overlap between requested categories and provider categories
-      const match = requestedCats.some(catId => providerCategoryIds.includes(catId));
-      return match;
-    });
-  }
 
   // Sorting
   recentProviders = recentProviders

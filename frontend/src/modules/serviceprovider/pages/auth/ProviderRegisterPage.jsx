@@ -157,7 +157,7 @@ export default function ProviderRegisterPage() {
         Promise.all([
             api.content.serviceTypes(),
             api.content.categories(),
-            api.content.services()
+            api.content.services({ limit: 1000 })
         ]).then(([stRes, catRes, svcRes]) => {
             if (cancelled) return;
             setServiceTypesList(Array.isArray(stRes?.data) ? stRes.data : []);
@@ -584,7 +584,14 @@ export default function ProviderRegisterPage() {
             setIsLoading(false);
             setIsSuccess(true);
         } catch (err) {
-            setOtpError(err.message || "Registration failed");
+            // ✅ FIX: Handle session expiry. Redirect to Step 1 for re-verification.
+            if (err.status === 403) {
+                setStepError("Your verification session has expired. Please verify your phone number again on Step 1 (your other details are saved).");
+                setCurrentStep(1);
+                setOtpVerified(false);
+            } else {
+                setOtpError(err.message || "Registration failed");
+            }
             setIsLoading(false);
         }
     };

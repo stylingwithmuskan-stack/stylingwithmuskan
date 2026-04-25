@@ -187,13 +187,16 @@ router.get("/categories", async (req, res) => {
 });
 
 router.get("/services", async (req, res) => {
-  const { category, gender, page = 1, limit = 10 } = req.query;
+  const { category, gender, page = 1, limit } = req.query;
   const q = {};
   if (category) q.category = category;
   if (gender) q.gender = gender;
   
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-  const key = `content:services:${category || "all"}:${gender || "all"}:p${page}:l${limit}`;
+  // ✅ FIX: Use a high default limit (1000) for registration/catalog, 
+  // but respect the requested limit if provided (e.g., from infinite scroll).
+  const effectiveLimit = limit ? parseInt(limit) : 1000;
+  const skip = (parseInt(page) - 1) * effectiveLimit;
+  const key = `content:services:${category || "all"}:${gender || "all"}:p${page}:l${effectiveLimit}`;
   
   let data = [];
   try {
@@ -201,7 +204,7 @@ router.get("/services", async (req, res) => {
       Service.find(q)
         .select("-gallery -steps")
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(effectiveLimit)
         .lean()
     );
   } catch {
@@ -213,7 +216,7 @@ router.get("/services", async (req, res) => {
       data = await Service.find(q)
         .select("-gallery -steps")
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(effectiveLimit)
         .lean();
     } catch { }
   }
