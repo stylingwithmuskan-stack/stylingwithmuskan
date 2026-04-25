@@ -398,6 +398,21 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
 
   let recentProviders = recentIds.map((id) => byId.get(id)).filter(Boolean);
 
+  // Filter by categories if provided
+  if (categories.length > 0) {
+    recentProviders = recentProviders.filter(p => {
+      const pCats = Array.isArray(p.documents?.primaryCategory) ? p.documents.primaryCategory : [];
+      const pSpecs = Array.isArray(p.documents?.specializations) ? p.documents.specializations : [];
+
+      // Combine all relevant category/spec strings for the provider
+      const providerCategoryIds = [...pCats, ...pSpecs].map(c => String(c).trim());
+      const requestedCats = categories.map(c => String(c).trim());
+
+      // Check if there is ANY overlap between requested categories and provider categories
+      const match = requestedCats.some(catId => providerCategoryIds.includes(catId));
+      return match;
+    });
+  }
 
   // Sorting
   recentProviders = recentProviders
