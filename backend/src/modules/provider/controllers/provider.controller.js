@@ -29,24 +29,6 @@ export async function updateBookingStatus(req, res) {
   if (!b) return res.status(404).json({ error: "Booking not found" });
 
   if (next === "rejected") {
-    const acc = await ProviderAccount.findById(pId);
-    if (acc) {
-      const now = Date.now();
-      const window = acc.rejectWindowStart || 0;
-      let count = acc.rejectCount || 0;
-      if (!window || now - window > 24 * 3600 * 1000) {
-        count = 0;
-        acc.rejectWindowStart = now;
-      }
-      count += 1;
-      acc.rejectCount = count;
-      if (count >= 3) {
-        acc.blockedUntil = new Date(now + 24 * 3600 * 1000);
-        acc.approvalStatus = "blocked";
-        acc.rating = Math.max(0, (acc.rating || 0) - 0.5);
-      }
-      await acc.save();
-    }
 
     const isPreferred = b.maintainProvider && b.maintainProvider === pId;
     const city = b.address?.city || "";
