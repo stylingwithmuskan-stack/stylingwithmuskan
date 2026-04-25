@@ -163,6 +163,40 @@ const PaymentPage = () => {
                     contact: user?.phone || ""
                 },
                 theme: { color: "#7c3aed" },
+                webview_intent: true,
+                config: {
+                    display: {
+                        blocks: {
+                            upi: {
+                                name: "UPI",
+                                instruments: [
+                                    {
+                                        method: "upi",
+                                        flows: ["qr", "intent"],
+                                    },
+                                ],
+                            },
+                            banks: {
+                                name: "Other Payment Methods",
+                                instruments: [
+                                    {
+                                        method: "card",
+                                    },
+                                    {
+                                        method: "netbanking",
+                                    },
+                                    {
+                                        method: "wallet",
+                                    },
+                                ],
+                            },
+                        },
+                        sequence: ["block.upi", "block.banks"],
+                        preferences: {
+                            show_default_blocks: true,
+                        },
+                    },
+                },
                 handler: async (response) => {
                     try {
                         let bid = bookingId;
