@@ -135,6 +135,26 @@ export default function SubscriptionPortal({
           contact: entity?.phone || "",
         },
         theme: { color: "#7c3aed" },
+        webview_intent: true,
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: "Pay via UPI",
+                instruments: [
+                  {
+                    method: "upi",
+                    flows: ["qr", "intent"],
+                  },
+                ],
+              },
+            },
+            sequence: ["block.upi"],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
         handler: async (response) => {
           try {
             const verified = await api.subscriptions.verify({

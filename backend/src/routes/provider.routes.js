@@ -141,7 +141,8 @@ router.post("/verify-registration-otp", body("phone").matches(/^\d{10}$/), body(
     otp,
   });
   if (!valid) return res.status(400).json({ error: "Invalid OTP" });
-  await redis.set(`sp:reg:verified:${phone}`, "1", { EX: 600 });
+  // ✅ FIX: Increased expiry to 1 hour (3600s) to allow enough time for registration steps (KYC, Professional details, etc.)
+  await redis.set(`sp:reg:verified:${phone}`, "1", { EX: 3600 });
   res.json({ success: true });
 });
 

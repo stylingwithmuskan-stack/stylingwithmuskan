@@ -71,7 +71,11 @@ export default function SPOversight() {
             setProviders(Array.isArray(items) ? items : []);
         } catch {}
         try {
-            const [parents, cats, svcs] = await Promise.all([getParents(), getCategories(), getServices()]);
+            const [parents, cats, svcs] = await Promise.all([
+                getParents(), 
+                getCategories({ limit: 1000 }), 
+                getServices({ limit: 1000 })
+            ]);
             setAvailableParents(parents || []);
             setAvailableCategories(cats || []);
             setAvailableServices(svcs || []);
@@ -613,11 +617,15 @@ export default function SPOversight() {
                                                         <div className="flex flex-wrap gap-1.5 p-3 bg-muted/20 rounded-xl border border-border/50">
                                                             {availableParents.map(parent => {
                                                                 const isSelected = tempCategories.includes(parent.label);
+                                                                const isOriginal = Array.isArray(selectedSP.documents?.primaryCategory) 
+                                                                    ? selectedSP.documents.primaryCategory.includes(parent.label)
+                                                                    : selectedSP.documents?.primaryCategory === parent.label;
+
                                                                 return (
                                                                     <Badge 
                                                                         key={parent._id || parent.id} 
                                                                         variant={isSelected ? "default" : "outline"}
-                                                                        className={`text-[10px] cursor-pointer transition-all py-1 px-2.5 ${isSelected ? 'bg-primary border-primary shadow-sm ring-2 ring-primary/20' : 'hover:border-primary/50 text-muted-foreground'}`}
+                                                                        className={`text-[10px] cursor-pointer transition-all py-1 px-2.5 ${isSelected ? (isOriginal ? 'bg-red-600 border-red-600 text-white shadow-sm ring-2 ring-red-100' : 'bg-primary border-primary shadow-sm ring-2 ring-primary/20') : 'hover:border-primary/50 text-muted-foreground'}`}
                                                                         onClick={() => {
                                                                             const pid = parent.id || parent._id;
                                                                             if (isSelected) {
@@ -681,11 +689,12 @@ export default function SPOversight() {
                                                                                 <div className="flex flex-wrap gap-1.5 p-2 bg-background border border-border/50 rounded-xl">
                                                                                     {children.map(cat => {
                                                                                         const isSelected = tempSpecializations.includes(cat.name);
+                                                                                        const isOriginal = (selectedSP.documents?.specializations || []).includes(cat.name);
                                                                                         return (
                                                                                             <Badge 
                                                                                                 key={cat._id || cat.id} 
                                                                                                 variant={isSelected ? "secondary" : "outline"}
-                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-primary/15 text-primary border-primary/30 font-bold' : 'text-muted-foreground hover:border-primary/30'}`}
+                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? (isOriginal ? 'bg-red-600 border-red-600 text-white font-bold' : 'bg-primary/15 text-primary border-primary/30 font-bold') : 'text-muted-foreground hover:border-primary/30'}`}
                                                                                                 onClick={() => {
                                                                                                     if (isSelected) {
                                                                                                         setTempSpecializations(prev => prev.filter(s => s !== cat.name));
@@ -741,11 +750,12 @@ export default function SPOversight() {
                                                                                 <div className="flex flex-wrap gap-1.5 p-2 bg-green-50/20 border border-green-100 rounded-xl">
                                                                                     {services.map(svc => {
                                                                                         const isSelected = tempServices.includes(svc.name);
+                                                                                        const isOriginal = (selectedSP.documents?.services || []).includes(svc.name);
                                                                                         return (
                                                                                             <Badge 
                                                                                                 key={svc._id || svc.id} 
                                                                                                 variant={isSelected ? "default" : "outline"}
-                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-green-600 border-green-600 shadow-sm' : 'text-muted-foreground hover:border-green-300'}`}
+                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? (isOriginal ? 'bg-red-600 border-red-600 text-white shadow-sm' : 'bg-green-600 border-green-600 shadow-sm text-white') : 'text-muted-foreground hover:border-green-300'}`}
                                                                                                 onClick={() => {
                                                                                                     if (isSelected) setTempServices(prev => prev.filter(s => s !== svc.name));
                                                                                                     else setTempServices(prev => [...prev, svc.name]);

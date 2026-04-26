@@ -127,6 +127,46 @@ export default function LeadCreditManager() {
                 name: "stylingwithmuskan",
                 description: "Provider Wallet Recharge",
                 order_id: order.id,
+                prefill: {
+                    name: provider?.name || "",
+                    email: provider?.email || "",
+                    contact: provider?.phone || ""
+                },
+                theme: { color: "#7c3aed" },
+                webview_intent: true,
+                config: {
+                    display: {
+                        blocks: {
+                            upi: {
+                                name: "UPI",
+                                instruments: [
+                                    {
+                                        method: "upi",
+                                        flows: ["qr", "intent"],
+                                    },
+                                ],
+                            },
+                            banks: {
+                                name: "Other Payment Methods",
+                                instruments: [
+                                    {
+                                        method: "card",
+                                    },
+                                    {
+                                        method: "netbanking",
+                                    },
+                                    {
+                                        method: "wallet",
+                                    },
+                                ],
+                            },
+                        },
+                        sequence: ["block.upi", "block.banks"],
+                        preferences: {
+                            show_default_blocks: true,
+                        },
+                    },
+                },
                 handler: async (response) => {
                     try {
                         const verifyRes = await fetch(`${API_BASE_URL}/payments/razorpay/verify`, {
@@ -301,6 +341,7 @@ export default function LeadCreditManager() {
 }
 
 const RechargeModal = ({ isOpen, onClose, onRechargeSuccess }) => {
+    const { provider } = useProviderAuth();
     const [amount, setAmount] = useState("500");
     const [loading, setLoading] = useState(false);
 
@@ -334,6 +375,46 @@ const RechargeModal = ({ isOpen, onClose, onRechargeSuccess }) => {
                 name: "SWM Wallet Recharge",
                 description: `Recharge for ₹${numAmount}`,
                 order_id: order.id,
+                prefill: {
+                    name: provider?.name || "",
+                    email: provider?.email || "",
+                    contact: provider?.phone || ""
+                },
+                theme: { color: "#7c3aed" },
+                webview_intent: true,
+                config: {
+                    display: {
+                        blocks: {
+                            upi: {
+                                name: "UPI",
+                                instruments: [
+                                    {
+                                        method: "upi",
+                                        flows: ["qr", "intent"],
+                                    },
+                                ],
+                            },
+                            banks: {
+                                name: "Other Payment Methods",
+                                instruments: [
+                                    {
+                                        method: "card",
+                                    },
+                                    {
+                                        method: "netbanking",
+                                    },
+                                    {
+                                        method: "wallet",
+                                    },
+                                ],
+                            },
+                        },
+                        sequence: ["block.upi", "block.banks"],
+                        preferences: {
+                            show_default_blocks: true,
+                        },
+                    },
+                },
                 handler: async (response) => {
                     try {
                         await api.provider.wallet.verifyPayment(response);
