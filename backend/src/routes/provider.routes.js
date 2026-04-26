@@ -1449,7 +1449,21 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     if (!acc) return res.status(403).json({ error: "Forbidden" });
     const rate = await getProviderCommissionRate(pId);
     const totalAmount = Number(b.totalAmount || 0);
-    const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+    const discountAmount = Number(b.discount || 0);
+    const fundedBy = String(b.discountFundedBy || "admin").toLowerCase();
+
+    let required = 0;
+    if (fundedBy === "admin") {
+      const originalTotal = totalAmount + discountAmount;
+      const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
+      const effectiveRate = Math.max(0, rate - discountRate);
+      required = Math.round(totalAmount * (effectiveRate / 100));
+    } else {
+      // For "platform" funded or other sources, commission is on the net amount paid by customer
+      required = Math.round(totalAmount * (rate / 100));
+    }
+    required = Math.max(required, 0);
+
     if (!b.commissionChargedAt && required > 0 && Number(acc.credits || 0) < required) {
       return res.status(409).json({
         error: "Insufficient wallet balance to accept this booking.",
@@ -1458,9 +1472,11 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         available: Number(acc.credits || 0),
       });
     }
-    if (!b.commissionChargedAt && required > 0) {
-      acc.credits = Math.max(Number(acc.credits || 0) - required, 0);
-      await acc.save();
+    if (!b.commissionChargedAt && (required > 0 || (required === 0 && b.discount > 0))) {
+      if (required > 0) {
+        acc.credits = Math.max(Number(acc.credits || 0) - required, 0);
+        await acc.save();
+      }
       b.commissionAmount = required;
       b.commissionChargedAt = new Date();
       await ProviderWalletTxn.create({

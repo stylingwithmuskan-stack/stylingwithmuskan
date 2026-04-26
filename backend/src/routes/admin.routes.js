@@ -523,7 +523,20 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
     const commissionSettings = await CommissionSettings.findOne().lean();
     const rate = Number(commissionSettings?.rate || 20);
     const totalAmount = Number(existing.totalAmount || 0);
-    const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+    const discountAmount = Number(existing.discount || 0);
+    const fundedBy = String(existing.discountFundedBy || "admin").toLowerCase();
+
+    let required = 0;
+    if (fundedBy === "admin") {
+      const originalTotal = totalAmount + discountAmount;
+      const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
+      const effectiveRate = Math.max(0, rate - discountRate);
+      required = Math.round(totalAmount * (effectiveRate / 100));
+    } else {
+      // For "platform" funded or other sources, commission is on the net amount paid by customer
+      required = Math.round(totalAmount * (rate / 100));
+    }
+    required = Math.max(required, 0);
 
     if (required > 0) {
       // Refund previous provider if commission was already charged

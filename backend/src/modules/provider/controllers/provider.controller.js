@@ -186,7 +186,9 @@ export async function updateBookingStatus(req, res) {
     // - if funded by platform/all: discount is applied to booking total, and commission is calculated on the net amount
     if (fundedBy === "admin") {
       const originalTotal = totalPaidByCustomer + discountAmount;
-      commission = Math.round(originalTotal * (Number(commissionRate || 0) / 100)) - discountAmount;
+      const discRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
+      const effectiveRate = Math.max(0, Number(commissionRate || 0) - discRate);
+      commission = Math.round(totalPaidByCustomer * (effectiveRate / 100));
     } else {
       commission = Math.round(totalPaidByCustomer * (Number(commissionRate || 0) / 100));
     }
