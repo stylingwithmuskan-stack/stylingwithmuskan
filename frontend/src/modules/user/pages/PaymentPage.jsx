@@ -163,18 +163,17 @@ const PaymentPage = () => {
                     contact: (() => {
                         if (!user?.phone) return "";
                         const sanitized = user.phone.replace(/\D/g, "");
-                        // Standard 10-digit prefill for better cross-browser compatibility
-                        if (sanitized.length === 10) return sanitized;
-                        if (sanitized.length === 12 && sanitized.startsWith("91")) return sanitized.slice(2);
+                        if (sanitized.length === 10) return `+91${sanitized}`;
+                        if (sanitized.length === 12 && sanitized.startsWith("91")) return `+${sanitized}`;
                         return sanitized || user.phone;
                     })()
                 },
                 readonly: {
                     contact: true,
-                    email: true
+                    email: true,
                 },
                 theme: { color: "#7c3aed" },
-                webview_intent: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+                webview_intent: /Android/i.test(navigator.userAgent),
                 config: {
                     display: {
                         blocks: {

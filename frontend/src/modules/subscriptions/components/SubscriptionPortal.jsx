@@ -134,20 +134,18 @@ export default function SubscriptionPortal({
           email: entity?.email || "",
           contact: (() => {
             if (!entity?.phone) return "";
-            // Remove all non-digit characters
             const sanitized = entity.phone.replace(/\D/g, "");
-            // For Indian numbers, Razorpay works best with just the 10-digit string on iOS Safari
-            if (sanitized.length === 10) return sanitized;
-            if (sanitized.length === 12 && sanitized.startsWith("91")) return sanitized.slice(2);
+            if (sanitized.length === 10) return `+91${sanitized}`;
+            if (sanitized.length === 12 && sanitized.startsWith("91")) return `+${sanitized}`;
             return sanitized || entity.phone;
           })(),
         },
         readonly: {
           contact: true,
-          email: true
+          email: true,
         },
         theme: { color: "#7c3aed" },
-        webview_intent: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+        webview_intent: /Android/i.test(navigator.userAgent),
         config: {
           display: {
             blocks: {
