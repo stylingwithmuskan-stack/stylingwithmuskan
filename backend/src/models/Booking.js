@@ -128,5 +128,9 @@ BookingSchema.index({ status: 1 });
 BookingSchema.index({ "address.city": 1 });
 BookingSchema.index({ "address.area": 1 });
 BookingSchema.index({ createdAt: 1, status: 1, "address.city": 1 });
+BookingSchema.index({ status: 1, createdAt: -1 });
+BookingSchema.index({ notificationStatus: 1 });
+BookingSchema.index({ customerPhone: 1 });
+BookingSchema.index({ bookingType: 1 });
 
 export default mongoose.models.Booking || mongoose.model("Booking", BookingSchema);

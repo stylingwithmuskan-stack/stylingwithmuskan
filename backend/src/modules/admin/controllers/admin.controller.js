@@ -170,58 +170,40 @@ export async function listBookings(req, res) {
     query.$or = orConditions;
   }
 
-  const total = await Booking.countDocuments(query);
-  const items = await Booking.find(query)
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .lean();
-
-  // Stats for the top bar
-  const statsPromise = Booking.aggregate([
-    {
-      $facet: {
-        total: [{ $count: "count" }],
-        active: [
-          { $match: { status: { $in: STATUS_GROUPS.active } } },
-          { $count: "count" }
-        ],
-        pending: [
-          { $match: { status: { $in: STATUS_GROUPS.pending } } },
-          { $count: "count" }
-        ],
-        unassigned: [
-          { $match: { status: { $in: ["unassigned", "incoming", "pending"] } } },
-          { $count: "count" }
-        ],
-        queued: [
-          { $match: { notificationStatus: "queued" } },
-          { $count: "count" }
-        ]
+  // Execute main queries in parallel
+  const [items, total, statsResult] = await Promise.all([
+    Booking.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Booking.countDocuments(query),
+    Booking.aggregate([
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          active: [
+            { $match: { status: { $in: STATUS_GROUPS.active } } },
+            { $count: "count" }
+          ],
+          pending: [
+            { $match: { status: { $in: STATUS_GROUPS.pending } } },
+            { $count: "count" }
+          ],
+          unassigned: [
+            { $match: { status: { $in: ["unassigned", "incoming", "pending"] } } },
+            { $count: "count" }
+          ],
+          queued: [
+            { $match: { notificationStatus: "queued" } },
+            { $count: "count" }
+          ]
+        }
       }
-    }
+    ])
   ]);
 
-  // Enrich with provider details
-  const providerIds = Array.from(new Set(
-    items.flatMap(b => [b.assignedProvider, b.maintainProvider, b.maintainerProvider].filter(Boolean))
-  ));
-  
-  const providers = providerIds.length 
-    ? await ProviderAccount.find({ _id: { $in: providerIds } }, "name phone").lean()
-    : [];
-    
-  const provMap = new Map(providers.map(p => [p._id.toString(), p]));
-
-  // Enrich with customer details
-  const customerIds = Array.from(new Set(items.map(b => b.customerId).filter(Boolean)));
-  const customers = customerIds.length
-    ? await User.find({ _id: { $in: customerIds } }, "phone").lean()
-    : [];
-  const custMap = new Map(customers.map(c => [c._id.toString(), c]));
-
-  const [statsResult] = await Promise.all([statsPromise]);
-
+  // Extract stats
   const stats = {
     total: statsResult[0]?.total[0]?.count || 0,
     active: statsResult[0]?.active[0]?.count || 0,
@@ -230,13 +212,24 @@ export async function listBookings(req, res) {
     queued: statsResult[0]?.queued[0]?.count || 0
   };
 
+  // Enrich with provider details (Names/Phones)
+  const providerIds = Array.from(new Set(
+    items.flatMap(b => [b.assignedProvider, b.maintainProvider, b.maintainerProvider].filter(Boolean))
+  ));
+  
+  const provMap = new Map();
+  if (providerIds.length) {
+    const providers = await ProviderAccount.find({ _id: { $in: providerIds } }, "name phone").lean();
+    providers.forEach(p => provMap.set(p._id.toString(), p));
+  }
+
   const enriched = items.map(b => {
     const p = provMap.get(String(b.assignedProvider || ""));
     const mp = provMap.get(String(b.maintainProvider || b.maintainerProvider || ""));
-    const c = custMap.get(String(b.customerId || ""));
     return {
       ...b,
-      phone: c?.phone || "",
+      // Use customerPhone already on booking to avoid redundant User lookup
+      phone: b.customerPhone || "",
       assignedProviderName: p?.name || "",
       assignedProviderPhone: p?.phone || "",
       maintainProviderName: mp?.name || "",
