@@ -820,7 +820,20 @@ export async function assignBooking(req, res) {
   const commissionSettings = await CommissionSettings.findOne().lean();
   const rate = Number(commissionSettings?.rate || 20);
   const totalAmount = Number(existing.totalAmount || 0);
-  const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+  const discountAmount = Number(existing.discount || 0);
+  const fundedBy = String(existing.discountFundedBy || "admin").toLowerCase();
+
+  let required = 0;
+  if (fundedBy === "admin") {
+    const originalTotal = totalAmount + discountAmount;
+    const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
+    const effectiveRate = Math.max(0, rate - discountRate);
+    required = Math.round(totalAmount * (effectiveRate / 100));
+  } else {
+    // For "platform" funded or other sources, commission is on the net amount paid by customer
+    required = Math.round(totalAmount * (rate / 100));
+  }
+  required = Math.max(required, 0);
   
   // Check if commission not already charged
   if (!existing.commissionChargedAt && required > 0) {
@@ -943,7 +956,20 @@ export async function reassignBooking(req, res) {
   const commissionSettings = await CommissionSettings.findOne().lean();
   const rate = Number(commissionSettings?.rate || 20);
   const totalAmount = Number(existing.totalAmount || 0);
-  const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+  const discountAmount = Number(existing.discount || 0);
+  const fundedBy = String(existing.discountFundedBy || "admin").toLowerCase();
+
+  let required = 0;
+  if (fundedBy === "admin") {
+    const originalTotal = totalAmount + discountAmount;
+    const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
+    const effectiveRate = Math.max(0, rate - discountRate);
+    required = Math.round(totalAmount * (effectiveRate / 100));
+  } else {
+    // For "platform" funded or other sources, commission is on the net amount paid by customer
+    required = Math.round(totalAmount * (rate / 100));
+  }
+  required = Math.max(required, 0);
   
     // Handle commission for reassignment
     if (required > 0) {
@@ -1197,7 +1223,20 @@ export async function assignTeamCustomEnquiry(req, res) {
   const commissionSettings = await CommissionSettings.findOne().lean();
   const rate = Number(commissionSettings?.rate || 20);
   const totalAmount = Number(enq.quote?.totalAmount || 0);
-  const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+  const discountAmount = Number(enq.quote?.discountPrice || 0);
+  const fundedBy = String(enq.quote?.discountFundedBy || "admin").toLowerCase();
+
+  let required = 0;
+  if (fundedBy === "admin") {
+    const originalTotal = totalAmount + discountAmount;
+    const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
+    const effectiveRate = Math.max(0, rate - discountRate);
+    required = Math.round(totalAmount * (effectiveRate / 100));
+  } else {
+    // For "platform" funded or other sources, commission is on the net amount paid by customer
+    required = Math.round(totalAmount * (rate / 100));
+  }
+  required = Math.max(required, 0);
   if (required > 0 && Number(provider.credits || 0) < required) {
     return res.status(409).json({
       error: "Selected service provider does not have sufficient wallet balance to cover the platform commission.",
