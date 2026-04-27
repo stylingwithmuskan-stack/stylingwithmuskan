@@ -136,16 +136,18 @@ export default function SubscriptionPortal({
             if (!entity?.phone) return "";
             // Remove all non-digit characters
             const sanitized = entity.phone.replace(/\D/g, "");
-            // If it's a 10-digit number, add +91 for Razorpay's Indian prefill
-            if (sanitized.length === 10) return `+91${sanitized}`;
-            // If it's already 12 digits (like 91999...), add +
-            if (sanitized.length === 12 && sanitized.startsWith("91")) return `+${sanitized}`;
-            // Otherwise return the sanitized version or the original
+            // For Indian numbers, Razorpay works best with just the 10-digit string on iOS Safari
+            if (sanitized.length === 10) return sanitized;
+            if (sanitized.length === 12 && sanitized.startsWith("91")) return sanitized.slice(2);
             return sanitized || entity.phone;
           })(),
         },
+        readonly: {
+          contact: true,
+          email: true
+        },
         theme: { color: "#7c3aed" },
-        webview_intent: /Android/i.test(navigator.userAgent),
+        webview_intent: /Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
         config: {
           display: {
             blocks: {

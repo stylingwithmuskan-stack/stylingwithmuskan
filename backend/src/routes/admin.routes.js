@@ -151,11 +151,17 @@ router.delete("/parents/:id",
 );
 
 router.get("/categories", requireRole("admin"), async (req, res) => {
-  const { gender, serviceType } = req.query;
+  const { gender, serviceType, minimal } = req.query;
   const q = {};
   if (gender) q.gender = gender;
   if (serviceType) q.serviceType = serviceType;
-  const items = await Category.find(q).lean();
+  
+  let query = Category.find(q);
+  if (minimal === "true") {
+    query = query.select("id name serviceType gender");
+  }
+  
+  const items = await query.lean();
   res.json({ categories: items });
 });
 router.post("/categories",
@@ -197,18 +203,22 @@ router.delete("/categories/:id",
 );
 
 router.get("/services", requireRole("admin"), async (req, res) => {
-  const { category, gender, page = 1, limit = 10 } = req.query;
+  const { category, gender, page = 1, limit = 10, minimal } = req.query;
   const q = {};
   if (category) q.category = category;
   if (gender) q.gender = gender;
   
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const total = await Service.countDocuments(q);
-  const items = await Service.find(q)
-    .select("-gallery -steps")
-    .skip(skip)
-    .limit(parseInt(limit))
-    .lean();
+  
+  let query = Service.find(q);
+  if (minimal === "true") {
+    query = query.select("id name category gender");
+  } else {
+    query = query.select("-gallery -steps");
+  }
+  
+  const items = await query.skip(skip).limit(parseInt(limit)).lean();
     
   res.json({ 
     services: items, 

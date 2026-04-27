@@ -765,8 +765,10 @@ export default function BookingManagement() {
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Service Category</p>
-                                        <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20 uppercase tracking-wider font-black px-1.5 py-0 h-5">
-                                            {assignModal.serviceType || "General"}
+                                        <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20 uppercase tracking-wider font-black px-1.5 py-0 h-auto min-h-5 max-w-[150px] whitespace-normal text-center">
+                                            {assignModal.serviceType || 
+                                              [...new Set((assignModal.services || assignModal.items || []).map(s => s.category).filter(Boolean))].join(", ") || 
+                                              "General"}
                                         </Badge>
                                     </div>
                                 </div>

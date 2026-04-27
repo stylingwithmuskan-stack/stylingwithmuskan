@@ -74,12 +74,21 @@ export default function SPOversight() {
             console.error("Failed to load providers:", err);
         }
 
+        setFeedback(JSON.parse(localStorage.getItem("muskan-feedback") || "[]"));
+        setCategoryRequests(JSON.parse(localStorage.getItem("muskan-category-requests") || "[]"));
+        loadLeaves();
+    };
+
+    const ensureContent = async () => {
+        // Only load if not already loaded or currently loading
+        if (isContentLoading || (availableParents.length > 0 && availableCategories.length > 0)) return;
+
         setIsContentLoading(true);
         try {
             const [parentsRes, catsRes, svcsRes] = await Promise.allSettled([
                 getParents(), 
-                getCategories({ limit: 1000 }), 
-                getServices({ limit: 2000 })
+                getCategories({ limit: 1000, minimal: true }), 
+                getServices({ limit: 2000, minimal: true })
             ]);
 
             setAvailableParents(parentsRes.status === 'fulfilled' ? (parentsRes.value || []) : []);
@@ -90,10 +99,6 @@ export default function SPOversight() {
         } finally {
             setIsContentLoading(false);
         }
-
-        setFeedback(JSON.parse(localStorage.getItem("muskan-feedback") || "[]"));
-        setCategoryRequests(JSON.parse(localStorage.getItem("muskan-category-requests") || "[]"));
-        loadLeaves();
     };
 
     const loadLeaves = async () => {
@@ -111,6 +116,7 @@ export default function SPOversight() {
     useEffect(() => { load(); }, []);
 
     const startEditing = () => {
+        ensureContent(); // Trigger lazy load if needed
         setTempCategories(selectedSP.documents?.primaryCategory || []);
         setTempSpecializations(selectedSP.documents?.specializations || []);
         setTempServices(selectedSP.documents?.services || []);
