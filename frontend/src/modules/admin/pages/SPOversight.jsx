@@ -57,6 +57,7 @@ export default function SPOversight() {
     const [availableCategories, setAvailableCategories] = useState([]);
     const [availableServices, setAvailableServices] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [isContentLoading, setIsContentLoading] = useState(false);
     const [isWalletAdjusting, setIsWalletAdjusting] = useState(false);
     const [walletAmount, setWalletAmount] = useState("");
     const [walletType, setWalletType] = useState("add");
@@ -69,19 +70,27 @@ export default function SPOversight() {
         try {
             const items = await getAllServiceProviders();
             setProviders(Array.isArray(items) ? items : []);
-        } catch {}
+        } catch (err) {
+            console.error("Failed to load providers:", err);
+        }
+
+        setIsContentLoading(true);
         try {
-            const [parents, cats, svcs] = await Promise.all([
+            const [parentsRes, catsRes, svcsRes] = await Promise.allSettled([
                 getParents(), 
                 getCategories({ limit: 1000 }), 
-                getServices({ limit: 1000 })
+                getServices({ limit: 2000 })
             ]);
-            setAvailableParents(parents || []);
-            setAvailableCategories(cats || []);
-            setAvailableServices(svcs || []);
+
+            setAvailableParents(parentsRes.status === 'fulfilled' ? (parentsRes.value || []) : []);
+            setAvailableCategories(catsRes.status === 'fulfilled' ? (catsRes.value || []) : []);
+            setAvailableServices(svcsRes.status === 'fulfilled' ? (svcsRes.value || []) : []);
         } catch (err) {
-            console.error("Failed to load content:", err);
+            console.error("Critical content load failure:", err);
+        } finally {
+            setIsContentLoading(false);
         }
+
         setFeedback(JSON.parse(localStorage.getItem("muskan-feedback") || "[]"));
         setCategoryRequests(JSON.parse(localStorage.getItem("muskan-category-requests") || "[]"));
         loadLeaves();
@@ -610,7 +619,12 @@ export default function SPOversight() {
                                                 )}
                                             </div>
 
-                                            {isEditingCategories ? (
+                                            {isContentLoading && availableParents.length === 0 ? (
+                                                <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                                                    <RefreshCw className="h-6 w-6 text-primary animate-spin" />
+                                                    <p className="text-[10px] font-black text-muted-foreground animate-pulse uppercase tracking-widest">Fetching Categories & Services...</p>
+                                                </div>
+                                            ) : isEditingCategories ? (
                                                 <div className="space-y-4">
                                                     <div>
                                                         <p className="text-[10px] font-black text-muted-foreground mb-2 uppercase tracking-tight">Step 1: Select Service Types (Parents)</p>
