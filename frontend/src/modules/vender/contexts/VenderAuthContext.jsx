@@ -28,6 +28,11 @@ export const VenderAuthProvider = ({ children }) => {
             if (raw) setVendor(JSON.parse(raw));
         } catch {}
         setHydrated(true);
+        
+        // Fetch fresh vendor data from server on mount
+        refreshVendor().catch(err => {
+            if (err?.status === 401) logout();
+        });
     }, []);
 
     useEffect(() => {

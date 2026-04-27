@@ -647,19 +647,50 @@ export async function listCustomEnquiries(_req, res) {
 }
 
 export async function customEnquiryPriceQuote(req, res) {
-  const { totalAmount, discountPrice, notes } = req.body;
-  const item = await CustomEnquiry.findByIdAndUpdate(
-    req.params.id,
-    { 
-      status: "admin_approved",
-      totalAmount,
-      discountPrice,
-      adminNotes: notes || ""
-    },
-    { new: true }
-  );
-  if (!item) return res.status(404).json({ error: "Not found" });
-  res.json({ enquiry: item });
+  const { totalAmount, discountPrice, notes, items, prebookAmount, totalServiceTime, quoteExpiryHours } = req.body;
+  
+  const enq = await CustomEnquiry.findById(req.params.id);
+  if (!enq) return res.status(404).json({ error: "Not found" });
+
+  let expiryAt = null;
+  if (quoteExpiryHours) {
+    const hours = Number(quoteExpiryHours);
+    if (Number.isFinite(hours) && hours > 0) {
+      expiryAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+    }
+  }
+
+  enq.quote = {
+    ...(enq.quote || {}),
+    totalAmount: Number(totalAmount) || 0,
+    discountPrice: Number(discountPrice) || 0,
+    notes: notes || enq.quote?.notes || "",
+    prebookAmount: Number(prebookAmount) || enq.quote?.prebookAmount || 0,
+    totalServiceTime: String(totalServiceTime || enq.quote?.totalServiceTime || ""),
+    expiryAt: expiryAt || enq.quote?.expiryAt || null,
+    items: Array.isArray(items) ? items : (enq.quote?.items?.length ? enq.quote.items : enq.items),
+  };
+  
+  enq.status = "admin_approved";
+  enq.timeline = Array.isArray(enq.timeline) ? enq.timeline : [];
+  enq.timeline.push({ 
+    at: new Date(),
+    action: "admin_approved", 
+    meta: { totalAmount: enq.quote.totalAmount, discountPrice: enq.quote.discountPrice } 
+  });
+
+  await enq.save();
+  
+  try {
+    await notify({
+      recipientId: enq.userId,
+      recipientRole: "user",
+      type: "custom_quote_submitted",
+      meta: { enquiryId: enq._id?.toString?.() },
+    });
+  } catch {}
+
+  res.json({ enquiry: enq });
 }
 
 export async function customEnquiryFinalApprove(req, res) {

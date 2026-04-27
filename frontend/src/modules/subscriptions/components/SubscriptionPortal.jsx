@@ -132,10 +132,20 @@ export default function SubscriptionPortal({
         prefill: {
           name: entity?.name || "",
           email: entity?.email || "",
-          contact: entity?.phone ? (entity.phone.startsWith("+91") ? entity.phone : "+91" + entity.phone) : "",
+          contact: (() => {
+            if (!entity?.phone) return "";
+            // Remove all non-digit characters
+            const sanitized = entity.phone.replace(/\D/g, "");
+            // If it's a 10-digit number, add +91 for Razorpay's Indian prefill
+            if (sanitized.length === 10) return `+91${sanitized}`;
+            // If it's already 12 digits (like 91999...), add +
+            if (sanitized.length === 12 && sanitized.startsWith("91")) return `+${sanitized}`;
+            // Otherwise return the sanitized version or the original
+            return sanitized || entity.phone;
+          })(),
         },
         theme: { color: "#7c3aed" },
-        webview_intent: true,
+        webview_intent: /Android/i.test(navigator.userAgent),
         config: {
           display: {
             blocks: {

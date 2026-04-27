@@ -1174,7 +1174,7 @@ export async function priceQuoteCustomEnquiry(req, res) {
     prebookAmount: Number(req.body.prebookAmount) || enq.quote?.prebookAmount || 0,
     totalServiceTime: String(req.body.totalServiceTime || enq.quote?.totalServiceTime || ""),
     expiryAt: expiryAt || enq.quote?.expiryAt || null,
-    items: enq.quote?.items?.length ? enq.quote.items : enq.items,
+    items: Array.isArray(req.body.items) ? req.body.items : (enq.quote?.items?.length ? enq.quote.items : enq.items),
   };
   enq.status = "quote_submitted";
   enq.timeline = Array.isArray(enq.timeline) ? enq.timeline : [];

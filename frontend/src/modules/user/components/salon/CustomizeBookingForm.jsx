@@ -110,7 +110,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
         if (!formData.name.trim()) newErrors.name = "Name is required";
         if (!formData.phone.trim() || formData.phone.length < 10) newErrors.phone = "Valid phone number required";
         if (!formData.eventType) newErrors.eventType = "Select event type";
-        if (!formData.noOfPeople) newErrors.noOfPeople = "Enter number of people";
+        if (!formData.noOfPeople || parseInt(formData.noOfPeople) < 1) newErrors.noOfPeople = "Valid number of people required";
         if (formData.selectedServices.length === 0) newErrors.selectedServices = "Select at least one service";
         if (!formData.date) newErrors.date = "Select date";
         if (!formData.timeSlot) newErrors.timeSlot = "Select time slot";
@@ -248,7 +248,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                 <p className="text-[10px] font-black tracking-widest text-muted-foreground uppercase mb-2">Event Info</p>
                                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                                     <div className="p-2 bg-white/50 rounded-lg"><span className="opacity-60 block">Event</span><strong>{formData.eventType}</strong></div>
-                                                    <div className="p-2 bg-white/50 rounded-lg"><span className="opacity-60 block">Date</span><strong>{formData.date}</strong></div>
+                                                    <div className="p-2 bg-white/50 rounded-lg"><span className="opacity-60 block">Booking Date</span><strong>{formData.date}</strong></div>
                                                 </div>
                                             </div>
                                             
@@ -301,7 +301,6 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                         <h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2 pt-2">
                                             <PartyPopper className="w-4 h-4" /> Event Logistics
                                         </h3>
-
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">Event Type</label>
@@ -316,20 +315,20 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                             </div>
                                             <div className="space-y-2">
                                                 <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">Est. People</label>
-                                                <select
+                                                <input
+                                                    type="number"
+                                                    min="1"
                                                     value={formData.noOfPeople}
                                                     onChange={e => handleChange("noOfPeople", e.target.value)}
-                                                    className={`w-full h-12 px-3 rounded-xl bg-accent/50 text-xs font-bold border-2 ${errors.noOfPeople ? "border-destructive" : "border-transparent"}`}
-                                                >
-                                                    <option value="">Number of People</option>
-                                                    {["1-5", "5-10", "10-20", "20-50", "50+"].map(e => <option key={e} value={e}>{e}</option>)}
-                                                </select>
+                                                    placeholder="e.g. 25"
+                                                    className={`w-full h-12 px-4 rounded-xl bg-accent/50 text-sm font-bold border-2 ${errors.noOfPeople ? "border-destructive" : "border-transparent"}`}
+                                                />
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">Date</label>
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">Booking Date</label>
                                                 <input
                                                     type="date"
                                                     value={formData.date}
