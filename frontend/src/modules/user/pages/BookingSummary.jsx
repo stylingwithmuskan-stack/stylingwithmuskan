@@ -147,6 +147,11 @@ const BookingSummary = () => {
   // Instant bookings do not require advance payment
   let advanceAmount = (effectiveBookingType === 'instant') ? 0 : (passedBookingData?.advanceAmount || quotePreview?.advanceAmount || 0);
   
+  // Custom enquiry advance: the advance amount IS the custom advance amount
+  if (customAdvanceData?.amount > 0) {
+      advanceAmount = Number(customAdvanceData.amount);
+  }
+
   // Safeguard: Advance cannot exceed the final discounted total
   if (advanceAmount > finalTotal) {
       advanceAmount = finalTotal;
@@ -762,7 +767,7 @@ const BookingSummary = () => {
           </div>
 
           <div className="flex gap-3 flex-1">
-            {advanceAmount === 0 && (
+            {advanceAmount === 0 && !customAdvanceData?.enquiryId && (
               <Button
                 onClick={handlePayAfterService}
                 disabled={isProcessing}
