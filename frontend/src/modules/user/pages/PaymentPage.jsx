@@ -160,7 +160,7 @@ const PaymentPage = () => {
                 prefill: {
                     name: user?.name || "",
                     email: user?.email || "test@example.com",
-                    contact: user?.phone || ""
+                    contact: user?.phone ? (user.phone.startsWith("+91") ? user.phone : "+91" + user.phone) : ""
                 },
                 theme: { color: "#7c3aed" },
                 webview_intent: true,

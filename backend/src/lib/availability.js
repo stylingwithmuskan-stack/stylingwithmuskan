@@ -66,6 +66,17 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   }
 
   const availDoc = await ProviderDayAvailability.findOne({ providerId, date }).lean();
+  
+  // Explicit Blocked Provider Check (as requested)
+  // Although usually handled in routes, this adds an extra layer of safety.
+  const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
+  const provCheck = await ProviderAccount.findById(providerId).select("approvalStatus").lean();
+  if (provCheck && provCheck.approvalStatus === "blocked") {
+    const slotMap = {};
+    DEFAULT_TIME_SLOTS.forEach((s) => { slotMap[s] = false; });
+    return { date, slots: [], slotMap, reason: "provider_blocked" };
+  }
+
   // FIXED: Treat empty array as "no availability set" and default to TRUE
   const baseMap = (availDoc && availDoc.availableSlots && availDoc.availableSlots.length > 0)
     ? (() => {
@@ -76,7 +87,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
       }
       return m;
     })()
-    : defaultSlotsMap();
+    : defaultSlotsMap(settings?.serviceStartTime || settings?.startTime, settings?.serviceEndTime || settings?.endTime);
 
   const excludeBookingId = opts.excludeBookingId ? String(opts.excludeBookingId) : null;
   if (excludeBookingId) {
@@ -165,12 +176,36 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
       const hm = parseSlotLabelToHM(s);
       if (hm) {
         const slotMin = hm.hour * 60 + hm.minute;
-        // Strict enforcement of Admin Office Hours
-        if (slotMin < windowStartMin || slotMin > windowEndMin) ok = false;
+        // NEW: Cyclic Range Logic to support Overnight Hours (e.g., 9 PM to 1 AM)
+        let inWindow = false;
+        if (windowStartMin <= windowEndMin) {
+          // Normal case: same day window
+          inWindow = slotMin >= windowStartMin && slotMin <= windowEndMin;
+        } else {
+          // Overnight case: window spans midnight
+          inWindow = slotMin >= windowStartMin || slotMin <= windowEndMin;
+        }
+
+        if (!inWindow) ok = false;
         
         if (ok && requestedDurationMinutes > 0) {
           const requiredEndMin = slotMin + requestedDurationMinutes + bufferMin;
-          if (requiredEndMin > windowEndMin) ok = false;
+          // For overnight windows, the end time enforcement is slightly more complex.
+          // But for now, we enforce that the service must finish within the (possibly wrapped) window.
+          if (windowStartMin <= windowEndMin) {
+            if (requiredEndMin > windowEndMin) ok = false;
+          } else {
+            // In overnight case, if it started after windowStartMin, it can go up to windowEndMin (next day)
+            // If it started before windowEndMin, it must finish before windowEndMin
+            if (slotMin >= windowStartMin) {
+               // Service starts late night, can cross midnight but must end before next day's windowEndMin
+               // (Technically 1440 + windowEndMin is the boundary)
+               if (requiredEndMin > (1440 + windowEndMin)) ok = false;
+            } else {
+               // Service starts early morning, must end before windowEndMin
+               if (requiredEndMin > windowEndMin) ok = false;
+            }
+          }
         }
       }
     }

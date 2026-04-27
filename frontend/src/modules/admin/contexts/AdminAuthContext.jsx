@@ -91,8 +91,8 @@ export const AdminAuthProvider = ({ children }) => {
     const finalApproveEnquiry = async (id, payload) => { await api.admin.customEnquiryFinalApprove(id, payload); };
 
     // ───── BOOKINGS ─────
-    const getAllBookings = async () => (await api.admin.bookings()).bookings;
-    const getUserBookings = async () => (await api.admin.bookings()).bookings;
+    const getAllBookings = async (params = {}) => await api.admin.bookings(params);
+    const getUserBookings = async (params = {}) => await api.admin.bookings(params);
     const approveBookingImages = async (id, approved) => { await api.admin.approveBookingImages(id, approved); };
     const assignSPToBooking = async (bookingId, spId) => { await api.admin.assignBooking(bookingId, spId); };
     const getAvailableProvidersForBooking = async (bookingId) => (await api.admin.getAvailableProviders(bookingId)).availableProviders || [];

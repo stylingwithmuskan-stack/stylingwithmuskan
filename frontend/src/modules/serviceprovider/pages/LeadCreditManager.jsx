@@ -130,7 +130,7 @@ export default function LeadCreditManager() {
                 prefill: {
                     name: provider?.name || "",
                     email: provider?.email || "",
-                    contact: provider?.phone || ""
+                    contact: provider?.phone ? (provider.phone.startsWith("+91") ? provider.phone : "+91" + provider.phone) : ""
                 },
                 theme: { color: "#7c3aed" },
                 webview_intent: true,
@@ -378,7 +378,7 @@ const RechargeModal = ({ isOpen, onClose, onRechargeSuccess }) => {
                 prefill: {
                     name: provider?.name || "",
                     email: provider?.email || "",
-                    contact: provider?.phone || ""
+                    contact: provider?.phone ? (provider.phone.startsWith("+91") ? provider.phone : "+91" + provider.phone) : ""
                 },
                 theme: { color: "#7c3aed" },
                 webview_intent: true,

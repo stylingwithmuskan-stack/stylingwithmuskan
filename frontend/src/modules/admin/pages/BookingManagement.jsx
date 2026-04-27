@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/compone
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { Navigate } from "react-router-dom";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/modules/user/components/ui/pagination";
 
 const statusColors = {
     incoming: "bg-blue-500/15 text-blue-600", pending: "bg-amber-500/15 text-amber-600", "Pending": "bg-amber-500/15 text-amber-600",
@@ -52,12 +53,30 @@ export default function BookingManagement() {
     const [adminTeamReviewModal, setAdminTeamReviewModal] = useState(null);
     const [detailModal, setDetailModal] = useState(null);
     const [updating, setUpdating] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const [page, setPage] = useState(1);
+    const [limit] = useState(20);
+    const [total, setTotal] = useState(0);
+    const [stats, setStats] = useState({ total: 0, active: 0, pending: 0, unassigned: 0, queued: 0 });
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [tab, typeFilter, debouncedSearch]);
 
     useEffect(() => {
         if (!isLoggedIn) return;
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isLoggedIn]);
+    }, [isLoggedIn, page, tab, typeFilter, debouncedSearch]);
 
     if (!isLoggedIn) {
         return <Navigate to="/admin/login" replace />;
@@ -72,37 +91,32 @@ export default function BookingManagement() {
 
     const load = async () => {
         if (!isLoggedIn) return;
+        setLoading(true);
         try {
-            const bks = await getAllBookings();
-            setBookings(Array.isArray(bks) ? bks : []);
+            const params = {
+                page,
+                limit,
+                tab: tab === "all" ? "" : tab,
+                search: debouncedSearch,
+                bookingType: typeFilter
+            };
+            const res = await getAllBookings(params);
+            setBookings(Array.isArray(res.bookings) ? res.bookings : []);
+            setTotal(res.total || 0);
+            if (res.stats) setStats(res.stats);
+
+            // Fetch providers separately as they are needed for assignment but don't need pagination here
             const spRaw = await getAllServiceProviders();
             const spFromDb = Array.isArray(spRaw) ? spRaw.filter(sp => sp.approvalStatus === "approved") : [];
-            const allSPs = spFromDb.length > 0 ? spFromDb : (moduleProviders || []);
-            setProviders(allSPs);
-        } catch {
+            setProviders(spFromDb.length > 0 ? spFromDb : (moduleProviders || []));
+        } catch (err) {
+            console.error("Failed to load bookings", err);
             setBookings([]);
             setProviders(moduleProviders || []);
+        } finally {
+            setLoading(false);
         }
     };
-
-    const filtered = bookings.filter(b => {
-        const ms = b.customerName?.toLowerCase().includes(search.toLowerCase()) || b.id?.includes(search) || b.serviceType?.toLowerCase().includes(search.toLowerCase());
-        const status = (b.status || "").toLowerCase();
-
-        let tabMatch = true;
-        if (tab === "active") tabMatch = STATUS_GROUPS.active.includes(status);
-        else if (tab === "pending") tabMatch = STATUS_GROUPS.pending.includes(status);
-        else if (tab === "completed") tabMatch = STATUS_GROUPS.completed.includes(status);
-        else if (tab === "missed") tabMatch = STATUS_GROUPS.missed.includes(status);
-
-        let typeMatch = true;
-        if (typeFilter !== "all") {
-            const bType = (b.bookingType || "instant").toLowerCase();
-            typeMatch = bType.includes(typeFilter.toLowerCase());
-        }
-
-        return ms && tabMatch && typeMatch;
-    });
     
     const handleOpenAssignModal = async (b) => {
         setAssignModal(b);
@@ -254,11 +268,11 @@ export default function BookingManagement() {
                 {/* Stats Bar */}
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {[
-                        { label: "Total", val: bookings.length, color: "bg-blue-50 text-blue-600 border-blue-200" },
-                        { label: "Active", val: bookings.filter(b => STATUS_GROUPS.active.includes((b.status || "").toLowerCase())).length, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
-                        { label: "Pending", val: bookings.filter(b => STATUS_GROUPS.pending.includes((b.status || "").toLowerCase())).length, color: "bg-amber-50 text-amber-600 border-amber-200" },
-                        { label: "Unassigned", val: unassignedCount, color: "bg-orange-50 text-orange-600 border-orange-200" },
-                        { label: "Queued Notifs", val: queuedCount, color: "bg-yellow-50 text-yellow-600 border-yellow-200" },
+                        { label: "Total", val: stats.total, color: "bg-blue-50 text-blue-600 border-blue-200" },
+                        { label: "Active", val: stats.active, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+                        { label: "Pending", val: stats.pending, color: "bg-amber-50 text-amber-600 border-amber-200" },
+                        { label: "Unassigned", val: stats.unassigned, color: "bg-orange-50 text-orange-600 border-orange-200" },
+                        { label: "Queued Notifs", val: stats.queued, color: "bg-yellow-50 text-yellow-600 border-yellow-200" },
                     ].map((s, i) => (
                         <motion.div key={s.label} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 + i * 0.05 }}
                             className={`rounded-xl p-3 border ${s.color}`}>
@@ -306,14 +320,21 @@ export default function BookingManagement() {
                         </div>
                     </div>
                     <TabsContent value={tab} className="mt-0">
-                        {filtered.length === 0 ? (
+                        {loading ? (
+                            <Card className="border-border/50">
+                                <CardContent className="py-24 text-center">
+                                    <RefreshCw className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+                                    <p className="text-sm font-bold text-muted-foreground animate-pulse">Fetching latest bookings...</p>
+                                </CardContent>
+                            </Card>
+                        ) : bookings.length === 0 ? (
                             <Card className="border-border/50"><CardContent className="py-16 text-center">
                                 <CalendarRange className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
                                 <p className="text-sm font-bold text-muted-foreground">No bookings found</p>
                             </CardContent></Card>
                         ) : (
                             <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
-                                {filtered.map((b, idx) => (
+                                {bookings.map((b, idx) => (
                                     <motion.div key={b._id || b.id || `${b.customerName || "booking"}-${idx}`} variants={item} onClick={() => setDetailModal(b)}>
                                         <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all cursor-pointer">
                                             <CardContent className="p-4 flex flex-col md:flex-row md:items-center gap-3">
@@ -437,6 +458,51 @@ export default function BookingManagement() {
                                         </Card>
                                     </motion.div>
                                 ))}
+                                
+                                {/* Pagination Controls */}
+                                {Math.ceil(total / limit) > 1 && (
+                                    <div className="mt-8 pb-8">
+                                        <Pagination>
+                                            <PaginationContent>
+                                                <PaginationItem>
+                                                    <PaginationPrevious 
+                                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                                        className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                                    />
+                                                </PaginationItem>
+                                                
+                                                {Array.from({ length: Math.ceil(total / limit) }, (_, i) => i + 1).map(p => {
+                                                    if (p === 1 || p === Math.ceil(total / limit) || (p >= page - 1 && p <= page + 1)) {
+                                                        return (
+                                                            <PaginationItem key={p}>
+                                                                <PaginationLink 
+                                                                    isActive={page === p}
+                                                                    onClick={() => setPage(p)}
+                                                                    className="cursor-pointer"
+                                                                >
+                                                                    {p}
+                                                                </PaginationLink>
+                                                            </PaginationItem>
+                                                        );
+                                                    } else if (p === page - 2 || p === page + 2) {
+                                                        return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>;
+                                                    }
+                                                    return null;
+                                                })}
+
+                                                <PaginationItem>
+                                                    <PaginationNext 
+                                                        onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                                                        className={page === Math.ceil(total / limit) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                                    />
+                                                </PaginationItem>
+                                            </PaginationContent>
+                                        </Pagination>
+                                        <p className="text-[10px] text-center text-muted-foreground mt-4 font-bold uppercase tracking-widest">
+                                            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} bookings
+                                        </p>
+                                    </div>
+                                )}
                             </motion.div>
                         )}
                     </TabsContent>

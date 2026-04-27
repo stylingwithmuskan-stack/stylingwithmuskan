@@ -527,7 +527,10 @@ export const api = {
     updateProviderStatus: (id, status) => request(`/admin/providers/${id}/status`, { method: "PATCH", body: { status } }),
     updateProviderProfile: (id, payload) => request(`/admin/providers/${id}/profile`, { method: "PATCH", body: payload }),
     adjustProviderWallet: (id, payload) => request(`/admin/providers/${id}/wallet/adjust`, { method: "PATCH", body: payload }),
-    bookings: () => request("/admin/bookings"),
+    bookings: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/admin/bookings${q ? `?${q}` : ""}`);
+    },
     getAvailableProviders: (bookingId) => request(`/admin/bookings/${bookingId}/available-providers`),
     approveBookingImages: (id, approved) => request(`/admin/bookings/${id}/approve-images`, { method: "PATCH", body: { approved } }),
 

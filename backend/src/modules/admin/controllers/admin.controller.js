@@ -2,6 +2,7 @@ import Vendor from "../../../models/Vendor.js";
 import ProviderAccount from "../../../models/ProviderAccount.js";
 import Booking from "../../../models/Booking.js";
 import User from "../../../models/User.js";
+import mongoose from "mongoose";
 import Coupon from "../../../models/Coupon.js";
 import { uploadBuffer } from "../../../startup/cloudinary.js";
 import SOSAlert from "../../../models/SOSAlert.js";
@@ -132,8 +133,74 @@ export async function listProviders(req, res) {
 export async function listBookings(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const total = await Booking.countDocuments();
-  const items = await Booking.find().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+  const { tab, search, bookingType } = req.query;
+
+  const STATUS_GROUPS = {
+    active: ["accepted", "travelling", "arrived", "in_progress"],
+    pending: ["incoming", "pending", "unassigned", "payment_pending", "documentation", "vendor_assigned", "admin_approved", "user_accepted", "team_assigned", "final_approved", "advance_paid"],
+    completed: ["completed"],
+    missed: ["cancelled", "missed", "rejected"]
+  };
+
+  const query = {};
+
+  // Status Group Filter (tab)
+  if (tab && STATUS_GROUPS[tab]) {
+    query.status = { $in: STATUS_GROUPS[tab] };
+  }
+
+  // Booking Type Filter
+  if (bookingType && bookingType !== "all") {
+    query.bookingType = new RegExp(bookingType, "i");
+  }
+
+  // Search Filter
+  if (search) {
+    const searchRegex = new RegExp(search, "i");
+    const orConditions = [
+      { id: searchRegex },
+      { customerName: searchRegex },
+      { customerPhone: searchRegex },
+      { serviceType: searchRegex }
+    ];
+    // If search looks like a Booking ID (e.g. B-123) or is just a number
+    if (mongoose.Types.ObjectId.isValid(search)) {
+      orConditions.push({ _id: search });
+    }
+    query.$or = orConditions;
+  }
+
+  const total = await Booking.countDocuments(query);
+  const items = await Booking.find(query)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .lean();
+
+  // Stats for the top bar
+  const statsPromise = Booking.aggregate([
+    {
+      $facet: {
+        total: [{ $count: "count" }],
+        active: [
+          { $match: { status: { $in: STATUS_GROUPS.active } } },
+          { $count: "count" }
+        ],
+        pending: [
+          { $match: { status: { $in: STATUS_GROUPS.pending } } },
+          { $count: "count" }
+        ],
+        unassigned: [
+          { $match: { status: { $in: ["unassigned", "incoming", "pending"] } } },
+          { $count: "count" }
+        ],
+        queued: [
+          { $match: { notificationStatus: "queued" } },
+          { $count: "count" }
+        ]
+      }
+    }
+  ]);
 
   // Enrich with provider details
   const providerIds = Array.from(new Set(
@@ -153,6 +220,16 @@ export async function listBookings(req, res) {
     : [];
   const custMap = new Map(customers.map(c => [c._id.toString(), c]));
 
+  const [statsResult] = await Promise.all([statsPromise]);
+
+  const stats = {
+    total: statsResult[0]?.total[0]?.count || 0,
+    active: statsResult[0]?.active[0]?.count || 0,
+    pending: statsResult[0]?.pending[0]?.count || 0,
+    unassigned: statsResult[0]?.unassigned[0]?.count || 0,
+    queued: statsResult[0]?.queued[0]?.count || 0
+  };
+
   const enriched = items.map(b => {
     const p = provMap.get(String(b.assignedProvider || ""));
     const mp = provMap.get(String(b.maintainProvider || b.maintainerProvider || ""));
@@ -167,7 +244,7 @@ export async function listBookings(req, res) {
     };
   });
 
-  res.json({ bookings: enriched, page, limit, total });
+  res.json({ bookings: enriched, page, limit, total, stats });
 }
 
 export async function getAvailableProvidersForBooking(req, res) {

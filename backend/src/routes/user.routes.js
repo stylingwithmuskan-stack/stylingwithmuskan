@@ -333,7 +333,7 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
       { customerId: mongoose.isValidObjectId(customerId) ? new mongoose.Types.ObjectId(customerId) : customerId },
       { customerPhone: { $regex: phoneLast10 + "$" } }
     ],
-    status: { $nin: ["cancelled", "failed", "expired"] }
+    status: "completed"
   }).sort({ createdAt: -1 }).lean();
 
   console.log(`[Provider Suggestions] User: ${customerId}, Phone: ${customerPhone}, Found Bookings: ${recentBookings.length}`);

@@ -132,7 +132,7 @@ export default function SubscriptionPortal({
         prefill: {
           name: entity?.name || "",
           email: entity?.email || "",
-          contact: entity?.phone || "",
+          contact: entity?.phone ? (entity.phone.startsWith("+91") ? entity.phone : "+91" + entity.phone) : "",
         },
         theme: { color: "#7c3aed" },
         webview_intent: true,
