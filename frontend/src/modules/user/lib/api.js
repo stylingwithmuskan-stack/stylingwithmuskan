@@ -474,13 +474,19 @@ export const api = {
     verifyOtp: (phone, otp) => request("/vendor/verify-otp", { method: "POST", body: { phone, otp } }),
     logout: () => request("/vendor/logout", { method: "POST" }),
     me: () => request("/vendor/me"),
-    providers: () => request("/vendor/providers"),
+    providers: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/vendor/providers${q ? `?${q}` : ""}`);
+    },
     vendors: () => request("/vendor/vendors"),
     listZoneRequests: () => request("/vendor/zone-requests"),
     updateSPStatus: (id, status) => request(`/vendor/providers/${id}/status`, { method: "PATCH", body: { status } }),
     approveSPZones: (id, body) => request(`/vendor/providers/${id}/approve-zones`, { method: "PATCH", body: body || {} }),
     rejectSPZones: (id, body) => request(`/vendor/providers/${id}/reject-zones`, { method: "PATCH", body: body || {} }),
-    bookings: () => request("/vendor/bookings"),
+    bookings: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/vendor/bookings${q ? `?${q}` : ""}`);
+    },
     getAvailableProviders: (bookingId) => request(`/vendor/bookings/${bookingId}/available-providers`),
     assignBooking: (id, providerId) => request(`/vendor/bookings/${id}/assign`, { method: "PATCH", body: { providerId } }),
     reassignBooking: (id, providerId) => request(`/vendor/bookings/${id}/reassign`, { method: "PATCH", body: { providerId } }),

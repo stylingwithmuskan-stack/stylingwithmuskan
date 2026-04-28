@@ -396,15 +396,24 @@ export async function listProviders(req, res) {
   
   console.log('[Vendor] Query:', JSON.stringify(q, null, 2));
   
-  let items = await ProviderAccount.find(q).sort({ createdAt: -1 }).lean();
+  // Pagination parameters
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+  
+  const total = await ProviderAccount.countDocuments(q);
+  let items = await ProviderAccount.find(q)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .lean();
   items = items.filter((item) => belongsToCity(item, cityId, city));
   
-  console.log('[Vendor] Found providers:', items.length);
+  console.log('[Vendor] Found providers:', items.length, 'of', total);
   if (items.length > 0) {
     console.log('[Vendor] Sample provider cities:', items.slice(0, 3).map(p => ({ name: p.name, city: p.city, zones: p.zones })));
   }
   
-  res.json({ providers: items });
+  res.json({ providers: items, page, limit, total });
 }
 
 // List vendors in the same city as current vendor
@@ -670,8 +679,15 @@ export async function listBookings(req, res) {
   const zones = vendor?.zones || [];
 
   if (!city && zones.length === 0) {
-    const bookings = await Booking.find().sort({ createdAt: -1 }).limit(200).lean();
-    return res.json({ bookings });
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const total = await Booking.countDocuments();
+    const bookings = await Booking.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+    return res.json({ bookings, page, limit, total });
   }
 
   // Find providers in vendor's areas
@@ -730,8 +746,15 @@ export async function listBookings(req, res) {
   
   const map = new Map();
   combined.forEach((b) => map.set(b._id.toString(), b));
-  const bookings = Array.from(map.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  res.json({ bookings });
+  const allBookings = Array.from(map.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+  // Apply pagination to combined results
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+  const total = allBookings.length;
+  const bookings = allBookings.slice((page - 1) * limit, page * limit);
+  
+  res.json({ bookings, page, limit, total });
 }
 
 export async function getAvailableProvidersForBooking(req, res) {

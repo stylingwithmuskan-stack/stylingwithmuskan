@@ -160,7 +160,13 @@ export const VenderAuthProvider = ({ children }) => {
     };
 
     // Get all SPs in vendor's city
-    const getServiceProviders = async () => (await api.vendor.providers()).providers || [];
+    const getServiceProviders = async (params = {}) => {
+        const response = await api.vendor.providers(params);
+        if (Array.isArray(response)) {
+            return { providers: response, total: response.length };
+        }
+        return { providers: response?.providers || [], page: response?.page, limit: response?.limit, total: response?.total || 0 };
+    };
     const getCityVendors = async () => (await api.vendor.vendors()).vendors || [];
 
     // Approve / Reject / Block / Suspend SP
@@ -170,7 +176,13 @@ export const VenderAuthProvider = ({ children }) => {
     const rejectSPZones = async (id) => { await api.vendor.rejectSPZones(id); };
 
     // Get all bookings
-    const getAllBookings = async () => (await api.vendor.bookings()).bookings || [];
+    const getAllBookings = async (params = {}) => {
+        const response = await api.vendor.bookings(params);
+        if (Array.isArray(response)) {
+            return { bookings: response, total: response.length };
+        }
+        return { bookings: response?.bookings || [], page: response?.page, limit: response?.limit, total: response?.total || 0 };
+    };
 
     // Get available providers for escalated booking
     const getAvailableProviders = async (bookingId) => (await api.vendor.getAvailableProviders(bookingId)).availableProviders || [];
