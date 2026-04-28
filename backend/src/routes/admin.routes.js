@@ -457,6 +457,12 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
 });
 
 router.patch("/providers/:id/profile", requireRole("admin"), param("id").isString(), AdminController.updateProviderProfile);
+router.patch(
+  "/providers/:id/profile-photo",
+  requireRole("admin"),
+  upload.single("profilePhoto"),
+  AdminController.updateProviderProfilePhoto
+);
 router.patch("/providers/:id/wallet/adjust", 
   requireRole("admin"), 
   param("id").isString(), 

@@ -526,6 +526,11 @@ export const api = {
     },
     updateProviderStatus: (id, status) => request(`/admin/providers/${id}/status`, { method: "PATCH", body: { status } }),
     updateProviderProfile: (id, payload) => request(`/admin/providers/${id}/profile`, { method: "PATCH", body: payload }),
+    updateProviderProfilePhoto: (id, file) => {
+      const formData = new FormData();
+      formData.append("profilePhoto", file);
+      return request(`/admin/providers/${id}/profile-photo`, { method: "PATCH", body: formData });
+    },
     adjustProviderWallet: (id, payload) => request(`/admin/providers/${id}/wallet/adjust`, { method: "PATCH", body: payload }),
     bookings: (params = {}) => {
       const q = new URLSearchParams(params).toString();

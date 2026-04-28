@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X, CalendarRange, MapPin, Wallet, Plus } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X, CalendarRange, MapPin, Wallet, Plus, Camera } from "lucide-react";
 
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
@@ -33,6 +33,7 @@ export default function SPOversight() {
         getCategories, 
         getServices, 
         updateProviderProfile,
+        updateProviderProfilePhoto,
         getLeaves,
         approveLeave,
         rejectLeave,
@@ -58,6 +59,11 @@ export default function SPOversight() {
     const [availableServices, setAvailableServices] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isContentLoading, setIsContentLoading] = useState(false);
+    
+    // Profile Photo Upload State
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const fileInputRef = useRef(null);
+    const [brokenPhotoProviderIds, setBrokenPhotoProviderIds] = useState(() => new Set());
     const [isWalletAdjusting, setIsWalletAdjusting] = useState(false);
     const [walletAmount, setWalletAmount] = useState("");
     const [walletType, setWalletType] = useState("add");
@@ -69,7 +75,10 @@ export default function SPOversight() {
     const load = async () => {
         try {
             const items = await getAllServiceProviders();
-            setProviders(Array.isArray(items) ? items : []);
+            const normalized = Array.isArray(items)
+                ? items.map((p) => ({ ...p, profilePhoto: p?.profilePhoto ?? "" }))
+                : [];
+            setProviders(normalized);
         } catch (err) {
             console.error("Failed to load providers:", err);
         }
@@ -151,6 +160,75 @@ export default function SPOversight() {
         }
     };
 
+    // Profile Photo Upload Handlers
+    const handlePhotoFileSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error("Please select a valid image file");
+            return;
+        }
+        
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Image size must be less than 5MB");
+            return;
+        }
+        
+        // Proceed with upload
+        handleProfilePhotoUpload(file);
+    };
+
+    const handleProfilePhotoUpload = async (file) => {
+        if (!selectedSP) return;
+        
+        setUploadingPhoto(true);
+        
+        try {
+            const targetId = String(selectedSP?._id || selectedSP?.id || "");
+            if (!targetId) throw new Error("Provider ID is missing");
+
+            const data = await updateProviderProfilePhoto(targetId, file);
+            const nextPhoto = data?.profilePhoto || "";
+            
+            // Update local state - providers list
+            setProviders(prev => prev.map(p => 
+                (targetId !== "" && String(p?._id || p?.id || "") === targetId)
+                    ? { ...p, profilePhoto: nextPhoto }
+                    : p
+            ));
+            
+            // Update selected provider in modal
+            setSelectedSP(prev => {
+                const prevId = String(prev?._id || prev?.id || "");
+                if (!prev || prevId !== targetId) return prev;
+                return {
+                    ...prev,
+                    profilePhoto: nextPhoto
+                };
+            });
+
+            setBrokenPhotoProviderIds(prev => {
+                const next = new Set(prev);
+                next.delete(targetId);
+                return next;
+            });
+            
+            toast.success("Profile photo updated successfully");
+            
+        } catch (error) {
+            console.error("Photo upload error:", error);
+            toast.error(error.message || "Failed to update profile photo");
+        } finally {
+            setUploadingPhoto(false);
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        }
+    };
 
     const handleWalletAdjust = async () => {
         if (!walletAmount || isNaN(walletAmount)) {
@@ -314,9 +392,31 @@ export default function SPOversight() {
                                     <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all">
                                         <CardContent className="p-4 flex flex-col gap-4">
                                             <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
-                                                    <span className="text-sm font-black text-primary">{sp.name?.charAt(0) || "?"}</span>
-                                                </div>
+                                                {(() => {
+                                                    const providerId = String(sp?._id || sp?.id || "");
+                                                    const hasPhoto = !!sp?.profilePhoto && !brokenPhotoProviderIds.has(providerId);
+                                                    return (
+                                                        <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                                            {hasPhoto ? (
+                                                                <img
+                                                                    src={sp.profilePhoto}
+                                                                    alt={sp.name || "Provider"}
+                                                                    className="h-full w-full object-cover"
+                                                                    onError={() => {
+                                                                        if (!providerId) return;
+                                                                        setBrokenPhotoProviderIds(prev => {
+                                                                            const next = new Set(prev);
+                                                                            next.add(providerId);
+                                                                            return next;
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <span className="text-sm font-black text-primary">{sp.name?.charAt(0) || "?"}</span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         <h3 className="text-sm font-bold truncate">{sp.name || "Unknown"}</h3>
@@ -557,19 +657,53 @@ export default function SPOversight() {
                         >
                             <div className="p-6 space-y-5">
                                 {/* Header */}
-                                <div className="flex items-center gap-4">
-                                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-green-500 flex items-center justify-center text-white text-2xl font-black">
-                                        {selectedSP.name?.charAt(0) || "?"}
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-black">{selectedSP.name || "Unknown"}</h2>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <Badge variant="outline" className={`text-[9px] font-black ${statusColors[selectedSP.approvalStatus] || statusColors.pending}`}>
-                                                {selectedSP.approvalStatus || "pending"}
-                                            </Badge>
-                                            <span className="text-[10px] text-muted-foreground font-medium">ID: {selectedSP._id || selectedSP.id}</span>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        {/* Profile Photo */}
+                                        <img 
+                                            src={selectedSP.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedSP.name || "P")}&background=random&color=fff`}
+                                            alt={selectedSP.name}
+                                            className="h-16 w-16 rounded-2xl object-cover border-2 border-border shadow-lg"
+                                        />
+                                        {/* Hidden file input */}
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handlePhotoFileSelect}
+                                        />
+                                        <div>
+                                            <h2 className="text-lg font-black">{selectedSP.name || "Unknown"}</h2>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Badge variant="outline" className={`text-[9px] font-black ${statusColors[selectedSP.approvalStatus] || statusColors.pending}`}>
+                                                    {selectedSP.approvalStatus || "pending"}
+                                                </Badge>
+                                                <span className="text-[10px] text-muted-foreground font-medium">ID: {selectedSP._id || selectedSP.id}</span>
+                                            </div>
                                         </div>
                                     </div>
+                                    
+                                    {/* Edit Photo Button - Top Right Corner */}
+                                    <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        className="h-9 px-3 rounded-xl border-primary/30 hover:bg-primary/10 hover:border-primary transition-all"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploadingPhoto}
+                                    >
+                                        {uploadingPhoto ? (
+                                            <>
+                                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                                <span className="text-xs font-bold">Uploading...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Camera className="h-4 w-4 mr-2" />
+                                                <span className="text-xs font-bold">Edit Photo</span>
+                                            </>
+                                        )}
+                                    </Button>
                                 </div>
 
                                 {/* Contact */}

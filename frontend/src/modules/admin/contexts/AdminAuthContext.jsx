@@ -80,6 +80,7 @@ export const AdminAuthProvider = ({ children }) => {
     const getAllServiceProviders = async () => (await api.admin.providers({ limit: 1000 })).providers;
     const updateSPStatus = async (id, status) => { await api.admin.updateProviderStatus(id, status); };
     const updateProviderProfile = async (id, data) => { await api.admin.updateProviderProfile(id, data); };
+    const updateProviderProfilePhoto = async (id, file) => await api.admin.updateProviderProfilePhoto(id, file);
 
     const approveProviderZones = async (id) => { await api.admin.approveProviderZones(id); };
     const rejectProviderZones = async (id) => { await api.admin.rejectProviderZones(id); };
@@ -240,7 +241,7 @@ export const AdminAuthProvider = ({ children }) => {
             getAllVendors, updateVendorStatus,
             approveVendorZones, rejectVendorZones,
             getAllCustomers,
-            getAllServiceProviders, updateSPStatus, updateProviderProfile,
+            getAllServiceProviders, updateSPStatus, updateProviderProfile, updateProviderProfilePhoto,
             approveProviderZones, rejectProviderZones, adjustProviderWallet,
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,
             getAllBookings, getUserBookings, approveBookingImages, assignSPToBooking, getAvailableProvidersForBooking, assignTeamToBooking,

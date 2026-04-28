@@ -1599,6 +1599,70 @@ export async function updateProviderProfile(req, res) {
   }
 }
 
+export async function updateProviderProfilePhoto(req, res) {
+  try {
+    console.log("[Admin] Profile photo update request received");
+    console.log("[Admin] Provider ID:", req.params.id);
+    console.log("[Admin] File received:", !!req.file);
+    
+    const { id } = req.params;
+    
+    // Validate provider exists
+    const provider = await ProviderAccount.findById(id);
+    if (!provider) {
+      console.log("[Admin] Provider not found:", id);
+      return res.status(404).json({ error: "Provider not found" });
+    }
+
+    // Validate file upload
+    if (!req.file) {
+      console.log("[Admin] No file in request");
+      return res.status(400).json({ error: "No image file provided" });
+    }
+
+    console.log("[Admin] Uploading to Cloudinary...");
+    // Upload to Cloudinary
+    const folder = `providers/${id}/profile`;
+    const uploadResult = await uploadBuffer(req.file.buffer, folder);
+    console.log("[Admin] Cloudinary upload successful:", uploadResult.secure_url);
+    
+    // Update provider profile photo
+    provider.profilePhoto = uploadResult.secure_url;
+    await provider.save();
+    console.log("[Admin] Provider updated in database");
+
+    // Send notification to provider
+    try {
+      const { notify } = await import("../../../lib/notify.js");
+      await notify({
+        recipientId: id,
+        recipientRole: "provider",
+        title: "Profile Photo Updated",
+        message: "Admin has updated your profile photo.",
+        type: "profile_updated",
+        meta: { updatedBy: "admin" }
+      });
+      console.log("[Admin] Notification sent to provider");
+    } catch (notifyErr) {
+      console.error("[Admin] Failed to send photo update notification:", notifyErr);
+    }
+
+    const responseData = { 
+      success: true, 
+      profilePhoto: provider.profilePhoto,
+      provider: {
+        id: provider._id,
+        name: provider.name,
+        profilePhoto: provider.profilePhoto
+      }
+    };
+    console.log("[Admin] Sending success response:", responseData);
+    res.json(responseData);
+  } catch (error) {
+    console.error("[Admin] Failed to update provider profile photo:", error);
+    res.status(500).json({ error: "Failed to update profile photo" });
+  }
+}
 
 export async function adjustProviderWallet(req, res) {
   const { id } = req.params;
