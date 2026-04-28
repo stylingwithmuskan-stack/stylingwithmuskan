@@ -68,16 +68,37 @@ export const AdminAuthProvider = ({ children }) => {
     };
 
     // ───── VENDORS ─────
-    const getAllVendors = async () => (await api.admin.vendors()).vendors;
+    const getAllVendors = async (params = {}) => {
+        const response = await api.admin.vendors(params);
+        // Handle both old format (array) and new format (object with pagination)
+        if (Array.isArray(response)) {
+            return { vendors: response, total: response.length };
+        }
+        return response;
+    };
     const updateVendorStatus = async (vendorId, status) => { await api.admin.updateVendorStatus(vendorId, status); };
     const approveVendorZones = async (vendorId) => { await api.admin.approveVendorZones(vendorId); };
     const rejectVendorZones = async (vendorId) => { await api.admin.rejectVendorZones(vendorId); };
 
     // ───── CUSTOMERS ─────
-    const getAllCustomers = async () => (await api.admin.customers()).customers;
+    const getAllCustomers = async (params = {}) => {
+        const response = await api.admin.customers(params);
+        // Handle both old format (array) and new format (object with pagination)
+        if (Array.isArray(response)) {
+            return { customers: response, total: response.length };
+        }
+        return response;
+    };
 
     // ───── SERVICE PROVIDERS ─────
-    const getAllServiceProviders = async () => (await api.admin.providers({ limit: 1000 })).providers;
+    const getAllServiceProviders = async (params = {}) => {
+        const response = await api.admin.providers(params);
+        // Handle both old format (array) and new format (object with pagination)
+        if (Array.isArray(response)) {
+            return { providers: response, total: response.length };
+        }
+        return response;
+    };
     const updateSPStatus = async (id, status) => { await api.admin.updateProviderStatus(id, status); };
     const updateProviderProfile = async (id, data) => { await api.admin.updateProviderProfile(id, data); };
     const updateProviderProfilePhoto = async (id, file) => await api.admin.updateProviderProfilePhoto(id, file);

@@ -7,6 +7,7 @@ import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { Input } from "@/modules/user/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/modules/user/components/ui/pagination";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 import { toast } from "sonner";
 import { cn } from "@/modules/user/lib/utils";
@@ -49,6 +50,13 @@ export default function SPOversight() {
     const [selectedSP, setSelectedSP] = useState(null);
     const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
     
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [limit] = useState(20);
+    const [total, setTotal] = useState(0);
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [loading, setLoading] = useState(false);
+    
     // Profile Editing State
     const [isEditingCategories, setIsEditingCategories] = useState(false);
     const [tempCategories, setTempCategories] = useState([]);
@@ -71,16 +79,53 @@ export default function SPOversight() {
 
 
     const [feedback, setFeedback] = useState([]);
+    
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [tab, debouncedSearch]);
 
     const load = async () => {
+        // Only paginate provider tabs, not category-requests or leaves
+        const shouldPaginate = ["all", "pending", "approved", "blocked"].includes(tab);
+        
+        if (shouldPaginate) {
+            setLoading(true);
+        }
+        
         try {
-            const items = await getAllServiceProviders();
-            const normalized = Array.isArray(items)
-                ? items.map((p) => ({ ...p, profilePhoto: p?.profilePhoto ?? "" }))
-                : [];
+            const response = shouldPaginate 
+                ? await getAllServiceProviders({ page, limit })
+                : await getAllServiceProviders({ limit: 1000 }); // Load all for non-paginated tabs
+            
+            // Handle both array (old format) and object with pagination (new format)
+            const providerList = Array.isArray(response) 
+                ? response 
+                : (response?.providers || []);
+            const totalCount = response?.total || providerList.length;
+            
+            const normalized = providerList.map((p) => ({ 
+                ...p, 
+                profilePhoto: p?.profilePhoto ?? "" 
+            }));
+            
             setProviders(normalized);
+            if (shouldPaginate) {
+                setTotal(totalCount);
+            }
         } catch (err) {
             console.error("Failed to load providers:", err);
+            setProviders([]);
+        } finally {
+            if (shouldPaginate) {
+                setLoading(false);
+            }
         }
 
         setFeedback(JSON.parse(localStorage.getItem("muskan-feedback") || "[]"));
@@ -122,7 +167,7 @@ export default function SPOversight() {
         }
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => { load(); }, [page, tab, debouncedSearch]);
 
     const startEditing = () => {
         ensureContent(); // Trigger lazy load if needed
@@ -290,7 +335,7 @@ export default function SPOversight() {
     };
 
     const filtered = providers.filter(sp => {
-        const ms = sp.name?.toLowerCase().includes(search.toLowerCase()) || sp.phone?.includes(search);
+        const ms = sp.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) || sp.phone?.includes(debouncedSearch);
         if (tab === "all") return ms;
         if (tab === "pending") return ms && (sp.approvalStatus === "pending" || sp.approvalStatus === "pending_vendor" || sp.approvalStatus === "pending_admin");
         if (tab === "approved") return ms && sp.approvalStatus === "approved";
@@ -380,13 +425,21 @@ export default function SPOversight() {
                 </div>
                 {["all", "pending", "approved", "blocked"].map(t => (
                     <TabsContent key={t} value={t} className="mt-0">
-                    {filtered.length === 0 ? (
+                    {loading ? (
+                        <Card className="border-border/50">
+                            <CardContent className="py-24 text-center">
+                                <RefreshCw className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+                                <p className="text-sm font-bold text-muted-foreground animate-pulse">Fetching providers...</p>
+                            </CardContent>
+                        </Card>
+                    ) : filtered.length === 0 ? (
                         <Card className="border-border/50"><CardContent className="py-16 text-center">
                             <Users className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
                             <p className="text-sm font-bold text-muted-foreground">No service providers found</p>
                         </CardContent></Card>
                     ) : (
-                        <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
+                        <>
+                            <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
                             {filtered.map(sp => (
                                 <motion.div key={sp._id || sp.id || sp.phone} variants={item}>
                                     <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all">
@@ -524,6 +577,52 @@ export default function SPOversight() {
                                 </motion.div>
                             ))}
                         </motion.div>
+                        
+                        {/* Pagination Controls */}
+                        {!loading && Math.ceil(total / limit) > 1 && (
+                            <div className="mt-8 pb-8">
+                                <Pagination>
+                                    <PaginationContent>
+                                        <PaginationItem>
+                                            <PaginationPrevious 
+                                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                                className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                            />
+                                        </PaginationItem>
+                                        
+                                        {Array.from({ length: Math.ceil(total / limit) }, (_, i) => i + 1).map(p => {
+                                            if (p === 1 || p === Math.ceil(total / limit) || (p >= page - 1 && p <= page + 1)) {
+                                                return (
+                                                    <PaginationItem key={p}>
+                                                        <PaginationLink 
+                                                            isActive={page === p}
+                                                            onClick={() => setPage(p)}
+                                                            className="cursor-pointer"
+                                                        >
+                                                            {p}
+                                                        </PaginationLink>
+                                                    </PaginationItem>
+                                                );
+                                            } else if (p === page - 2 || p === page + 2) {
+                                                return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>;
+                                            }
+                                            return null;
+                                        })}
+
+                                        <PaginationItem>
+                                            <PaginationNext 
+                                                onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                                                className={page === Math.ceil(total / limit) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                            />
+                                        </PaginationItem>
+                                    </PaginationContent>
+                                </Pagination>
+                                <p className="text-[10px] text-center text-muted-foreground mt-4 font-bold uppercase tracking-widest">
+                                    Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} providers
+                                </p>
+                            </div>
+                        )}
+                    </>
                     )}
                 </TabsContent>
                 ))}

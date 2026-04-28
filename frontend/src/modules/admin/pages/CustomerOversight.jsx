@@ -7,6 +7,7 @@ import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { Input } from "@/modules/user/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/modules/user/components/ui/pagination";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.04 } } };
@@ -17,21 +18,49 @@ export default function CustomerOversight() {
     const [customers, setCustomers] = useState([]);
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("all");
+    
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [limit] = useState(20);
+    const [total, setTotal] = useState(0);
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [loading, setLoading] = useState(false);
 
     const [feedback, setFeedback] = useState([]);
+    
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [tab, debouncedSearch]);
+
     const load = async () => {
+        setLoading(true);
         try {
-            const [bookings, customerList] = await Promise.all([
+            const [bookings, customerResponse] = await Promise.all([
                 getUserBookings()?.catch(() => []),
-                getAllCustomers()?.catch(() => []),
+                getAllCustomers({ page, limit })?.catch(() => ({ customers: [], total: 0 })),
             ]);
             
             setFeedback(JSON.parse(localStorage.getItem('muskan-feedback') || '[]'));
             
+            // Handle response - it can be array (old format) or object with pagination (new format)
+            const customerList = Array.isArray(customerResponse) 
+                ? customerResponse 
+                : (customerResponse?.customers || []);
+            const totalCount = customerResponse?.total || customerList.length;
+            
+            setTotal(totalCount);
+            
             const customerMap = new Map();
             
             // First, populate with real users from DB
-            (Array.isArray(customerList) ? customerList : []).forEach(u => {
+            customerList.forEach(u => {
                 customerMap.set(u._id || u.phone, {
                     id: u._id || u.phone,
                     name: u.name || "Unknown Customer",
@@ -60,6 +89,9 @@ export default function CustomerOversight() {
             setCustomers(Array.from(customerMap.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
         } catch (e) {
             console.error("Failed to load customers", e);
+            setCustomers([]);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -70,10 +102,10 @@ export default function CustomerOversight() {
         return (sum / cFeedback.length).toFixed(1);
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => { load(); }, [page, tab, debouncedSearch]);
 
     const filtered = customers.filter(c => {
-        const ms = c.name?.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search);
+        const ms = c.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) || c.phone?.includes(debouncedSearch);
         if (tab === "all") return ms;
         if (tab === "active") return ms && c.status === "active";
         if (tab === "blocked") return ms && c.status === "blocked";
@@ -137,7 +169,14 @@ export default function CustomerOversight() {
                     </div>
                 </div>
                 <TabsContent value={tab} className="mt-0">
-                    {filtered.length === 0 ? (
+                    {loading ? (
+                        <Card className="border-border/50">
+                            <CardContent className="py-24 text-center">
+                                <RefreshCw className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+                                <p className="text-sm font-bold text-muted-foreground animate-pulse">Fetching customers...</p>
+                            </CardContent>
+                        </Card>
+                    ) : filtered.length === 0 ? (
                         <Card className="border-border/50"><CardContent className="py-16 text-center">
                             <Users className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
                             <p className="text-sm font-bold text-muted-foreground">No customers found</p>
@@ -222,6 +261,51 @@ export default function CustomerOversight() {
                                 </motion.div>
                             ))}
                         </motion.div>
+                    )}
+                    
+                    {/* Pagination Controls */}
+                    {!loading && Math.ceil(total / limit) > 1 && (
+                        <div className="mt-8 pb-8">
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious 
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                        />
+                                    </PaginationItem>
+                                    
+                                    {Array.from({ length: Math.ceil(total / limit) }, (_, i) => i + 1).map(p => {
+                                        if (p === 1 || p === Math.ceil(total / limit) || (p >= page - 1 && p <= page + 1)) {
+                                            return (
+                                                <PaginationItem key={p}>
+                                                    <PaginationLink 
+                                                        isActive={page === p}
+                                                        onClick={() => setPage(p)}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        {p}
+                                                    </PaginationLink>
+                                                </PaginationItem>
+                                            );
+                                        } else if (p === page - 2 || p === page + 2) {
+                                            return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>;
+                                        }
+                                        return null;
+                                    })}
+
+                                    <PaginationItem>
+                                        <PaginationNext 
+                                            onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                                            className={page === Math.ceil(total / limit) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                            <p className="text-[10px] text-center text-muted-foreground mt-4 font-bold uppercase tracking-widest">
+                                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} customers
+                            </p>
+                        </div>
                     )}
                 </TabsContent>
             </Tabs>

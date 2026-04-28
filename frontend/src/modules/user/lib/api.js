@@ -513,13 +513,19 @@ export const api = {
   admin: {
     login: (email, password) => request("/admin/login", { method: "POST", body: { email, password } }),
     logout: () => request("/admin/logout", { method: "POST" }),
-    vendors: () => request("/admin/vendors"),
+    vendors: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/admin/vendors${q ? `?${q}` : ""}`);
+    },
     updateVendorStatus: (id, status) => request(`/admin/vendors/${id}/status`, { method: "PATCH", body: { status } }),
     approveVendorZones: (id) => request(`/admin/vendors/${id}/approve-zones`, { method: "PATCH" }),
     rejectVendorZones: (id) => request(`/admin/vendors/${id}/reject-zones`, { method: "PATCH" }),
     approveProviderZones: (id) => request(`/admin/providers/${id}/approve-zones`, { method: "PATCH" }),
     rejectProviderZones: (id) => request(`/admin/providers/${id}/reject-zones`, { method: "PATCH" }),
-    customers: () => request("/admin/customers"),
+    customers: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/admin/customers${q ? `?${q}` : ""}`);
+    },
     providers: (params = {}) => {
       const q = new URLSearchParams(params).toString();
       return request(`/admin/providers${q ? `?${q}` : ""}`);
