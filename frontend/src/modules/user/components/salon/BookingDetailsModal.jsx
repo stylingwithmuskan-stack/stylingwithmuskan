@@ -468,29 +468,40 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
 
                                 {booking.items && booking.items.length > 0 && (
                                     <div className="space-y-3">
-                                        {booking.items.map((item, idx) => (
-                                            <div key={idx} className="flex gap-4 p-3 bg-white rounded-2xl border border-border/40 shadow-sm">
-                                                <div className="w-16 h-16 rounded-xl overflow-hidden bg-accent flex-shrink-0">
-                                                    <img 
-                                                        src={
-                                                            item.image || 
-                                                            globalServices?.find(s => s.id === item.id)?.image ||
-                                                            globalServices?.find(s => s.name === item.name)?.image ||
-                                                            "https://placehold.co/100x100"
-                                                        } 
-                                                        className="w-full h-full object-cover" 
-                                                        alt={item.name} 
-                                                    />
-                                                </div>
-                                                <div className="flex-1 min-w-0 py-1 flex flex-col justify-between">
-                                                    <h4 className="font-bold text-sm truncate">{item.name}</h4>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs text-muted-foreground font-medium">Qty: {item.quantity || 1}</span>
-                                                        <span className="font-black text-primary">₹{(item.price * (item.quantity || 1)).toLocaleString()}</span>
+                                        {booking.items.map((item, idx) => {
+                                            // For customize bookings (Corporate Events), prices are stored in booking.quote.items
+                                            // For normal bookings, prices are in booking.items directly
+                                            const isCustomizeBooking = booking.bookingType === 'customized' || booking.eventType;
+                                            const priceItem = isCustomizeBooking 
+                                                ? booking.quote?.items?.find(qi => qi.name === item.name || qi.id === item.id) 
+                                                : item;
+                                            const itemPrice = priceItem?.price || 0;
+                                            const itemQuantity = priceItem?.quantity || item.quantity || 1;
+
+                                            return (
+                                                <div key={idx} className="flex gap-4 p-3 bg-white rounded-2xl border border-border/40 shadow-sm">
+                                                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-accent flex-shrink-0">
+                                                        <img 
+                                                            src={
+                                                                item.image || 
+                                                                globalServices?.find(s => s.id === item.id)?.image ||
+                                                                globalServices?.find(s => s.name === item.name)?.image ||
+                                                                "https://placehold.co/100x100"
+                                                            } 
+                                                            className="w-full h-full object-cover" 
+                                                            alt={item.name} 
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0 py-1 flex flex-col justify-between">
+                                                        <h4 className="font-bold text-sm truncate">{item.name}</h4>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs text-muted-foreground font-medium">Qty: {itemQuantity}</span>
+                                                            <span className="font-black text-primary">₹{(itemPrice * itemQuantity).toLocaleString()}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>

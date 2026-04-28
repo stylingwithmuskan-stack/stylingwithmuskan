@@ -33,7 +33,7 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } 
 const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 
 export default function BookingManagement() {
-    const { isLoggedIn, getAllBookings, getAllServiceProviders, getAvailableProvidersForBooking, assignSPToBooking, assignTeamToBooking, approveBookingImages } = useAdminAuth();
+    const { isLoggedIn, getAllBookings, getAllServiceProviders, getAvailableProvidersForBooking, assignSPToBooking, assignTeamToBooking, approveBookingImages, getParents, getCategories } = useAdminAuth();
     const { officeSettings, updateOfficeSettings, providers: moduleProviders } = useUserModuleData();
     const [bookings, setBookings] = useState([]);
     const [providers, setProviders] = useState([]);
@@ -55,6 +55,10 @@ export default function BookingManagement() {
     const [updating, setUpdating] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    // Content data for resolving IDs to names
+    const [serviceTypes, setServiceTypes] = useState([]);
+    const [categories, setCategories] = useState([]);
+
     const [page, setPage] = useState(1);
     const [limit] = useState(20);
     const [total, setTotal] = useState(0);
@@ -66,6 +70,25 @@ export default function BookingManagement() {
         const timer = setTimeout(() => setDebouncedSearch(search), 500);
         return () => clearTimeout(timer);
     }, [search]);
+
+    // Fetch ServiceTypes and Categories for resolving IDs
+    useEffect(() => {
+        if (!isLoggedIn) return;
+        const loadContent = async () => {
+            try {
+                const [parents, cats] = await Promise.all([
+                    getParents(),
+                    getCategories({ limit: 1000 })
+                ]);
+                setServiceTypes(parents || []);
+                setCategories(cats || []);
+            } catch (err) {
+                console.error("Failed to load content:", err);
+            }
+        };
+        loadContent();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoggedIn]);
 
     // Reset page to 1 when filters change
     useEffect(() => {
@@ -224,6 +247,119 @@ export default function BookingManagement() {
         } finally {
             setUpdating(false);
         }
+    };
+
+    // Helper functions to resolve IDs to human-readable names
+    const resolveServiceTypeName = (id) => {
+        if (!id || id === "custom") return null;
+        const serviceType = serviceTypes.find(st => st.id === id);
+        return serviceType?.label || null;
+    };
+
+    const resolveCategoryName = (id) => {
+        if (!id) return null;
+        if (id === "custom") return "Customized"; // Friendly name for custom category
+        const category = categories.find(c => c.id === id);
+        return category?.name || null;
+    };
+
+    const getDisplayCategory = (booking) => {
+        // For customized bookings, try to extract category from services array
+        if (booking.bookingType === 'customized' && booking.services?.length > 0) {
+            // Get all unique categories from services
+            const serviceCategories = booking.services
+                .map(s => s.category)
+                .filter(c => c && c !== "custom");
+            
+            if (serviceCategories.length > 0) {
+                // Try to resolve first category
+                const resolved = resolveCategoryName(serviceCategories[0]);
+                if (resolved) return resolved;
+            }
+            
+            // Try serviceType from services
+            const serviceTypes = booking.services
+                .map(s => s.serviceType)
+                .filter(st => st && st !== "custom");
+            
+            if (serviceTypes.length > 0) {
+                const resolvedST = resolveServiceTypeName(serviceTypes[0]);
+                if (resolvedST) return resolvedST;
+            }
+            
+            // If all services have "custom", return friendly name
+            return "Customized Service";
+        }
+        
+        // For normal bookings - original logic
+        if (booking.categoryName && booking.categoryName !== "custom") {
+            return booking.categoryName;
+        }
+        
+        // Try to resolve serviceType ID
+        const resolvedServiceType = resolveServiceTypeName(booking.serviceType);
+        if (resolvedServiceType) {
+            return resolvedServiceType;
+        }
+        
+        // Try to get from first service's category
+        if (booking.services?.[0]?.category) {
+            const resolvedCategory = resolveCategoryName(booking.services[0].category);
+            if (resolvedCategory) return resolvedCategory;
+        }
+        
+        // Fallback
+        return booking.bookingType === 'customized' ? "Customized Service" : "N/A";
+    };
+
+    // Helper function to get payment status display with proper color
+    const getPaymentStatusDisplay = (booking) => {
+        const prepaid = booking.prepaidAmount || 0;
+        const balance = booking.balanceAmount || 0;
+        const total = booking.totalAmount || 0;
+        
+        // If advance paid and balance remaining
+        if (prepaid > 0 && balance > 0) {
+            return {
+                status: "Partially Paid",
+                color: "bg-blue-50 text-blue-600 border-blue-200"
+            };
+        }
+        
+        // If fully paid
+        if (booking.paymentStatus === "Paid" || (total > 0 && balance === 0 && prepaid > 0)) {
+            return {
+                status: "Fully Paid",
+                color: "bg-green-50 text-green-600 border-green-200"
+            };
+        }
+        
+        // Default to booking's payment status
+        return {
+            status: booking.paymentStatus || "Pending",
+            color: booking.paymentStatus === "Paid" 
+                ? "bg-green-50 text-green-600 border-green-200" 
+                : "bg-amber-50 text-amber-600 border-amber-200"
+        };
+    };
+
+    // Helper function to detect data issues in customized bookings
+    const hasDataIssue = (booking) => {
+        // Only check for customized bookings
+        if (booking.bookingType !== 'customized') return false;
+        
+        // Check if service name contains "advance" and price equals prepaidAmount
+        const suspiciousService = booking.services?.some(s => 
+            s.name?.toLowerCase().includes('advance') && 
+            s.price === booking.prepaidAmount
+        );
+        
+        // Check if total equals prepaid (should have balance for customized with advance)
+        const totalEqualsPrepaid = booking.prepaidAmount > 0 &&
+                                   booking.totalAmount === booking.prepaidAmount && 
+                                   booking.balanceAmount === 0;
+        
+        return suspiciousService || totalEqualsPrepaid;
     };
 
     const unassignedCount = bookings.filter(b => {
@@ -986,7 +1122,7 @@ export default function BookingManagement() {
                                             </div>
                                             <div className="flex justify-between items-center">
                                                 <span className="text-xs font-bold text-muted-foreground">Category</span>
-                                                <span className="text-xs font-black">{detailModal.serviceType}</span>
+                                                <span className="text-xs font-black">{getDisplayCategory(detailModal)}</span>
                                             </div>
                                             <div className="flex justify-between items-center">
                                                 <span className="text-xs font-bold text-muted-foreground">Type</span>
@@ -1000,34 +1136,143 @@ export default function BookingManagement() {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Customized Booking Additional Info */}
+                                    {(detailModal.bookingType === 'customized' && (detailModal.eventType || detailModal.noOfPeople || detailModal.selectedServices)) && (
+                                        <div className="bg-purple-50/50 rounded-2xl p-4 border border-purple-100">
+                                            <h4 className="text-[10px] font-black uppercase text-purple-600 tracking-widest mb-3 flex items-center gap-2"><LayoutGrid className="h-3.5 w-3.5" /> Customized Package Details</h4>
+                                            <div className="space-y-3">
+                                                {detailModal.eventType && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs font-bold text-muted-foreground">Event Type</span>
+                                                        <span className="text-xs font-black text-purple-700">{detailModal.eventType}</span>
+                                                    </div>
+                                                )}
+                                                {detailModal.noOfPeople && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs font-bold text-muted-foreground">Group Size</span>
+                                                        <Badge variant="outline" className="text-[10px] font-bold bg-purple-100 text-purple-700 border-purple-200">
+                                                            {detailModal.noOfPeople} People
+                                                        </Badge>
+                                                    </div>
+                                                )}
+                                                {detailModal.selectedServices && detailModal.selectedServices.length > 0 && (
+                                                    <div className="pt-2 border-t border-purple-100">
+                                                        <p className="text-[10px] font-black uppercase text-purple-600 mb-2">Requested Services</p>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {detailModal.selectedServices.map((s, idx) => (
+                                                                <span key={idx} className="text-[10px] font-bold px-2 py-1 bg-white border border-purple-200 text-purple-700 rounded-lg shadow-sm">
+                                                                    {s.name} {s.quantity > 1 && `x${s.quantity}`}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Right Side: Cart, Pricing & Assignment */}
                                 <div className="space-y-6">
+                                    {/* Data Issue Warning - Only for customized bookings with issues */}
+                                    {hasDataIssue(detailModal) && (
+                                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                                            <p className="text-xs font-bold text-amber-700 flex items-center gap-2">
+                                                <span className="text-base">⚠️</span>
+                                                Pricing data may be incomplete - Please verify with enquiry details
+                                            </p>
+                                        </div>
+                                    )}
+                                    
                                     <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
                                         <h4 className="text-[10px] font-black uppercase text-primary tracking-widest mb-3 flex items-center gap-2"><LayoutGrid className="h-3.5 w-3.5" /> Bill Summary</h4>
                                         <div className="space-y-2">
-                                            {detailModal.items?.map((it, i) => (
-                                                <div key={i} className="flex justify-between text-xs py-1 border-b border-primary/5 last:border-0">
-                                                    <span className="font-bold">{it.serviceName} <span className="text-muted-foreground px-1">x{it.quantity}</span></span>
-                                                    <span className="font-black">₹{it.price * it.quantity}</span>
-                                                </div>
-                                            ))}
+                                            {/* Display items for normal bookings or services for customized bookings */}
+                                            {(detailModal.items && detailModal.items.length > 0) ? (
+                                                detailModal.items.map((it, i) => {
+                                                    // For customize bookings, get price from quote.items
+                                                    const isCustomize = detailModal.bookingType === 'customized' || detailModal.eventType;
+                                                    const priceItem = isCustomize 
+                                                        ? detailModal.quote?.items?.find(qi => qi.name === it.name || qi.id === it.id)
+                                                        : it;
+                                                    const itemPrice = priceItem?.price || it.price || 0;
+                                                    const itemQty = priceItem?.quantity || it.quantity || 1;
+                                                    
+                                                    return (
+                                                        <div key={i} className="flex justify-between text-xs py-1 border-b border-primary/5 last:border-0">
+                                                            <span className="font-bold">{it.serviceName || it.name} <span className="text-muted-foreground px-1">x{itemQty}</span></span>
+                                                            <span className="font-black">₹{(itemPrice * itemQty).toLocaleString()}</span>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (detailModal.services && detailModal.services.length > 0) ? (
+                                                detailModal.services.map((srv, i) => (
+                                                    <div key={i} className="flex justify-between text-xs py-1 border-b border-primary/5 last:border-0">
+                                                        <span className="font-bold">{srv.name} <span className="text-muted-foreground px-1">x{srv.quantity || 1}</span></span>
+                                                        <span className="font-black">₹{((srv.price || 0) * (srv.quantity || 1)).toLocaleString()}</span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground italic">No service details available</p>
+                                            )}
+                                            
                                             <div className="pt-2 mt-2 border-t border-primary/20 space-y-1">
                                                 <div className="flex justify-between text-xs">
                                                     <span className="text-muted-foreground font-bold">Total Amount</span>
-                                                    <span className="font-bold">₹{detailModal.totalAmount}</span>
+                                                    <span className="font-bold">₹{(detailModal.totalAmount || 0).toLocaleString()}</span>
                                                 </div>
-                                                {detailModal.discountPrice > 0 && (
+                                                {(detailModal.discount > 0 || detailModal.discountPrice > 0) && (
                                                     <div className="flex justify-between text-xs text-green-600">
                                                         <span className="font-bold">Discount</span>
-                                                        <span className="font-bold">-₹{detailModal.discountPrice}</span>
+                                                        <span className="font-bold">-₹{(detailModal.discount || detailModal.discountPrice || 0).toLocaleString()}</span>
                                                     </div>
                                                 )}
+                                                {detailModal.convenienceFee > 0 && (
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-muted-foreground font-bold">Convenience Fee</span>
+                                                        <span className="font-bold">+₹{(detailModal.convenienceFee || 0).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                {detailModal.walletAmountUsed > 0 && (
+                                                    <div className="flex justify-between text-xs text-purple-600">
+                                                        <span className="font-bold">Wallet Used</span>
+                                                        <span className="font-bold">-₹{(detailModal.walletAmountUsed || 0).toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Advance Payment Section - Only for customized bookings with prepaid amount */}
+                                                {detailModal.bookingType === 'customized' && detailModal.prepaidAmount > 0 && (
+                                                    <>
+                                                        <div className="flex justify-between text-xs text-blue-600 border-t border-primary/10 pt-1 mt-1">
+                                                            <span className="font-bold">Advance Paid</span>
+                                                            <span className="font-bold">-₹{(detailModal.prepaidAmount || 0).toLocaleString()}</span>
+                                                        </div>
+                                                        {detailModal.balanceAmount > 0 && (
+                                                            <div className="flex justify-between text-xs text-orange-600">
+                                                                <span className="font-bold">Balance Due</span>
+                                                                <span className="font-bold">₹{(detailModal.balanceAmount || 0).toLocaleString()}</span>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
+                                                
                                                 <div className="flex justify-between text-base pt-1 font-black text-primary">
                                                     <span>Payable</span>
-                                                    <span>₹{(detailModal.totalAmount - (detailModal.discountPrice || 0)).toLocaleString()}</span>
+                                                    <span>₹{(
+                                                        detailModal.bookingType === 'customized' && detailModal.prepaidAmount > 0
+                                                            ? (detailModal.balanceAmount || 0)
+                                                            : ((detailModal.totalAmount || 0) - (detailModal.discount || detailModal.discountPrice || 0) + (detailModal.convenienceFee || 0) - (detailModal.walletAmountUsed || 0))
+                                                    ).toLocaleString()}</span>
                                                 </div>
+                                                {detailModal.paymentStatus && (
+                                                    <div className="flex justify-between text-xs pt-1 border-t border-primary/10 mt-1">
+                                                        <span className="text-muted-foreground font-bold">Payment Status</span>
+                                                        <Badge variant="outline" className={`text-[9px] font-bold ${getPaymentStatusDisplay(detailModal).color}`}>
+                                                            {getPaymentStatusDisplay(detailModal).status}
+                                                        </Badge>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1051,6 +1296,26 @@ export default function BookingManagement() {
                                                 </div>
                                             )}
                                             
+                                            {/* Team Members for Customized Bookings */}
+                                            {detailModal.teamMembers && detailModal.teamMembers.length > 0 && (
+                                                <div className="pt-3 border-t border-border/30">
+                                                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Team Members</p>
+                                                    <div className="space-y-2">
+                                                        {detailModal.teamMembers.map((member, idx) => (
+                                                            <div key={idx} className="flex items-center gap-2 text-xs">
+                                                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-[10px]">
+                                                                    {member.name?.charAt(0) || "T"}
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <p className="font-bold">{member.name}</p>
+                                                                    {member.serviceType && <p className="text-[9px] text-muted-foreground">{member.serviceType}</p>}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
                                             {["incoming", "pending", "unassigned", "rejected"].includes(detailModal.status?.toLowerCase()) && (
                                                 <Button className="w-full h-10 rounded-xl font-bold bg-primary" onClick={() => { setAssignModal(detailModal); setDetailModal(null); }}>
                                                     {detailModal.assignedProvider ? "Change Provider" : "Assign Now"}
@@ -1060,6 +1325,79 @@ export default function BookingManagement() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Detailed Services List Section */}
+                            {((detailModal.services && detailModal.services.length > 0) || (detailModal.items && detailModal.items.length > 0)) && (
+                                <div className="bg-muted/20 rounded-2xl p-5 border border-border/50">
+                                    <h4 className="text-sm font-black uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+                                        <LayoutGrid className="h-4 w-4 text-primary" /> 
+                                        {detailModal.bookingType === 'customized' ? 'Customized Services' : 'Services Booked'}
+                                    </h4>
+                                    <div className="space-y-3">
+                                        {(detailModal.services && detailModal.services.length > 0) ? (
+                                            detailModal.services.map((srv, idx) => (
+                                                <div key={idx} className="flex gap-4 p-3 bg-muted/30 rounded-xl border border-border/30">
+                                                    {srv.image && (
+                                                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                                                            <img src={srv.image} className="w-full h-full object-cover" alt={srv.name} />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex justify-between items-start mb-1">
+                                                            <h5 className="font-bold text-sm">{srv.name}</h5>
+                                                            <span className="font-black text-primary">₹{((srv.price || 0) * (srv.quantity || 1)).toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                                            {srv.category && (
+                                                                <span className="font-medium">
+                                                                    {resolveCategoryName(srv.category) || (srv.category !== "custom" ? srv.category : "Customized")}
+                                                                </span>
+                                                            )}
+                                                            {!srv.category && srv.serviceType && (
+                                                                <span className="font-medium">
+                                                                    {resolveServiceTypeName(srv.serviceType) || (srv.serviceType !== "custom" ? srv.serviceType : "Customized")}
+                                                                </span>
+                                                            )}
+                                                            {srv.duration && <span className="font-medium">• {srv.duration}</span>}
+                                                            {srv.quantity > 1 && <span className="font-medium">• Qty: {srv.quantity}</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (detailModal.items && detailModal.items.length > 0) ? (
+                                            detailModal.items.map((item, idx) => {
+                                                // For customize bookings, get price from quote.items
+                                                const isCustomize = detailModal.bookingType === 'customized' || detailModal.eventType;
+                                                const priceItem = isCustomize 
+                                                    ? detailModal.quote?.items?.find(qi => qi.name === item.name || qi.id === item.id)
+                                                    : item;
+                                                const itemPrice = priceItem?.price || item.price || 0;
+                                                const itemQty = priceItem?.quantity || item.quantity || 1;
+                                                
+                                                return (
+                                                    <div key={idx} className="flex gap-4 p-3 bg-muted/30 rounded-xl border border-border/30">
+                                                        {item.image && (
+                                                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                                                                <img src={item.image} className="w-full h-full object-cover" alt={item.serviceName || item.name} />
+                                                            </div>
+                                                        )}
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex justify-between items-start mb-1">
+                                                                <h5 className="font-bold text-sm">{item.serviceName || item.name}</h5>
+                                                                <span className="font-black text-primary">₹{(itemPrice * itemQty).toLocaleString()}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                                                {item.duration && <span className="font-medium">{item.duration}</span>}
+                                                                {itemQty > 1 && <span className="font-medium">• Qty: {itemQty}</span>}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        ) : null}
+                                    </div>
+                                </div>
+                            )}
 
                             {detailModal.notes && (
                                 <div className="bg-pink-50 rounded-2xl p-4 border border-pink-100">
