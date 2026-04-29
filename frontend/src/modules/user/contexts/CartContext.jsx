@@ -99,6 +99,21 @@ export const CartProvider = ({ children }) => {
     const addToCart = (service, quantity = 1) => {
         if (!service) return;
 
+        // Meta Pixel Tracking
+        try {
+            if (window.fbq) {
+                window.fbq('track', 'AddToCart', {
+                    content_ids: [service.id],
+                    content_name: service.name,
+                    content_type: 'product',
+                    value: service.price,
+                    currency: 'INR'
+                });
+            }
+        } catch (err) {
+            console.error("Meta Pixel AddToCart error:", err);
+        }
+
         setCartItems((prevItems) => {
             const existingItemIndex = prevItems.findIndex((item) => item.id === service.id);
             const serviceWithType = { ...service, serviceType: service.serviceType || "skin" };

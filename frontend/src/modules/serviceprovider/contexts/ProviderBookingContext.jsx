@@ -35,6 +35,7 @@ export const ProviderBookingProvider = ({ children }) => {
     const userInteractedRef = useRef(false);
     const isFirstLoadRef = useRef(true);
     const locationSocketRef = useRef(null);
+    const chatSocketRef = useRef(null);
 
     // Unlock audio on first user interaction (browser autoplay policy)
     useEffect(() => {
@@ -178,10 +179,30 @@ export const ProviderBookingProvider = ({ children }) => {
 
     const incomingBookings = myBookings.filter(b => ["incoming", "pending", "Pending", "final_approved", "payment_pending"].includes(b.status));
     const pendingBookings = myBookings.filter(b => ["pending", "Pending", "final_approved", "payment_pending"].includes(b.status));
+    
+    const lapsedBookings = myBookings.filter(b => {
+        if (!b.slot?.date) return false;
+        // Check if date is in the past (before today)
+        const bookingDate = new Date(b.slot.date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const isPast = bookingDate.getTime() < today.getTime();
+        const isActiveStatus = ["accepted", "travelling", "arrived", "in_progress", "vendor_assigned", "vendor_reassigned", "payment", "documentation"].includes(b.status);
+        
+        return isPast && isActiveStatus;
+    });
+
     const activeBookings = myBookings.filter(b => {
         // Mandatory jobs stay in "Assigned" tab until they move beyond "accepted" state
         if (b.isMandatory && b.status === "accepted") return false;
-        return ["accepted", "travelling", "arrived", "in_progress", "vendor_assigned", "vendor_reassigned", "payment", "documentation"].includes(b.status);
+        
+        const isActiveStatus = ["accepted", "travelling", "arrived", "in_progress", "vendor_assigned", "vendor_reassigned", "payment", "documentation"].includes(b.status);
+        
+        // Exclude lapsed bookings from primary active list
+        const isLapsed = lapsedBookings.some(lb => lb.id === b.id);
+        
+        return isActiveStatus && !isLapsed;
     });
     const assignedBookings = myBookings.filter(b => 
         b.status === "vendor_assigned" || 
@@ -265,10 +286,7 @@ export const ProviderBookingProvider = ({ children }) => {
 
         chatSocket.on("connect", () => {
              console.log("[ProviderBookings] 💬 Chat socket connected globally");
-             // Join rooms for all current active/accepted bookings
-             activeBookings.forEach(b => {
-                 chatSocket.emit("join:chat", { bookingId: b.id || b._id });
-             });
+             chatSocketRef.current = chatSocket;
         });
 
         chatSocket.on("receive:message", (newMessage) => {
@@ -296,8 +314,20 @@ export const ProviderBookingProvider = ({ children }) => {
             chatSocket.disconnect();
             locationSocket.disconnect();
             locationSocketRef.current = null;
+            chatSocketRef.current = null;
         };
-    }, [providerId, refreshBookings, activeBookings.length, playMessageSound]);
+    }, [providerId, refreshBookings, playMessageSound]);
+
+    // ─── Chat Room Management ───
+    useEffect(() => {
+        const cs = chatSocketRef.current;
+        if (!cs || !cs.connected) return;
+
+        // Join rooms for all current active and lapsed bookings
+        [...activeBookings, ...lapsedBookings].forEach(b => {
+            cs.emit("join:chat", { bookingId: b.id || b._id });
+        });
+    }, [activeBookings.length, lapsedBookings.length]);
 
     const updateLiveLocation = useCallback((lat, lng) => {
         if (locationSocketRef.current && locationSocketRef.current.connected) {
@@ -442,6 +472,7 @@ export const ProviderBookingProvider = ({ children }) => {
             pendingBookings,
             activeBookings,
             assignedBookings,
+            lapsedBookings,
             completedBookings,
             cancelledBookings,
             refreshBookings,

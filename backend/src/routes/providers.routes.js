@@ -9,7 +9,8 @@ import { OfficeSettings } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, isIsoDate, slotLabelToLocalDateTime, parseDurationToMinutes } from "../lib/slots.js";
 import { computeAvailableSlots } from "../lib/availability.js";
 import { resolveBookingSettings } from "../lib/settings.js";
-import { providerMatchesRequestedSpecialties, resolveRequestedSpecialtySets } from "../lib/serviceMatching.js";
+import { providerMatchesRequestedSpecialties, resolveRequestedSpecialtySets, providerMatchesAllServiceIds } from "../lib/serviceMatching.js";
+import { Service } from "../models/Content.js";
 
 const router = Router();
 
@@ -86,7 +87,7 @@ router.get(
     const bufferMs = Math.max(Number(settings?.bufferMinutes || 0), 0) * 60 * 1000;
     const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
     const effectiveLeadMs = Math.max(bufferMs, leadMs);
-  
+
     console.log(`[SLOTS DEBUG] Provider: ${providerId}, Date: ${date}`);
     console.log(`[SLOTS DEBUG] Lead Time: ${settings?.minLeadTimeMinutes}m, Buffer: ${settings?.bufferMinutes}m`);
     console.log(`[SLOTS DEBUG] Office Hours: ${settings?.serviceStartTime || settings?.startTime} to ${settings?.serviceEndTime || settings?.endTime}`);
@@ -208,11 +209,22 @@ router.get(
     if (!isIsoDate(date)) return res.status(400).json({ error: "Invalid date" });
 
     // ✅ NEW: Parse service IDs for exception checking (optional, backward compatible)
-    const serviceIds = req.query.serviceIds 
-      ? (typeof req.query.serviceIds === 'string' 
-          ? JSON.parse(req.query.serviceIds) 
-          : req.query.serviceIds)
-      : [];
+    let serviceIds = [];
+    if (req.query.serviceIds) {
+      if (typeof req.query.serviceIds === "string") {
+        if (req.query.serviceIds.startsWith("[")) {
+          try {
+            serviceIds = JSON.parse(req.query.serviceIds);
+          } catch {
+            serviceIds = req.query.serviceIds.split(",").map(s => s.trim()).filter(Boolean);
+          }
+        } else {
+          serviceIds = req.query.serviceIds.split(",").map(s => s.trim()).filter(Boolean);
+        }
+      } else {
+        serviceIds = Array.isArray(req.query.serviceIds) ? req.query.serviceIds : [req.query.serviceIds];
+      }
+    }
 
     // ✅ NEW: Check service-level exceptions if serviceIds provided
     let serviceBlockInfo = null;
@@ -220,7 +232,7 @@ router.get(
       try {
         const { checkServiceExceptions } = await import("../lib/serviceAvailability.js");
         serviceBlockInfo = await checkServiceExceptions(serviceIds, date);
-        
+
         // If service is fully blocked for this date, return empty slots immediately
         if (serviceBlockInfo.isFullyBlocked) {
           console.log(`[Slots] Service "${serviceBlockInfo.blockedService}" is fully blocked on ${date}`);
@@ -256,30 +268,30 @@ router.get(
       }
 
       const result = await computeAvailableSlots(providerId, date, settings, { requestedDurationMinutes: durationMinutes });
-      
+
       // ✅ NEW: Apply partial time blocks if any (post-processing)
       let finalSlots = result.slots || [];
       let finalSlotMap = result.slotMap || {};
-      
+
       if (serviceBlockInfo?.partialBlocks?.length > 0) {
         try {
           const { filterBlockedTimeSlots } = await import("../lib/serviceAvailability.js");
           finalSlots = filterBlockedTimeSlots(result.slots, serviceBlockInfo.partialBlocks);
-          
+
           // Rebuild slotMap
           const newSlotMap = {};
           DEFAULT_TIME_SLOTS.forEach(s => {
             newSlotMap[s] = finalSlots.includes(s);
           });
           finalSlotMap = newSlotMap;
-          
+
           console.log(`[Slots] Applied partial blocks for provider ${providerId}. Filtered ${result.slots.length} → ${finalSlots.length} slots`);
         } catch (err) {
           console.error("[Slots] Partial block filtering failed:", err);
           // Continue with unfiltered slots
         }
       }
-      
+
       return res.json({
         date,
         slots: finalSlots,
@@ -334,7 +346,31 @@ router.get(
       return res.json({ date, slots: [], slotMap: {}, candidateProvidersBySlot: {}, city: cityGuess, zoneId: zoneIdGuess });
     }
 
-    if (serviceTypes.length > 0 || categories.length > 0) {
+    if (serviceIds.length > 0) {
+      console.log(`[SLOTS DEBUG] Filtering by strict service IDs:`, serviceIds);
+      
+      // ✅ PRE-FETCH Service metadata once
+      let serviceMetadata = [];
+      try {
+        serviceMetadata = await Service.find({ id: { $in: serviceIds } }).select("id category").lean();
+      } catch (err) {
+        console.error("[Slots] Failed to pre-fetch service metadata:", err);
+      }
+
+      const providerMatches = await Promise.all(providers.map(async (provider) => {
+        const matches = await providerMatchesAllServiceIds(provider, serviceIds, serviceMetadata);
+        return matches ? provider : null;
+      }));
+      providers = providerMatches.filter(Boolean);
+      
+      // ✅ FAIL-SAFE: If filtering removed all providers, fallback to original list 
+      // (Better to show slots than an empty screen during DB glitches)
+      if (providers.length === 0) {
+        console.warn(`[SLOTS] Strict filter returned 0 providers. Falling back to base list.`);
+        providers = await ProviderAccount.find(q).lean();
+      }
+      console.log(`[SLOTS DEBUG] Providers after strict service filter: ${providers.length}`);
+    } else if (serviceTypes.length > 0 || categories.length > 0) {
       const requestedSpecialties = await resolveRequestedSpecialtySets({
         categoryValues: categories,
         serviceTypeValues: serviceTypes,
@@ -379,17 +415,17 @@ router.get(
     }
 
     const slots = DEFAULT_TIME_SLOTS.filter((s) => slotMap[s]);
-    
+
     // ✅ NEW: Apply partial time blocks to merged slots if any
     let finalSlots = slots;
     let finalSlotMap = slotMap;
     let finalCandidatesBySlot = candidateProvidersBySlot;
-    
+
     if (serviceBlockInfo?.partialBlocks?.length > 0) {
       try {
         const { filterBlockedTimeSlots } = await import("../lib/serviceAvailability.js");
         finalSlots = filterBlockedTimeSlots(slots, serviceBlockInfo.partialBlocks);
-        
+
         // Rebuild slotMap and candidateProvidersBySlot
         const newSlotMap = {};
         const newCandidatesBySlot = {};
@@ -400,14 +436,14 @@ router.get(
         });
         finalSlotMap = newSlotMap;
         finalCandidatesBySlot = newCandidatesBySlot;
-        
+
         console.log(`[Slots] Applied partial blocks to merged slots. Filtered ${slots.length} → ${finalSlots.length} slots`);
       } catch (err) {
         console.error("[Slots] Partial block filtering failed for merged slots:", err);
         // Continue with unfiltered slots
       }
     }
-    
+
     res.json({ date, slots: finalSlots, slotMap: finalSlotMap, candidateProvidersBySlot: finalCandidatesBySlot, city: cityGuess, zoneId: zoneIdGuess });
   }
 );

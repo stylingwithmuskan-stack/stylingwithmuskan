@@ -121,6 +121,18 @@ export default function VenderRegisterPage() {
             
             const res = await verifyRegistrationOtp({ ...form, zones: finalZones, otp });
             if (res?.success) {
+                // Meta Pixel Tracking
+                try {
+                    if (window.fbq) {
+                        window.fbq('track', 'CompleteRegistration', {
+                            content_name: 'Vendor Registration',
+                            status: 'Success'
+                        });
+                    }
+                } catch (err) {
+                    console.error("Meta Pixel Vendor CompleteRegistration error:", err);
+                }
+
                 toast.success("Registration request submitted! Please wait for admin approval.");
                 navigate("/vender/status");
             }

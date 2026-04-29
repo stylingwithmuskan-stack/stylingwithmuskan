@@ -13,6 +13,7 @@ import { getSubscriptionSnapshot, isEliteProvider } from "../lib/subscriptions.j
 import { ensureCityAndZoneNames, resolveServiceLocation } from "../lib/locationResolution.js";
 import { providerMatchesRequestedSpecialties, resolveRequestedSpecialtySets } from "../lib/serviceMatching.js";
 import { Zone } from "../models/CityZone.js";
+import { Service } from "../models/Content.js";
 
 const router = Router();
 
@@ -337,21 +338,39 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   }).sort({ createdAt: -1 }).lean();
 
   console.log(`[Provider Suggestions] User: ${customerId}, Phone: ${customerPhone}, Found Bookings: ${recentBookings.length}`);
-
   const categories = String(req.query.categories || "").split(",").map(s => s.trim()).filter(Boolean);
+  const requestedServiceIds = String(req.query.serviceIds || "").split(",").map(s => s.trim()).filter(Boolean);
+
+  // ✅ NAME-BASED MATCHING: Since history doesn't store IDs, we match by Service Name
+  let requestedServiceNames = [];
+  try {
+    const services = await Service.find({ id: { $in: requestedServiceIds } }).select("id name").lean();
+    requestedServiceNames = services.map(s => String(s.name || "").trim().toLowerCase()).filter(Boolean);
+  } catch (err) {
+    console.error("[Suggestions] Failed to resolve service names:", err);
+  }
 
   const recentIds = [];
   const seen = new Set();
   const bookingCounts = {};
 
   for (const b of recentBookings) {
-    // ✅ STRICT SERVICE MATCH: Only extract provider if this past booking contained the requested categories
     const bServices = Array.isArray(b.services) ? b.services : [];
-    const hasServiceMatch = categories.length === 0 || bServices.some(s => 
+    
+    // 1. Check for Exact Name Match (The "Ishika" Fix)
+    const hasServiceNameMatch = requestedServiceNames.length > 0 && requestedServiceNames.every(reqName => 
+      bServices.some(bs => String(bs.name || "").trim().toLowerCase() === reqName)
+    );
+
+    // 2. Check for Category Match (Broad fallback)
+    const hasCategoryMatch = categories.length === 0 || bServices.some(s => 
       categories.includes(String(s.category).trim())
     );
 
-    if (!hasServiceMatch) continue;
+    // Only exclude if it matches NEITHER (and we have specific requests)
+    if (requestedServiceIds.length > 0 && !hasServiceNameMatch && !hasCategoryMatch) continue;
+    // If no specific serviceIds requested, just check category
+    if (requestedServiceIds.length === 0 && !hasCategoryMatch) continue;
 
     // First try assignedProvider, then fall back to first candidateProvider
     const pid = String(b.assignedProvider || "").trim()
@@ -391,26 +410,74 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   })));
 
   const byId = new Map();
+  const providerPastServiceIds = new Map(); // Track which services this provider did for the user
+
+  // Initialize service IDs map
+  for (const b of recentBookings) {
+    const pid = String(b.assignedProvider || "").trim()
+      || String((Array.isArray(b.candidateProviders) ? b.candidateProviders[0] : "") || "").trim();
+    if (!pid) continue;
+
+    const bServices = Array.isArray(b.services) ? b.services : [];
+    
+    // Check if the past booking matched our criteria
+    const hasServiceNameMatch = requestedServiceNames.length > 0 && requestedServiceNames.every(reqName => 
+      bServices.some(bs => String(bs.name || "").trim().toLowerCase() === reqName)
+    );
+    const hasCategoryMatch = categories.length === 0 || bServices.some(s => 
+      categories.includes(String(s.category).trim())
+    );
+
+    if (requestedServiceIds.length > 0 && !hasServiceNameMatch && !hasCategoryMatch) continue;
+
+    if (!providerPastServiceIds.has(pid)) {
+      providerPastServiceIds.set(pid, new Set());
+    }
+    
+    // ✅ Populate IDs for the frontend filter. 
+    // If name matched, we definitely add those IDs.
+    // If only category matched, we still add them to avoid frontend hiding, 
+    // but the backend will handle the true qualification check later.
+    requestedServiceIds.forEach(id => providerPastServiceIds.get(pid).add(id));
+  }
+
   decoratedRecent.forEach(p => {
-    byId.set(p._id.toString(), p);
-    if (p.phone) byId.set(String(p.phone), p);
+    const pid = p._id.toString();
+    const pastServices = Array.from(providerPastServiceIds.get(pid) || providerPastServiceIds.get(p.phone) || []);
+    
+    byId.set(pid, { ...p, previouslyBookedServiceIds: pastServices });
+    if (p.phone) byId.set(String(p.phone), { ...p, previouslyBookedServiceIds: pastServices });
   });
 
-  let recentProviders = recentIds.map((id) => byId.get(id)).filter(Boolean);
+  const providersInHistory = recentIds.map((id) => byId.get(id)).filter(Boolean);
 
-  // Filter by categories if provided
-  if (categories.length > 0) {
+  // ✅ SMART FILTERING: Check if provider is capable of ALL requested services (Service ID or Category ID)
+  const { providerMatchesAllServiceIds } = await import("../lib/serviceMatching.js");
+  
+  // ✅ PRE-FETCH Service metadata once to avoid N+1 DB queries
+  let serviceMetadata = [];
+  if (requestedServiceIds.length > 0) {
+    try {
+      serviceMetadata = await Service.find({ id: { $in: requestedServiceIds } }).select("id category").lean();
+    } catch (err) {
+      console.error("[Suggestions] Failed to pre-fetch service metadata:", err);
+    }
+  }
+
+  const providerMatches = await Promise.all(providersInHistory.map(async (p) => {
+    const matches = await providerMatchesAllServiceIds(p, requestedServiceIds, serviceMetadata);
+    return matches ? p : null;
+  }));
+
+  let recentProviders = providerMatches.filter(Boolean);
+
+  // Fallback to category overlap only if NO serviceIds were provided (for legacy support)
+  if (requestedServiceIds.length === 0 && categories.length > 0) {
     recentProviders = recentProviders.filter(p => {
       const pCats = Array.isArray(p.documents?.primaryCategory) ? p.documents.primaryCategory : [];
       const pSpecs = Array.isArray(p.documents?.specializations) ? p.documents.specializations : [];
-
-      // Combine all relevant category/spec strings for the provider
       const providerCategoryIds = [...pCats, ...pSpecs].map(c => String(c).trim());
-      const requestedCats = categories.map(c => String(c).trim());
-
-      // Check if there is ANY overlap between requested categories and provider categories
-      const match = requestedCats.some(catId => providerCategoryIds.includes(catId));
-      return match;
+      return categories.some(catId => providerCategoryIds.includes(String(catId).trim()));
     });
   }
 
@@ -418,7 +485,10 @@ router.get("/me/provider-suggestions", requireAuth, async (req, res) => {
   recentProviders = recentProviders
     .map(p => ({
       ...providerCard(p),
-      bookingCount: bookingCounts[p._id.toString()] || bookingCounts[p.phone] || 0
+      previouslyBookedServiceIds: p.previouslyBookedServiceIds || [],
+      bookingCount: bookingCounts[p._id.toString()] || bookingCounts[p.phone] || 0,
+      isPro: p.isPro,
+      isElite: p.isElite
     }))
     .sort((a, b) => {
       if (b.bookingCount !== a.bookingCount) return b.bookingCount - a.bookingCount;

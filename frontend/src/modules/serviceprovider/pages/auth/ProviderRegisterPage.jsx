@@ -656,6 +656,18 @@ export default function ProviderRegisterPage() {
             if (formData.customZone.trim()) finalZones.push(formData.customZone.trim());
             await register({ ...formData, zones: finalZones });
             
+            // Meta Pixel Tracking
+            try {
+                if (window.fbq) {
+                    window.fbq('track', 'CompleteRegistration', {
+                        content_name: 'Provider Registration',
+                        status: 'Success'
+                    });
+                }
+            } catch (err) {
+                console.error("Meta Pixel Provider CompleteRegistration error:", err);
+            }
+
             // Clear localStorage after successful registration
             localStorage.removeItem(STORAGE_KEY);
             

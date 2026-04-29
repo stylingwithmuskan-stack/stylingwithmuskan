@@ -3,7 +3,7 @@ import { Toaster } from "@/modules/user/components/ui/toaster";
 import { Toaster as Sonner } from "@/modules/user/components/ui/sonner";
 import { TooltipProvider } from "@/modules/user/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import { initPushNotifications, unregisterPush } from "@/services/pushNotificationService";
 import { GenderThemeProvider } from "@/modules/user/contexts/GenderThemeContext";
@@ -189,11 +189,29 @@ function PushNotificationManager() {
   return null;
 }
 
+// MetaPixelTracker: tracks page views on every route change for Meta Pixel
+function MetaPixelTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    try {
+      if (window.fbq) {
+        window.fbq('track', 'PageView');
+      }
+    } catch (err) {
+      console.error("Meta Pixel tracking error:", err);
+    }
+  }, [location]);
+
+  return null;
+}
+
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BrowserRouter>
+          <MetaPixelTracker />
           <AuthProvider>
             <UserModuleDataProvider>
               <GenderThemeProvider>

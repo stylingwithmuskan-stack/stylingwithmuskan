@@ -83,6 +83,11 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                    {type === "lapsed" && (
+                        <span className="text-[10px] font-black uppercase px-2 py-1 rounded-md bg-red-100 text-red-600 border border-red-200 animate-pulse flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Date Expired
+                        </span>
+                    )}
                     {(type === "incoming" || type === "pending") && booking.expiresAt && <CountdownTimer expiresAt={booking.expiresAt} />}
                     {booking.status === "payment_pending" && <span className="text-[10px] font-bold uppercase text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 flex items-center gap-1.5"><Timer className="w-3.5 h-3.5" /> Awaiting Customer</span>}
                     {type === "active" && <span className="text-[10px] font-bold uppercase text-green-500 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> {booking.status?.replace("_", " ") || ""}</span>}
@@ -199,13 +204,14 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
 
 const ProviderBookingsPage = () => {
     const navigate = useNavigate();
-    const { incomingBookings, pendingBookings, activeBookings, assignedBookings, completedBookings, cancelledBookings, acceptBooking, rejectBooking } = useProviderBookings();
+    const { incomingBookings, pendingBookings, activeBookings, assignedBookings, lapsedBookings, completedBookings, cancelledBookings, acceptBooking, rejectBooking } = useProviderBookings();
     const [activeTab, setActiveTab] = useState("incoming");
 
     const tabs = [
         { id: "incoming", label: "New", count: incomingBookings.length },
         { id: "pending", label: "Pending", count: pendingBookings.length },
         { id: "active", label: "Active", count: activeBookings.length },
+        { id: "lapsed", label: "Missed", count: lapsedBookings.length },
         { id: "assigned", label: "Assigned", count: assignedBookings.length },
         { id: "completed", label: "Done", count: completedBookings.length },
         { id: "cancelled", label: "Cancelled", count: cancelledBookings.length },
@@ -216,9 +222,10 @@ const ProviderBookingsPage = () => {
         activeTab === "incoming" ? incomingBookings :
             activeTab === "pending" ? pendingBookings :
                 activeTab === "active" ? activeBookings :
-                    activeTab === "assigned" ? assignedBookings :
-                        activeTab === "completed" ? completedBookings :
-                            cancelledBookings;
+                    activeTab === "lapsed" ? lapsedBookings :
+                        activeTab === "assigned" ? assignedBookings :
+                            activeTab === "completed" ? completedBookings :
+                                cancelledBookings;
 
     return (
         <div className="flex flex-col gap-4 pt-2 md:pt-0 w-full max-w-4xl mx-auto h-full">

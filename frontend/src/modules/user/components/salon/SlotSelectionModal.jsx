@@ -88,11 +88,20 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         }, 0);
     }, [focusedItems]);
 
-    // Backend already validates category-relevance before returning recentProviders
-    // (filters by booking history + category match). A redundant frontend filter
-    // against p.categories (documents.primaryCategory) was incorrectly hiding
-    // providers who hadn't set that field, even though they had completed relevant bookings.
-    const providerList = useMemo(() => recentProviders, [recentProviders]);
+    // ✅ STRICT SERVICE FILTER: Only show previous professionals if they have 
+    // previously performed EVERY service currently in the user's cart.
+    const providerList = useMemo(() => {
+        if (!recentProviders || !focusedItems.length) return recentProviders;
+        
+        const currentServiceIds = focusedItems.map(it => String(it.id || it.serviceId || "").trim()).filter(Boolean);
+        if (!currentServiceIds.length) return recentProviders;
+
+        return recentProviders.filter(p => {
+            const pastIds = Array.isArray(p.previouslyBookedServiceIds) ? p.previouslyBookedServiceIds : [];
+            // Provider must have done ALL services currently in the cart
+            return currentServiceIds.every(id => pastIds.includes(id));
+        });
+    }, [recentProviders, focusedItems]);
 
     useEffect(() => {
         let cancelled = false;

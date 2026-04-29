@@ -123,6 +123,21 @@ const ExpressCheckout = () => {
     const remainingAmount = displayedTotalPrice - advanceAmount;
 
     const handleCheckout = (typeId = null) => {
+        // Meta Pixel Tracking
+        try {
+            if (window.fbq) {
+                window.fbq('track', 'InitiateCheckout', {
+                    content_ids: cartItems.map(item => item.id),
+                    content_type: 'product',
+                    value: displayedTotalPrice,
+                    currency: 'INR',
+                    num_items: cartItems.length
+                });
+            }
+        } catch (err) {
+            console.error("Meta Pixel InitiateCheckout error:", err);
+        }
+
         if (!isLoggedIn) {
             navigate('/login');
             setIsCartOpen(false);

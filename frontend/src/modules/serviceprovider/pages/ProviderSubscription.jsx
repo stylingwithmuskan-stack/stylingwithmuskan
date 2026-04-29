@@ -88,6 +88,20 @@ export default function ProviderSubscription() {
         setIsLoading(true);
         setTimeout(() => {
             upgradeToPro();
+
+            // Meta Pixel Tracking
+            try {
+                if (window.fbq) {
+                    window.fbq('track', 'Purchase', {
+                        value: 999,
+                        currency: 'INR',
+                        content_name: 'Provider Pro Upgrade'
+                    });
+                }
+            } catch (err) {
+                console.error("Meta Pixel Provider Upgrade error:", err);
+            }
+
             toast.success("Welcome to SWM Pro Partner! Your benefits are now active.");
             setIsLoading(false);
         }, 1500);

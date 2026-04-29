@@ -344,6 +344,21 @@ const BookingSummary = () => {
               purpose: order.notes?.purpose || "booking_full",
               bookingId
             });
+
+            // Meta Pixel Tracking
+            try {
+              if (window.fbq) {
+                window.fbq('track', 'Purchase', {
+                  value: finalTotal,
+                  currency: 'INR',
+                  content_ids: displayItems.map(it => it.id || it._id),
+                  content_type: 'product'
+                });
+              }
+            } catch (err) {
+              console.error("Meta Pixel Purchase error:", err);
+            }
+
             setIsProcessing(false);
             setShowSuccess(true);
             clearCart();
@@ -432,6 +447,20 @@ const BookingSummary = () => {
       // Confirm COD (Pay After Service)
       await api.bookings.confirmCOD(bookingId);
       
+      // Meta Pixel Tracking
+      try {
+        if (window.fbq) {
+          window.fbq('track', 'Purchase', {
+            value: finalTotal,
+            currency: 'INR',
+            content_ids: displayItems.map(it => it.id || it._id),
+            content_type: 'product'
+          });
+        }
+      } catch (err) {
+        console.error("Meta Pixel Purchase error:", err);
+      }
+
       setIsProcessing(false);
       setShowSuccess(true);
       clearCart();

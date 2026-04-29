@@ -418,6 +418,20 @@ const RechargeModal = ({ isOpen, onClose, onRechargeSuccess }) => {
                 handler: async (response) => {
                     try {
                         await api.provider.wallet.verifyPayment(response);
+
+                        // Meta Pixel Tracking
+                        try {
+                            if (window.fbq) {
+                                window.fbq('track', 'Purchase', {
+                                    value: numAmount,
+                                    currency: 'INR',
+                                    content_name: 'Provider Wallet Recharge'
+                                });
+                            }
+                        } catch (err) {
+                            console.error("Meta Pixel Provider Recharge error:", err);
+                        }
+
                         toast.success(`Recharge of ₹${numAmount} successful!`);
                         onRechargeSuccess();
                         onClose();

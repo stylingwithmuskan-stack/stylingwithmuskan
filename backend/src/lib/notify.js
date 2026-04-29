@@ -475,12 +475,8 @@ export async function notify({
     sound: payload.sound,
   });
 
-  let shouldEmit = emit;
-  if (recipientRole === "provider" && respectProviderQuietHours) {
-    const ok = await isWithinProviderWindow();
-    if (!ok) shouldEmit = false;
-  }
-  if (shouldEmit) {
+  // 1. Real-time Socket Update (Always emit if emit=true, ignore quiet hours for UI sync)
+  if (emit) {
     try {
       const io = getIO();
       // Global notification list refresh
@@ -503,7 +499,7 @@ export async function notify({
     }
   }
 
-  // Send FCM push notification
+  // 2. FCM Push Notification (Respect quiet hours for intrusive alerts)
   try {
     if (recipientRole === "provider" && respectProviderQuietHours) {
       const ok = await isWithinProviderWindow();
