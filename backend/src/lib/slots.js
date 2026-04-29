@@ -37,6 +37,17 @@ export function defaultSlotsMap(startTime = "07:00", endTime = "22:00") {
   return map;
 }
 
+export function isTimeInWindow(targetMin, startMin, endMin) {
+  if (targetMin === null || startMin === null || endMin === null) return true; // Fail-open if settings missing
+  if (startMin <= endMin) {
+    // Normal case: same day window (e.g., 09:00 to 21:00)
+    return targetMin >= startMin && targetMin <= endMin;
+  } else {
+    // Overnight case: window spans midnight (e.g., 21:00 to 02:00)
+    return targetMin >= startMin || targetMin <= endMin;
+  }
+}
+
 function parseHHMMToMinutes(v) {
   if (!v || typeof v !== "string") return null;
   const m = v.trim().match(/^(\d{1,2}):(\d{2})$/);

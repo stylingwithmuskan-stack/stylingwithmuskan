@@ -23,41 +23,10 @@ import { bumpContentVersion } from "../lib/contentCache.js";
 import { notify } from "../lib/notify.js";
 import * as AdminSubscriptionController from "../modules/subscriptions/controllers/adminSubscription.controller.js";
 import * as AdminPushController from "../modules/admin/controllers/adminPush.controller.js";
-import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
-import { defaultSlotsMap } from "../lib/slots.js";
-import { invalidateProviderSlots } from "../lib/availability.js";
+import { invalidateProviderSlots, invalidateProviderSlotsForNextDays } from "../lib/availability.js";
+import { bootstrapProviderAvailability } from "../lib/providerAvailabilityBootstrap.js";
 
 const router = Router();
-
-// Helper function to create default availability for provider (30 days)
-async function createDefaultProviderAvailability(providerId) {
-  try {
-    const office = await OfficeSettings.findOne().lean();
-    const defaultSlots = defaultSlotsMap(office?.providerStartTime || "07:00", office?.providerEndTime || "22:00");
-    const availableSlots = Object.keys(defaultSlots).filter(slot => defaultSlots[slot] === true);
-    
-    // Create availability for next 30 days
-    const promises = [];
-    for (let i = 0; i < 30; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() + i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      promises.push(
-        ProviderDayAvailability.findOneAndUpdate(
-          { providerId: providerId.toString(), date: dateStr },
-          { $set: { availableSlots } },
-          { upsert: true, new: true }
-        )
-      );
-    }
-    
-    await Promise.all(promises);
-    console.log(`[Provider] Created default availability for provider ${providerId} (30 days, 7 AM - 10 PM)`);
-  } catch (error) {
-    console.error(`[Provider] Error creating default availability for ${providerId}:`, error.message);
-  }
-}
 
 router.post(
   "/login",
@@ -417,7 +386,11 @@ router.patch("/vendors/:id/reject-zones", requireRole("admin"), param("id").isSt
 router.get("/providers", requireRole("admin"), AdminController.listProviders);
 
 router.patch("/providers/:id/status", requireRole("admin"), param("id").isString(), body("status").isIn(["approved", "pending", "rejected", "blocked"]), async (req, res) => {
+  const current = await ProviderAccount.findById(req.params.id).select("approvalStatus").lean();
+  if (!current) return res.status(404).json({ error: "Provider not found" });
+
   const status = String(req.body.status || "").trim().toLowerCase();
+  const prevStatus = String(current.approvalStatus || "").trim().toLowerCase();
   const updates = {};
   if (status === "approved") {
     updates.adminApprovalStatus = "approved";
@@ -433,7 +406,20 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
   
   // Create default availability when provider is approved
   if (status === "approved" && p?._id) {
-    await createDefaultProviderAvailability(p._id);
+    try {
+      await bootstrapProviderAvailability(p._id.toString(), { days: 30 });
+    } catch (bootstrapErr) {
+      console.error("[Admin] Failed to bootstrap provider availability:", bootstrapErr?.message || bootstrapErr);
+    }
+  }
+
+  const statusTransitionNeedsSlotRefresh =
+    (prevStatus === "blocked" && status === "approved") ||
+    (prevStatus === "approved" && status === "blocked");
+  if (statusTransitionNeedsSlotRefresh && p?._id) {
+    try {
+      await invalidateProviderSlotsForNextDays(p._id.toString(), 30);
+    } catch {}
   }
   
   try {

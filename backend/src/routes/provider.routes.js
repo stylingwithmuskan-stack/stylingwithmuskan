@@ -21,6 +21,7 @@ import { BookingSettings, CommissionSettings, PerformanceSettings } from "../mod
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../config.js";
 import { invalidateProviderSlots } from "../lib/availability.js";
+import { bootstrapProviderAvailability } from "../lib/providerAvailabilityBootstrap.js";
 import crypto from "crypto";
 import { notify } from "../lib/notify.js";
 import Vendor from "../models/Vendor.js";
@@ -305,7 +306,7 @@ router.put(
 
     const doc = await ProviderDayAvailability.findOneAndUpdate(
       { providerId, date },
-      { providerId, date, availableSlots },
+      { providerId, date, availableSlots, managedByProvider: true, source: "provider_manual" },
       { upsert: true, new: true }
     ).lean();
 
@@ -621,6 +622,11 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
     lastLocationUpdate: (Number.isFinite(lat) && Number.isFinite(lng)) ? new Date() : undefined,
   };
   const acc = await ProviderAccount.findOneAndUpdate({ phone: req.body.phone }, update, { new: true, upsert: true });
+  try {
+    await bootstrapProviderAvailability(acc._id.toString(), { days: 30 });
+  } catch (bootstrapErr) {
+    console.error("[Provider Register] Failed to bootstrap default availability:", bootstrapErr?.message || bootstrapErr);
+  }
 
   if (!resolvedLocation?.insideServiceArea && customZone) {
     acc.pendingZoneRequests = acc.pendingZoneRequests || [];

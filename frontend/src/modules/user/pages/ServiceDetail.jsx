@@ -39,8 +39,10 @@ const ServiceDetail = () => {
 
   const userLocation = user?.addresses?.[0] || user?.address || null;
   const isAvailable = useMemo(() => {
-    return checkAvailability(service, userLocation, selectedDate, selectedSlot?.split(' ')[0]);
-  }, [service, userLocation, selectedDate, selectedSlot, checkAvailability]);
+    // Only check location/zone availability on the detail page. 
+    // Date/time availability is checked in the SlotSelectionModal.
+    return checkAvailability(service, userLocation);
+  }, [service, userLocation, checkAvailability]);
 
   // Scroll to top and fetch full details if needed
   useEffect(() => {

@@ -707,53 +707,59 @@ export async function listBookings(req, res) {
     .filter((provider) => belongsToCity(provider, cityId, city));
   const providerIds = providers.map((p) => p._id?.toString());
 
-  // Bookings assigned to these providers OR escalated to this vendor
-  let byProvider = providerIds.length
-    ? await Booking.find({
-        $or: [
-          { assignedProvider: { $in: providerIds } },
-          { 
-            vendorEscalated: true, 
-            assignedProvider: "", 
-            "address.city": new RegExp(`^${escapeRegex(city)}`, "i")
-          }
-        ]
-      })
-      .sort({ createdAt: -1 })
-      .lean()
-    : [];
-
-  // Bookings in vendor's areas (by address)
-  let bQuery = {};
-  if (zones.length > 0) {
-    bQuery = { "address.area": { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } };
-  } else {
-    bQuery = {
-      $or: [
-        { "address.area": new RegExp(escapeRegex(city), "i") },
-        { "address.city": new RegExp(escapeRegex(city), "i") },
-      ],
-    };
-  }
-
-  const byAddress = await Booking.find(bQuery).sort({ createdAt: -1 }).lean();
-  
-  let combined = [...byProvider, ...byAddress];
-  combined = combined.filter((booking) => {
-    if (cityId && String(booking?.address?.cityId || "") === cityId) return true;
-    return !cityId ? sameText(String(booking?.address?.city || ""), city) : false;
-  });
-  
-  const map = new Map();
-  combined.forEach((b) => map.set(b._id.toString(), b));
-  const allBookings = Array.from(map.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  
-  // Apply pagination to combined results
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const total = allBookings.length;
-  const bookings = allBookings.slice((page - 1) * limit, page * limit);
+
+  const orConditions = [];
+
+  // 1. By Provider Assignment or Escalation
+  if (providerIds.length > 0) {
+    orConditions.push({ assignedProvider: { $in: providerIds } });
+  }
   
+  // Vendor escalation logic
+  orConditions.push({ 
+    vendorEscalated: true, 
+    assignedProvider: "", 
+    "address.city": new RegExp(`^${escapeRegex(city)}`, "i")
+  });
+
+  // 2. By Address Match (Zone or City)
+  if (zones.length > 0) {
+    orConditions.push({ "address.area": { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } });
+  } else {
+    orConditions.push({ "address.area": new RegExp(escapeRegex(city), "i") });
+    orConditions.push({ "address.city": new RegExp(escapeRegex(city), "i") });
+  }
+
+  // Combine conditions with overall city/cityId filter
+  const finalQuery = {
+    $and: [
+      { $or: orConditions }
+    ]
+  };
+
+  // Add the strict cityId or text city match to $and condition
+  if (cityId) {
+    finalQuery.$and.push({ "address.cityId": cityId });
+  } else {
+    // If no cityId, match the city name textually
+    finalQuery.$and.push({
+      $or: [
+        { "address.city": new RegExp(`^${escapeRegex(city)}$`, "i") }
+      ]
+    });
+  }
+
+  const [bookings, total] = await Promise.all([
+    Booking.find(finalQuery)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Booking.countDocuments(finalQuery)
+  ]);
+
   res.json({ bookings, page, limit, total });
 }
 

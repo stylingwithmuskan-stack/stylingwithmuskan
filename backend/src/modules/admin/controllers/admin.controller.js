@@ -171,45 +171,27 @@ export async function listBookings(req, res) {
   }
 
   // Execute main queries in parallel
-  const [items, total, statsResult] = await Promise.all([
+  const [items, total, statsTotal, statsActive, statsPending, statsUnassigned, statsQueued] = await Promise.all([
     Booking.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean(),
     Booking.countDocuments(query),
-    Booking.aggregate([
-      {
-        $facet: {
-          total: [{ $count: "count" }],
-          active: [
-            { $match: { status: { $in: STATUS_GROUPS.active } } },
-            { $count: "count" }
-          ],
-          pending: [
-            { $match: { status: { $in: STATUS_GROUPS.pending } } },
-            { $count: "count" }
-          ],
-          unassigned: [
-            { $match: { status: { $in: ["unassigned", "incoming", "pending"] } } },
-            { $count: "count" }
-          ],
-          queued: [
-            { $match: { notificationStatus: "queued" } },
-            { $count: "count" }
-          ]
-        }
-      }
-    ])
+    Booking.estimatedDocumentCount(),
+    Booking.countDocuments({ status: { $in: STATUS_GROUPS.active } }),
+    Booking.countDocuments({ status: { $in: STATUS_GROUPS.pending } }),
+    Booking.countDocuments({ status: { $in: ["unassigned", "incoming", "pending"] } }),
+    Booking.countDocuments({ notificationStatus: "queued" })
   ]);
 
   // Extract stats
   const stats = {
-    total: statsResult[0]?.total[0]?.count || 0,
-    active: statsResult[0]?.active[0]?.count || 0,
-    pending: statsResult[0]?.pending[0]?.count || 0,
-    unassigned: statsResult[0]?.unassigned[0]?.count || 0,
-    queued: statsResult[0]?.queued[0]?.count || 0
+    total: statsTotal || 0,
+    active: statsActive || 0,
+    pending: statsPending || 0,
+    unassigned: statsUnassigned || 0,
+    queued: statsQueued || 0
   };
 
   // Enrich with provider details (Names/Phones)

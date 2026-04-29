@@ -7,6 +7,8 @@ const ProviderDayAvailabilitySchema = new mongoose.Schema(
     // Store only available slots in "hh:mm A" format used by the UI (e.g. "09:00 AM").
     // If a date has no record, backend will fall back to default schedule.
     availableSlots: { type: [String], default: [] },
+    managedByProvider: { type: Boolean, default: false },
+    source: { type: String, default: "system_default" },
   },
   { timestamps: true }
 );

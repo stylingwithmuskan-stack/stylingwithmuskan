@@ -77,6 +77,22 @@ export default function SPOversight() {
     const [walletType, setWalletType] = useState("add");
     const [walletReason, setWalletReason] = useState("");
 
+    const buildPortfolioPayload = () => {
+        const selectedParents = availableParents.filter((p) => tempCategories.includes(p.label));
+        const selectedCategories = availableCategories.filter((c) => tempSpecializations.includes(c.name));
+        const selectedServices = availableServices.filter((s) => tempServices.includes(s.name));
+
+        const mapParent = selectedParents.map((p) => ({ id: p.id, label: p.label }));
+        const mapCategory = selectedCategories.map((c) => ({ id: c.id, name: c.name }));
+        const mapService = selectedServices.map((s) => ({ id: s.id, name: s.name, category: s.category }));
+
+        return {
+            primaryCategory: [...tempCategories, ...mapParent],
+            specializations: [...tempSpecializations, ...mapCategory],
+            services: [...tempServices, ...mapService],
+        };
+    };
+
 
     const [feedback, setFeedback] = useState([]);
     
@@ -180,11 +196,8 @@ export default function SPOversight() {
     const handleSaveProfile = async () => {
         setIsSaving(true);
         try {
-            await updateProviderProfile(selectedSP._id || selectedSP.id, {
-                primaryCategory: tempCategories,
-                specializations: tempSpecializations,
-                services: tempServices
-            });
+            const payload = buildPortfolioPayload();
+            await updateProviderProfile(selectedSP._id || selectedSP.id, payload);
             toast.success("Provider profile updated successfully");
             setIsEditingCategories(false);
             load();

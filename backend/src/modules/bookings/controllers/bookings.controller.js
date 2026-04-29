@@ -9,7 +9,7 @@ import BookingLog from "../../../models/BookingLog.js";
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 import User from "../../../models/User.js";
 import Feedback from "../../../models/Feedback.js";
-import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes } from "../../../lib/slots.js";
+import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes, isTimeInWindow } from "../../../lib/slots.js";
 import { isIsoDate } from "../../../lib/isoDateTime.js";
 import { computeExpiresAt, pickNextProviderForBooking } from "../../../lib/assignment.js";
 import { resolveBookingSettings } from "../../../lib/settings.js";
@@ -179,28 +179,31 @@ export async function list(req, res) {
 export async function quote(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  let coupon = null;
-  if (req.body.couponCode) {
-    coupon = await Coupon.findOne({ code: req.body.couponCode, isActive: true }).lean();
-    // Invalidate expired coupons
-    if (coupon && coupon.expiryDate) {
-      const expiry = new Date(coupon.expiryDate);
-      if (!isNaN(expiry.getTime()) && expiry < new Date()) {
-        console.log(`[Quote] Coupon ${coupon.code} expired on ${coupon.expiryDate}, ignoring.`);
-        coupon = null;
-      }
+  const [couponDoc, advanceAmount] = await Promise.all([
+    req.body.couponCode ? Coupon.findOne({ code: req.body.couponCode, isActive: true }).lean() : null,
+    computeAdvanceFromCategories(req.body.items || [], req.body.bookingType)
+  ]);
+
+  let coupon = couponDoc;
+  if (coupon && coupon.expiryDate) {
+    const expiry = new Date(coupon.expiryDate);
+    if (!isNaN(expiry.getTime()) && expiry < new Date()) {
+      console.log(`[Quote] Coupon ${coupon.code} expired on ${coupon.expiryDate}, ignoring.`);
+      coupon = null;
     }
   }
+
   const totals = computeTotals(req.body.items, coupon);
   console.log(`[Quote] couponCode=${req.body.couponCode}, found=${!!coupon}, discount=${totals.discount}, total=${totals.total}, finalTotal=${totals.finalTotal}`);
+
   const subBenefits = await calculateCustomerSubscriptionBenefits({
     userId: req.user._id.toString(),
     total: totals.total,
     subtotalAfterCoupon: totals.finalTotal,
   });
+
   totals.discount += subBenefits.subscriptionDiscount;
   totals.finalTotal = Math.max(totals.total - totals.discount, 0);
-  const advanceAmount = await computeAdvanceFromCategories(req.body.items || [], req.body.bookingType);
   res.json({
     ...totals,
     couponApplied: coupon ? coupon.code : null,
@@ -215,6 +218,48 @@ export async function create(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { items, slot, address, bookingType, couponCode, allowAutoFallback } = req.body;
+  
+  // ✅ NEW: Validate service availability on booking date (SAFETY NET)
+  if (items?.length > 0 && slot?.date) {
+    try {
+      const { checkServiceExceptions, isTimeInRange } = await import("../../../lib/serviceAvailability.js");
+      const serviceIds = items.map(item => item.id || item.serviceId).filter(Boolean);
+      
+      if (serviceIds.length > 0) {
+        const blockedInfo = await checkServiceExceptions(serviceIds, slot.date);
+        
+        // Check full day block
+        if (blockedInfo.isFullyBlocked) {
+          console.log(`[Booking] Service "${blockedInfo.blockedService}" is blocked on ${slot.date}`);
+          return res.status(400).json({
+            error: `Service "${blockedInfo.blockedService}" is not available on ${slot.date} due to scheduling exceptions.`,
+            code: "SERVICE_BLOCKED",
+            blockedService: blockedInfo.blockedService
+          });
+        }
+        
+        // Check partial time block
+        if (blockedInfo.partialBlocks?.length > 0 && slot?.time) {
+          const isBlocked = blockedInfo.partialBlocks.some(block => 
+            isTimeInRange(slot.time, block.startTime, block.endTime)
+          );
+          
+          if (isBlocked) {
+            console.log(`[Booking] Service "${blockedInfo.blockedService}" is blocked at ${slot.time} on ${slot.date}`);
+            return res.status(400).json({
+              error: `Service "${blockedInfo.blockedService}" is not available at ${slot.time} on ${slot.date}.`,
+              code: "SERVICE_TIME_BLOCKED",
+              blockedService: blockedInfo.blockedService
+            });
+          }
+        }
+      }
+    } catch (err) {
+      // ✅ Fail-open: If check fails, log but don't block booking
+      console.error("[Booking] Service exception validation failed:", err);
+    }
+  }
+  
   const fallbackAddr = (req.user?.addresses && req.user.addresses[0]) ? req.user.addresses[0] : {};
   // Persist booking city for analytics + filtering. Back-compat: if city not provided, fall back to area.
   const safeAddress = {
@@ -229,27 +274,30 @@ export async function create(req, res) {
     lng: address?.lng ?? fallbackAddr.lng ?? null,
   };
   const preferredProviderId = String(req.body.preferredProviderId || "").trim();
-  let coupon = null;
-  if (couponCode) {
-    coupon = await Coupon.findOne({ code: couponCode, isActive: true }).lean();
-    if (coupon && coupon.expiryDate) {
-      const expiry = new Date(coupon.expiryDate);
-      if (!isNaN(expiry.getTime()) && expiry < new Date()) {
-        coupon = null;
-      }
+  const [couponDoc, advanceAmount, settings] = await Promise.all([
+    couponCode ? Coupon.findOne({ code: couponCode, isActive: true }).lean() : null,
+    computeAdvanceFromCategories(items, bookingType),
+    loadBookingSettings()
+  ]);
+
+  let coupon = couponDoc;
+  if (coupon && coupon.expiryDate) {
+    const expiry = new Date(coupon.expiryDate);
+    if (!isNaN(expiry.getTime()) && expiry < new Date()) {
+      coupon = null;
     }
   }
+
   const totals = computeTotals(items, coupon);
+  
   const customerSubscription = await calculateCustomerSubscriptionBenefits({
     userId: req.user._id.toString(),
     total: totals.total,
     subtotalAfterCoupon: totals.finalTotal,
   });
-  const advanceAmount = await computeAdvanceFromCategories(items, bookingType);
+  
   totals.discount += customerSubscription.subscriptionDiscount;
   totals.finalTotal = Math.max(totals.total - totals.discount, 0);
-
-  const settings = await loadBookingSettings();
   if (settings?.minBookingAmount && totals.finalTotal < Number(settings.minBookingAmount)) {
     return res.status(400).json({ error: `Minimum booking amount is INR ${settings.minBookingAmount}.` });
   }
@@ -329,7 +377,7 @@ export async function create(req, res) {
     const hm = parseSlotLabelToHM(requestedTime);
     if (windowStartMin !== null && windowEndMin !== null && hm) {
       const slotMin = hm.hour * 60 + hm.minute;
-      if (slotMin < windowStartMin || slotMin > windowEndMin) {
+      if (!isTimeInWindow(slotMin, windowStartMin, windowEndMin)) {
         return res.status(400).json({ error: "Selected slot is outside service hours." });
       }
     }

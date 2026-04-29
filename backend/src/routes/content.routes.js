@@ -9,18 +9,50 @@ import { resolveServiceLocation } from "../lib/locationResolution.js";
 
 const router = Router();
 
+const CACHE_TIMEOUT_MS = Number(process.env.CONTENT_CACHE_TIMEOUT_MS || 1200);
+const CACHE_TTL_SECONDS = Number(process.env.CONTENT_CACHE_TTL_SECONDS || 300);
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 async function cached(keyBase, fn) {
+  const key = await versionedKey(keyBase);
   try {
-    const key = await versionedKey(keyBase);
-    const hit = await redis.get(key);
+    const hit = await withTimeout(redis.get(key), CACHE_TIMEOUT_MS, `redis.get(${keyBase})`);
     if (hit) return JSON.parse(hit);
-    const data = await fn();
-    await redis.set(key, JSON.stringify(data), { EX: 300 });
-    return data;
-  } catch {
-    // If Redis is down/misconfigured, serve fresh data without caching.
-    return await fn();
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[content-cache] cache read bypass", {
+        keyBase,
+        reason: error?.message || "unknown",
+      });
+    }
   }
+
+  const data = await fn();
+
+  try {
+    await withTimeout(
+      redis.set(key, JSON.stringify(data), { EX: CACHE_TTL_SECONDS }),
+      CACHE_TIMEOUT_MS,
+      `redis.set(${keyBase})`
+    );
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[content-cache] cache write bypass", {
+        keyBase,
+        reason: error?.message || "unknown",
+      });
+    }
+  }
+
+  return data;
 }
 
 // Master Initialization Endpoint - Aggregates 10 calls into 1

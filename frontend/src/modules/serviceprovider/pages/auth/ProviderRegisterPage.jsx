@@ -45,6 +45,31 @@ const steps = [
 
 const STORAGE_KEY = 'swm-provider-registration';
 const EXPIRY_DAYS = 7;
+const CATALOG_REQUEST_TIMEOUT_MS = 10000;
+
+function withTimeout(promise, ms, label) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+        ),
+    ]);
+}
+
+async function fetchCatalogArray(label, requestFn) {
+    try {
+        const res = await withTimeout(requestFn(), CATALOG_REQUEST_TIMEOUT_MS, label);
+        return Array.isArray(res?.data) ? res.data : [];
+    } catch (error) {
+        if (import.meta?.env?.DEV) {
+            console.warn("[ProviderRegisterCatalog] request fallback", {
+                endpoint: label,
+                reason: error?.message || "unknown",
+            });
+        }
+        return [];
+    }
+}
 
 export default function ProviderRegisterPage() {
     const navigate = useNavigate();
@@ -64,6 +89,7 @@ export default function ProviderRegisterPage() {
     const [categoriesList, setCategoriesList] = useState([]);
     const [servicesList, setServicesList] = useState([]);
     const [catalogLoading, setCatalogLoading] = useState(false);
+    const fetchedServiceCategoriesRef = useRef(new Set());
 
     // OTP States - Declared early to avoid initialization errors
     const [otp, setOtp] = useState("");
@@ -155,19 +181,14 @@ export default function ProviderRegisterPage() {
         let cancelled = false;
         setCatalogLoading(true);
         Promise.all([
-            api.content.serviceTypes(),
-            api.content.categories(),
-            api.content.services({ limit: 1000 })
-        ]).then(([stRes, catRes, svcRes]) => {
+            fetchCatalogArray("/content/service-types", () => api.content.serviceTypes()),
+            fetchCatalogArray("/content/categories", () => api.content.categories()),
+            fetchCatalogArray("/content/services?limit=1000", () => api.content.services({ limit: 1000 })),
+        ]).then(([types, categories, services]) => {
             if (cancelled) return;
-            setServiceTypesList(Array.isArray(stRes?.data) ? stRes.data : []);
-            setCategoriesList(Array.isArray(catRes?.data) ? catRes.data : []);
-            setServicesList(Array.isArray(svcRes?.data) ? svcRes.data : []);
-        }).catch(() => {
-            if (cancelled) return;
-            setServiceTypesList([]);
-            setCategoriesList([]);
-            setServicesList([]);
+            setServiceTypesList(types);
+            setCategoriesList(categories);
+            setServicesList(services);
         }).finally(() => {
             if (!cancelled) setCatalogLoading(false);
         });
@@ -240,6 +261,63 @@ export default function ProviderRegisterPage() {
             serviceOptions: services
         };
     }, [serviceTypesList, categoriesList, servicesList, formData.primaryCategory, formData.specializations]);
+
+    // Recovery path: if the bulk services request misses data, lazily hydrate services per selected category.
+    useEffect(() => {
+        if (catalogLoading || !Array.isArray(filteredCategories) || filteredCategories.length === 0) return;
+
+        const categoryIds = filteredCategories
+            .map((c) => String(c?.id || ""))
+            .filter(Boolean);
+        if (categoryIds.length === 0) return;
+
+        const existingCategoryIds = new Set(
+            (Array.isArray(servicesList) ? servicesList : [])
+                .map((s) => String(s?.category || ""))
+                .filter(Boolean)
+        );
+
+        const missingCategoryIds = categoryIds.filter(
+            (id) => !existingCategoryIds.has(id) && !fetchedServiceCategoriesRef.current.has(id)
+        );
+        if (missingCategoryIds.length === 0) return;
+
+        let cancelled = false;
+        Promise.all(
+            missingCategoryIds.map((id) =>
+                fetchCatalogArray(`/content/services?category=${id}`, () => api.content.services({ category: id }))
+                    .then((items) => ({ id, items }))
+            )
+        ).then((results) => {
+            if (cancelled) return;
+
+            for (const { id } of results) fetchedServiceCategoriesRef.current.add(id);
+
+            const merged = [];
+            for (const { items } of results) {
+                if (Array.isArray(items) && items.length > 0) merged.push(...items);
+            }
+            if (merged.length === 0) return;
+
+            setServicesList((prev) => {
+                const current = Array.isArray(prev) ? prev : [];
+                const seen = new Set(
+                    current.map((s) => String(s?.id || s?._id || `${s?.name || ""}|${s?.category || ""}`))
+                );
+                const additions = merged.filter((s) => {
+                    const key = String(s?.id || s?._id || `${s?.name || ""}|${s?.category || ""}`);
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+                return additions.length ? [...current, ...additions] : current;
+            });
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [catalogLoading, filteredCategories, servicesList]);
 
     // Auto-cleanup specializations if parent categories are deselected
     useEffect(() => {

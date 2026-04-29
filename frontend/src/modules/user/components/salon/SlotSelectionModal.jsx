@@ -6,21 +6,9 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { Button } from "@/modules/user/components/ui/button";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { api } from "@/modules/user/lib/api";
+import { toast } from "sonner";
 
-const timeToMinutes = (timeStr) => {
-    if (!timeStr) return 0;
-    // Case: "07:00 AM" or "07:00 PM"
-    if (timeStr.includes("AM") || timeStr.includes("PM")) {
-        const [time, period] = timeStr.split(" ");
-        let [hours, minutes] = time.split(":").map(Number);
-        if (period === "PM" && hours < 12) hours += 12;
-        if (period === "AM" && hours === 12) hours = 0;
-        return hours * 60 + minutes;
-    }
-    // Case: "09:00" (HH:mm)
-    const [hours, minutes] = timeStr.split(":").map(Number);
-    return hours * 60 + (minutes || 0);
-};
+
 
 const parseDurationToMinutes = (input, fallbackMinutes = 60) => {
     if (typeof input === "number" && !Number.isNaN(input)) {
@@ -75,6 +63,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     const [slotsLoading, setSlotsLoading] = useState(false);
     const [availableSlots, setAvailableSlots] = useState([]);
     const [slotMap, setSlotMap] = useState({});
+    const [serviceBlockMessage, setServiceBlockMessage] = useState(null);
 
     const focusedItems = useMemo(() => {
         if (!activeCheckoutType || !Array.isArray(cartItems)) return cartItems || [];
@@ -99,17 +88,11 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         }, 0);
     }, [focusedItems]);
 
-    const providerList = useMemo(() => {
-        // Filter providers based on eligibility for the current cart services
-        // A provider must support AT LEAST ONE selected category to be shown here
-        return recentProviders.filter(p => {
-            if (!serviceCategories || serviceCategories.length === 0) return true;
-
-            const pCats = Array.isArray(p.categories) ? p.categories : [];
-            // STRICT FILTER: Provider must have at least one of the requested categories
-            return serviceCategories.some(catId => pCats.includes(catId));
-        });
-    }, [recentProviders, serviceCategories]);
+    // Backend already validates category-relevance before returning recentProviders
+    // (filters by booking history + category match). A redundant frontend filter
+    // against p.categories (documents.primaryCategory) was incorrectly hiding
+    // providers who hadn't set that field, even though they had completed relevant bookings.
+    const providerList = useMemo(() => recentProviders, [recentProviders]);
 
     useEffect(() => {
         let cancelled = false;
@@ -154,6 +137,9 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
 
     const fetchSlots = async () => {
         if (!tempDate) return;
+
+        // Reset any previous exception message when fetching for a new date
+        setServiceBlockMessage(null);
         setSlotsLoading(true);
         try {
             // If a specific provider is selected, we only show their free slots.
@@ -172,8 +158,32 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             if (pId) params.providerId = pId;
             if (totalDurationMinutes > 0) params.durationMinutes = String(totalDurationMinutes);
 
-            const { slots: rawSlots } = await api.providers.availableSlotsByDate(params);
-            const normalizedSlots = Array.from(new Set((rawSlots || []).filter(Boolean)));
+            // Pass service IDs so backend can check disabledDates exceptions from DB (source of truth)
+            if (focusedItems?.length > 0) {
+                const serviceIds = focusedItems.map(item => item.id).filter(Boolean);
+                if (serviceIds.length > 0) {
+                    params.serviceIds = JSON.stringify(serviceIds);
+                }
+            }
+
+            const response = await api.providers.availableSlotsByDate(params);
+
+            // Backend returns { reason: "service_blocked" } when a service has a full-day exception on this date
+            if (response.reason === "service_blocked") {
+                const msg = `Service "${response.blockedService}" is not available on ${tempDate} due to scheduling exceptions.`;
+                toast.error(msg);
+                setServiceBlockMessage(msg);
+                setAvailableSlots([]);
+                setSlotMap({});
+                setTempSlot(null);
+                setSlotsLoading(false);
+                return;
+            }
+
+            // Backend already filters partial-day blocked slots before returning.
+            // We just normalize and display what comes back.
+            const rawSlots = response.slots || [];
+            const normalizedSlots = Array.from(new Set(rawSlots.filter(Boolean)));
             const normalizedMap = {};
             normalizedSlots.forEach((slot) => { normalizedMap[slot] = true; });
             setAvailableSlots(normalizedSlots);
@@ -435,7 +445,14 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                     </button>
                                 </div>
                             )}
-                            {isToday && !slotsLoading && slots.length === 0 && (
+                            {/* Service exception message — shown instead of lead-time message */}
+                            {!slotsLoading && serviceBlockMessage && (
+                                <div className="mb-3 p-3 rounded-xl border border-red-200 bg-red-50/60 text-[10px] font-bold text-red-700">
+                                    {serviceBlockMessage}
+                                </div>
+                            )}
+                            {/* Lead-time message — only shown when NOT a service exception */}
+                            {isToday && !slotsLoading && slots.length === 0 && !serviceBlockMessage && (
                                 <div className="mb-3 p-3 rounded-xl border border-amber-200 bg-amber-50/60 text-[10px] font-bold text-amber-700">
                                     No slots available for today after lead time. Please choose another date.
                                 </div>

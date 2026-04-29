@@ -167,15 +167,15 @@ export async function buildAssignmentCandidates({
     return avail?.slotMap?.[requestedTime] === true;
   };
 
-  const candidates = [];
-  for (const s of sorted) {
+  const availabilityChecks = sorted.map(async (s) => {
     const providerId = s._id?.toString() || s.id;
-    if (!providerId) continue;
-    // eslint-disable-next-line no-await-in-loop
-    if (await isProviderAvailableAtSlot(providerId)) {
-      candidates.push(providerId);
-    }
-  }
+    if (!providerId) return null;
+    const isAvailable = await isProviderAvailableAtSlot(providerId);
+    return isAvailable ? providerId : null;
+  });
+
+  const results = await Promise.all(availabilityChecks);
+  const candidates = results.filter((id) => id !== null);
 
   const configuredLimit = Math.max(Number(resolvedSettings?.providerSearchLimit || 0), 0);
   // Hard limit to 5 providers for vendor escalation flow

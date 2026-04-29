@@ -263,6 +263,38 @@ export default function BookingManagement() {
         return category?.name || null;
     };
 
+    const resolveAnyCategoryName = (value) => {
+        const raw = String(value || "").trim();
+        if (!raw) return null;
+        const resolved = resolveCategoryName(raw);
+        if (resolved) return resolved;
+        const byName = categories.find(c => String(c?.name || "").toLowerCase() === raw.toLowerCase());
+        return byName?.name || null;
+    };
+
+    const getAssignmentModalCategoryLabel = (booking) => {
+        const first = String(booking?.serviceType || "").trim();
+        if (first) {
+            const resolvedType = resolveServiceTypeName(first);
+            if (resolvedType) return resolvedType;
+        }
+        const categoriesFromServices = [...new Set((booking?.services || booking?.items || [])
+            .map((s) => String(s?.category || "").trim())
+            .filter(Boolean))];
+        for (const categoryValue of categoriesFromServices) {
+            const resolved = resolveAnyCategoryName(categoryValue);
+            if (resolved) return resolved;
+        }
+        return categoriesFromServices[0] ? `Unknown Category (${categoriesFromServices[0]})` : "General";
+    };
+
+    const formatProviderSpecialties = (provider) => {
+        const raw = Array.isArray(provider?.specialties) ? provider.specialties : [];
+        const unique = [...new Set(raw.map((s) => String(s || "").trim()).filter(Boolean))];
+        const labels = unique.map((value) => resolveAnyCategoryName(value) || resolveServiceTypeName(value) || value);
+        return labels.slice(0, 4).join(", ");
+    };
+
     const getDisplayCategory = (booking) => {
         // For customized bookings, try to extract category from services array
         if (booking.bookingType === 'customized' && booking.services?.length > 0) {
@@ -902,9 +934,7 @@ export default function BookingManagement() {
                                     <div className="space-y-1">
                                         <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Service Category</p>
                                         <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20 uppercase tracking-wider font-black px-1.5 py-0 h-auto min-h-5 max-w-[150px] whitespace-normal text-center">
-                                            {assignModal.serviceType || 
-                                              [...new Set((assignModal.services || assignModal.items || []).map(s => s.category).filter(Boolean))].join(", ") || 
-                                              "General"}
+                                            {getAssignmentModalCategoryLabel(assignModal)}
                                         </Badge>
                                     </div>
                                 </div>
@@ -942,7 +972,9 @@ export default function BookingManagement() {
                                             <SelectItem key={p._id || p.id || p.phone} value={String(p._id || p.id || p.phone)} className="rounded-lg">
                                                 <div className="flex flex-col py-0.5">
                                                     <span className="font-bold text-sm">{p.name}</span>
-                                                    <span className="text-[10px] text-muted-foreground">{p.phone} {p.specialties ? `• ${p.specialties.join(", ")}` : ""}</span>
+                                                    <span className="text-[10px] text-muted-foreground">
+                                                        {p.phone} {formatProviderSpecialties(p) ? `• ${formatProviderSpecialties(p)}` : ""}
+                                                    </span>
                                                 </div>
                                             </SelectItem>
                                         )) : (

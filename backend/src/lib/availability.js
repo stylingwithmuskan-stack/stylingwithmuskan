@@ -3,7 +3,7 @@ import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import mongoose from "mongoose";
 import { redis } from "../startup/redis.js";
-import { DEFAULT_TIME_SLOTS, defaultSlotsMap, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes } from "./slots.js";
+import { DEFAULT_TIME_SLOTS, defaultSlotsMap, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes, isTimeInWindow } from "./slots.js";
 import { isoDateToLocalEnd, isoDateToLocalStart, toIsoDateFromAny, getIndiaDate } from "./isoDateTime.js";
 
 async function getVersion(providerId, date) {
@@ -30,6 +30,19 @@ export async function invalidateProviderSlots(providerId, dates = []) {
       await redis.incr(`slots:ver:${providerId}:${d}`);
     } catch {}
   }
+}
+
+export async function invalidateProviderSlotsForNextDays(providerId, days = 30, fromDate = new Date()) {
+  const safeDays = Math.max(Number(days || 0), 0);
+  if (!providerId || safeDays <= 0) return;
+  const dates = [];
+  const base = new Date(fromDate);
+  for (let i = 0; i < safeDays; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  await invalidateProviderSlots(providerId, dates);
 }
 
 export async function computeAvailableSlots(providerId, date, settings, opts = {}) {
@@ -176,17 +189,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
       const hm = parseSlotLabelToHM(s);
       if (hm) {
         const slotMin = hm.hour * 60 + hm.minute;
-        // NEW: Cyclic Range Logic to support Overnight Hours (e.g., 9 PM to 1 AM)
-        let inWindow = false;
-        if (windowStartMin <= windowEndMin) {
-          // Normal case: same day window
-          inWindow = slotMin >= windowStartMin && slotMin <= windowEndMin;
-        } else {
-          // Overnight case: window spans midnight
-          inWindow = slotMin >= windowStartMin || slotMin <= windowEndMin;
-        }
-
-        if (!inWindow) ok = false;
+        if (!isTimeInWindow(slotMin, windowStartMin, windowEndMin)) ok = false;
         
         if (ok && requestedDurationMinutes > 0) {
           const requiredEndMin = slotMin + requestedDurationMinutes + bufferMin;

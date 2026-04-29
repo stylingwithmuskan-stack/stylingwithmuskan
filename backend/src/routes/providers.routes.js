@@ -193,6 +193,7 @@ router.get(
   query("city").optional().isString(),
   query("zone").optional().isString(),
   query("durationMinutes").optional().isNumeric(),
+  query("serviceIds").optional().isString(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ error: "Invalid input", details: errors.array() });
@@ -205,6 +206,38 @@ router.get(
     const categories = String(req.query.categories || "").split(",").map(s => s.trim()).filter(Boolean);
 
     if (!isIsoDate(date)) return res.status(400).json({ error: "Invalid date" });
+
+    // ✅ NEW: Parse service IDs for exception checking (optional, backward compatible)
+    const serviceIds = req.query.serviceIds 
+      ? (typeof req.query.serviceIds === 'string' 
+          ? JSON.parse(req.query.serviceIds) 
+          : req.query.serviceIds)
+      : [];
+
+    // ✅ NEW: Check service-level exceptions if serviceIds provided
+    let serviceBlockInfo = null;
+    if (serviceIds.length > 0 && date) {
+      try {
+        const { checkServiceExceptions } = await import("../lib/serviceAvailability.js");
+        serviceBlockInfo = await checkServiceExceptions(serviceIds, date);
+        
+        // If service is fully blocked for this date, return empty slots immediately
+        if (serviceBlockInfo.isFullyBlocked) {
+          console.log(`[Slots] Service "${serviceBlockInfo.blockedService}" is fully blocked on ${date}`);
+          return res.json({
+            date,
+            slots: [],
+            slotMap: {},
+            reason: "service_blocked",
+            blockedService: serviceBlockInfo.blockedService
+          });
+        }
+      } catch (err) {
+        // ✅ Fail-open: If check fails, log but continue with normal flow
+        console.error("[Slots] Service exception check failed:", err);
+        serviceBlockInfo = null;
+      }
+    }
 
     const settings = await resolveBookingSettings();
     const durationMinutes = Math.max(Number(req.query.durationMinutes || 0), 0);
@@ -223,10 +256,34 @@ router.get(
       }
 
       const result = await computeAvailableSlots(providerId, date, settings, { requestedDurationMinutes: durationMinutes });
+      
+      // ✅ NEW: Apply partial time blocks if any (post-processing)
+      let finalSlots = result.slots || [];
+      let finalSlotMap = result.slotMap || {};
+      
+      if (serviceBlockInfo?.partialBlocks?.length > 0) {
+        try {
+          const { filterBlockedTimeSlots } = await import("../lib/serviceAvailability.js");
+          finalSlots = filterBlockedTimeSlots(result.slots, serviceBlockInfo.partialBlocks);
+          
+          // Rebuild slotMap
+          const newSlotMap = {};
+          DEFAULT_TIME_SLOTS.forEach(s => {
+            newSlotMap[s] = finalSlots.includes(s);
+          });
+          finalSlotMap = newSlotMap;
+          
+          console.log(`[Slots] Applied partial blocks for provider ${providerId}. Filtered ${result.slots.length} → ${finalSlots.length} slots`);
+        } catch (err) {
+          console.error("[Slots] Partial block filtering failed:", err);
+          // Continue with unfiltered slots
+        }
+      }
+      
       return res.json({
         date,
-        slots: result.slots || [],
-        slotMap: result.slotMap || {},
+        slots: finalSlots,
+        slotMap: finalSlotMap,
         provider: providerCard(provider)
       });
     }
@@ -322,7 +379,36 @@ router.get(
     }
 
     const slots = DEFAULT_TIME_SLOTS.filter((s) => slotMap[s]);
-    res.json({ date, slots, slotMap, candidateProvidersBySlot, city: cityGuess, zoneId: zoneIdGuess });
+    
+    // ✅ NEW: Apply partial time blocks to merged slots if any
+    let finalSlots = slots;
+    let finalSlotMap = slotMap;
+    let finalCandidatesBySlot = candidateProvidersBySlot;
+    
+    if (serviceBlockInfo?.partialBlocks?.length > 0) {
+      try {
+        const { filterBlockedTimeSlots } = await import("../lib/serviceAvailability.js");
+        finalSlots = filterBlockedTimeSlots(slots, serviceBlockInfo.partialBlocks);
+        
+        // Rebuild slotMap and candidateProvidersBySlot
+        const newSlotMap = {};
+        const newCandidatesBySlot = {};
+        DEFAULT_TIME_SLOTS.forEach(s => {
+          const isAvailable = finalSlots.includes(s);
+          newSlotMap[s] = isAvailable;
+          newCandidatesBySlot[s] = isAvailable ? candidateProvidersBySlot[s] : [];
+        });
+        finalSlotMap = newSlotMap;
+        finalCandidatesBySlot = newCandidatesBySlot;
+        
+        console.log(`[Slots] Applied partial blocks to merged slots. Filtered ${slots.length} → ${finalSlots.length} slots`);
+      } catch (err) {
+        console.error("[Slots] Partial block filtering failed for merged slots:", err);
+        // Continue with unfiltered slots
+      }
+    }
+    
+    res.json({ date, slots: finalSlots, slotMap: finalSlotMap, candidateProvidersBySlot: finalCandidatesBySlot, city: cityGuess, zoneId: zoneIdGuess });
   }
 );
 

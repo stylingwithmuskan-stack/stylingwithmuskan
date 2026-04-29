@@ -1,14 +1,13 @@
 import Booking from "../models/Booking.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import ProviderAccount from "../models/ProviderAccount.js";
-import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import ProviderWalletTxn from "../models/ProviderWalletTxn.js";
 import User from "../models/User.js";
 import Vendor from "../models/Vendor.js";
 import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
 import { computeAvailableSlots } from "./availability.js";
-import { DEFAULT_TIME_SLOTS, defaultSlotsMap, isIsoDate, parseDurationToMinutes, slotLabelToLocalDateTime } from "./slots.js";
+import { DEFAULT_TIME_SLOTS, isIsoDate, parseDurationToMinutes, slotLabelToLocalDateTime } from "./slots.js";
 import { resolveBookingSettings } from "./settings.js";
 import { isoDateToLocalEnd, isoDateToLocalStart } from "./isoDateTime.js";
 import { notify } from "./notify.js";
@@ -53,15 +52,6 @@ async function isProviderEligibleForBooking(providerId, booking, opts = {}) {
       ],
     }).lean();
     if (leave) return false;
-  }
-
-  // Slot availability: provider's custom availability OR default schedule (9 AM - 5 PM).
-  const availDoc = await ProviderDayAvailability.findOne({ providerId, date }).lean();
-  if (Array.isArray(availDoc?.availableSlots) && availDoc.availableSlots.length > 0) {
-    if (!availDoc.availableSlots.includes(time)) return false;
-  } else {
-    const base = defaultSlotsMap();
-    if (base[time] !== true) return false;
   }
 
   const requestedDurationMinutes = getBookingRequestedDurationMinutes(booking);
