@@ -173,6 +173,7 @@ export async function listBookings(req, res) {
   // Execute main queries in parallel
   const [items, total, statsTotal, statsActive, statsPending, statsUnassigned, statsQueued] = await Promise.all([
     Booking.find(query)
+      .select("id customerId customerName customerPhone totalAmount discountPrice slot address status serviceType bookingType createdAt assignedProvider maintainProvider maintainerProvider teamMembers notificationStatus services imagesApproved prepaidAmount balanceAmount paymentStatus eventType categoryName")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -1693,6 +1694,48 @@ export async function approveBookingImages(req, res) {
   } catch (error) {
     console.error("[Admin] Failed to approve images:", error);
     res.status(500).json({ error: "Failed to approve images" });
+  }
+}
+
+export async function updateProviderGrade(req, res) {
+  try {
+    const { id } = req.params;
+    const { grade } = req.body;
+
+    const allowedGrades = ["A", "B", "C", "D", "Standard", null];
+    if (!allowedGrades.includes(grade)) {
+      return res.status(400).json({ error: "Invalid grade value" });
+    }
+
+    const provider = await ProviderAccount.findByIdAndUpdate(
+      id,
+      { grade },
+      { new: true }
+    );
+
+    if (!provider) {
+      return res.status(404).json({ error: "Provider not found" });
+    }
+
+    // Send notification
+    try {
+      const { notify } = await import("../../../lib/notify.js");
+      await notify({
+        recipientId: id,
+        recipientRole: "provider",
+        title: "Performance Grade Updated",
+        message: `Admin has updated your performance grade to ${grade || "Standard"}.`,
+        type: "profile_updated",
+        meta: { grade }
+      });
+    } catch (notifyErr) {
+      console.error("[Admin] Failed to send grade update notification:", notifyErr);
+    }
+
+    res.json({ success: true, provider });
+  } catch (error) {
+    console.error("[Admin] Failed to update provider grade:", error);
+    res.status(500).json({ error: "Failed to update provider grade" });
   }
 }
 

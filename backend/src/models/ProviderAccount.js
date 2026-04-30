@@ -67,6 +67,7 @@ const ProviderAccountSchema = new mongoose.Schema(
     rating: { type: Number, default: 0 },
     totalJobs: { type: Number, default: 0 },
     credits: { type: Number, default: 0 },
+    grade: { type: String, enum: ["A", "B", "C", "D", "Standard", null], default: null },
     currentLocation: { lat: { type: Number, default: null }, lng: { type: Number, default: null } },
     lastLocationUpdate: { type: Date, default: null },
     insuranceActive: { type: Boolean, default: false },

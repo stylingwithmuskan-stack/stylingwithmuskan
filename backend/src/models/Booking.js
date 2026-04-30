@@ -132,5 +132,7 @@ BookingSchema.index({ status: 1, createdAt: -1 });
 BookingSchema.index({ notificationStatus: 1 });
 BookingSchema.index({ customerPhone: 1 });
 BookingSchema.index({ bookingType: 1 });
+BookingSchema.index({ assignedProvider: 1 });
+BookingSchema.index({ assignedProvider: 1, createdAt: -1 });
 
 export default mongoose.models.Booking || mongoose.model("Booking", BookingSchema);

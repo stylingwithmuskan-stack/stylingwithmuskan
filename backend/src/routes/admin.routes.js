@@ -443,6 +443,7 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
 });
 
 router.patch("/providers/:id/profile", requireRole("admin"), param("id").isString(), AdminController.updateProviderProfile);
+router.patch("/providers/:id/grade", requireRole("admin"), param("id").isString(), AdminController.updateProviderGrade);
 router.patch(
   "/providers/:id/profile-photo",
   requireRole("admin"),

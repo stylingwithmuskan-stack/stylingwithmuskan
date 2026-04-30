@@ -359,7 +359,13 @@ export const api = {
     getPerformanceCriteria: () => request("/provider/performance-criteria"),
     requestZones: (body) => request("/provider/request-zones", { method: "POST", body }),
     requestCategory: (body) => request("/provider/request-category", { method: "POST", body }),
-    rankings: (city) => request(`/provider/rankings/${city}`),
+    rankings: (city, zone, limit) => {
+      let q = [];
+      if (zone) q.push(`zone=${encodeURIComponent(zone)}`);
+      if (limit) q.push(`limit=${limit}`);
+      const qs = q.length > 0 ? `?${q.join("&")}` : "";
+      return request(`/provider/rankings/${city}${qs}`);
+    },
     credits: (phone) => request(`/provider/credits/${phone}`),
     bookings: (providerId) => request(`/provider/bookings/${providerId}`),
     updateBookingStatus: (id, status, payload = {}) => request(`/provider/bookings/${id}/status`, { method: "PATCH", body: { status, ...payload } }),
@@ -498,7 +504,13 @@ export const api = {
     sos: () => request("/vendor/sos"),
     resolveSos: (id) => request(`/vendor/sos/${id}/resolve`, { method: "PATCH" }),
     requestZones: (body) => request("/vendor/request-zones", { method: "POST", body }),
-    getProviderRankings: (city) => request(`/provider/rankings/${city}`),
+    getProviderRankings: (city, zone, limit) => {
+      let q = [];
+      if (zone) q.push(`zone=${encodeURIComponent(zone)}`);
+      if (limit) q.push(`limit=${limit}`);
+      const qs = q.length > 0 ? `?${q.join("&")}` : "";
+      return request(`/provider/rankings/${city}${qs}`);
+    },
     subAccounts: () => request("/vendor/subaccounts"),
     createSubAccount: (body) => request("/vendor/subaccounts", { method: "POST", body }),
     deleteSubAccount: (id) => request(`/vendor/subaccounts/${id}`, { method: "DELETE" }),
@@ -543,6 +555,7 @@ export const api = {
       formData.append("profilePhoto", file);
       return request(`/admin/providers/${id}/profile-photo`, { method: "PATCH", body: formData });
     },
+    updateProviderGrade: (id, grade) => request(`/admin/providers/${id}/grade`, { method: "PATCH", body: { grade } }),
     adjustProviderWallet: (id, payload) => request(`/admin/providers/${id}/wallet/adjust`, { method: "PATCH", body: payload }),
     bookings: (params = {}) => {
       const q = new URLSearchParams(params).toString();

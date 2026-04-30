@@ -10,12 +10,13 @@ import {
 import { Progress } from "@/modules/user/components/ui/progress";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { Button } from "@/modules/user/components/ui/button";
-import { 
-    AlertCircle, Star, XCircle, Clock, ShieldCheck, PauseCircle, 
-    Briefcase, DownloadIcon, MoreVerticalIcon, AwardIcon, TrendingUp, TrendingDown, Zap, ArrowLeft 
+import {
+    AlertCircle, Star, XCircle, Clock, ShieldCheck, PauseCircle,
+    Briefcase, DownloadIcon, MoreVerticalIcon, AwardIcon, TrendingUp, TrendingDown, Zap, ArrowLeft, RefreshCw
 } from "lucide-react";
-import { 
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+import { toast } from "sonner";
+import {
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
 import { Link } from "react-router-dom";
 import { useProviderAuth } from "../contexts/ProviderAuthContext";
@@ -30,6 +31,7 @@ export default function PerformanceDashboard() {
     const [error, setError] = useState("");
     const [performanceCriteria, setPerformanceCriteria] = useState(null);
     const [rank, setRank] = useState(null);
+    const [topProfessionals, setTopProfessionals] = useState([]);
     useEffect(() => {
         let cancel = false;
         const run = async () => {
@@ -37,19 +39,49 @@ export default function PerformanceDashboard() {
             setLoading(true);
             setError("");
             try {
-                const [s, pc, r] = await Promise.all([
-                    api.provider.summary(provider.phone),
-                    api.provider.getPerformanceCriteria(),
-                    api.vendor.getProviderRankings(provider.city),
-                ]);
-                if (!cancel) {
-                    setSummary(s);
-                    setPerformanceCriteria(pc.settings);
-                    const myRank = r.rankings.findIndex(p => p._id === provider._id) + 1;
-                    setRank(myRank > 0 ? `#${myRank}` : "N/A");
+                // Fetch summary independently
+                try {
+                    const s = await api.provider.summary(provider.phone);
+                    if (!cancel) setSummary(s);
+                } catch (err) {
+                    console.error("Summary fetch failed:", err);
+                    if (!cancel) toast.error("Failed to load basic metrics");
                 }
-            } catch {
-                if (!cancel) setError("Failed to load performance");
+
+                // Fetch criteria independently
+                try {
+                    const pc = await api.provider.getPerformanceCriteria();
+                    if (!cancel) setPerformanceCriteria(pc.settings);
+                } catch (err) {
+                    console.error("Criteria fetch failed:", err);
+                }
+
+                // Fetch rankings independently - only if city is available
+                if (provider?.city) {
+                    try {
+                        const r = await api.vendor.getProviderRankings(provider.city);
+                        if (!cancel && r?.rankings) {
+                            const myRank = r.rankings.findIndex(p =>
+                                p._id && provider?._id && String(p._id) === String(provider._id)
+                            ) + 1;
+                            setRank(myRank > 0 ? `#${myRank}` : "N/A");
+                        }
+
+                        // Fetch Top 5 for the zone
+                        const firstZone = provider.zones?.[0];
+                        const t5 = await api.vendor.getProviderRankings(provider.city, firstZone, 5);
+                        if (!cancel && t5?.rankings) {
+                            setTopProfessionals(t5.rankings);
+                        }
+                    } catch (err) {
+                        console.error("Rankings fetch failed:", err);
+                        if (!cancel) setRank("N/A");
+                    }
+                } else {
+                    if (!cancel) setRank("N/A");
+                }
+            } catch (err) {
+                if (!cancel) setError("Failed to load dashboard data");
             } finally {
                 if (!cancel) setLoading(false);
             }
@@ -66,13 +98,13 @@ export default function PerformanceDashboard() {
         weeklyTrend: summary?.performance?.weeklyTrend ?? [],
     }), [summary, provider?.approvalStatus]);
 
-    const isPaused = (metrics.rating < 4.7 && metrics.rating > 0) || !metrics.isActive;
+    const isPaused = (metrics.rating < (performanceCriteria?.minRatingThreshold || 4.5) && metrics.rating > 0) || !metrics.isActive;
 
     return (
         <div className="flex flex-1 w-full flex-col gap-6 pt-4 md:pt-0">
             <div className="flex items-center gap-3">
-                <button 
-                    onClick={() => navigate(-1)} 
+                <button
+                    onClick={() => navigate(-1)}
                     className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
                 >
                     <ArrowLeft className="w-5 h-5" />
@@ -89,24 +121,24 @@ export default function PerformanceDashboard() {
                     <div className="flex-1">
                         <h3 className="font-semibold tracking-tight">Jobs Paused</h3>
                         <p className="text-sm mt-1 whitespace-pre-wrap">
-                            Your profile is currently paused from receiving new leads because your rating has fallen below 4.7. You must complete a refresher training module to reactivate your dashboard.
+                            Your profile is currently paused from receiving new leads because your rating has fallen below {performanceCriteria?.minRatingThreshold || 4.5}. You must complete a refresher training module to reactivate your dashboard.
                         </p>
                     </div>
                 </div>
             )}
 
-            {metrics.cancellations > 3 && (
+            {metrics.cancellations > (performanceCriteria?.maxCancellationsThreshold || 5) && (
                 <div className="rounded-lg border bg-white p-4 flex flex-col items-center justify-between shadow-sm sm:flex-row gap-4 border-gray-100">
                     <div className="flex flex-col gap-1">
                         <h3 className="text-sm font-bold text-[#b94a2a] uppercase flex items-center gap-1">
                             <XCircle className="h-4 w-4" /> HIGH CANCELLATIONS
                         </h3>
                         <p className="text-sm text-gray-700">
-                            Complete training & do not cancel jobs
+                            Your cancellations have exceeded the limit of {performanceCriteria?.maxCancellationsThreshold || 5}. Please complete training.
                         </p>
                     </div>
-                    <Button className="bg-[#5944d1] hover:bg-[#4331a6] text-white w-full sm:w-auto h-10 px-6 rounded-lg text-sm font-medium">
-                        Details
+                    <Button className="bg-[#5944d1] hover:bg-[#4331a6] text-white w-full sm:w-auto h-10 px-6 rounded-lg text-sm font-medium" onClick={() => navigate("/provider/training")}>
+                        Start Training
                     </Button>
                 </div>
             )}
@@ -132,7 +164,7 @@ export default function PerformanceDashboard() {
                                 cy="112"
                                 r="100"
                                 fill="none"
-                                stroke={metrics.rating >= 4.7 ? "#22c55e" : "#ef4444"}
+                                stroke={metrics.rating >= (performanceCriteria?.minRatingThreshold || 4.5) ? "#22c55e" : "#ef4444"}
                                 strokeWidth="14"
                                 strokeDasharray="628.3"
                                 strokeDashoffset={628.3 - (628.3 * metrics.rating) / 5}
@@ -152,8 +184,8 @@ export default function PerformanceDashboard() {
                         <div className="absolute -bottom-5 bg-[#334155] backdrop-blur-md text-white rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl border border-white/10">
                             <AwardIcon className="h-5 w-5 text-slate-300" />
                             <div className="flex flex-col items-center">
-                                <Star className={`h-5 w-5 fill-white ${metrics.rating >= (performanceCriteria?.minRatingThreshold || 4.7) ? "text-green-400" : "text-red-400"}`} />
-                                <span className="text-[10px] uppercase font-black mt-0.5 tracking-wider">Min: {performanceCriteria?.minRatingThreshold || 4.7}</span>
+                                <Star className={`h-5 w-5 fill-white ${metrics.rating >= (performanceCriteria?.minRatingThreshold || 4.5) ? "text-green-400" : "text-red-400"}`} />
+                                <span className="text-[10px] uppercase font-black mt-0.5 tracking-wider">Min: {performanceCriteria?.minRatingThreshold || 4.5}</span>
                             </div>
                             <MoreVerticalIcon className="h-5 w-5 text-slate-300" />
                         </div>
@@ -169,7 +201,10 @@ export default function PerformanceDashboard() {
                     </CardHeader>
                     <CardContent className="pb-4 px-4">
                         <div className="text-2xl font-bold mt-2">{loading ? "…" : `${summary?.calendar?.availableHoursWeek ?? 0} hrs`}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Weekend hours</p>
+                        <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs text-muted-foreground">Weekend hours</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight">Min: {performanceCriteria?.minWeeklyHours || 20}h</p>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -182,7 +217,10 @@ export default function PerformanceDashboard() {
                     </CardHeader>
                     <CardContent className="pb-4 px-4">
                         <div className="text-2xl font-bold mt-2">{loading ? "…" : metrics.cancellations}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Cancellations</p>
+                        <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs text-muted-foreground">Cancellations</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight">Max: {performanceCriteria?.maxCancellationsThreshold || 5}</p>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -239,31 +277,31 @@ export default function PerformanceDashboard() {
                             {/* Interactive Performance Graph */}
                             <div className="h-[280px] w-full mt-6 bg-white relative px-2 sm:px-0">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart 
+                                    <AreaChart
                                         data={metrics.weeklyTrend}
                                         margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                                     >
                                         <defs>
                                             <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
-                                                <stop offset="95%" stopColor="#c084fc" stopOpacity={0}/>
+                                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
+                                                <stop offset="95%" stopColor="#c084fc" stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                        <XAxis 
-                                            dataKey="day" 
-                                            axisLine={false} 
-                                            tickLine={false} 
+                                        <XAxis
+                                            dataKey="day"
+                                            axisLine={false}
+                                            tickLine={false}
                                             tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }}
                                             dy={10}
                                         />
-                                        <YAxis 
-                                            axisLine={false} 
-                                            tickLine={false} 
+                                        <YAxis
+                                            axisLine={false}
+                                            tickLine={false}
                                             tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }}
                                             domain={[0, 100]}
                                         />
-                                        <Tooltip 
+                                        <Tooltip
                                             content={({ active, payload, label }) => {
                                                 if (active && payload && payload.length) {
                                                     return (
@@ -289,13 +327,13 @@ export default function PerformanceDashboard() {
                                                 return null;
                                             }}
                                         />
-                                        <Area 
-                                            type="monotone" 
-                                            dataKey="score" 
-                                            stroke="#8b5cf6" 
-                                            strokeWidth={4} 
-                                            fillOpacity={1} 
-                                            fill="url(#colorScore)" 
+                                        <Area
+                                            type="monotone"
+                                            dataKey="score"
+                                            stroke="#8b5cf6"
+                                            strokeWidth={4}
+                                            fillOpacity={1}
+                                            fill="url(#colorScore)"
                                             animationDuration={2000}
                                         />
                                     </AreaChart>
@@ -303,7 +341,7 @@ export default function PerformanceDashboard() {
                             </div>
 
                             <div className="mt-8 px-6 pb-6 grid grid-cols-2 gap-4">
-                                <motion.div 
+                                <motion.div
                                     whileHover={{ y: -5 }}
                                     className="bg-emerald-50/50 p-5 rounded-[24px] border border-emerald-100 relative overflow-hidden group"
                                 >
@@ -316,7 +354,7 @@ export default function PerformanceDashboard() {
                                         <TrendingDown className="h-3 w-3" /> 4 mins faster
                                     </div>
                                 </motion.div>
-                                <motion.div 
+                                <motion.div
                                     whileHover={{ y: -5 }}
                                     className="bg-purple-50/50 p-5 rounded-[24px] border border-purple-100 relative overflow-hidden group"
                                 >
@@ -329,6 +367,57 @@ export default function PerformanceDashboard() {
                                         <TrendingUp className="h-3 w-3" /> 5% Increase
                                     </div>
                                 </motion.div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Top 5 Professionals in Area */}
+                    <Card className="shadow-md border-slate-100 mt-6 overflow-hidden bg-white rounded-3xl">
+                        <CardHeader className="pb-4 pt-6 px-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 bg-amber-100 rounded-lg">
+                                        <AwardIcon className="h-4 w-4 text-amber-600" />
+                                    </div>
+                                    <CardTitle className="text-md font-black tracking-tight text-slate-900">Top 5 Professionals in your Area</CardTitle>
+                                </div>
+                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                    {provider?.zones?.[0] || provider?.city || "Area"}
+                                </Badge>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-6 pb-6">
+                            <div className="space-y-4">
+                                {topProfessionals.length > 0 ? (
+                                    topProfessionals.map((p, idx) => (
+                                        <div key={p._id} className="flex items-center gap-4 group">
+                                            <div className={`h-8 w-8 rounded-full flex items-center justify-center font-black text-xs ${idx === 0 ? "bg-amber-100 text-amber-700" : idx === 1 ? "bg-slate-100 text-slate-600" : idx === 2 ? "bg-orange-100 text-orange-700" : "bg-gray-50 text-gray-400"}`}>
+                                                {idx + 1}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-sm text-slate-900 truncate">
+                                                    {p.name} {p._id && provider?._id && String(p._id) === String(provider._id) && "(You)"}
+                                                </p>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <div className="flex items-center gap-1">
+                                                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                                        <span className="text-[10px] font-bold text-slate-500">{p.rating?.toFixed(1) || "0.0"}</span>
+                                                    </div>
+                                                    <span className="text-[10px] text-slate-300">|</span>
+                                                    <span className="text-[10px] font-bold text-slate-500">{p.completedJobs || 0} Jobs</span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{p.responseRate || 0}%</p>
+                                                <p className="text-[8px] text-slate-300 font-bold uppercase leading-none">Resp. Rate</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-6">
+                                        <p className="text-sm text-slate-400 italic">No rankings available yet.</p>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

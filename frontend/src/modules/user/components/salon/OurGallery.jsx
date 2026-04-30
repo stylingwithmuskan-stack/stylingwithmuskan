@@ -110,13 +110,13 @@ const OurGallery = () => {
                             animate={{ scale: 1, y: 0, opacity: 1 }}
                             exit={{ scale: 0.9, y: 20, opacity: 0 }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="relative max-w-5xl w-full aspect-video rounded-3xl overflow-hidden shadow-2xl"
+                            className="relative max-w-5xl w-full h-[60vh] md:h-auto md:aspect-video rounded-3xl overflow-hidden shadow-2xl bg-black"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <img
                                 src={selectedImage.image}
                                 alt={selectedImage.title}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover md:object-cover"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-8 md:p-12">
                                 <motion.div

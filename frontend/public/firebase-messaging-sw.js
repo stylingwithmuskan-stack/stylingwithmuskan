@@ -20,14 +20,21 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title || payload.data?.title || "New Notification";
   const body = payload.notification?.body || payload.data?.body || "";
+  const soundType = payload.data?.sound || "default";
+  const isUrgent = ["ringtone", "emergency"].includes(soundType);
+
   const options = {
     body,
     icon: payload.notification?.icon || "/logo.png",
     badge: "/logo.png",
-    vibrate: [200, 100, 200, 100, 200],
+    vibrate: isUrgent
+      ? [300, 100, 300, 100, 300, 100, 300]   // Long urgent vibration pattern
+      : [200, 100, 200],                        // Standard vibration
     data: payload.data || {},
     tag: payload.data?.notificationId || "general",
     renotify: true,
+    requireInteraction: isUrgent,  // Critical notifications stay until user interacts
+    silent: false,                 // Ensure OS default sound plays
   };
   self.registration.showNotification(title, options);
 });

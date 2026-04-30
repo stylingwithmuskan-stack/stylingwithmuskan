@@ -127,6 +127,7 @@ export function buildFCMPayload(notification) {
   const body = String(notification.message || "").slice(0, 200);
   const link = normalizeLink(notification.link);
   const sound = notification.sound || "default";
+  const isUrgent = ["ringtone", "emergency"].includes(sound);
 
   return {
     notification: { title, body },
@@ -147,7 +148,15 @@ export function buildFCMPayload(notification) {
       notification: {
         icon: "/logo.png",
         badge: "/logo.png",
-        vibrate: [200, 100, 200],
+        vibrate: isUrgent ? [300, 100, 300, 100, 300, 100, 300] : [200, 100, 200],
+        requireInteraction: isUrgent,
+        silent: false,
+      },
+      fcmOptions: {
+        link: String(link),
+      },
+      headers: {
+        Urgency: isUrgent ? "high" : "normal",
       },
     },
     data: {

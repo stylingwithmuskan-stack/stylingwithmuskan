@@ -23,7 +23,7 @@ import { useBookingChat } from "@/modules/user/contexts/BookingChatContext";
 const BookingsPage = () => {
     const navigate = useNavigate();
     const { gender } = useGenderTheme();
-    const { bookings, enquiries, acceptCustomEnquiry, rejectCustomEnquiry, payAdvanceForCustomEnquiry, loadingEnquiries } = useBookings();
+    const { bookings, enquiries, acceptCustomEnquiry, rejectCustomEnquiry, payAdvanceForCustomEnquiry, loadingEnquiries, loading } = useBookings();
     const { addCustomAdvanceToCart, setIsCartOpen, clearCart, addToCart, setBookingType } = useCart();
     const { unreadCounts } = useBookingChat();
     useEffect(() => {
@@ -357,7 +357,7 @@ const BookingsPage = () => {
                                                         <div className="flex items-center gap-1">
                                                             <Clock className="w-3 h-3" /> {booking.slot?.time}
                                                         </div>
-                                                        {["accepted", "travelling", "arrived", "in_progress", "documentation"].includes(booking.status?.toLowerCase()) ? (
+                                                        {["accepted", "travelling", "arrived", "in_progress", "documentation", "completed"].includes(booking.status?.toLowerCase()) ? (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleProviderClick(booking); }} 
                                                                 className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
@@ -455,7 +455,12 @@ const BookingsPage = () => {
                                 ))}
                         </div>
 
-                        {bookings.filter(b => {
+                        {loading ? (
+                            <div className="py-20 text-center flex flex-col items-center justify-center">
+                                <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
+                                <h2 className="text-sm font-semibold text-muted-foreground">Loading bookings...</h2>
+                            </div>
+                        ) : bookings.filter(b => {
                             const s = (b.status || "").toLowerCase();
                             const isCustom = b.bookingType === "customized" || b.eventType;
 

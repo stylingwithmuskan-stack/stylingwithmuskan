@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { api, API_BASE_URL } from "@/modules/user/lib/api";
 import { io } from "socket.io-client";
+import { AuthContext } from "@/modules/user/contexts/AuthContext";
 
 const BookingContext = createContext(undefined);
 
@@ -72,18 +73,25 @@ export const BookingProvider = ({ children }) => {
     }
   };
 
+  const { isLoggedIn } = useContext(AuthContext) || { isLoggedIn: false };
+
   useEffect(() => {
+    if (!isLoggedIn) return;
+
     loadBookings();
     loadEnquiries();
 
-    // Poll for status updates every 15 seconds (fallback)
+    // Poll for status updates every 60 seconds (fallback)
     const interval = setInterval(() => {
-      loadBookings();
-      loadEnquiries();
-    }, 15000);
+      // Only execute if tab is visible to prevent unnecessary background chatter
+      if (document.visibilityState === "visible") {
+        loadBookings();
+        loadEnquiries();
+      }
+    }, 60000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isLoggedIn, loadBookings, loadEnquiries]);
 
   // Socket sync logic separated for reactivity
   useEffect(() => {

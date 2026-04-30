@@ -9,6 +9,8 @@ import { Input } from "@/modules/user/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/modules/user/components/ui/pagination";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
+import { api } from "@/modules/user/lib/api";
+
 import { toast } from "sonner";
 import { cn } from "@/modules/user/lib/utils";
 
@@ -38,8 +40,10 @@ export default function SPOversight() {
         getLeaves,
         approveLeave,
         rejectLeave,
-        adjustProviderWallet
+        adjustProviderWallet,
+        updateProviderGrade
     } = useAdminAuth();
+
 
     const [providers, setProviders] = useState([]);
     const [leaves, setLeaves] = useState([]);
@@ -48,6 +52,49 @@ export default function SPOversight() {
     const [tab, setTab] = useState("all");
     const [categoryRequests, setCategoryRequests] = useState([]);
     const [selectedSP, setSelectedSP] = useState(null);
+    const [spSummary, setSpSummary] = useState(null);
+    const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+    const [isEditingGrade, setIsEditingGrade] = useState(false);
+    const [tempGrade, setTempGrade] = useState("");
+
+    useEffect(() => {
+        if (selectedSP?.phone) {
+            fetchSPSummary(selectedSP.phone);
+        } else {
+            setSpSummary(null);
+            setIsEditingGrade(false);
+        }
+    }, [selectedSP]);
+
+    const fetchSPSummary = async (phone) => {
+        setIsLoadingSummary(true);
+        try {
+            const data = await api.provider.summary(phone);
+            if (data && data.performance) {
+                setSpSummary(data);
+                setTempGrade(data.performance?.grade || "Standard");
+            }
+        } catch (error) {
+            console.error("Failed to fetch SP summary:", error);
+        } finally {
+            setIsLoadingSummary(false);
+        }
+    };
+
+    const handleUpdateGrade = async () => {
+        if (!selectedSP?._id && !selectedSP?.id) return;
+        const id = selectedSP._id || selectedSP.id;
+        try {
+            await updateProviderGrade(id, tempGrade);
+            toast.success("Performance grade updated successfully");
+            setIsEditingGrade(false);
+            // Refresh summary to reflect changes
+            fetchSPSummary(selectedSP.phone);
+        } catch (error) {
+            toast.error(error.message || "Failed to update grade");
+        }
+    };
+
     const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
     
     // Pagination state
@@ -819,6 +866,7 @@ export default function SPOversight() {
                                 </div>
 
                                 {/* Contact */}
+
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-muted/50 rounded-xl p-3">
                                         <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Phone</p>
@@ -1241,7 +1289,91 @@ export default function SPOversight() {
                                     </div>
                                 </div>
 
+                                {/* Performance Analytics Section */}
+                                <div className="space-y-3 py-4 border-t border-border/50">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                            <Award className="h-3 w-3" /> Performance Analytics
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            {isEditingGrade ? (
+                                                <div className="flex items-center gap-1">
+                                                    <select 
+                                                        value={tempGrade} 
+                                                        onChange={(e) => setTempGrade(e.target.value)}
+                                                        className="text-[10px] font-black h-7 bg-muted/50 border border-border/50 rounded-lg px-2 outline-none focus:border-primary/50"
+                                                    >
+                                                        <option value="A">Grade A</option>
+                                                        <option value="B">Grade B</option>
+                                                        <option value="C">Grade C</option>
+                                                        <option value="D">Grade D</option>
+                                                        <option value="Standard">Standard</option>
+                                                    </select>
+                                                    <Button size="sm" className="h-7 w-7 p-0 bg-green-600 hover:bg-green-700" onClick={handleUpdateGrade}>
+                                                        <Save className="h-3 w-3" />
+                                                    </Button>
+                                                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setIsEditingGrade(false)}>
+                                                        <X className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <Button variant="ghost" size="sm" className="h-7 px-2 hover:bg-primary/10 text-primary font-black text-[10px]" onClick={() => setIsEditingGrade(true)}>
+                                                    <Edit2 className="h-3 w-3 mr-1" /> SET GRADE
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {isLoadingSummary ? (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {[1, 2, 3, 4].map(i => (
+                                                <div key={i} className="h-16 bg-muted/30 rounded-xl animate-pulse" />
+                                            ))}
+                                        </div>
+                                    ) : spSummary ? (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-3 border border-primary/10">
+                                                <p className="text-[9px] font-black text-primary/60 uppercase tracking-widest">Performance Grade</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Award className={cn("h-4 w-4", 
+                                                        spSummary.performance?.grade === "A" ? "text-amber-400" : 
+                                                        spSummary.performance?.grade === "B" ? "text-slate-400" : 
+                                                        spSummary.performance?.grade === "C" ? "text-amber-700" : "text-slate-500")} />
+                                                    <p className="text-sm font-black">{spSummary.performance?.grade || "Standard"}</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/30 rounded-xl p-3 border border-border/50">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Weekly Hours</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Clock className="h-4 w-4 text-primary/60" />
+                                                    <p className="text-sm font-black">{spSummary.calendar?.availableHoursWeek || 0} hrs <span className="text-[10px] text-muted-foreground font-medium">(last 7d)</span></p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/30 rounded-xl p-3 border border-border/50">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Response Rate</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <CheckCircle className="h-4 w-4 text-green-500/60" />
+                                                    <p className="text-sm font-black text-green-600">{spSummary.performance?.responseRate || 0}%</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/30 rounded-xl p-3 border border-border/50">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Cancellations</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <XCircle className="h-4 w-4 text-red-500/60" />
+                                                    <p className="text-sm font-black text-red-600">{spSummary.performance?.cancellations || 0}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 rounded-xl bg-muted/20 border border-dashed border-border flex flex-col items-center justify-center text-center">
+                                            <AlertCircle className="h-5 w-5 text-muted-foreground/40 mb-2" />
+                                            <p className="text-[10px] font-bold text-muted-foreground">Unable to load metrics</p>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Actions */}
+
                                 <div className="flex gap-2 pt-2">
                                     {selectedSP.approvalStatus === "pending_admin" && (
                                         <>

@@ -41,7 +41,7 @@ function logDevProviderFlow(message, payload = {}) {
   if (process.env.NODE_ENV === "production") return;
   try {
     console.log(`[ProviderAssignmentFlow] ${message}`, payload);
-  } catch {}
+  } catch { }
 }
 
 async function normalizeProviderZoneSelection({ city = "", cityId = "", zones = [], zoneIds = [] } = {}) {
@@ -163,7 +163,7 @@ router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLeng
   try {
     acc.isOnline = true;
     await acc.save();
-  } catch {}
+  } catch { }
   const token = issueRoleToken("provider", acc._id.toString());
   const subscription = await getSubscriptionSnapshot(acc._id.toString(), "provider");
   try {
@@ -175,7 +175,7 @@ router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLeng
       message: "You are logged in successfully.",
       respectProviderQuietHours: true,
     });
-  } catch {}
+  } catch { }
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
   res.json({
     provider: {
@@ -196,7 +196,7 @@ router.get("/availability/:date", requireRole("provider"), param("date").isStrin
   const providerId = req.auth.sub;
   try {
     await ProviderAccount.findByIdAndUpdate(providerId, { isOnline: true });
-  } catch {}
+  } catch { }
   const dateStart = isoDateToLocalStart(date);
   const dateEnd = isoDateToLocalEnd(date);
   if (!dateStart || !dateEnd) return res.status(400).json({ error: "Invalid date" });
@@ -244,7 +244,7 @@ router.put(
     const providerId = req.auth.sub;
     try {
       await ProviderAccount.findByIdAndUpdate(providerId, { isOnline: true });
-    } catch {}
+    } catch { }
     const dateStart = isoDateToLocalStart(date);
     const dateEnd = isoDateToLocalEnd(date);
     if (!dateStart || !dateEnd) return res.status(400).json({ error: "Invalid date" });
@@ -314,7 +314,7 @@ router.put(
     DEFAULT_TIME_SLOTS.forEach((s) => { slots[s] = false; });
     for (const s of doc.availableSlots || []) slots[s] = true;
     res.json({ date, slots });
-    try { await invalidateProviderSlots(providerId, date); } catch {}
+    try { await invalidateProviderSlots(providerId, date); } catch { }
   }
 );
 
@@ -392,7 +392,7 @@ router.post(
         type: "leave_requested",
         meta: { leaveId: item._id?.toString?.(), providerId: pId, status },
       });
-    } catch {}
+    } catch { }
     res.status(201).json({ leave: item, requiresApproval });
   }
 );
@@ -420,7 +420,7 @@ router.post(
     const cityZones = await (await import("../models/CityZone.js")).Zone.find({
       status: "active"
     }).populate('city').lean();
-    
+
     const cityZoneNames = cityZones
       .filter(z => (
         (requestCityId && z.city?._id?.toString?.() === requestCityId)
@@ -431,7 +431,7 @@ router.post(
     // Enhanced zone request tracking (Phase 4)
     const newRequests = zones.map(zoneName => {
       const isNewZone = !cityZoneNames.includes(zoneName.toLowerCase());
-      
+
       return {
         zoneName,
         isNewZone,
@@ -453,10 +453,10 @@ router.post(
     // Add to pendingZoneRequests array (new enhanced tracking)
     p.pendingZoneRequests = p.pendingZoneRequests || [];
     p.pendingZoneRequests.push(...newRequests);
-    
+
     // Also update legacy pendingZones for backward compatibility
     p.pendingZones = zones;
-    
+
     await p.save();
 
     const newZoneCount = newRequests.filter(r => r.isNewZone).length;
@@ -470,8 +470,8 @@ router.post(
         title: "Provider Zone Update Request",
         message: `Provider ${p.name} has requested zones: ${zones.join(", ")}. ${newZoneCount > 0 ? `(${newZoneCount} new zone${newZoneCount > 1 ? 's' : ''})` : ''}`,
         type: "system",
-        meta: { 
-          providerId: p._id.toString(), 
+        meta: {
+          providerId: p._id.toString(),
           pendingZones: zones,
           newZoneCount,
           existingZoneCount
@@ -489,13 +489,13 @@ router.post(
             title: "Provider Zone Update Request",
             message: `Provider ${p.name} in your city (${city}) has requested zones: ${zones.join(", ")}. ${newZoneCount > 0 ? `🆕 ${newZoneCount} new zone${newZoneCount > 1 ? 's' : ''} need creation` : ''}`,
             type: "system",
-            meta: { 
-              providerId: p._id.toString(), 
+            meta: {
+              providerId: p._id.toString(),
               pendingZones: zones,
               newZoneCount,
-        existingZoneCount,
-        providerLocation: p.currentLocation
-      },
+              existingZoneCount,
+              providerLocation: p.currentLocation
+            },
           });
         }
       }
@@ -503,8 +503,8 @@ router.post(
       console.error('[Provider] Failed to notify about zone request:', err);
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       provider: p,
       summary: {
         totalRequests: zones.length,
@@ -534,13 +534,13 @@ router.post(
         title: "Category Change Request",
         message: `Provider ${p.name || p.phone} wants to add/change category: "${requestedCategory}" (Current: ${currentCategory})`,
         type: "category_request",
-        meta: { 
-          providerId: p._id?.toString?.(), 
-          currentCategory, 
-          requestedCategory 
+        meta: {
+          providerId: p._id?.toString?.(),
+          currentCategory,
+          requestedCategory
         },
       });
-    } catch {}
+    } catch { }
 
     res.json({ success: true, message: "Request sent to admin" });
   }
@@ -656,14 +656,14 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
       message: "Your provider profile has been submitted and is pending approval.",
       respectProviderQuietHours: true,
     });
-  } catch {}
+  } catch { }
 
   // Notify relevant vendor if zones are specified
   const zones = customZone ? Array.from(new Set([...(normalizedSelection.zones || []), customZone])) : (normalizedSelection.zones || []);
   if (zones.length > 0) {
     try {
       const city = normalizedSelection.city;
-      const vendors = await Vendor.find({ 
+      const vendors = await Vendor.find({
         $or: [
           ...(normalizedSelection.cityId ? [{ cityId: normalizedSelection.cityId }] : []),
           { city: new RegExp(`^${city}$`, "i") },
@@ -716,45 +716,13 @@ router.get("/me/:phone", param("phone").matches(/^\d{10}$/), async (req, res) =>
   });
 });
 
-router.patch("/me/profile", 
-  requireRole("provider"),
-  body("name").optional().isString().trim().notEmpty(),
-  body("email").optional().isEmail().normalizeEmail(),
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-    
-    const providerId = req.auth.sub;
-    const { name, email } = req.body;
-    
-    const updates = {};
-    if (name) updates.name = name;
-    if (email !== undefined) updates.email = email;
-
-    const acc = await ProviderAccount.findByIdAndUpdate(
-      providerId,
-      { $set: updates },
-      { new: true }
-    ).lean();
-
-    if (!acc) return res.status(404).json({ error: "Provider not found" });
-    
-    res.json({ success: true, provider: acc });
-  }
-);
-
-router.get("/performance-criteria", requireAnyRole(["admin", "provider"]), async (_req, res) => {
-  const s = await PerformanceSettings.findOne().lean();
-  res.json({ settings: s || { minWeeklyHours: 20, minRatingThreshold: 4.5, maxCancellationsThreshold: 5 } });
-});
-
 router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, res) => {
   try {
     const phone = req.params.phone;
     const provider = await ProviderAccount.findOne({ phone }).lean();
     if (!provider) return res.status(404).json({ error: "Not found" });
-    // Real metrics from bookings
-    let performance = { responseRate: 0, cancellations: 0, grade: "N/A", weeklyTrend: [] };
+    // Real metrics from bookings (initial defaults)
+    let performance = { responseRate: 0, cancellations: 0, grade: "N/A", weeklyTrend: [], rating: provider.rating || 0 };
     // calendar hours = sum of booked durations (mins) in last 7d, converted to hours
     let calendar = { availableHoursWeek: 0 };
     // hub metrics
@@ -774,26 +742,69 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
       // Response Rate from last 50 bookings
       const completed = recentBookings.filter(b => (b.status || "").toLowerCase() === "completed").length;
       const responseRate = recentBookings.length > 0 ? Math.round((completed / recentBookings.length) * 100) : 0;
-      const grade = responseRate >= 95 ? "A+" : responseRate >= 85 ? "A" : responseRate >= 70 ? "B" : responseRate > 0 ? "C" : "N/A";
+      // Grade from provider model or calculate fallback
+      let grade = provider.grade;
+      if (!grade) {
+        if (responseRate >= 90) grade = "A";
+        else if (responseRate >= 75) grade = "B";
+        else if (responseRate >= 60) grade = "C";
+        else grade = "D";
+      }
 
       // Weekly trend from last 50 bookings
-      const weekdayIdxToName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      const weekdayIdxToName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       const dayTotals = Array(7).fill(0);
       const dayCompleted = Array(7).fill(0);
+      const dayRatings = Array(7).fill(0);
+      const dayRatedCount = Array(7).fill(0);
       for (const b of recentBookings) {
         const idx = new Date(b.createdAt).getDay();
         dayTotals[idx] += 1;
-        if ((b.status || "").toLowerCase() === "completed") dayCompleted[idx] += 1;
+        if ((b.status || "").toLowerCase() === "completed") {
+          dayCompleted[idx] += 1;
+          if (b.rating) {
+            dayRatings[idx] += b.rating;
+            dayRatedCount[idx] += 1;
+          }
+        }
       }
-      const weeklyTrend = [1,2,3,4,5,6,0].map((dow) => { // Mon..Sun order
+      const weeklyTrend = [1, 2, 3, 4, 5, 6, 0].map((dow) => { // Mon..Sun order
         const totalD = dayTotals[dow] || 0;
-        const val = totalD > 0 ? Math.round((dayCompleted[dow] / totalD) * 100) : 0;
-        return { day: weekdayIdxToName[dow], value: val };
+        const completedD = dayCompleted[dow] || 0;
+        const score = totalD > 0 ? Math.round((completedD / totalD) * 100) : 0;
+        const avgRating = dayRatedCount[dow] > 0 ? Math.round((dayRatings[dow] / dayRatedCount[dow]) * 20) : 0; // Scale 5 to 100
+        return { 
+          day: weekdayIdxToName[dow], 
+          value: score, 
+          score: score,
+          quality: avgRating,
+          jobs: completedD
+        };
       });
 
       // Weekly hours from slots
-      const availability = await ProviderDayAvailability.find({ providerId, date: { $gte: toIsoDateFromAny(weekAgo) } }).lean();
-      const weeklyHours = availability.reduce((acc, day) => acc + day.availableSlots.length * 0.5, 0);
+      const weekAgoDate = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+      const bSettings = await BookingSettings.findOne().lean();
+      const defaultBuffer = bSettings?.providerBufferMinutes || 60;
+
+      const weeklyCompletedBookings = await Booking.find({
+        assignedProvider: providerId,
+        status: "completed",
+        createdAt: { $gte: weekAgoDate }
+      }).lean();
+
+      let totalMins = 0;
+      for (const b of weeklyCompletedBookings) {
+        let bookingMins = 0;
+        if (Array.isArray(b.services)) {
+          for (const s of b.services) {
+            bookingMins += parseDurationToMinutes(s.duration, 30);
+          }
+        }
+        totalMins += (bookingMins + defaultBuffer);
+      }
+      const weeklyHours = Math.round((totalMins / 60) * 10) / 10;
+
       calendar = { availableHoursWeek: weeklyHours };
 
       // Hub metrics from last 50 bookings
@@ -807,7 +818,9 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
       hub.repeatCustomers = Array.from(customerCount.values()).filter(c => c > 1).length;
 
       performance = { responseRate, cancellations, grade, weeklyTrend, rating };
-    } catch {}
+    } catch (err) {
+      console.error(`[ProviderRoutes] Summary calculation failed for ${phone}:`, err.message);
+    }
     const insurance = { active: !!provider.insuranceActive };
     const training = { completed: !!provider.trainingCompleted };
     res.json({
@@ -839,16 +852,44 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
 router.get("/rankings/:city", requireAnyRole(["admin", "provider"]), async (req, res) => {
   try {
     const city = req.params.city;
-    const providers = await ProviderAccount.find({ city }).lean();
-    const rankedProviders = await Promise.all(providers.map(async (p) => {
-      const recentBookings = await Booking.find({ assignedProvider: p._id.toString() }).sort({ createdAt: -1 }).limit(50).lean();
-      const ratedBookings = recentBookings.filter(b => b.status === 'completed' && b.rating);
-      const totalRating = ratedBookings.reduce((acc, b) => acc + b.rating, 0);
-      const rating = ratedBookings.length > 0 ? (totalRating / ratedBookings.length) : 0;
-      const completed = recentBookings.filter(b => (b.status || "").toLowerCase() === "completed").length;
-      const responseRate = recentBookings.length > 0 ? Math.round((completed / recentBookings.length) * 100) : 0;
-      return { ...p, rating, responseRate, completedJobs: completed };
-    }));
+    const zone = req.query.zone;
+    const limit = Number(req.query.limit) || 0;
+
+    if (!city || city === "undefined" || city === "null") {
+      return res.json({ rankings: [] });
+    }
+    
+    // Use case-insensitive regex for city
+    const query = { city: { $regex: new RegExp(`^${city}$`, "i") } };
+    
+    // If zone is provided, match it case-insensitively within the zones array
+    if (zone) {
+      query.zones = { $regex: new RegExp(`^${zone}$`, "i") };
+    }
+
+    const providers = await ProviderAccount.find(query).lean();
+    
+    // Use map with internal try-catch to ensure one failure doesn't break the whole list
+    const rankedProviders = (await Promise.all(providers.map(async (p) => {
+      try {
+        const recentBookings = await Booking.find({ assignedProvider: p._id.toString() })
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .lean();
+        
+        const ratedBookings = recentBookings.filter(b => b.status === 'completed' && b.rating);
+        const totalRating = ratedBookings.reduce((acc, b) => acc + b.rating, 0);
+        const rating = ratedBookings.length > 0 ? (totalRating / ratedBookings.length) : 0;
+        
+        const completed = recentBookings.filter(b => (b.status || "").toLowerCase() === "completed").length;
+        const responseRate = recentBookings.length > 0 ? Math.round((completed / recentBookings.length) * 100) : 0;
+        
+        return { ...p, rating, responseRate, completedJobs: completed };
+      } catch (err) {
+        console.error(`[Rankings] Failed to process provider ${p._id}:`, err.message);
+        return { ...p, rating: 0, responseRate: 0, completedJobs: 0 };
+      }
+    })));
 
     rankedProviders.sort((a, b) => {
       if (a.rating !== b.rating) return b.rating - a.rating;
@@ -856,8 +897,10 @@ router.get("/rankings/:city", requireAnyRole(["admin", "provider"]), async (req,
       return b.completedJobs - a.completedJobs;
     });
 
-    res.json({ rankings: rankedProviders });
-  } catch {
+    const finalRankings = limit > 0 ? rankedProviders.slice(0, limit) : rankedProviders;
+    res.json({ rankings: finalRankings });
+  } catch (err) {
+    console.error("[ProviderRoutes] Rankings API failed:", err.message);
     res.status(500).json({ error: "Internal error" });
   }
 });
@@ -871,7 +914,7 @@ router.post("/logout", async (_req, res) => {
         await ProviderAccount.findByIdAndUpdate(p.sub, { isOnline: false });
       }
     }
-  } catch {}
+  } catch { }
   res.clearCookie("providerToken").json({ success: true });
 });
 
@@ -879,25 +922,25 @@ router.post("/logout", async (_req, res) => {
 router.delete("/me/account", requireRole("provider"), async (req, res) => {
   try {
     const providerId = req.auth.sub;
-    
+
     // Check for active bookings
     const activeBookings = await Booking.countDocuments({
       assignedProvider: providerId,
       status: { $in: ["assigned", "accepted", "in_progress"] }
     });
-    
+
     if (activeBookings > 0) {
-      return res.status(400).json({ 
-        error: "Cannot delete account with active bookings. Please complete or cancel all active bookings first." 
+      return res.status(400).json({
+        error: "Cannot delete account with active bookings. Please complete or cancel all active bookings first."
       });
     }
-    
+
     // Delete provider account
     await ProviderAccount.findByIdAndDelete(providerId);
-    
+
     // Clear auth cookie
     res.clearCookie("providerToken");
-    
+
     res.json({ success: true, message: "Account deleted successfully" });
   } catch (error) {
     console.error("Error deleting provider account:", error);
@@ -922,7 +965,7 @@ router.post("/wallet/create-order", requireRole("provider"), body("amount").isNu
 
   try {
     const isMockMode = !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || RAZORPAY_KEY_ID.includes("YOUR_RAZORPAY_KEY") || !RAZORPAY_KEY_ID.startsWith("rzp_");
-    
+
     // Debug logging
     console.log("[ProviderWallet] Create order request:");
     console.log("  - Amount:", amount);
@@ -930,7 +973,7 @@ router.post("/wallet/create-order", requireRole("provider"), body("amount").isNu
     console.log("  - Key ID:", RAZORPAY_KEY_ID ? `${RAZORPAY_KEY_ID.substring(0, 15)}...` : "MISSING");
     console.log("  - Key Secret:", RAZORPAY_KEY_SECRET ? "SET" : "MISSING");
     console.log("  - Mock Mode:", isMockMode);
-    
+
     if (isMockMode) {
       console.log("[ProviderWallet] Razorpay keys missing or placeholder, returning mock order");
       const mockId = "order_mock_" + amount + "_" + Math.random().toString(36).substring(7);
@@ -947,22 +990,22 @@ router.post("/wallet/create-order", requireRole("provider"), body("amount").isNu
         }
       });
     }
-    
+
     console.log("[ProviderWallet] Creating Razorpay order...");
     const rzp = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
-    
+
     // Generate short receipt (max 40 chars for Razorpay)
     const shortProviderId = String(req.auth.sub).slice(-8); // Last 8 chars of provider ID
     const shortTimestamp = Date.now().toString().slice(-8); // Last 8 digits of timestamp
     const receipt = `SWM_${shortProviderId}_${shortTimestamp}`; // Max 24 chars
-    
+
     const order = await rzp.orders.create({
       amount: amount * 100,
       currency: "INR",
       receipt,
       notes: { providerId: req.auth.sub, type: "wallet_recharge" },
     });
-    
+
     console.log("[ProviderWallet] ✅ Order created successfully:", order.id);
     res.json({ order });
   } catch (err) {
@@ -971,7 +1014,7 @@ router.post("/wallet/create-order", requireRole("provider"), body("amount").isNu
     console.error("[ProviderWallet] Error status:", err.statusCode);
     console.error("[ProviderWallet] Error description:", err.error?.description);
     console.error("[ProviderWallet] Full error:", err);
-    res.status(502).json({ 
+    res.status(502).json({
       error: "Payment gateway unavailable",
       details: process.env.NODE_ENV === "development" ? err.message : undefined
     });
@@ -987,7 +1030,7 @@ router.post("/wallet/verify-payment", requireRole("provider"), body("razorpay_pa
 
   try {
     const isMockMode = !RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || RAZORPAY_KEY_ID.includes("YOUR_RAZORPAY_KEY") || !RAZORPAY_KEY_ID.startsWith("rzp_");
-    
+
     if (isMockMode) {
       if (razorpay_order_id.startsWith("order_mock_")) {
         const acc = await ProviderAccount.findById(providerId);
@@ -995,8 +1038,8 @@ router.post("/wallet/verify-payment", requireRole("provider"), body("razorpay_pa
 
         // Extract amount from mock order ID if present (order_mock_<amount>_<random>)
         const parts = razorpay_order_id.split("_");
-        const amount = Number(parts[2] || req.body.amount || 100); 
-        
+        const amount = Number(parts[2] || req.body.amount || 100);
+
         acc.credits = (acc.credits || 0) + amount;
         await acc.save();
 
@@ -1204,14 +1247,14 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
   };
   let total = await Booking.countDocuments(q);
   const items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
-  
+
   // Legacy Fallback: If any booking is missing customerPhone, fetch it from the User model
   const bookingsMissingPhone = items.filter(b => !b.customerPhone && b.customerId);
   if (bookingsMissingPhone.length > 0) {
     const customerIds = Array.from(new Set(bookingsMissingPhone.map(b => b.customerId)));
     const users = await User.find({ _id: { $in: customerIds } }).select("phone").lean();
     const userPhoneMap = new Map(users.map(u => [u._id.toString(), u.phone]));
-    
+
     items.forEach(b => {
       if (!b.customerPhone && b.customerId && userPhoneMap.has(b.customerId.toString())) {
         b.customerPhone = userPhoneMap.get(b.customerId.toString());
@@ -1250,7 +1293,7 @@ router.post("/bookings/:id/request-payment", requireRole("provider"), param("id"
         notes: { bookingId: b._id.toString(), purpose: "booking_full" },
       });
     }
-    
+
     b.status = "payment_pending";
     b.paymentStatus = "Pending";
     b.paymentOrder = {
@@ -1266,7 +1309,7 @@ router.post("/bookings/:id/request-payment", requireRole("provider"), param("id"
       const io = getIO();
       io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "payment_pending" });
       io?.of("/bookings").to(b._id.toString()).emit("booking:update", { id: b._id.toString() });
-    } catch {}
+    } catch { }
     try {
       if (b.customerId) {
         await notify({
@@ -1276,7 +1319,7 @@ router.post("/bookings/:id/request-payment", requireRole("provider"), param("id"
           meta: { bookingId: b._id.toString(), amount: balance },
         });
       }
-    } catch {}
+    } catch { }
     res.json({ booking: { ...b.toObject(), id: b._id.toString() }, order });
   } catch (err) {
     res.status(502).json({ error: "Payment gateway unavailable" });
@@ -1341,7 +1384,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         io?.of("/bookings").emit("assignment:changed", { id: b._id.toString(), fromProvider: current, toProvider: picked.providerId, reason: "accept_expired" });
         io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
         io?.of("/bookings").to(b._id.toString()).emit("booking:update", { id: b._id.toString() });
-      } catch {}
+      } catch { }
     } else {
       await handleExhaustedAssignmentChain({
         booking: b,
@@ -1363,7 +1406,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           respectProviderQuietHours: true,
         });
       }
-    } catch {}
+    } catch { }
     logDevProviderFlow("Expired acceptance rerouted booking", {
       bookingId: b._id?.toString?.() || "",
       fromProvider: current,
@@ -1412,7 +1455,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       try {
         const io = getIO();
         io?.of("/bookings").emit("assignment:changed", { id: b._id.toString(), fromProvider: current, toProvider: picked.providerId, reason: "rejected" });
-      } catch {}
+      } catch { }
       try {
         await notify({
           recipientId: picked.providerId,
@@ -1421,7 +1464,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           meta: { bookingId: b._id.toString(), reason: "rejected" },
           respectProviderQuietHours: true,
         });
-      } catch {}
+      } catch { }
       logDevProviderFlow("Booking moved to next provider after rejection", {
         bookingId: b._id?.toString?.() || "",
         fromProvider: current,
@@ -1502,7 +1545,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           meta: { bookingId: b._id.toString(), amount: required },
           respectProviderQuietHours: true,
         });
-      } catch {}
+      } catch { }
     }
     try {
       const settings = await BookingSettings.findOne().lean();
@@ -1515,7 +1558,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         b.slotStartAt = slotStart;
         b.slotEndAt = end;
       }
-    } catch {}
+    } catch { }
     b.status = "accepted";
     b.expiresAt = null;
     b.adminEscalated = false;
@@ -1551,7 +1594,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       b.cancelledBy = "provider";
       b.cancellationReason = req.body.reason || "Provider requested reassignment";
     }
-    
+
     // Refund commission if it was charged
     if (b.commissionChargedAt && b.commissionAmount > 0) {
       const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
@@ -1575,7 +1618,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
             meta: { bookingId: b._id.toString(), amount: b.commissionAmount },
             respectProviderQuietHours: true,
           });
-        } catch {}
+        } catch { }
       }
     }
 
@@ -1610,7 +1653,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
             type: "booking_cancelled",
             meta: { bookingId: b._id.toString(), reason: "professional unavailable" },
           });
-        } catch {}
+        } catch { }
       }
 
       // To Admin and Vendor
@@ -1635,16 +1678,16 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
             });
           }
         }
-      } catch {}
+      } catch { }
     } catch (err) {
       // Socket notification failed
     }
 
-    return res.json({ 
-      booking: b, 
-      message: isCritical 
-        ? "Booking cancelled. User has been notified." 
-        : "Cancellation sent to Vendor for reassignment." 
+    return res.json({
+      booking: b,
+      message: isCritical
+        ? "Booking cancelled. User has been notified."
+        : "Cancellation sent to Vendor for reassignment."
     });
   } else {
     // For other provider-driven statuses (travelling, arrived, in_progress, completed, etc.)
@@ -1662,22 +1705,22 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         paidAt: new Date()
       });
       b.balanceAmount = 0;
-      
-      await BookingLog.create({ 
-        action: "booking:payment-update", 
-        userId: pId, 
-        bookingId: b._id.toString(), 
-        meta: { amount: amountCollected, source: "cash", method: "provider_confirmed" } 
+
+      await BookingLog.create({
+        action: "booking:payment-update",
+        userId: pId,
+        bookingId: b._id.toString(),
+        meta: { amount: amountCollected, source: "cash", method: "provider_confirmed" }
       });
 
       try {
         const io = getIO();
-        io?.of("/bookings").to(`booking:${b._id}`).emit("booking:update", { 
-          id: b._id.toString(), 
+        io?.of("/bookings").to(`booking:${b._id}`).emit("booking:update", {
+          id: b._id.toString(),
           paymentStatus: "Fully Paid",
           balanceAmount: 0
         });
-      } catch {}
+      } catch { }
     }
 
     if (next !== "pending") b.expiresAt = null;
@@ -1748,7 +1791,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
           meta: { bookingId: b._id.toString(), amount: Number(b.commissionAmount || 0) },
           respectProviderQuietHours: true,
         });
-      } catch {}
+      } catch { }
     }
   }
 
@@ -1764,29 +1807,29 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         await invalidateProviderSlots(id, b.slot.date);
       }
     }
-  } catch {}
+  } catch { }
   await BookingLog.create({ action: "booking:status", userId: pId, bookingId: req.params.id, meta: { status: effectiveStatus } });
-    try {
-      const io = getIO();
-      // Broad cast for generic list refreshes
-      io?.of("/bookings").emit("status:update", { id: req.params.id, status: effectiveStatus });
-      // Direct room emit for modals/tracking pages
-      io?.of("/bookings").to(`booking:${req.params.id}`).emit("booking:update", { 
-        bookingId: req.params.id, 
-        status: effectiveStatus 
-      });
-    } catch {}
+  try {
+    const io = getIO();
+    // Broad cast for generic list refreshes
+    io?.of("/bookings").emit("status:update", { id: req.params.id, status: effectiveStatus });
+    // Direct room emit for modals/tracking pages
+    io?.of("/bookings").to(`booking:${req.params.id}`).emit("booking:update", {
+      bookingId: req.params.id,
+      status: effectiveStatus
+    });
+  } catch { }
   try {
     const notifyStatuses = new Set(["accepted", "completed", "payment_pending"]);
-      if (b.customerId && notifyStatuses.has(effectiveStatus)) {
-        await notify({
-          recipientId: b.customerId,
-          recipientRole: "user",
-          type: "booking_status",
-          meta: { bookingId: b._id.toString(), status: effectiveStatus },
-        });
-      }
-  } catch {}
+    if (b.customerId && notifyStatuses.has(effectiveStatus)) {
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        type: "booking_status",
+        meta: { bookingId: b._id.toString(), status: effectiveStatus },
+      });
+    }
+  } catch { }
   res.json({ booking: b });
 });
 
@@ -1828,7 +1871,7 @@ router.patch(
         lng: req.body.lng,
         updatedAt: new Date().toISOString(),
       });
-    } catch {}
+    } catch { }
     res.json({ success: true });
   }
 );
@@ -1843,7 +1886,7 @@ router.post("/bookings/:id/verify-otp", requireRole("provider"), param("id").isS
   try {
     const io = getIO();
     io?.of("/bookings").emit("status:update", { id: req.params.id, status: "in_progress" });
-  } catch {}
+  } catch { }
   res.json({ booking: b });
 });
 
@@ -1930,16 +1973,16 @@ router.post(
 router.patch("/bookings/:id/activate-manual-assignment", requireRole("provider"), param("id").isString(), async (req, res) => {
   const providerId = req.auth?.sub;
   const booking = await Booking.findById(req.params.id);
-  
+
   if (!booking) return res.status(404).json({ error: "Booking not found" });
   if (String(booking.assignedProvider) !== String(providerId)) {
     return res.status(403).json({ error: "Forbidden: Booking not assigned to you" });
   }
-  
+
   if (booking.commissionChargedAt) {
     return res.status(400).json({ error: "Commission already paid for this booking" });
   }
-  
+
   const required = Number(booking.commissionAmount || 0);
   if (required <= 0) {
     // If no commission required, just mark it as charged
@@ -1947,25 +1990,25 @@ router.patch("/bookings/:id/activate-manual-assignment", requireRole("provider")
     await booking.save();
     return res.json({ success: true, booking });
   }
-  
+
   const acc = await ProviderAccount.findById(providerId);
   if (!acc) return res.status(404).json({ error: "Provider not found" });
-  
+
   if (Number(acc.credits || 0) < required) {
-    return res.status(409).json({ 
+    return res.status(409).json({
       error: "Insufficient wallet balance to activate this booking.",
       required,
       available: Number(acc.credits || 0)
     });
   }
-  
+
   // Deduct
   acc.credits = Math.max(Number(acc.credits || 0) - required, 0);
   await acc.save();
-  
+
   booking.commissionChargedAt = new Date();
   await booking.save();
-  
+
   // Transaction
   await ProviderWalletTxn.create({
     providerId,
@@ -1975,7 +2018,7 @@ router.patch("/bookings/:id/activate-manual-assignment", requireRole("provider")
     balanceAfter: acc.credits,
     meta: { source: "manual_activation", amount: required },
   });
-  
+
   // Sockets & Notifications
   try {
     const io = getIO();
@@ -1983,8 +2026,8 @@ router.patch("/bookings/:id/activate-manual-assignment", requireRole("provider")
     io?.of("/bookings").to(booking._id.toString()).emit("booking:update", { id: booking._id.toString(), commissionPaid: true });
     // Sound trigger via specialized event
     io?.of("/bookings").emit("provider:commission_paid", { providerId, bookingId: booking._id.toString(), amount: required });
-  } catch {}
-  
+  } catch { }
+
   try {
     await notify({
       recipientId: providerId,
@@ -1993,8 +2036,8 @@ router.patch("/bookings/:id/activate-manual-assignment", requireRole("provider")
       meta: { bookingId: booking._id.toString(), amount: required },
       respectProviderQuietHours: true,
     });
-  } catch {}
-  
+  } catch { }
+
   res.json({ success: true, credits: acc.credits, booking });
 });
 
