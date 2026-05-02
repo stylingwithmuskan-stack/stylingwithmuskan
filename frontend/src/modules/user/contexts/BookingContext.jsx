@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { api, API_BASE_URL } from "@/modules/user/lib/api";
+import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { io } from "socket.io-client";
 import { AuthContext } from "@/modules/user/contexts/AuthContext";
 
@@ -99,7 +99,7 @@ export const BookingProvider = ({ children }) => {
     if (!token) return;
 
     console.log("[BookingSync] 🔄 Connecting socket for real-time updates...");
-    const socket = io(`${API_BASE_URL}/bookings`, {
+    const socket = io(`${SOCKET_BASE_URL}/bookings`, {
       auth: { token },
       transports: ["websocket", "polling"]
     });

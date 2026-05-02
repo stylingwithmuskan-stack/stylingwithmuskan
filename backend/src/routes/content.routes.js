@@ -88,8 +88,9 @@ router.get("/init", async (req, res) => {
         });
         active.sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
         const grouped = active.reduce((acc, b) => {
-          acc[b.gender] = acc[b.gender] || [];
-          acc[b.gender].push({ ...b, priority: b.priority || 1 });
+          const g = String(b.gender || "women").toLowerCase();
+          acc[g] = acc[g] || [];
+          acc[g].push({ ...b, priority: b.priority || 1 });
           return acc;
         }, {});
         return { women: grouped.women || [], men: grouped.men || [] };
@@ -332,8 +333,9 @@ router.get("/banners", async (req, res) => {
       });
       active.sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
       const grouped = active.reduce((acc, b) => {
-        acc[b.gender] = acc[b.gender] || [];
-        acc[b.gender].push({
+        const g = String(b.gender || "women").toLowerCase();
+        acc[g] = acc[g] || [];
+        acc[g].push({
           id: b.id,
           title: b.title,
           subtitle: b.subtitle,

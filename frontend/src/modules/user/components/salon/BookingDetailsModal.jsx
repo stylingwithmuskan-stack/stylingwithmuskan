@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Calendar, Clock, MapPin, Star, Phone, MessageSquare, Zap, Receipt, ShieldCheck, ChevronRight, CheckCircle2, Navigation, Home, Scissors, AlertTriangle, Trash2 } from "lucide-react";
 import { io } from "socket.io-client";
 import LiveMap from "@/components/LiveMap";
-import { api, API_BASE_URL } from "@/modules/user/lib/api";
+import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { useNavigate } from "react-router-dom";
 import { useBookings } from "@/modules/user/contexts/BookingContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
@@ -141,7 +141,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
 
     useEffect(() => {
         if (!isOpen || !showTracking || !bookingId || !token) return;
-        const socket = io(`${API_BASE_URL}/bookings`, {
+        const socket = io(`${SOCKET_BASE_URL}/bookings`, {
             auth: { token },
             transports: ["websocket", "polling"],
         });

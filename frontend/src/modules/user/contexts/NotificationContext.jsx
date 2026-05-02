@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { api, API_BASE_URL } from "@/modules/user/lib/api";
+import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { safeStorage } from "@/modules/user/lib/safeStorage";
 import { io } from "socket.io-client";
 import { ProviderAuthContext } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
@@ -185,7 +185,7 @@ export const NotificationProvider = ({ children, role }) => {
         }
 
         console.log(`[NotificationContext] Connecting socket for ${activeRole}: ${currentUserId}`);
-        const socket = io(`${API_BASE_URL}/bookings`, {
+        const socket = io(`${SOCKET_BASE_URL}/bookings`, {
             auth: { token: activeToken },
             transports: ["websocket", "polling"], // Ensure websocket is tried first
         });

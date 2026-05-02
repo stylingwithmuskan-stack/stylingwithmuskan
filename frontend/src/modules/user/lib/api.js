@@ -2,6 +2,7 @@ import { safeStorage } from "@/modules/user/lib/safeStorage";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://stylingwithmuskan.in/api";
 export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://stylingwithmuskan.in/api";
+export const SOCKET_BASE_URL = API_BASE_URL.replace(/\/api$/, "");
 
 function getToken() {
   try {

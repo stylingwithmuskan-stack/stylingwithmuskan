@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Smile, Paperclip, Phone, CheckCircle2, Loader2, MessageSquare } from "lucide-react";
 import { io } from "socket.io-client";
-import { api } from "@/modules/user/lib/api";
+import { api, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { useBookingChat } from "@/modules/user/contexts/BookingChatContext";
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://stylingwithmuskan.in/api";
 
 const ChatModal = ({ isOpen, onClose, booking }) => {
     const { setActiveChatId, clearUnread } = useBookingChat();
@@ -48,7 +46,7 @@ const ChatModal = ({ isOpen, onClose, booking }) => {
 
         // Initialize socket
         const token = localStorage.getItem("swm_token");
-        socketRef.current = io(`${SOCKET_URL}/booking-chat`, {
+        socketRef.current = io(`${SOCKET_BASE_URL}/booking-chat`, {
             auth: { token },
             transports: ["polling", "websocket"]
         });

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { ProviderAuthContext } from "./ProviderAuthContext";
-import { api, API_BASE_URL } from "@/modules/user/lib/api";
+import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
 
@@ -184,7 +184,7 @@ export const ProviderBookingProvider = ({ children }) => {
 
         // 1. Bookings status sync
         console.log(`[ProviderBookings] 🔄 Connecting sync socket for provider: ${providerId}`);
-        const socket = io(`${API_BASE_URL}/bookings`, {
+        const socket = io(`${SOCKET_BASE_URL}/bookings`, {
             auth: { token },
             transports: ["websocket"],
         });
@@ -224,7 +224,7 @@ export const ProviderBookingProvider = ({ children }) => {
         });
 
         // 2. Booking Chat sync (Global)
-        const chatSocket = io(`${API_BASE_URL}/booking-chat`, {
+        const chatSocket = io(`${SOCKET_BASE_URL}/booking-chat`, {
             auth: { token },
             transports: ["websocket"],
         });
@@ -243,7 +243,7 @@ export const ProviderBookingProvider = ({ children }) => {
 
         // 3. Provider Location tracking socket
         console.log(`[ProviderBookings] 📍 Connecting location socket for provider: ${providerId}`);
-        const locationSocket = io(`${API_BASE_URL}/provider-location`, {
+        const locationSocket = io(`${SOCKET_BASE_URL}/provider-location`, {
             auth: { token },
             transports: ["websocket"],
         });

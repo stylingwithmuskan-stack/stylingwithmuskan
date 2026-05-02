@@ -56,7 +56,7 @@ app.use(cookieParser());
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 100,
+  limit: 500, // Increased to accommodate dashboard polling and socket connections
 });
 app.use(limiter);
 
