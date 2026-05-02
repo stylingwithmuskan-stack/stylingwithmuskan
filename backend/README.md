@@ -1,6 +1,6 @@
 # Styling with Muskan – Backend API
 
-Base URL (Development): `http://localhost:3001`
+Base URL (Development): `http://localhost:5000`
 Base URL (Production): `https://your-backend.onrender.com`
 
 ## Quick Start

@@ -1,3 +1,10 @@
+
+
+
+
+
+
+
 import dotenv from "dotenv";
 import dns from "dns";
 import path from "path";
@@ -18,7 +25,7 @@ import { initSocket } from "./startup/socket.js";
 import { startCron } from "./startup/cron.js";
 import { startAssignmentScheduler } from "./startup/assignmentScheduler.js";
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5000;
 
 async function boot() {
   try {
@@ -46,13 +53,13 @@ async function boot() {
   const server = createServer(app);
   initSocket(server);
   const port = Number(PORT);
-  
+
   server.listen(port, () => {
     console.log(`\n[Server] 🚀 API listening on http://localhost:${port}`);
     console.log(`[Server] 📝 Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`[Server] 🗄️  Database: ${process.env.MONGO_DB || "swm"}`);
     console.log(`[Server] ✨ Server ready to accept requests\n`);
-    
+
     startCron();
     startAssignmentScheduler();
   });

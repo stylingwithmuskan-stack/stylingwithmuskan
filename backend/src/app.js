@@ -74,6 +74,26 @@ app.use((req, res, next) => {
   }
   return next();
 });
+const apiRouter = express.Router();
+apiRouter.use("/auth", authRoutes);
+apiRouter.use("/users", userRoutes);
+apiRouter.use("/content", contentRoutes);
+apiRouter.use("/admin", adminRoutes);
+apiRouter.use("/vendor", vendorRoutes);
+apiRouter.use("/provider", providerRoutes);
+apiRouter.use("/providers", providersRoutes);
+apiRouter.use("/sos", sosRoutes);
+apiRouter.use("/bookings", bookingsRoutes);
+apiRouter.use("/payments", paymentsRoutes);
+apiRouter.use("/notifications", notificationRoutes);
+apiRouter.use("/subscriptions", subscriptionRoutes);
+apiRouter.use("/support", supportRoutes);
+apiRouter.use("/training", trainingRoutes);
+
+// Mount all routes under /api
+app.use("/api", apiRouter);
+
+// Fallback for direct root access (maintains compatibility with existing frontend builds)
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/content", contentRoutes);
@@ -95,6 +115,11 @@ try {
   if (SWAGGER_SERVER_URL) spec.servers = [{ url: SWAGGER_SERVER_URL }];
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(spec));
 } catch {}
+
+// 404 Handler
+app.use((_req, res) => {
+  res.status(404).json({ error: "Route not found", path: _req.originalUrl });
+});
 
 app.use((err, _req, res, _next) => {
   res.status(err.status || 500).json({ error: err.message || "Server error" });

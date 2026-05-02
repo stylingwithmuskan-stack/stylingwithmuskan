@@ -138,7 +138,7 @@ export default function ProviderProfile() {
     const handleDeleteAccount = async () => {
         setIsDeleting(true);
         try {
-            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stylingwithmuskan.in/api';
             const response = await fetch(`${apiBaseUrl}/provider/me/account`, {
                 method: 'DELETE',
                 credentials: 'include',
@@ -170,7 +170,7 @@ export default function ProviderProfile() {
         }
         setSavingProfile(true);
         try {
-            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stylingwithmuskan.in/api';
             const response = await fetch(`${apiBaseUrl}/provider/me/profile`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },

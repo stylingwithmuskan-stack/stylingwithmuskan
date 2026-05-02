@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
 import { useBookings } from "./BookingContext";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://stylingwithmuskan.in/api";
 
 const BookingChatContext = createContext();
 

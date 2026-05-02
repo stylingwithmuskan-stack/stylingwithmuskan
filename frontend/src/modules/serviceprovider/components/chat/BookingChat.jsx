@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { Button } from "@/modules/user/components/ui/button";
 import { api } from "@/modules/user/lib/api";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://stylingwithmuskan.in/api";
 
 export default function BookingChat({ bookingId, onClose }) {
     const [messages, setMessages] = useState([]);

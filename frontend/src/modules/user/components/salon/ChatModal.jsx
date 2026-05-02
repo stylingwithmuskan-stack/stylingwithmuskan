@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 import { api } from "@/modules/user/lib/api";
 import { useBookingChat } from "@/modules/user/contexts/BookingChatContext";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://stylingwithmuskan.in/api";
 
 const ChatModal = ({ isOpen, onClose, booking }) => {
     const { setActiveChatId, clearUnread } = useBookingChat();
