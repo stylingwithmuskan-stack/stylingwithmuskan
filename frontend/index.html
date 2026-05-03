@@ -43,9 +43,6 @@
   fbq('init', '2444230829357359');
   fbq('track', 'PageView');
   </script>
-  <noscript><img height="1" width="1" style="display:none"
-  src="https://www.facebook.com/tr?id=2444230829357359&ev=PageView&noscript=1"
-  /></noscript>
   <!-- End Meta Pixel Code -->
 
   <!-- Loading Styles -->
@@ -84,6 +81,10 @@
 </head>
 
 <body>
+  <!-- Meta Pixel noscript fallback (must be in body) -->
+  <noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=2444230829357359&ev=PageView&noscript=1"
+  /></noscript>
 
   <div id="root">
     <!-- Fallback loader shown while app initializes -->
