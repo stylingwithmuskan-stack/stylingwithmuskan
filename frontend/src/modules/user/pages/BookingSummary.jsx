@@ -27,8 +27,8 @@ const BookingSummary = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
-  const checkoutType = searchParams.get('type');
-  const bookingParam = searchParams.get('booking');
+  const checkoutType = searchParams.get('type') || location.state?.type;
+  const bookingParam = searchParams.get('booking') || location.state?.bookingParam;
 
   const { gender } = useGenderTheme();
   const { cartItems, updateQuantity, clearCart, totalPrice, totalSavings, isCartOpen, setIsCartOpen, selectedSlot, getGroupedItems, bookingType: contextBookingType, customAdvance, setCustomAdvance } = useCart();
@@ -505,6 +505,19 @@ const BookingSummary = () => {
         >
           Your beautician will be assigned shortly for {getFormattedDate(selectedSlot?.date)} at {selectedSlot?.time}
         </motion.p>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="mt-8 flex flex-col sm:flex-row gap-4 w-full max-w-sm"
+        >
+          <Button onClick={() => navigate("/bookings")} className="flex-1 font-bold py-6 text-sm">
+            View Bookings
+          </Button>
+          <Button onClick={() => navigate("/home")} variant="outline" className="flex-1 font-bold py-6 text-sm">
+            Continue to Home
+          </Button>
+        </motion.div>
       </div>
     );
   }

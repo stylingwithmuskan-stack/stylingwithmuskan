@@ -683,8 +683,8 @@ const BookingsPage = () => {
                                                         }
                                                         addCustomAdvanceToCart(enq, amt);
                                                         setIsCartOpen(false);
-                                                        navigate("/booking/summary?type=custom", {
-                                                            state: { customAdvance: { enquiryId: enq._id || enq.id, amount: amt } }
+                                                        navigate("/booking/summary", {
+                                                            state: { type: 'custom', customAdvance: { enquiryId: enq._id || enq.id, amount: amt } }
                                                         });
                                                     } catch (e) {
                                                         toast.error(e?.message || "Failed to start advance payment");

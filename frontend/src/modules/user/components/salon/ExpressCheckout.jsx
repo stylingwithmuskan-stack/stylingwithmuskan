@@ -166,9 +166,9 @@ const ExpressCheckout = () => {
         };
 
         if (finalType && typeof finalType === 'string') {
-            navigate(`/booking/summary?type=${finalType}&booking=${bookingType}`, { state: bookingData });
+            navigate(`/booking/summary`, { state: { ...bookingData, type: finalType, bookingParam: bookingType } });
         } else {
-            navigate(`/booking/summary?booking=${bookingType}`, { state: bookingData });
+            navigate(`/booking/summary`, { state: { ...bookingData, bookingParam: bookingType } });
         }
     };
 
