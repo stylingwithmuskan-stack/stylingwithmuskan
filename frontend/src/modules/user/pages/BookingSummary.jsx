@@ -565,30 +565,26 @@ const BookingSummary = () => {
         <motion.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
           onClick={() => setIsSlotModalOpen(true)}
-          className="glass-strong rounded-2xl p-5 border border-border/50 flex justify-between items-center cursor-pointer hover:border-primary/50 transition-all group"
+          className="glass-strong rounded-2xl p-4 sm:p-5 border border-border/50 grid grid-cols-2 gap-3 sm:gap-6 cursor-pointer hover:border-primary/50 transition-all group"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-              <Calendar className="w-5 h-5 text-primary" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors shrink-0">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </div>
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Selected Slot</p>
-              <p className="text-sm font-bold mt-1 text-primary">{getFormattedDate(selectedSlot?.date)}</p>
+            <div className="min-w-0">
+              <p className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Date</p>
+              <p className="text-[11px] sm:text-sm font-bold mt-1 text-primary truncate">{getFormattedDate(selectedSlot?.date)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 border-l border-border pl-6 relative">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-              <Clock className="w-5 h-5 text-primary" />
+          <div className="flex items-center gap-2 sm:gap-3 border-l border-border pl-3 sm:pl-6">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors shrink-0">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </div>
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Timing & Professional</p>
-              <p className="text-sm font-bold mt-1 text-primary">
+            <div className="min-w-0">
+              <p className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Timing</p>
+              <p className="text-[11px] sm:text-sm font-bold mt-1 text-primary truncate">
                 {selectedSlot?.time}
-                <span className="block text-[10px] text-muted-foreground mt-0.5">By {selectedSlot?.provider?.name || 'Any Trained Professional'}</span>
               </p>
-            </div>
-            <div className="absolute -right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <ChevronRight className="w-4 h-4 text-primary" />
             </div>
           </div>
         </motion.div>
@@ -602,8 +598,8 @@ const BookingSummary = () => {
                   <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
                     {group.label || "Services"}
                   </h3>
-                  <span className="text-[10px] font-bold text-primary/60">
-                    Section Subtotal: ₹{(group.subtotal || 0).toLocaleString()}
+                  <span className="text-[10px] font-bold text-primary/60 whitespace-nowrap">
+                    ₹{(group.subtotal || 0).toLocaleString()}
                   </span>
                 </div>
 
@@ -616,18 +612,18 @@ const BookingSummary = () => {
                       transition={{ delay: 0.1 + idx * 0.05 }}
                       className="glass-strong rounded-2xl p-4 border border-border/50 shadow-sm"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-accent flex-shrink-0 border border-border/50">
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="relative w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-accent flex-shrink-0 border border-border/50">
                           <img src={item.image} alt={item?.name || "Service"} className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-sm text-foreground truncate">{item?.name || "Unknown Service"}</h3>
-                          <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
-                            Quantity: {item.quantity} · {item.duration}
+                          <h3 className="font-bold text-[13px] sm:text-sm text-foreground line-clamp-1">{item?.name || "Service"}</h3>
+                          <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 font-medium truncate">
+                            Qty: {item.quantity} · {item.duration}
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-black text-primary text-sm">₹{(item.price * item.quantity).toLocaleString()}</p>
+                        <div className="text-right shrink-0">
+                          <p className="font-black text-primary text-[13px] sm:text-sm">₹{(item.price * item.quantity).toLocaleString()}</p>
                           {item.originalPrice && (
                             <p className="text-[9px] text-muted-foreground line-through opacity-60">
                               ₹{(item.originalPrice * item.quantity).toLocaleString()}
@@ -656,44 +652,46 @@ const BookingSummary = () => {
               See All Offers
             </button>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col xs:flex-row gap-2">
             <Input
-              placeholder="Enter coupon code"
+              placeholder="Coupon code"
               value={coupon}
               onChange={(e) => {
                 setCoupon(e.target.value);
                 setCouponError("");
                 setCouponApplied(null);
               }}
-              className="flex-1 h-12 rounded-xl bg-accent border-none text-base font-medium"
+              className="flex-1 h-12 rounded-xl bg-accent border-none text-sm font-medium"
             />
-            {availableCoupons.length > 0 && (
-              <select
-                value={coupon}
-                onChange={(e) => {
-                  setCoupon(e.target.value);
-                  setCouponError("");
-                  setCouponApplied(null);
-                }}
-                className="h-12 rounded-xl bg-white border border-border px-3 text-sm font-bold"
-                aria-label="Select coupon"
+            <div className="flex gap-2">
+              {availableCoupons.length > 0 && (
+                <select
+                  value={coupon}
+                  onChange={(e) => {
+                    setCoupon(e.target.value);
+                    setCouponError("");
+                    setCouponApplied(null);
+                  }}
+                  className="h-12 flex-1 xs:flex-none rounded-xl bg-white border border-border px-2 text-[10px] font-bold min-w-[80px]"
+                  aria-label="Select coupon"
+                >
+                  <option value="">Offers</option>
+                  {availableCoupons.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <Button
+                className="h-12 px-4 xs:px-6 font-bold flex-1 xs:flex-none text-xs rounded-xl"
+                variant={couponApplied ? "secondary" : "default"}
+                onClick={handleApplyCoupon}
+                disabled={!coupon}
               >
-                <option value="">Choose coupon</option>
-                {availableCoupons.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.code} ({c.discountType ? (c.discountType === "flat" ? `₹${c.discountValue}` : `${c.discountValue}%`) : (c.type === "FIXED" ? `₹${c.value}` : `${c.value}%`)})
-                  </option>
-                ))}
-              </select>
-            )}
-            <Button
-              className="h-12 rounded-xl px-6 font-bold"
-              variant={couponApplied ? "secondary" : "default"}
-              onClick={handleApplyCoupon}
-              disabled={!coupon}
-            >
-              {couponApplied ? "Applied ✓" : "Apply"}
-            </Button>
+                {couponApplied ? "Applied ✓" : "Apply"}
+              </Button>
+            </div>
           </div>
           {couponError && <p className="text-[10px] text-destructive mt-2 ml-1 font-bold">{couponError}</p>}
           {couponApplied && <p className="text-[10px] text-green-600 mt-2 ml-1 font-bold">Coupon applied successfully!</p>}
@@ -712,8 +710,8 @@ const BookingSummary = () => {
               <Zap className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-amber-600 dark:text-amber-400">SWM Plus members unlock up to 15% savings on eligible bookings.</p>
-              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Join from ₹299/quarter → Save from ₹{Math.round(displayTotalPrice * 0.10)} now</p>
+              <p className="text-[11px] sm:text-xs font-black text-amber-600 dark:text-amber-400 leading-tight">SWM Plus members unlock up to 15% savings on eligible bookings.</p>
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground font-medium mt-0.5">Join from ₹299/quarter · Save ₹{Math.round(displayTotalPrice * 0.10)} now</p>
             </div>
             <ChevronRight className="w-4 h-4 text-amber-500 shrink-0" />
           </motion.div>
@@ -721,28 +719,28 @@ const BookingSummary = () => {
 
         {/* Price Breakdown */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-strong rounded-2xl p-5 border border-border/50 space-y-3">
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between text-[13px] sm:text-sm">
             <span className="text-muted-foreground font-medium">Service Total</span>
             <span className="font-bold">₹{(displayTotalPrice + displayTotalSavings).toLocaleString()}</span>
           </div>
           {displayTotalSavings > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-green-600 font-medium">Auto Discount Applied</span>
+            <div className="flex justify-between text-[13px] sm:text-sm">
+              <span className="text-green-600 font-medium">Auto Discount</span>
               <span className="text-green-600 font-bold">-₹{displayTotalSavings.toLocaleString()}</span>
             </div>
           )}
           {couponApplied && (
-            <div className="flex justify-between text-sm">
-              <span className="text-primary font-medium">Coupon Discount ({couponApplied.code})</span>
-              <span className="text-primary font-bold">-₹{discount.toLocaleString()}</span>
+            <div className="flex justify-between text-[13px] sm:text-sm">
+              <span className="text-primary font-medium truncate max-w-[150px]">Coupon ({couponApplied.code})</span>
+              <span className="text-primary font-bold shrink-0">-₹{discount.toLocaleString()}</span>
             </div>
           )}
           {plusDiscount > 0 && (
-            <div className="flex justify-between text-sm items-center">
-              <span className="text-amber-600 font-medium flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5" /> SWM Plus Discount ({plusDiscountPercentage}%)
+            <div className="flex justify-between text-[13px] sm:text-sm items-center">
+              <span className="text-amber-600 font-medium flex items-center gap-1.5 truncate">
+                <Zap className="w-3.5 h-3.5 shrink-0" /> SWM Plus ({plusDiscountPercentage}%)
               </span>
-              <span className="text-amber-600 font-bold">-₹{plusDiscount.toLocaleString()}</span>
+              <span className="text-amber-600 font-bold shrink-0">-₹{plusDiscount.toLocaleString()}</span>
             </div>
           )}
           <div className="flex justify-between text-sm">
@@ -795,26 +793,26 @@ const BookingSummary = () => {
 
       {/* Bottom CTA */}
       <div className="fixed bottom-0 left-0 right-0 glass-strong border-t border-border p-5 z-40">
-        <div className="max-w-2xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center justify-between md:justify-start gap-4">
-            <div className="flex flex-col">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase">{advanceAmount > 0 ? "Grand Total" : "Grand Total"}</p>
+        <div className="max-w-2xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center justify-between sm:justify-start gap-4">
+            <div className="flex flex-row items-baseline gap-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase whitespace-nowrap">Total</p>
               <p className="text-2xl font-black text-primary leading-none">₹{finalTotal.toLocaleString()}</p>
             </div>
             {displayTotalSavings + discount + plusDiscount > 0 && (
-               <div className="md:hidden bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-lg">
+               <div className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-lg whitespace-nowrap">
                  SAVED ₹{(displayTotalSavings + discount + plusDiscount).toLocaleString()}
                </div>
             )}
           </div>
 
-          <div className="flex gap-3 flex-1">
+          <div className="flex flex-row gap-2 flex-1 sm:justify-end">
             {advanceAmount === 0 && !customAdvanceData?.enquiryId && (
               <Button
                 onClick={handlePayAfterService}
                 disabled={isProcessing}
                 variant="outline"
-                className="flex-1 h-14 rounded-2xl border-2 border-primary/20 hover:border-primary/40 text-primary font-bold bg-white/50 backdrop-blur-sm text-[11px] xs:text-xs sm:text-sm"
+                className="flex-1 h-11 sm:h-14 rounded-xl sm:rounded-2xl border-2 border-primary/20 hover:border-primary/40 text-primary font-bold bg-white/50 backdrop-blur-sm text-[9px] xs:text-[10px] sm:text-sm whitespace-nowrap px-2"
               >
                 {isProcessing ? "..." : "PAY AFTER SERVICE"}
               </Button>
@@ -822,14 +820,14 @@ const BookingSummary = () => {
             <Button 
               onClick={() => handlePay(false)} 
               disabled={isProcessing}
-              className={`${(advanceAmount === 0) ? 'flex-1' : 'w-full md:flex-1'} h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs xs:text-sm sm:text-lg font-bold shadow-xl shadow-primary/20 gap-1.5 xs:gap-2 group border-none`}
+              className={`${(advanceAmount === 0) ? 'flex-1' : 'w-full sm:flex-1'} h-11 sm:h-14 rounded-xl sm:rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] sm:text-base font-bold shadow-xl shadow-primary/20 gap-1 sm:gap-2 group border-none px-3`}
             >
               <span className="truncate">
-                {isProcessing ? "Processing..." : (advanceAmount > 0 ? `PAY ADVANCE ₹${advanceAmount.toLocaleString()}` : "PROCEED TO PAY")}
+                {isProcessing ? "..." : (advanceAmount > 0 ? `PAY ₹${advanceAmount.toLocaleString()}` : "PAY NOW")}
               </span>
               {!isProcessing && (
-                <div className="w-6 h-6 xs:w-8 xs:h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform shrink-0">
-                  <ChevronRight className="w-4 h-4 xs:w-5 xs:h-5" />
+                <div className="hidden xs:flex w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-white/20 items-center justify-center group-hover:translate-x-1 transition-transform shrink-0">
+                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
                 </div>
               )}
             </Button>

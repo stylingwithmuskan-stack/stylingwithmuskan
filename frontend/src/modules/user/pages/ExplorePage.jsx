@@ -420,11 +420,11 @@ const ExplorePage = () => {
                                         <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{service.description}</p>
                                     </div>
 
-                                    <div className="flex items-center justify-between mt-auto pt-2">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="text-base font-black text-primary">₹{service.price}</span>
+                                    <div className="flex items-center justify-between gap-1 mt-auto pt-2">
+                                        <div className="flex items-center gap-1 min-w-0 flex-shrink">
+                                            <span className="text-base font-black text-primary truncate">₹{service.price}</span>
                                             {service.originalPrice && (
-                                                <span className="text-[10px] text-muted-foreground line-through opacity-60 font-bold">₹{service.originalPrice}</span>
+                                                <span className="text-[10px] text-muted-foreground line-through opacity-60 font-bold truncate">₹{service.originalPrice}</span>
                                             )}
                                         </div>
                                         {(() => {
@@ -442,7 +442,7 @@ const ExplorePage = () => {
                                                                 setIsFloatingSummaryOpen(true);
                                                             }
                                                         }}
-                                                        className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm bg-white text-primary border-2 border-primary/20 hover:bg-primary hover:text-white"
+                                                        className="h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm bg-white text-primary border-2 border-primary/20 hover:bg-primary hover:text-white flex-shrink-0"
                                                     >
                                                         Add
                                                     </Button>
@@ -451,25 +451,27 @@ const ExplorePage = () => {
                                             
                                             // If in cart, show quantity controls
                                             return (
-                                                <QuantityControl
-                                                    quantity={inCart.quantity}
-                                                    onIncrement={() => {
-                                                        if (!isLoggedIn) {
-                                                            navigate('/login');
-                                                        } else {
-                                                            updateQuantity(service.id, 1);
-                                                            setIsFloatingSummaryOpen(true);
-                                                        }
-                                                    }}
-                                                    onDecrement={() => {
-                                                        if (!isLoggedIn) {
-                                                            navigate('/login');
-                                                        } else {
-                                                            updateQuantity(service.id, -1);
-                                                        }
-                                                    }}
-                                                    size="sm"
-                                                />
+                                                <div className="flex-shrink-0">
+                                                    <QuantityControl
+                                                        quantity={inCart.quantity}
+                                                        onIncrement={() => {
+                                                            if (!isLoggedIn) {
+                                                                navigate('/login');
+                                                            } else {
+                                                                updateQuantity(service.id, 1);
+                                                                setIsFloatingSummaryOpen(true);
+                                                            }
+                                                        }}
+                                                        onDecrement={() => {
+                                                            if (!isLoggedIn) {
+                                                                navigate('/login');
+                                                            } else {
+                                                                updateQuantity(service.id, -1);
+                                                            }
+                                                        }}
+                                                        size="sm"
+                                                    />
+                                                </div>
                                             );
                                         })()}
                                     </div>

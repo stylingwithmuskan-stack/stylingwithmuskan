@@ -35,6 +35,30 @@ const LoginModal = () => {
         }
     }, [isLoginModalOpen]);
 
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (isLoginModalOpen) {
+            const scrollY = window.scrollY;
+            document.documentElement.classList.add("modal-open");
+            document.body.classList.add("modal-open");
+            document.body.style.top = `-${scrollY}px`;
+            document.body.dataset.scrollY = scrollY;
+        } else {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        }
+        return () => {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        };
+    }, [isLoginModalOpen]);
+
     const handlePhoneSubmit = async (e) => {
         e.preventDefault();
         if (phone.length !== 10) return;

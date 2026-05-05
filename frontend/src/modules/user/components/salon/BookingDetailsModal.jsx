@@ -41,6 +41,30 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     const [isCancelling, setIsCancelling] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (isOpen) {
+            const scrollY = window.scrollY;
+            document.documentElement.classList.add("modal-open");
+            document.body.classList.add("modal-open");
+            document.body.style.top = `-${scrollY}px`;
+            document.body.dataset.scrollY = scrollY;
+        } else {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        }
+        return () => {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        };
+    }, [isOpen]);
+
     // Sync state if prop changes (e.g. initial load)
     useEffect(() => {
         if (booking) setLocalBooking(booking);

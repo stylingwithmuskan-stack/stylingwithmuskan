@@ -163,8 +163,8 @@ const Header = () => {
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-background animate-in zoom-in">
-                    {unreadCount}
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-[9px] font-bold text-white flex items-center justify-center border-2 border-background animate-in zoom-in shadow-sm">
+                    {unreadCount > 99 ? "99+" : unreadCount}
                   </span>
                 )}
               </button>
@@ -178,8 +178,8 @@ const Header = () => {
           >
             <Heart className="w-4 h-4" />
             {wishlistCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-background animate-in zoom-in">
-                {wishlistCount}
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-[9px] font-bold text-white flex items-center justify-center border-2 border-background animate-in zoom-in shadow-sm">
+                {wishlistCount > 99 ? "99+" : wishlistCount}
               </span>
             )}
           </button>
@@ -190,8 +190,8 @@ const Header = () => {
           >
             <ShoppingBag className="w-4 h-4" />
             {totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] font-bold text-white flex items-center justify-center border-2 border-background animate-in zoom-in">
-                {totalItems}
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-[9px] font-bold text-white flex items-center justify-center border-2 border-background animate-in zoom-in shadow-sm">
+                {totalItems > 99 ? "99+" : totalItems}
               </span>
             )}
           </button>

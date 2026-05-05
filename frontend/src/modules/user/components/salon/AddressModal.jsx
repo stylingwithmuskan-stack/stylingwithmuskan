@@ -26,6 +26,30 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
     const [zonesLoading, setZonesLoading] = useState(false);
     const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (isOpen) {
+            const scrollY = window.scrollY;
+            document.documentElement.classList.add("modal-open");
+            document.body.classList.add("modal-open");
+            document.body.style.top = `-${scrollY}px`;
+            document.body.dataset.scrollY = scrollY;
+        } else {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        }
+        return () => {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        };
+    }, [isOpen]);
+
     useEffect(() => {
         api.content.cities().then(res => setCities(res.cities || [])).catch(() => {});
     }, []);
@@ -264,20 +288,21 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 pt-10 sm:p-8 md:p-12">
+                <div className="fixed inset-0 z-[200] flex items-end sm:items-center sm:justify-center sm:p-8 md:p-12">
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        className="absolute inset-0 bg-black/60 backdrop-blur-md"
                     />
 
                     <motion.div
-                        initial={{ scale: 0.9, opacity: 0, y: 10 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.9, opacity: 0, y: 10 }}
-                        className="relative w-full max-w-lg bg-background rounded-[32px] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden my-auto"
+                        initial={{ opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 40 }}
+                        transition={{ type: "spring", damping: 28, stiffness: 300 }}
+                        className="relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-lg bg-background sm:rounded-[32px] rounded-none shadow-2xl flex flex-col overflow-hidden"
                     >
                         {/* Fixed Header */}
                         <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-background z-10 shrink-0">

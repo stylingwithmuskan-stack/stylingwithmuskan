@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, X, MessageSquare, Send, ThumbsUp } from "lucide-react";
@@ -11,6 +11,30 @@ const FeedbackModal = ({ isOpen, onClose, booking, onSubmit }) => {
     const [comment, setComment] = useState("");
     const [submitted, setSubmitted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (isOpen) {
+            const scrollY = window.scrollY;
+            document.documentElement.classList.add("modal-open");
+            document.body.classList.add("modal-open");
+            document.body.style.top = `-${scrollY}px`;
+            document.body.dataset.scrollY = scrollY;
+        } else {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        }
+        return () => {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        };
+    }, [isOpen]);
 
     const tags = ["Professional", "On Time", "Great Service", "Clean", "Friendly", "Value for Money"];
     const [selectedTags, setSelectedTags] = useState([]);

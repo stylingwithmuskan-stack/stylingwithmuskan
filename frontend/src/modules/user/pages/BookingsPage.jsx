@@ -303,9 +303,9 @@ const BookingsPage = () => {
                                         transition={{ delay: i * 0.1 }}
                                         className="glass-strong rounded-2xl overflow-hidden border border-border/50 group"
                                     >
-                                        <div className="p-4">
+                                        <div className="p-4 sm:p-5">
                                             <div className="flex gap-4">
-                                                <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-accent">
+                                                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden flex-shrink-0 bg-accent border border-border/50">
                                                     <img
                                                         src={
                                                             booking.items?.[0]?.image || 
@@ -320,133 +320,137 @@ const BookingsPage = () => {
                                                 </div>
 
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <div>
-                                                            <h3 className="font-bold text-sm truncate">
+                                                    <div className="flex justify-between items-start gap-2 mb-2">
+                                                        <div className="flex-1 min-w-0">
+                                                            <h3 className="font-bold text-[15px] sm:text-base leading-tight truncate">
                                                                 {(booking.items?.[0]?.name || booking.services?.[0]?.name || booking.categoryName || booking.serviceType || "Customized Service")}
                                                                 {(((booking.items?.length || booking.services?.length || booking.selectedServices?.length || 0) > 1)) && ` + ${Math.max(0, (booking.items?.length || booking.services?.length || booking.selectedServices?.length || 0) - 1)} more`}
                                                             </h3>
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded flex items-center gap-1 ${(booking.bookingType || "").toLowerCase() === 'instant' ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
+                                                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md flex items-center gap-1 ${(booking.bookingType || "").toLowerCase() === 'instant' ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
                                                                     }`}>
-                                                                    {(booking.bookingType || "").toLowerCase() === 'instant' ? <Zap className="w-2 h-2" /> : <Calendar className="w-2 h-2" />}
+                                                                    {(booking.bookingType || "").toLowerCase() === 'instant' ? <Zap className="w-2.5 h-2.5" /> : <Calendar className="w-2.5 h-2.5" />}
                                                                     {(booking.bookingType || "").toLowerCase() === 'instant' ? 'Booked' : 'Pre-book'}
                                                                 </span>
-                                                                <span className="text-[10px] text-muted-foreground font-medium">
-                                                                    ID: {booking._id || booking.id}
+                                                                <span className="text-[10px] text-muted-foreground/60 font-bold tracking-tighter bg-accent/50 px-2 py-0.5 rounded-md">
+                                                                    ID: {String(booking._id || booking.id).slice(-8).toUpperCase()}
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                                            booking.status?.toLowerCase() === "accepted" ? "bg-green-100 text-green-600" :
-                                                            booking.status?.toLowerCase() === "travelling" ? "bg-amber-100 text-amber-600" :
-                                                            booking.status?.toLowerCase() === "arrived" ? "bg-purple-100 text-purple-600" :
-                                                            booking.status?.toLowerCase() === "in_progress" || booking.status?.toLowerCase() === "documentation" ? "bg-blue-100 text-blue-600" :
-                                                            booking.status?.toLowerCase() === "completed" ? "bg-emerald-100 text-emerald-600" :
-                                                            booking.status?.toLowerCase() === "cancelled" ? "bg-red-100 text-red-600" :
-                                                            "bg-gray-100 text-gray-600"
+                                                        <span className={`flex-shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded-lg border ${
+                                                            booking.status?.toLowerCase() === "accepted" ? "bg-green-50 text-green-600 border-green-200" :
+                                                            booking.status?.toLowerCase() === "travelling" ? "bg-amber-50 text-amber-600 border-amber-200" :
+                                                            booking.status?.toLowerCase() === "arrived" ? "bg-purple-50 text-purple-600 border-purple-200" :
+                                                            booking.status?.toLowerCase() === "in_progress" || booking.status?.toLowerCase() === "documentation" ? "bg-blue-50 text-blue-600 border-blue-200" :
+                                                            booking.status?.toLowerCase() === "completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                                                            booking.status?.toLowerCase() === "cancelled" ? "bg-red-50 text-red-600 border-red-200" :
+                                                            "bg-gray-50 text-gray-600 border-gray-200"
                                                         }`}>
                                                             {booking.status?.toLowerCase() === "completed" ? "Completed" : (booking.status || "Pending")}
                                                         </span>
                                                     </div>
 
-                                                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground mb-2 mt-2">
-                                                        <div className="flex items-center gap-1">
-                                                            <Calendar className="w-3 h-3" /> {getFormattedDate(booking.slot?.date)}
+                                                    <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-2 text-[11px] text-muted-foreground mb-3 mt-3">
+                                                        <div className="flex items-center gap-1.5 font-bold">
+                                                            <Calendar className="w-3.5 h-3.5 text-primary/60" /> {getFormattedDate(booking.slot?.date)}
                                                         </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <Clock className="w-3 h-3" /> {booking.slot?.time}
+                                                        <div className="flex items-center gap-1.5 font-bold">
+                                                            <Clock className="w-3.5 h-3.5 text-primary/60" /> {booking.slot?.time}
                                                         </div>
+                                                        <div className="col-span-2 sm:col-auto">
                                                         {["accepted", "travelling", "arrived", "in_progress", "documentation", "completed"].includes(booking.status?.toLowerCase()) ? (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleProviderClick(booking); }} 
-                                                                className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
+                                                                className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer group/pro"
                                                             >
-                                                                <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                                                                <span className="font-bold underline decoration-primary/30 underline-offset-2">
+                                                                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                                                <span className="font-bold underline decoration-primary/30 underline-offset-2 group-hover/pro:decoration-primary">
                                                                     {booking.slot?.provider?.name || booking.teamMembers?.[0]?.name || Object.values(providers || {}).find(p => p.id === booking.assignedProvider)?.name || 'Trained Pro'}
                                                                 </span>
                                                             </button>
                                                         ) : (
-                                                            <div className="flex items-center gap-1 text-muted-foreground/60">
-                                                                <Star className="w-3 h-3" />
-                                                                <span className="font-medium text-[10px] uppercase tracking-wider">Professional Assigning...</span>
+                                                            <div className="flex items-center gap-1.5 text-muted-foreground/50 italic">
+                                                                <Users className="w-3.5 h-3.5" />
+                                                                <span className="font-medium text-[10px] uppercase tracking-tighter">Assigning Expert...</span>
                                                             </div>
                                                         )}
+                                                        </div>
                                                     </div>
 
-                                                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 truncate opacity-70">
-                                                        <MapPin className="w-3 h-3 text-primary" />
-                                                        {booking.address?.houseNo}, {booking.address?.area}
+                                                    <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 opacity-80 leading-tight">
+                                                        <MapPin className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+                                                        <span className="line-clamp-1">{booking.address?.houseNo}, {booking.address?.area}</span>
                                                     </p>
                                                     {booking.otp && ((booking.status || "").toLowerCase() === "arrived") && (
-                                                        <div className="mt-2 inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 px-3 py-1.5 rounded-lg text-[11px] font-black tracking-widest shadow-sm">
+                                                        <div className="mt-3 inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 px-3 py-1.5 rounded-xl text-[12px] font-black tracking-[0.2em] shadow-sm">
                                                             OTP: {booking.otp}
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
 
-                                            <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Booking Value</p>
-                                                    <p className="font-bold text-primary flex items-center gap-1">
-                                                        ₹{(booking.totalAmount || 0).toLocaleString()}
-                                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${
+                                            <div className="mt-5 pt-4 border-t border-border/50 flex flex-wrap items-center justify-between gap-3">
+                                                <div className="min-w-[120px]">
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-0.5 opacity-60">Booking Value</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-lg font-black text-primary">
+                                                            ₹{(booking.totalAmount || 0).toLocaleString()}
+                                                        </p>
+                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter ${
                                                             booking.paymentStatus === 'PAID' || booking.balanceAmount === 0 
-                                                            ? "bg-green-100 text-green-600" 
-                                                            : "bg-amber-100 text-amber-600"
+                                                            ? "bg-green-50 text-green-600 border border-green-200" 
+                                                            : "bg-amber-50 text-amber-600 border border-amber-200"
                                                         }`}>
-                                                            {booking.paymentStatus || (booking.balanceAmount === 0 ? 'PAID' : 'ADVANCE PENDING')}
+                                                            {booking.paymentStatus || (booking.balanceAmount === 0 ? 'PAID' : 'PENDING')}
                                                         </span>
-                                                    </p>
+                                                    </div>
                                                 </div>
 
-                                                <div className="flex gap-2">
+                                                <div className="flex items-center gap-2 ml-auto">
                                                     {activeTab === "Upcoming" ? (
-                                                        <div className="flex gap-2">
+                                                        <>
                                                             {["accepted", "travelling", "arrived", "in_progress", "documentation"].includes(booking.status?.toLowerCase()) && (
-                                                                <>
+                                                                <div className="flex gap-2 mr-1">
                                                                     <button
                                                                         onClick={() => setChatBooking(booking)}
-                                                                        className="h-9 w-9 rounded-xl border border-primary/20 bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-colors relative"
+                                                                        className="h-10 w-10 rounded-xl border border-primary/20 bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-all active:scale-90 relative"
                                                                     >
-                                                                        <MessageSquare className="w-4 h-4" />
+                                                                        <MessageSquare className="w-4.5 h-4.5" />
                                                                         {(unreadCounts?.[booking._id || booking.id] || 0) > 0 && (
-                                                                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center border border-white font-bold animate-bounce mt-1 mr-1">
+                                                                            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center border-2 border-white font-black shadow-sm animate-bounce">
                                                                                 {unreadCounts[booking._id || booking.id]}
                                                                             </span>
                                                                         )}
                                                                     </button>
                                                                     <button
                                                                         onClick={() => setCallingBooking(booking)}
-                                                                        className="h-9 w-9 rounded-xl border border-primary/20 bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-colors"
+                                                                        className="h-10 w-10 rounded-xl border border-primary/20 bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-all active:scale-90"
                                                                     >
-                                                                        <Phone className="w-4 h-4" />
+                                                                        <Phone className="w-4.5 h-4.5" />
                                                                     </button>
-                                                                </>
+                                                                </div>
                                                             )}
                                                             <button
                                                                 onClick={() => setDetailsBooking(booking)}
-                                                                className="px-4 py-1.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-[11px] font-bold hover:bg-primary/10 transition-colors"
+                                                                className="h-10 px-6 rounded-xl bg-accent/50 text-primary text-[11px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 border border-primary/10"
                                                             >
                                                                 Details
                                                             </button>
-                                                        </div>
+                                                        </>
                                                     ) : (
-                                                        <div className="flex gap-2">
+                                                        <>
                                                             {!booking.customerFeedbackSubmitted && (
-                                                                <button onClick={() => setFeedbackBooking(booking)} className="px-4 py-1.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-[11px] font-bold flex items-center gap-1.5 hover:bg-primary/10 transition-colors">
-                                                                    <Star className="w-3.5 h-3.5 fill-primary" /> Review
+                                                                <button onClick={() => setFeedbackBooking(booking)} className="h-10 px-4 rounded-xl border border-primary/20 bg-primary/5 text-primary text-[11px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-primary hover:text-white transition-all active:scale-95">
+                                                                    <Star className="w-3.5 h-3.5 fill-current" /> Review
                                                                 </button>
                                                             )}
                                                             <button 
                                                                 onClick={() => handleRebook(booking)}
-                                                                className="px-4 py-1.5 rounded-xl border border-primary/20 bg-primary/5 text-primary text-[11px] font-bold flex items-center gap-1.5 hover:bg-primary/10 transition-colors"
+                                                                className="h-10 px-4 rounded-xl border border-primary/20 bg-primary text-white text-[11px] font-black uppercase tracking-widest flex items-center gap-2 hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20"
                                                             >
-                                                                <RefreshCcw className="w-3 h-3" /> Rebook
+                                                                <RefreshCcw className="w-3.5 h-3.5" /> Rebook
                                                             </button>
-                                                        </div>
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>

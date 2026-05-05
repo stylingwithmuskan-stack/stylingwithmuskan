@@ -125,18 +125,10 @@ export default function SPOversight() {
     const [walletReason, setWalletReason] = useState("");
 
     const buildPortfolioPayload = () => {
-        const selectedParents = availableParents.filter((p) => tempCategories.includes(p.label));
-        const selectedCategories = availableCategories.filter((c) => tempSpecializations.includes(c.name));
-        const selectedServices = availableServices.filter((s) => tempServices.includes(s.name));
-
-        const mapParent = selectedParents.map((p) => ({ id: p.id, label: p.label }));
-        const mapCategory = selectedCategories.map((c) => ({ id: c.id, name: c.name }));
-        const mapService = selectedServices.map((s) => ({ id: s.id, name: s.name, category: s.category }));
-
         return {
-            primaryCategory: [...tempCategories, ...mapParent],
-            specializations: [...tempSpecializations, ...mapCategory],
-            services: [...tempServices, ...mapService],
+            primaryCategory: tempCategories,
+            specializations: tempSpecializations,
+            services: tempServices,
         };
     };
 

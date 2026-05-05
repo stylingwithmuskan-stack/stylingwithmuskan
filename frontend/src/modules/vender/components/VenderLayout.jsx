@@ -213,6 +213,10 @@ const VenderLayout = () => {
                             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors">
                                 <Menu className="h-5 w-5" />
                             </button>
+                            <div className="flex items-center gap-2 md:hidden">
+                                <img src="/logo1.png" alt="SWM Logo" className="h-8 w-8 rounded-full object-cover border border-primary/20" />
+                                <span className="text-[13px] font-bold text-foreground whitespace-nowrap">SWM Vendor</span>
+                            </div>
                             <div className="hidden md:block">
                                 <h2 className="text-sm font-bold text-foreground">
                                     Welcome, {vendor?.name || "Vendor"}

@@ -116,7 +116,14 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                 <div>
                     <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
                         Unread Alerts
-                        {unreadCount > 0 && <Badge variant="destructive" className="h-5 min-w-[20px] rounded-full text-[10px] p-0 flex items-center justify-center">{unreadCount}</Badge>}
+                        {unreadCount > 0 && (
+                            <Badge 
+                                variant="destructive" 
+                                className="h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-black flex items-center justify-center border border-white/20"
+                            >
+                                {unreadCount > 99 ? "99+" : unreadCount}
+                            </Badge>
+                        )}
                     </h3>
                 </div>
                 <div className="flex gap-2">

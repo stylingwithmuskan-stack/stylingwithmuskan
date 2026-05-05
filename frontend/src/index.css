@@ -304,6 +304,16 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  .modal-open {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+    touch-action: none !important;
+    -webkit-overflow-scrolling: auto !important;
+    overscroll-behavior: none !important;
+  }
 }
 
 /* Force video controls to always be visible - never hide on hover */

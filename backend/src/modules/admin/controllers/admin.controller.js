@@ -1578,6 +1578,15 @@ export async function updateProviderProfile(req, res) {
     res.json({ success: true, provider: updatedProvider });
   } catch (error) {
     console.error("[Admin] Failed to update provider profile:", error);
+    
+    // Handle Mongoose validation or cast errors with 400 Bad Request
+    if (error.name === "ValidationError" || error.name === "CastError") {
+      return res.status(400).json({ 
+        error: "Invalid profile data provided", 
+        details: error.message 
+      });
+    }
+
     res.status(500).json({ error: "Failed to update provider profile" });
   }
 }

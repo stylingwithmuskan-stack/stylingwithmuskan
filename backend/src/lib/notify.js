@@ -464,7 +464,7 @@ export async function notify({
     recipientId: String(recipientId),
     recipientRole,
     title: templated?.title || title || "Notification",
-    message: templated?.message || message || "You have a new notification.",
+    message: message || templated?.message || "You have a new notification.",
     type,
     link: link || buildNotificationLink({ recipientRole, type, meta: safeMeta }),
     meta: dedupeKey ? { ...safeMeta, dedupeKey } : safeMeta,
