@@ -511,10 +511,10 @@ const BookingSummary = () => {
           transition={{ delay: 0.7 }}
           className="mt-8 flex flex-col sm:flex-row gap-4 w-full max-w-sm"
         >
-          <Button onClick={() => navigate("/bookings")} className="flex-1 font-bold py-6 text-sm">
+          <Button onClick={() => navigate("/bookings")} className="flex-1 font-bold py-4 text-sm">
             View Bookings
           </Button>
-          <Button onClick={() => navigate("/home")} variant="outline" className="flex-1 font-bold py-6 text-sm">
+          <Button onClick={() => navigate("/home")} variant="outline" className="flex-1 font-bold py-4 text-sm">
             Continue to Home
           </Button>
         </motion.div>
@@ -814,7 +814,7 @@ const BookingSummary = () => {
                 onClick={handlePayAfterService}
                 disabled={isProcessing}
                 variant="outline"
-                className="flex-1 h-14 rounded-2xl border-2 border-primary/20 hover:border-primary/40 text-primary font-bold bg-white/50 backdrop-blur-sm"
+                className="flex-1 h-14 rounded-2xl border-2 border-primary/20 hover:border-primary/40 text-primary font-bold bg-white/50 backdrop-blur-sm text-[11px] xs:text-xs sm:text-sm"
               >
                 {isProcessing ? "..." : "PAY AFTER SERVICE"}
               </Button>
@@ -822,12 +822,14 @@ const BookingSummary = () => {
             <Button 
               onClick={() => handlePay(false)} 
               disabled={isProcessing}
-              className={`${(advanceAmount === 0) ? 'flex-1' : 'w-full md:flex-1'} h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-bold shadow-xl shadow-primary/20 gap-2 group border-none`}
+              className={`${(advanceAmount === 0) ? 'flex-1' : 'w-full md:flex-1'} h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs xs:text-sm sm:text-lg font-bold shadow-xl shadow-primary/20 gap-1.5 xs:gap-2 group border-none`}
             >
-              {isProcessing ? "Processing..." : (advanceAmount > 0 ? `PAY ADVANCE ₹${advanceAmount.toLocaleString()}` : "PROCEED TO PAY")}
+              <span className="truncate">
+                {isProcessing ? "Processing..." : (advanceAmount > 0 ? `PAY ADVANCE ₹${advanceAmount.toLocaleString()}` : "PROCEED TO PAY")}
+              </span>
               {!isProcessing && (
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform">
-                  <ChevronRight className="w-5 h-5" />
+                <div className="w-6 h-6 xs:w-8 xs:h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform shrink-0">
+                  <ChevronRight className="w-4 h-4 xs:w-5 xs:h-5" />
                 </div>
               )}
             </Button>
