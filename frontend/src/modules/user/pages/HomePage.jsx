@@ -59,7 +59,7 @@ const HomePage = () => {
 
       {/* Floating WhatsApp Support Button */}
       <motion.a
-        href={`https://wa.me/91${import.meta.env.VITE_SUPPORT_PHONE || "9990000001"}?text=Hello%20Styling%20With%20Muskan,%20I%20need%20assistance.`}
+        href={`https://wa.me/91${import.meta.env.VITE_SUPPORT_PHONE || "8349764176"}?text=Hello%20Styling%20With%20Muskan,%20I%20need%20assistance.`}
         target="_blank"
         rel="noopener noreferrer"
         initial={{ scale: 0, opacity: 0 }}

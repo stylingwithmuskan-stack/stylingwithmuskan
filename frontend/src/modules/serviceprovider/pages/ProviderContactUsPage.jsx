@@ -11,7 +11,7 @@ const ProviderContactUsPage = () => {
     window.scrollTo(0, 0);
   }, []);
 
-  const supportPhone = import.meta.env.VITE_SUPPORT_PHONE || "9990000001";
+  const supportPhone = import.meta.env.VITE_SUPPORT_PHONE || "8349764176";
   const formattedPhone = `+91 ${supportPhone.slice(0, 5)} ${supportPhone.slice(5)}`;
 
   const contacts = [
