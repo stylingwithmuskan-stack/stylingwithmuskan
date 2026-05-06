@@ -61,6 +61,42 @@ async function normalizeProviderZoneSelection({ city = "", cityId = "", zones = 
   };
 }
 
+async function filterProviderActiveZones(acc) {
+  if (!acc) return acc;
+  try {
+    const { Zone, City } = await import("../models/CityZone.js");
+    let activeZones = [];
+    
+    // Try by cityId first (if it's a valid ObjectId)
+    if (acc.cityId && /^[0-9a-fA-F]{24}$/.test(acc.cityId)) {
+      activeZones = await Zone.find({ city: acc.cityId, status: "active" }).select("name").lean();
+    }
+    
+    // Fallback: If no zones found or cityId is invalid, search by city name
+    if (activeZones.length === 0) {
+      const cityName = acc.city || (acc.cityId && !/^[0-9a-fA-F]{24}$/.test(acc.cityId) ? acc.cityId : "");
+      if (cityName) {
+        const cityDoc = await City.findOne({ name: new RegExp(`^${String(cityName).trim()}$`, "i") }).lean();
+        if (cityDoc) {
+          activeZones = await Zone.find({ city: cityDoc._id, status: "active" }).select("name").lean();
+        }
+      }
+    }
+    
+    // User requirement: Provider dashboard should exactly match Admin's active zones for the city
+    if (activeZones.length > 0) {
+      acc.zones = activeZones.map((z) => z.name);
+      acc.zoneIds = activeZones.map((z) => z._id.toString());
+    } else if (acc.city || acc.cityId) {
+      acc.zones = [];
+      if (acc.zoneIds) acc.zoneIds = [];
+    }
+  } catch (err) {
+    console.error("[SyncZones] Failed:", err);
+  }
+  return acc;
+}
+
 function ensureFourHourLeadTime(req, res, next) {
   try {
     const start = new Date(req.body.startAt);
@@ -178,13 +214,13 @@ router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLeng
   } catch { }
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
   res.json({
-    provider: {
+    provider: await filterProviderActiveZones({
       ...acc.toObject(),
       subscription,
       isPro: subscription.isPro,
       proExpiry: subscription.currentPeriodEnd,
       proPlan: subscription.planId,
-    },
+    }),
     providerToken: token,
   });
 });
@@ -527,6 +563,15 @@ router.post(
     const p = await ProviderAccount.findById(providerId);
     if (!p) return res.status(404).json({ error: "Provider not found" });
 
+    // Persist the request in the database
+    p.pendingCategoryRequests = p.pendingCategoryRequests || [];
+    p.pendingCategoryRequests.push({
+      categoryName: requestedCategory,
+      requestedAt: new Date(),
+      status: "pending"
+    });
+    await p.save();
+
     try {
       await notify({
         recipientId: "ADMIN001",
@@ -537,12 +582,12 @@ router.post(
         meta: {
           providerId: p._id?.toString?.(),
           currentCategory,
-          requestedCategory
+          requestedCategory,
         },
       });
     } catch { }
 
-    res.json({ success: true, message: "Request sent to admin" });
+    res.json({ success: true, message: "Request sent to admin", provider: p });
   }
 );
 
@@ -690,13 +735,13 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
   const subscription = await getSubscriptionSnapshot(acc._id.toString(), "provider");
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
   res.json({
-    provider: {
+    provider: await filterProviderActiveZones({
       ...acc.toObject(),
       subscription,
       isPro: subscription.isPro,
       proExpiry: subscription.currentPeriodEnd,
       proPlan: subscription.planId,
-    },
+    }),
     providerToken: token,
   });
 });
@@ -706,13 +751,13 @@ router.get("/me/:phone", param("phone").matches(/^\d{10}$/), async (req, res) =>
   if (!acc) return res.json({ provider: null });
   const subscription = await getSubscriptionSnapshot(acc._id.toString(), "provider");
   res.json({
-    provider: {
+    provider: await filterProviderActiveZones({
       ...acc,
       subscription,
       isPro: subscription.isPro,
       proExpiry: subscription.currentPeriodEnd,
       proPlan: subscription.planId,
-    },
+    }),
   });
 });
 
@@ -825,18 +870,8 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
     const training = { completed: !!provider.trainingCompleted };
     res.json({
       provider: {
+        ...provider,
         id: provider._id?.toString(),
-        name: provider.name || "",
-        phone: provider.phone || "",
-        email: provider.email || "",
-        city: provider.city || "",
-        rating: provider.rating || 0,
-        totalJobs: provider.totalJobs || 0,
-        credits: provider.credits || 0,
-        profilePhoto: provider.profilePhoto || "",
-        approvalStatus: provider.approvalStatus || "",
-        registrationComplete: provider.registrationComplete || false,
-        experience: provider.experience || "",
       },
       performance,
       calendar,

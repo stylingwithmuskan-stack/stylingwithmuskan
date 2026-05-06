@@ -1748,3 +1748,99 @@ export async function updateProviderGrade(req, res) {
   }
 }
 
+export async function listPendingCategoryRequests(req, res) {
+  try {
+    const providers = await ProviderAccount.find({
+      "pendingCategoryRequests.status": "pending"
+    }).select("name phone profilePhoto pendingCategoryRequests").lean();
+
+    const flat = [];
+    providers.forEach(p => {
+      (p.pendingCategoryRequests || []).forEach(r => {
+        if (r.status === "pending") {
+          flat.push({
+            ...r,
+            providerId: p._id.toString(),
+            providerName: p.name,
+            providerPhone: p.phone,
+            providerPhoto: p.profilePhoto,
+            requestId: r._id.toString()
+          });
+        }
+      });
+    });
+
+    res.json({ requests: flat });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to list category requests" });
+  }
+}
+
+export async function approveCategoryRequest(req, res) {
+  try {
+    const { providerId, requestId } = req.body;
+    const provider = await ProviderAccount.findById(providerId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const request = provider.pendingCategoryRequests.id(requestId);
+    if (!request) return res.status(404).json({ error: "Request not found" });
+
+    // Atomically update both the request status and the provider's category list
+    const updatedProvider = await ProviderAccount.findByIdAndUpdate(
+      providerId,
+      {
+        $set: { 
+          "pendingCategoryRequests.$[elem].status": "approved",
+          "pendingCategoryRequests.$[elem].adminReviewedAt": new Date(),
+          "pendingCategoryRequests.$[elem].adminReviewedBy": req.auth?.sub || "admin"
+        },
+        $addToSet: { "documents.primaryCategory": request.categoryName }
+      },
+      {
+        arrayFilters: [{ "elem._id": requestId }],
+        new: true
+      }
+    );
+
+    if (!updatedProvider) return res.status(500).json({ error: "Failed to update provider" });
+    
+    // Notify
+    try {
+      const { notify } = await import("../../../lib/notify.js");
+      await notify({
+        recipientId: providerId,
+        recipientRole: "provider",
+        title: "Category Request Approved",
+        message: `Your request for category "${request.categoryName}" has been approved.`,
+        type: "system"
+      });
+    } catch {}
+
+    res.json({ success: true, provider });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to approve category request" });
+  }
+}
+
+export async function rejectCategoryRequest(req, res) {
+  try {
+    const { providerId, requestId, reason } = req.body;
+    const provider = await ProviderAccount.findById(providerId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const request = provider.pendingCategoryRequests.id(requestId);
+    if (!request) return res.status(404).json({ error: "Request not found" });
+
+    request.status = "rejected";
+    request.rejectionReason = reason || "Rejected by admin";
+    request.adminReviewedAt = new Date();
+    request.adminReviewedBy = req.auth?.sub || "admin";
+
+    await provider.save();
+    
+    res.json({ success: true, provider });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to reject category request" });
+  }
+}
+

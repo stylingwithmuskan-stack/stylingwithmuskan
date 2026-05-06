@@ -92,13 +92,31 @@ export default function ProviderProfile() {
 
     useEffect(() => {
         let cancelled = false;
-        if (provider?.phone) {
-            api.provider.summary(provider.phone).then((s) => {
-                if (!cancelled) setSummary(s);
-            }).catch(() => {});
+        const fetchSummary = () => {
+            if (provider?.phone) {
+                api.provider.summary(provider.phone).then((s) => {
+                    if (!cancelled) {
+                        setSummary(s);
+                        if (s.provider) setProvider(s.provider);
+                    }
+                }).catch(() => {});
+            }
+        };
+
+        fetchSummary();
+
+        // Poll every 10 seconds if there are pending requests
+        const hasPending = (provider?.pendingCategoryRequests || []).some(r => r.status === 'pending') || (provider?.pendingZones || []).length > 0;
+        let interval;
+        if (hasPending) {
+            interval = setInterval(fetchSummary, 10000);
         }
-        return () => { cancelled = true; };
-    }, [provider?.phone]);
+
+        return () => { 
+            cancelled = true; 
+            if (interval) clearInterval(interval);
+        };
+    }, [provider?.phone, (provider?.pendingCategoryRequests || []).some(r => r.status === 'pending'), (provider?.pendingZones || []).length]);
 
     useEffect(() => {
         if (isZoneModalOpen && provider?.city) {
@@ -125,7 +143,9 @@ export default function ProviderProfile() {
         email: safeProvider.email || "",
         phone: safeProvider.phone || "",
         city: summary?.provider?.city || "",
-        category: safeProvider.documents?.primaryCategory?.[0] || "",
+        category: Array.isArray(safeProvider.documents?.primaryCategory) 
+                  ? safeProvider.documents.primaryCategory.join(", ") 
+                  : (safeProvider.documents?.primaryCategory || ""),
         joiningDate: safeProvider.createdAt ? new Date(safeProvider.createdAt).toLocaleDateString() : "",
         experience: safeProvider.experience || ""
     };
@@ -338,18 +358,94 @@ export default function ProviderProfile() {
                                             </div>
                                             <div className="flex-1 flex items-center justify-between">
                                                 <div>
-                                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Category</p>
-                                                    <p className="text-[17px] font-semibold text-slate-900">{providerDetails.category}</p>
+                                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Categories</p>
+                                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                                        {(() => {
+                                                            const validCategories = ["Hair Studio", "Skin", "Nails", "Mendhi", "Make Up", "Body Massage"];
+                                                            const approvedNames = (safeProvider.pendingCategoryRequests || [])
+                                                                .filter(r => r.status === 'approved')
+                                                                .map(r => r.categoryName);
+                                                            
+                                                            const visibleCats = (safeProvider.documents?.primaryCategory || [])
+                                                                .filter(cat => approvedNames.includes(cat) && validCategories.includes(cat));
+                                                                
+                                                            return visibleCats.map((cat, i) => (
+                                                                <Badge key={i} variant="secondary" className="bg-violet-50 text-violet-700 border-none px-2 py-0 h-5 text-[10px] font-bold">
+                                                                    {cat}
+                                                                </Badge>
+                                                            ));
+                                                        })()}
+                                                        {((safeProvider.pendingCategoryRequests || []).filter(r => r.status === 'approved').length === 0) && (
+                                                            <p className="text-[15px] font-medium text-slate-400 italic">No approved categories yet</p>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className={`h-7 px-2 text-[10px] uppercase font-black tracking-widest ${categoryRequested ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-slate-50'}`}
-                                                    onClick={handleCategoryRequest}
-                                                    disabled={categoryRequested}
-                                                >
-                                                    {categoryRequested ? "Requested" : "+ Request New"}
-                                                </Button>
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className={`h-7 px-2 text-[10px] uppercase font-black tracking-widest ${
+                                                                (provider?.pendingCategoryRequests || []).some(r => r.status === 'pending') 
+                                                                ? 'bg-amber-50 text-amber-600 border-amber-200' 
+                                                                : 'bg-slate-50'
+                                                            }`}
+                                                            disabled={(provider?.pendingCategoryRequests || []).some(r => r.status === 'pending')}
+                                                        >
+                                                            {(provider?.pendingCategoryRequests || []).some(r => r.status === 'pending') ? "Requested" : "+ Request New"}
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="sm:max-w-[425px]">
+                                                        <DialogHeader>
+                                                            <DialogTitle>Request New Category</DialogTitle>
+                                                        </DialogHeader>
+                                                        <div className="py-4 space-y-4">
+                                                            <div className="space-y-2">
+                                                                <Label>Select Category</Label>
+                                                                <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2">
+                                                                    {(() => {
+                                                                        const [cats, setCats] = useState([]);
+                                                                        const [loading, setLoading] = useState(true);
+                                                                        useEffect(() => {
+                                                                            api.content.serviceTypes().then(res => {
+                                                                                setCats(res.data || []);
+                                                                                setLoading(false);
+                                                                            }).catch(() => setLoading(false));
+                                                                        }, []);
+                                                                        
+                                                                        if (loading) return <div className="text-center py-4"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>;
+                                                                        
+                                                                        const myCategories = safeProvider.documents?.primaryCategory || [];
+                                                                        const current = providerDetails.category;
+                                                                        
+                                                                        return (cats || []).map(c => (
+                                                                            <Button 
+                                                                                key={c._id || c.id} 
+                                                                                variant="outline" 
+                                                                                className="justify-start h-12 font-bold"
+                                                                                onClick={async () => {
+                                                                                    try {
+                                                                                        const res = await api.provider.requestCategory({
+                                                                                            currentCategory: current || "N/A",
+                                                                                            requestedCategory: c.label
+                                                                                        });
+                                                                                        toast.success(`Request for ${c.label} sent!`);
+                                                                                        if (res.provider) setProvider(res.provider);
+                                                                                        setIsDialogOpen(false);
+                                                                                    } catch (err) {
+                                                                                        toast.error(err.message || "Failed to send request");
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                {c.label}
+                                                                            </Button>
+                                                                        ));
+                                                                    })()}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </DialogContent>
+                                                </Dialog>
                                             </div>
                                         </div>
                                     </div>

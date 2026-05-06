@@ -257,6 +257,11 @@ export const AdminAuthProvider = ({ children }) => {
     const approveLeave = async (id) => { await api.admin.approveLeave(id); };
     const rejectLeave = async (id) => { await api.admin.rejectLeave(id); };
 
+    // ───── CATEGORY REQUESTS ─────
+    const getCategoryRequests = async () => (await api.admin.listPendingCategoryRequests()).requests;
+    const approveCategoryRequest = async (providerId, requestId) => { await api.admin.approveCategoryRequest({ providerId, requestId }); };
+    const rejectCategoryRequest = async (providerId, requestId, reason) => { await api.admin.rejectCategoryRequest({ providerId, requestId, reason }); };
+
     return (
         <AdminAuthContext.Provider value={{
             admin, isLoggedIn, hydrated, login, logout,
@@ -282,6 +287,7 @@ export const AdminAuthProvider = ({ children }) => {
             toggleCustomerCOD, updateCustomerStatus,
             getParents, getCategories, getServices,
             getLeaves, approveLeave, rejectLeave,
+            getCategoryRequests, approveCategoryRequest, rejectCategoryRequest
         }}>
 
             {children}
