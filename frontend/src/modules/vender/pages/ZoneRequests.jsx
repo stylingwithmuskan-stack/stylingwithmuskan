@@ -296,25 +296,25 @@ export default function ZoneRequests() {
 
                 {/* Actions */}
                 {request.vendorStatus === 'pending' && (
-                  <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto mt-4 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-gray-100">
+                  <div className="flex flex-col sm:flex-col gap-2 w-full sm:w-auto mt-4 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-gray-100">
                     {request.isNewZone && request.providerLocation?.lat && (
                       <button
                         onClick={() => {
                           setSelectedRequest(request);
                           setShowLocationModal(true);
                         }}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-sm"
+                        className="px-3 py-2 sm:px-4 sm:py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm"
                       >
-                        <MapPin className="w-4 h-4" />
+                        <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         View Location
                       </button>
                     )}
                     <button
                       onClick={() => handleApprove(request)}
                       disabled={processing}
-                      className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                      className="px-3 py-2 sm:px-4 sm:py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-xs sm:text-sm"
                     >
-                      <CheckCircle className="w-4 h-4" />
+                      <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       {request.isNewZone ? 'Approve & Forward' : 'Approve'}
                     </button>
                     <button
@@ -323,9 +323,9 @@ export default function ZoneRequests() {
                         setShowRejectModal(true);
                       }}
                       disabled={processing}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                      className="px-3 py-2 sm:px-4 sm:py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-xs sm:text-sm"
                     >
-                      <XCircle className="w-4 h-4" />
+                      <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       Reject
                     </button>
                   </div>

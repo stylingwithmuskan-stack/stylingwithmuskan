@@ -269,7 +269,7 @@ const VenderLayout = () => {
 
             {/* Mobile Bottom Nav */}
             <nav className="fixed bottom-0 z-[70] w-full border-t border-border bg-background/95 backdrop-blur-xl px-1 pb-safe pt-1 md:hidden">
-                <div className="flex items-center justify-between gap-1 w-full max-w-full">
+                <div className="flex items-center justify-between gap-0.5 sm:gap-1 w-full max-w-full pb-1">
                     {navLinks.slice(0, 5).map((link) => {
                         const Icon = link.icon;
                         const active = isActive(link.path);
@@ -277,19 +277,19 @@ const VenderLayout = () => {
                             <Link
                                 key={link.path}
                                 to={link.path}
-                                className="flex flex-col items-center justify-center py-1.5 px-0.5 flex-1 w-0 min-w-0"
+                                className="flex flex-col items-center justify-center py-1 sm:py-1.5 px-0.5 flex-1 min-w-0"
                             >
                                 <motion.div
                                     whileTap={{ scale: 0.85 }}
                                     className={cn(
-                                        "p-1.5 rounded-xl transition-all duration-200",
+                                        "p-1 sm:p-1.5 rounded-xl transition-all duration-200",
                                         active ? "bg-primary/15" : ""
                                     )}
                                 >
-                                    <Icon className={cn("h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
+                                    <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", active ? "text-primary" : "text-muted-foreground")} />
                                 </motion.div>
                                 <span className={cn(
-                                    "text-[10px] w-full text-center truncate font-bold mt-0.5 px-0.5",
+                                    "text-[9px] sm:text-[10px] w-full text-center truncate font-bold mt-0.5 px-0.5",
                                     active ? "text-primary" : "text-muted-foreground"
                                 )}>
                                     {link.shortName || link.name}

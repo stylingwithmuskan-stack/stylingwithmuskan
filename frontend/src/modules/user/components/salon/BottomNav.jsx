@@ -60,38 +60,38 @@ const BottomNav = () => {
   const renderTab = (tab) => {
     const active = isActive(tab.path);
     return (
-      <button key={tab.label} onClick={() => navigate(tab.path)} className="flex flex-col items-center gap-1 relative flex-1">
-        <tab.icon className={`w-5 h-5 transition-colors ${active ? "text-primary" : "text-muted-foreground"}`} />
-        <span className={`text-[10px] ${active ? "text-primary font-medium" : "text-muted-foreground"}`}>{tab.label}</span>
+      <button key={tab.label} onClick={() => navigate(tab.path)} className="flex flex-col items-center justify-center gap-1 relative flex-1 min-w-0">
+        <tab.icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors ${active ? "text-primary" : "text-muted-foreground"}`} />
+        <span className={`text-[9px] sm:text-[10px] w-full text-center truncate px-0.5 ${active ? "text-primary font-medium" : "text-muted-foreground"}`}>{tab.label}</span>
       </button>
     );
   };
 
   return (<nav className="fixed bottom-0 left-0 right-0 glass-strong border-t border-border z-40 lg:hidden">
-    <div className="flex items-center justify-around h-16 px-2">
+    <div className="flex items-center justify-around h-16 px-1 sm:px-2 gap-0.5 sm:gap-1">
       {/* Left tabs */}
       {leftTabs.map(renderTab)}
 
       {/* Center Cart Button */}
       <button
         onClick={handleCartClick}
-        className={`flex flex-col items-center gap-0.5 relative flex-1 -mt-5 group`}
+        className={`flex flex-col items-center justify-center gap-0.5 relative flex-1 min-w-0 -mt-5 group`}
       >
-        <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 ${
+        <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 ${
           isFloatingSummaryOpen
             ? "bg-primary text-white scale-110 shadow-primary/40"
             : totalItems > 0
               ? "bg-primary text-white shadow-primary/30"
               : "bg-accent text-muted-foreground shadow-md"
         }`}>
-          <ShoppingBag className="w-6 h-6" />
+          <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
           {totalItems > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-white text-primary text-[10px] font-black flex items-center justify-center border-2 border-primary shadow-md animate-in zoom-in">
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white text-primary text-[9px] sm:text-[10px] font-black flex items-center justify-center border border-primary shadow-md animate-in zoom-in">
               {totalItems}
             </span>
           )}
         </div>
-        <span className={`text-[9px] font-bold ${isFloatingSummaryOpen ? "text-primary" : totalItems > 0 ? "text-primary" : "text-muted-foreground"}`}>Cart</span>
+        <span className={`text-[9px] sm:text-[10px] font-bold ${isFloatingSummaryOpen ? "text-primary" : totalItems > 0 ? "text-primary" : "text-muted-foreground"}`}>Cart</span>
       </button>
 
       {/* Right tabs */}

@@ -159,8 +159,8 @@ const ProviderLayout = () => {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 z-50 w-full border-t bg-background px-2 pb-safe pt-2 md:hidden">
-        <div className="flex items-center justify-between gap-1 overflow-x-auto pb-2 scrollbar-hide">
+      <nav className="fixed bottom-0 z-50 w-full border-t bg-background px-1 pb-safe pt-2 md:hidden">
+        <div className="flex items-center justify-between gap-0.5 sm:gap-1 w-full pb-2">
           {navLinks.map((link) => {
             const Icon = link.icon;
             const active = isActive(link.path);
@@ -168,13 +168,13 @@ const ProviderLayout = () => {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`flex flex-col items-center justify-center min-w-[4.5rem] p-1 gap-1 flex-1 rounded-lg ${active ? "text-purple-600" : "text-muted-foreground"
+                className={`flex flex-col items-center justify-center min-w-0 p-1 gap-1 flex-1 rounded-lg ${active ? "text-purple-600" : "text-muted-foreground"
                   }`}
               >
-                <div className={`p-1.5 rounded-full ${active ? "bg-purple-100 dark:bg-purple-900/30" : ""}`}>
-                  <Icon className="h-5 w-5" />
+                <div className={`p-1 sm:p-1.5 rounded-full ${active ? "bg-purple-100 dark:bg-purple-900/30" : ""}`}>
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
-                <span className="text-[10px] font-medium truncate w-full text-center">
+                <span className="text-[9px] sm:text-[10px] font-medium truncate w-full text-center">
                   {link.name}
                 </span>
               </Link>
