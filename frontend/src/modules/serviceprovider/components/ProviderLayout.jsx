@@ -22,6 +22,7 @@ import { api } from "@/modules/user/lib/api";
 
 const ProviderLayout = () => {
   const location = useLocation();
+  const { provider, isLoggedIn, hydrated } = useProviderAuth();
   const { unreadCount } = useNotifications();
   const [isNotifOpen, setIsNotifOpen] = React.useState(false);
 
@@ -45,7 +46,6 @@ const ProviderLayout = () => {
 
   const isActive = (path) => location.pathname === path;
 
-  const { provider, isLoggedIn, hydrated } = useProviderAuth();
   const safeProvider = provider || {};
   const name = safeProvider.name || "stylingwithmuskan";
   const profileImage = safeProvider.profilePhoto || "/logo1.png";
