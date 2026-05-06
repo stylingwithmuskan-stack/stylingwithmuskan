@@ -102,7 +102,8 @@ const Header = () => {
     setSearchQuery(e.target.value);
   };
 
-  return (<header className="sticky top-0 z-30 glass-strong border-b border-border">
+  return (<>
+  <header className="sticky top-0 z-30 glass-strong border-b border-border">
     <div className="max-w-6xl mx-auto px-4 py-3">
       {/* Top Row: Address + Desktop Nav + Notification */}
       <div className="flex items-center justify-between mb-3">
@@ -232,12 +233,13 @@ const Header = () => {
         />
       </motion.div>
     </div>
+  </header>
 
     {/* Address Modal */}
     <AddressModal
       isOpen={isAddressModalOpen}
       onClose={() => setIsAddressModalOpen(false)}
     />
-  </header>);
+  </>);
 };
 export default Header;

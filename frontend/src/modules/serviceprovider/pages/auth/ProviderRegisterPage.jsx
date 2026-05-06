@@ -15,7 +15,8 @@ import {
     Plus,
     AlertCircle,
     CheckCircle2,
-    User
+    User,
+    ChevronDown
 } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
@@ -822,43 +823,46 @@ export default function ProviderRegisterPage() {
                                 </div>
 
                                 {/* 4. Phone Number with OTP */}
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     <Label className="text-xs font-black uppercase text-gray-400">Mobile Number</Label>
-                                    <Input
-                                        type="tel"
-                                        placeholder="10-digit mobile number"
-                                        className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                                    />
-                                    <div className="mt-2 space-y-2">
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                className="h-10 rounded-xl text-xs font-black uppercase tracking-widest"
-                                                onClick={handleSendOtp}
-                                                disabled={otpLoading || !/^\d{10}$/.test(formData.phone)}
-                                            >
-                                                {otpSent ? "Resend OTP" : "Send OTP"}
-                                            </Button>
-                                            <Input
-                                                type="text"
-                                                placeholder="Enter 6-digit OTP"
-                                                className="h-10 rounded-xl bg-gray-50 border-gray-100 font-bold text-center tracking-widest w-40"
-                                                value={otp}
-                                                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                                                disabled={!otpSent || otpVerified}
-                                            />
-                                            <Button
-                                                type="button"
-                                                className="h-10 rounded-xl text-xs font-black uppercase tracking-widest bg-violet-600 hover:bg-violet-700"
-                                                onClick={handleVerifyOtp}
-                                                disabled={otpLoading || otp.length !== 6 || otpVerified}
-                                            >
-                                                {otpVerified ? "Verified" : "Verify OTP"}
-                                            </Button>
-                                        </div>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            type="tel"
+                                            placeholder="10-digit mobile number"
+                                            className="h-12 flex-1 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
+                                            value={formData.phone}
+                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                            disabled={otpVerified}
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="h-12 px-4 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest shrink-0 w-[90px] sm:w-[120px]"
+                                            onClick={handleSendOtp}
+                                            disabled={otpLoading || !/^\d{10}$/.test(formData.phone) || otpVerified}
+                                        >
+                                            {otpSent ? "Resend" : "Send OTP"}
+                                        </Button>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            type="text"
+                                            placeholder="Enter 6-digit OTP"
+                                            className="h-12 flex-1 rounded-xl bg-gray-50 border-gray-100 font-bold text-center tracking-widest"
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                            disabled={!otpSent || otpVerified}
+                                        />
+                                        <Button
+                                            type="button"
+                                            className="h-12 px-4 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest bg-violet-600 hover:bg-violet-700 shrink-0 w-[90px] sm:w-[120px]"
+                                            onClick={handleVerifyOtp}
+                                            disabled={otpLoading || otp.length !== 6 || otpVerified}
+                                        >
+                                            {otpVerified ? "Verified" : "Verify"}
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-2">
                                         {otpVerified && (
                                             <p className="text-xs font-bold text-green-600">Mobile number verified</p>
                                         )}
@@ -1308,91 +1312,121 @@ export default function ProviderRegisterPage() {
 
                                 <div className="space-y-4">
                                     <Label className="text-xs font-black uppercase text-gray-400">Primary Categories</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {serviceTypeOptions.length > 0 ? serviceTypeOptions.map(cat => (
-                                            <button
-                                                key={cat.id || cat.label}
-                                                className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-tight transition-all border ${formData.primaryCategory.includes(cat.label)
-                                                    ? "bg-purple-600 text-white border-purple-600 shadow-md"
-                                                    : "bg-white text-gray-500 border-gray-100 hover:border-purple-200"
-                                                    }`}
-                                                onClick={() => {
-                                                    const updated = formData.primaryCategory.includes(cat.label)
-                                                        ? formData.primaryCategory.filter(c => c !== cat.label)
-                                                        : [...formData.primaryCategory, cat.label];
-                                                    setFormData({ ...formData, primaryCategory: updated });
-                                                }}
-                                            >
-                                                {cat.label}
-                                            </button>
-                                        )) : (
-                                            <p className="text-xs font-semibold text-gray-400">
-                                                {catalogLoading ? "Loading categories..." : "No categories available"}
-                                            </p>
-                                        )}
-                                    </div>
+                                    <details className="group relative">
+                                        <summary className="h-12 w-full border border-gray-100 bg-gray-50 rounded-xl flex items-center justify-between px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                                            <span className="font-bold text-sm text-gray-700">
+                                                {formData.primaryCategory.length > 0 
+                                                    ? `${formData.primaryCategory.length} Categories Selected` 
+                                                    : "Select Primary Categories"}
+                                            </span>
+                                            <ChevronDown className="h-4 w-4 text-gray-400 group-open:rotate-180 transition-transform" />
+                                        </summary>
+                                        <div className="absolute z-10 top-14 left-0 w-full bg-white border border-gray-100 shadow-2xl rounded-xl p-2 max-h-60 overflow-y-auto">
+                                            {serviceTypeOptions.length > 0 ? serviceTypeOptions.map(cat => (
+                                                <div
+                                                    key={cat.id || cat.label}
+                                                    onClick={() => {
+                                                        const updated = formData.primaryCategory.includes(cat.label)
+                                                            ? formData.primaryCategory.filter(c => c !== cat.label)
+                                                            : [...formData.primaryCategory, cat.label];
+                                                        setFormData({ ...formData, primaryCategory: updated });
+                                                    }}
+                                                    className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all mb-2 last:mb-0 ${formData.primaryCategory.includes(cat.label) ? 'bg-purple-50 border-purple-600 text-purple-900 shadow-sm' : 'bg-white border-gray-100 text-gray-600 hover:border-purple-200'}`}
+                                                >
+                                                    <div className={`h-5 w-5 rounded flex items-center justify-center shrink-0 ${formData.primaryCategory.includes(cat.label) ? 'bg-purple-600 text-white' : 'bg-gray-100'}`}>
+                                                        {formData.primaryCategory.includes(cat.label) && <Check className="h-3 w-3" />}
+                                                    </div>
+                                                    <span className="text-xs font-black truncate uppercase">{cat.label}</span>
+                                                </div>
+                                            )) : (
+                                                <p className="text-xs font-semibold text-gray-400 p-2 text-center">
+                                                    {catalogLoading ? "Loading categories..." : "No categories available"}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </details>
                                 </div>
 
                                 <div className="space-y-4">
                                     <Label className="text-xs font-black uppercase text-gray-400">Sub Categories (Specializations)</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {filteredCategories.length > 0 ? filteredCategories.map(spec => (
-                                            <button
-                                                key={spec.id || spec.name}
-                                                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tight transition-all border ${formData.specializations.includes(spec.name)
-                                                    ? "bg-blue-600 text-white border-blue-600 shadow-md"
-                                                    : "bg-white text-gray-500 border-gray-100 hover:border-blue-200"
-                                                    }`}
-                                                onClick={() => {
-                                                    const updated = formData.specializations.includes(spec.name)
-                                                        ? formData.specializations.filter(s => s !== spec.name)
-                                                        : [...formData.specializations, spec.name];
-                                                    setFormData({ ...formData, specializations: updated });
-                                                }}
-                                            >
-                                                {spec.name}
-                                            </button>
-                                        )) : (
-                                            <p className="text-xs font-semibold text-gray-400 py-2">
-                                                {catalogLoading 
-                                                    ? "Loading sub categories..." 
-                                                    : formData.primaryCategory.length > 0 
-                                                        ? "No sub categories available for selected primary categories"
-                                                        : "Please select primary categories first to see sub categories"}
-                                            </p>
-                                        )}
-                                    </div>
+                                    <details className="group relative">
+                                        <summary className="h-12 w-full border border-gray-100 bg-gray-50 rounded-xl flex items-center justify-between px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                                            <span className="font-bold text-sm text-gray-700">
+                                                {formData.specializations.length > 0 
+                                                    ? `${formData.specializations.length} Sub Categories Selected` 
+                                                    : "Select Sub Categories"}
+                                            </span>
+                                            <ChevronDown className="h-4 w-4 text-gray-400 group-open:rotate-180 transition-transform" />
+                                        </summary>
+                                        <div className="absolute z-10 top-14 left-0 w-full bg-white border border-gray-100 shadow-2xl rounded-xl p-2 max-h-60 overflow-y-auto">
+                                            {filteredCategories.length > 0 ? filteredCategories.map(spec => (
+                                                <div
+                                                    key={spec.id || spec.name}
+                                                    onClick={() => {
+                                                        const updated = formData.specializations.includes(spec.name)
+                                                            ? formData.specializations.filter(s => s !== spec.name)
+                                                            : [...formData.specializations, spec.name];
+                                                        setFormData({ ...formData, specializations: updated });
+                                                    }}
+                                                    className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all mb-2 last:mb-0 ${formData.specializations.includes(spec.name) ? 'bg-blue-50 border-blue-600 text-blue-900 shadow-sm' : 'bg-white border-gray-100 text-gray-600 hover:border-blue-200'}`}
+                                                >
+                                                    <div className={`h-5 w-5 rounded flex items-center justify-center shrink-0 ${formData.specializations.includes(spec.name) ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
+                                                        {formData.specializations.includes(spec.name) && <Check className="h-3 w-3" />}
+                                                    </div>
+                                                    <span className="text-[10px] font-black truncate uppercase">{spec.name}</span>
+                                                </div>
+                                            )) : (
+                                                <p className="text-xs font-semibold text-gray-400 p-2 text-center">
+                                                    {catalogLoading 
+                                                        ? "Loading sub categories..." 
+                                                        : formData.primaryCategory.length > 0 
+                                                            ? "No sub categories available for selected primary categories"
+                                                            : "Please select primary categories first to see sub categories"}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </details>
                                 </div>
 
                                 <div className="space-y-4">
                                     <Label className="text-xs font-black uppercase text-gray-400">Services</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {serviceOptions.length > 0 ? serviceOptions.map(svc => (
-                                            <button
-                                                key={svc.id || svc.name}
-                                                className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-tight transition-all border ${formData.services.includes(svc.name)
-                                                    ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
-                                                    : "bg-white text-gray-500 border-gray-100 hover:border-emerald-200"
-                                                    }`}
-                                                onClick={() => {
-                                                    const updated = formData.services.includes(svc.name)
-                                                        ? formData.services.filter(s => s !== svc.name)
-                                                        : [...formData.services, svc.name];
-                                                    setFormData({ ...formData, services: updated });
-                                                }}
-                                            >
-                                                {svc.name}
-                                            </button>
-                                        )) : (
-                                            <p className="text-xs font-semibold text-gray-400 py-2">
-                                                {catalogLoading 
-                                                    ? "Loading services..." 
-                                                    : formData.primaryCategory.length > 0 || formData.specializations.length > 0
-                                                        ? "No services available for selected categories"
-                                                        : "Please select categories first to see services"}
-                                            </p>
-                                        )}
-                                    </div>
+                                    <details className="group relative">
+                                        <summary className="h-12 w-full border border-gray-100 bg-gray-50 rounded-xl flex items-center justify-between px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                                            <span className="font-bold text-sm text-gray-700">
+                                                {formData.services.length > 0 
+                                                    ? `${formData.services.length} Services Selected` 
+                                                    : "Select Services"}
+                                            </span>
+                                            <ChevronDown className="h-4 w-4 text-gray-400 group-open:rotate-180 transition-transform" />
+                                        </summary>
+                                        <div className="absolute z-10 top-14 left-0 w-full bg-white border border-gray-100 shadow-2xl rounded-xl p-2 max-h-60 overflow-y-auto">
+                                            {serviceOptions.length > 0 ? serviceOptions.map(svc => (
+                                                <div
+                                                    key={svc.id || svc.name}
+                                                    onClick={() => {
+                                                        const updated = formData.services.includes(svc.name)
+                                                            ? formData.services.filter(s => s !== svc.name)
+                                                            : [...formData.services, svc.name];
+                                                        setFormData({ ...formData, services: updated });
+                                                    }}
+                                                    className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all mb-2 last:mb-0 ${formData.services.includes(svc.name) ? 'bg-emerald-50 border-emerald-600 text-emerald-900 shadow-sm' : 'bg-white border-gray-100 text-gray-600 hover:border-emerald-200'}`}
+                                                >
+                                                    <div className={`h-5 w-5 rounded flex items-center justify-center shrink-0 ${formData.services.includes(svc.name) ? 'bg-emerald-600 text-white' : 'bg-gray-100'}`}>
+                                                        {formData.services.includes(svc.name) && <Check className="h-3 w-3" />}
+                                                    </div>
+                                                    <span className="text-[10px] font-black truncate uppercase">{svc.name}</span>
+                                                </div>
+                                            )) : (
+                                                <p className="text-xs font-semibold text-gray-400 p-2 text-center">
+                                                    {catalogLoading 
+                                                        ? "Loading services..." 
+                                                        : formData.primaryCategory.length > 0 || formData.specializations.length > 0
+                                                            ? "No services available for selected categories"
+                                                            : "Please select categories first to see services"}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </details>
                                 </div>
 
                                 <div className="space-y-4">
@@ -1468,7 +1502,7 @@ export default function ProviderRegisterPage() {
                                             }}
                                         />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label className="text-xs font-black uppercase text-gray-400">IFSC Code</Label>
                                             <Input

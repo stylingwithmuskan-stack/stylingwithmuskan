@@ -156,18 +156,18 @@ export default function ProviderLoginPage() {
                             <div className="space-y-2">
                                 <label className="text-xs font-black uppercase tracking-wider text-gray-400">Mobile Number</label>
                                 <div className="flex gap-2">
-                                    <div className="w-20 flex items-center justify-center h-12 rounded-xl bg-gray-50 border border-gray-100 font-bold text-gray-700">
+                                    <div className="w-14 sm:w-16 shrink-0 flex items-center justify-center h-12 rounded-xl bg-gray-50 border border-gray-100 font-bold text-gray-700 text-sm sm:text-base">
                                         +91
                                     </div>
-                                    <div className="flex-1 relative">
+                                    <div className="flex-1 relative min-w-0">
                                         <Input
                                             type="tel"
-                                            placeholder="Enter 10-digit number"
-                                            className="h-12 pl-10 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600 focus:border-violet-600"
+                                            placeholder="10-digit mobile number"
+                                            className="h-12 pl-9 sm:pl-10 w-full rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600 focus:border-violet-600 text-sm sm:text-base placeholder:text-xs sm:placeholder:text-sm"
                                             value={phone}
                                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                                         />
-                                        <Smartphone className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+                                        <Smartphone className="absolute left-2.5 sm:left-3 top-3.5 h-5 w-5 text-gray-400" />
                                     </div>
                                 </div>
                             </div>
