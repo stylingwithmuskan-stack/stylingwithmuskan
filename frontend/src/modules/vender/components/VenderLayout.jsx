@@ -53,7 +53,7 @@ const VenderLayout = () => {
         { name: "Zone Requests", shortName: "Zones", path: "/vender/zone-requests", icon: MapPin },
         { name: "Bookings", shortName: "Bookings", path: "/vender/bookings", icon: CalendarRange },
         { name: "Payouts", shortName: "Payouts", path: "/vender/payouts", icon: Wallet },
-        { name: "Subscription", shortName: "Plan", path: "/vender/subscription", icon: CreditCard },
+        // { name: "Subscription", shortName: "Plan", path: "/vender/subscription", icon: CreditCard },
         { name: "SOS Monitor", shortName: "SOS", path: "/vender/sos", icon: ShieldAlert },
         { name: "Feedback", shortName: "Feedback", path: "/vender/feedback", icon: MessageSquare },
         { name: "Profile", shortName: "Profile", path: "/vender/profile", icon: User },
