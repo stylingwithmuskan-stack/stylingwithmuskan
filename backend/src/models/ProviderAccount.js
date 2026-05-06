@@ -52,6 +52,16 @@ const ProviderAccountSchema = new mongoose.Schema(
       adminReviewedBy: { type: String, default: "" },
       rejectionReason: { type: String, default: "" }
     }],
+
+    // Enhanced category request tracking
+    pendingCategoryRequests: [{
+      categoryName: { type: String, required: true },
+      requestedAt: { type: Date, default: Date.now },
+      status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+      adminReviewedAt: { type: Date, default: null },
+      adminReviewedBy: { type: String, default: "" },
+      rejectionReason: { type: String, default: "" }
+    }],
     
     address: { type: String, default: "" },
     gender: String,

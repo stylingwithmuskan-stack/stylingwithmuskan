@@ -41,7 +41,10 @@ export default function SPOversight() {
         approveLeave,
         rejectLeave,
         adjustProviderWallet,
-        updateProviderGrade
+        updateProviderGrade,
+        getCategoryRequests,
+        approveCategoryRequest,
+        rejectCategoryRequest
     } = useAdminAuth();
 
 
@@ -184,7 +187,12 @@ export default function SPOversight() {
         }
 
         setFeedback(JSON.parse(localStorage.getItem("muskan-feedback") || "[]"));
-        setCategoryRequests(JSON.parse(localStorage.getItem("muskan-category-requests") || "[]"));
+        try {
+            const reqs = await getCategoryRequests();
+            setCategoryRequests(reqs || []);
+        } catch {
+            setCategoryRequests([]);
+        }
         loadLeaves();
     };
 
@@ -424,11 +432,20 @@ export default function SPOversight() {
         }
     };
 
-    const handleCategoryAction = (id, status) => {
-        const requests = JSON.parse(localStorage.getItem("muskan-category-requests") || "[]");
-        const updated = requests.map(req => req.id === id ? { ...req, status } : req);
-        localStorage.setItem("muskan-category-requests", JSON.stringify(updated));
-        load();
+    const handleCategoryAction = async (providerId, requestId, action) => {
+        try {
+            if (action === 'approved') {
+                await approveCategoryRequest(providerId, requestId);
+            } else {
+                const reason = prompt("Enter rejection reason:");
+                if (reason === null) return;
+                await rejectCategoryRequest(providerId, requestId, reason);
+            }
+            toast.success(`Category request ${action} successfully`);
+            load();
+        } catch (error) {
+            toast.error(error.message || `Failed to ${action} request`);
+        }
     };
 
     const handleLeaveUpdate = async (id, action) => {
@@ -688,11 +705,15 @@ export default function SPOversight() {
                     ) : (
                         <div className="space-y-2">
                             {categoryRequests.map(req => (
-                                <Card key={req.id} className="border-border/50 shadow-none hover:border-primary/30 transition-all">
+                                <Card key={req.requestId} className="border-border/50 shadow-none hover:border-primary/30 transition-all">
                                     <CardContent className="p-4 flex items-center justify-between">
                                         <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                                                <Award className="h-5 w-5 text-amber-600" />
+                                            <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center overflow-hidden">
+                                                {req.providerPhoto ? (
+                                                    <img src={req.providerPhoto} alt="" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <Award className="h-5 w-5 text-amber-600" />
+                                                )}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
@@ -701,15 +722,15 @@ export default function SPOversight() {
                                                         {req.status.toUpperCase()}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-xs text-muted-foreground mt-0.5">Current: <span className="font-bold text-foreground">{req.currentCategory}</span> • Requesting <span className="font-bold text-primary">New Category Access</span></p>
-                                                <p className="text-[10px] text-muted-foreground font-medium mt-1">Ref ID: {req.id} • {new Date(req.createdAt).toLocaleDateString()}</p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">Requesting <span className="font-bold text-primary">{req.categoryName}</span> category access</p>
+                                                <p className="text-[10px] text-muted-foreground font-medium mt-1">Provider: {req.providerPhone} • {new Date(req.requestedAt).toLocaleDateString()}</p>
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
                                             {req.status === 'pending' ? (
                                                 <>
-                                                    <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 font-bold" onClick={() => handleCategoryAction(req.id, 'approved')}>Approve</Button>
-                                                    <Button size="sm" variant="outline" className="h-8 border-red-500/30 text-red-400 font-bold" onClick={() => handleCategoryAction(req.id, 'rejected')}>Reject</Button>
+                                                    <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 font-bold" onClick={() => handleCategoryAction(req.providerId, req.requestId, 'approved')}>Approve</Button>
+                                                    <Button size="sm" variant="outline" className="h-8 border-red-500/30 text-red-400 font-bold" onClick={() => handleCategoryAction(req.providerId, req.requestId, 'rejected')}>Reject</Button>
                                                 </>
                                             ) : (
                                                 <Button size="sm" variant="ghost" className="h-8 text-xs font-bold" disabled>Handled</Button>

@@ -1013,6 +1013,11 @@ router.get("/pending-zone-creations", requireRole("admin"), AdminController.list
 router.post("/zones/create-from-request", requireRole("admin"), AdminController.createZoneFromRequest);
 router.post("/zones/reject-request", requireRole("admin"), AdminController.rejectZoneCreationRequest);
 
+// ───── CATEGORY CHANGE REQUESTS ─────
+router.get("/pending-category-requests", requireRole("admin"), AdminController.listPendingCategoryRequests);
+router.post("/categories/approve-request", requireRole("admin"), AdminController.approveCategoryRequest);
+router.post("/categories/reject-request", requireRole("admin"), AdminController.rejectCategoryRequest);
+
 router.get("/subscription-settings", requireRole("admin"), AdminSubscriptionController.getSettings);
 router.put("/subscription-settings", requireRole("admin"), AdminSubscriptionController.updateSettings);
 router.get("/subscription-plans", requireRole("admin"), AdminSubscriptionController.listPlans);

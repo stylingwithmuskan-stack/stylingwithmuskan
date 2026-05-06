@@ -678,6 +678,11 @@ export const api = {
     createZoneFromRequest: (body) => request("/admin/zones/create-from-request", { method: "POST", body }),
     rejectZoneCreationRequest: (body) => request("/admin/zones/reject-request", { method: "POST", body }),
     
+    // Category Change Requests
+    listPendingCategoryRequests: () => request("/admin/pending-category-requests"),
+    approveCategoryRequest: (body) => request("/admin/categories/approve-request", { method: "POST", body }),
+    rejectCategoryRequest: (body) => request("/admin/categories/reject-request", { method: "POST", body }),
+
     getSubscriptionSettings: () => request("/admin/subscription-settings"),
     updateSubscriptionSettings: (body) => request("/admin/subscription-settings", { method: "PUT", body }),
     listSubscriptionPlans: () => request("/admin/subscription-plans"),
