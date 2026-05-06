@@ -235,7 +235,7 @@ export async function getAvailableProvidersForBooking(req, res) {
     approvalStatus: "approved",
     registrationComplete: true,
   };
-  
+
   if (cityId) {
     pQuery.cityId = cityId;
   } else if (city) {
@@ -244,16 +244,16 @@ export async function getAvailableProvidersForBooking(req, res) {
   }
 
   const zoneId = booking.address?.zoneId || "";
-  const area = booking.address?.area || booking.address?.zone || "";
+  const area = (booking.address?.area || booking.address?.zone || "").trim();
+
+  // For Admin manual assignment, we relax the zone filter.
+  // We only apply it if we have a specific zoneId from the booking.
   if (zoneId) {
     pQuery.$or = [
       { serviceZoneIds: zoneId },
       { zoneIds: zoneId },
       { baseZoneId: zoneId }
     ];
-  } else if (area) {
-    const escapedArea = area.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    pQuery.zones = { $in: [new RegExp(`^${escapedArea}$`, "i")] };
   }
 
   const allProviders = await ProviderAccount.find(pQuery).lean();
