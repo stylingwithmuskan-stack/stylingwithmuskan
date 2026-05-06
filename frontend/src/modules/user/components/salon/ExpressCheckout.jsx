@@ -31,17 +31,30 @@ const ExpressCheckout = () => {
             document.body.classList.add("modal-open");
             document.body.style.top = `-${scrollY}px`;
             document.body.dataset.scrollY = scrollY;
-        }
-        return () => {
-            // Only remove if no other SWM modals are active
+        } else {
+            // If it's closed but we're still in the effect (e.g. initial render)
+            // Or if isCartOpen just changed to false
             const activeModals = document.querySelectorAll('.swm-modal-active').length;
-            if (activeModals <= 1) {
+            if (activeModals === 0) {
                 const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
                 document.documentElement.classList.remove("modal-open");
                 document.body.classList.remove("modal-open");
                 document.body.style.top = "";
-                window.scrollTo(0, scrollY);
+                if (scrollY > 0) window.scrollTo(0, scrollY);
             }
+        }
+        return () => {
+            // Small delay to check if any other modals are opening/still open
+            setTimeout(() => {
+                const activeModals = document.querySelectorAll('.swm-modal-active').length;
+                if (activeModals === 0) {
+                    const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+                    document.documentElement.classList.remove("modal-open");
+                    document.body.classList.remove("modal-open");
+                    document.body.style.top = "";
+                    if (scrollY > 0) window.scrollTo(0, scrollY);
+                }
+            }, 100);
         };
     }, [isCartOpen]);
 

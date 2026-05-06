@@ -307,12 +307,19 @@
 
   .modal-open {
     overflow: hidden !important;
+    height: 100vh !important;
+    height: -webkit-fill-available !important;
     position: fixed !important;
     width: 100% !important;
-    height: 100% !important;
     touch-action: none !important;
     -webkit-overflow-scrolling: auto !important;
     overscroll-behavior: none !important;
+  }
+
+  html.modal-open, body.modal-open {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
   }
 }
 
