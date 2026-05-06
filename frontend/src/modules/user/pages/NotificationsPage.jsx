@@ -148,23 +148,23 @@ const NotificationsPage = () => {
         <div className="min-h-screen bg-white">
             <main className="max-w-3xl mx-auto p-4 md:p-6 pb-24 pt-10">
                 {/* Inline Header */}
-                <div className="flex items-center justify-between mb-8 px-2">
-                    <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-8 px-1 sm:px-2">
+                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
                         <button 
                             onClick={() => navigate(-1)} 
-                            className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
+                            className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
                         >
-                            <ArrowLeft className="w-5 h-5" />
+                            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
-                        <div>
-                            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Notifications</h1>
-                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                        <div className="min-w-0">
+                            <h1 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tight truncate">Notifications</h1>
+                            <p className="text-[9px] sm:text-[10px] font-black text-emerald-600 uppercase tracking-widest truncate">
                                 {unreadCount} New alerts
                             </p>
                         </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         {notifications.length > 0 && !isSelectMode && (
                             <Button 
                                 variant="ghost" 

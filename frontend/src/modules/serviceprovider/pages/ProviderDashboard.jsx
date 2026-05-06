@@ -41,7 +41,7 @@ const ProviderDashboard = () => {
     const { provider } = useProviderAuth();
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [selectedZone, setSelectedZone] = useState("all");
+    const [selectedZone, setSelectedZone] = useState(() => localStorage.getItem('provider-selected-zone') || "all");
 
     const loadSummary = async () => {
         if (!provider?.phone) return;
@@ -59,6 +59,10 @@ const ProviderDashboard = () => {
     useEffect(() => {
         loadSummary();
     }, [provider?.phone]);
+
+    useEffect(() => {
+        localStorage.setItem('provider-selected-zone', selectedZone);
+    }, [selectedZone]);
 
     const handleRefresh = async () => {
         setLoading(true);

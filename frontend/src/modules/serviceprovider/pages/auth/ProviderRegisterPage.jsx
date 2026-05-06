@@ -178,6 +178,11 @@ export default function ProviderRegisterPage() {
         }
     }, [currentStep, formData, otpVerified, otpSent]);
 
+    // Scroll to top on step change
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentStep]);
+
     useEffect(() => {
         let cancelled = false;
         setCatalogLoading(true);
@@ -362,14 +367,13 @@ export default function ProviderRegisterPage() {
     };
 
     // Camera capture state
-    const [isCameraOpen, setIsCameraOpen] = useState(false);
-    const [cameraError, setCameraError] = useState("");
-    const [isVideoReady, setIsVideoReady] = useState(false);
+    const [capturingField, setCapturingField] = useState(null);
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const streamRef = useRef(null);
 
-    const startCamera = async () => {
+    const startCamera = async (field = "profilePhoto") => {
+        setCapturingField(field);
         setCameraError("");
         setIsVideoReady(false);
         try {
@@ -438,13 +442,14 @@ export default function ProviderRegisterPage() {
         streamRef.current = null;
         setIsVideoReady(false);
         setIsCameraOpen(false);
+        setCapturingField(null);
     };
 
     const capturePhoto = () => {
         try {
             const video = videoRef.current;
             const canvas = canvasRef.current;
-            if (!video || !canvas) return;
+            if (!video || !canvas || !capturingField) return;
             const vw = video.videoWidth || 0;
             const vh = video.videoHeight || 0;
             if (!isVideoReady || vw === 0 || vh === 0) {
@@ -456,7 +461,18 @@ export default function ProviderRegisterPage() {
             const ctx = canvas.getContext("2d");
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             const data = canvas.toDataURL("image/png");
-            setFormData(prev => ({ ...prev, profilePhoto: data }));
+            if (capturingField === "certifications") {
+                setFormData(prev => ({
+                    ...prev,
+                    certifications: [...prev.certifications, {
+                        name: `camera_cert_${Date.now()}.png`,
+                        type: "image/png",
+                        data
+                    }]
+                }));
+            } else {
+                setFormData(prev => ({ ...prev, [capturingField]: data }));
+            }
             stopCamera();
         } catch {
             setCameraError("Failed to capture photo");
@@ -542,7 +558,8 @@ export default function ProviderRegisterPage() {
             }
             // Email validation: Allow common valid TLDs, reject .co
             const emailRegex = /^[^\s@]+@[^\s@]+\.(com|net|org|edu|gov|mil|in|uk|us|ca|au|de|jp|fr|it|ru|br|cn|nl|se|no|es|mx|za|nz|sg|hk|ae|sa|eg|pk|bd|my|th|vn|id|ph|kr|tw|tr|pl|ua|ro|cz|be|gr|pt|hu|at|ch|dk|fi|ie|il|ar|cl|co\.in|co\.uk|co\.za|ac\.in|edu\.in|gov\.in|org\.in|net\.in|info|biz|io|app|dev|tech|online|site|store|shop|xyz|pro|name|mobi|asia|tel|travel|jobs|cat|aero|coop|museum)$/i;
-            if (!formData.email.trim() || !emailRegex.test(formData.email)) {
+            const isTypo = /@(gnail\.com|gmil\.com|gmal\.com|gmail\.con)$/i.test(formData.email.trim());
+            if (!formData.email.trim() || !emailRegex.test(formData.email) || isTypo) {
                 setStepError("Please enter a valid email address (e.g., name@example.com or name@example.in)");
                 return;
             }
@@ -597,6 +614,12 @@ export default function ProviderRegisterPage() {
         if (currentStep === 4) {
             if (!formData.bankName.trim() || !formData.accountNumber.trim() || !formData.ifscCode.trim()) {
                 setStepError("Please complete your bank account details");
+                return;
+            }
+            // Standard IFSC validation: 4 letters, then 0, then 6 alphanumeric characters
+            const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+            if (!ifscRegex.test(formData.ifscCode.toUpperCase())) {
+                setStepError("Please enter a valid 11-digit IFSC code (e.g. SBIN0001234)");
                 return;
             }
             // Account number validation: 9-18 digits, numbers only
@@ -763,7 +786,7 @@ export default function ProviderRegisterPage() {
                                 <div className="flex flex-col items-center py-4">
                                     <div
                                         className="relative group cursor-pointer"
-                                        onClick={startCamera}
+                                        onClick={() => startCamera("profilePhoto")}
                                     >
                                         <div className="w-32 h-32 rounded-3xl bg-gray-50 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-violet-600 group-active:scale-95">
                                             {formData.profilePhoto ? (
@@ -805,7 +828,12 @@ export default function ProviderRegisterPage() {
                                         placeholder="Enter as per Aadhar"
                                         className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
                                         value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (/^[a-zA-Z\s]*$/.test(val)) {
+                                                setFormData({ ...formData, name: val });
+                                            }
+                                        }}
                                     />
                                 </div>
 
@@ -1242,53 +1270,95 @@ export default function ProviderRegisterPage() {
 
                                     <div className="space-y-3">
                                         <Label className="text-xs font-black uppercase text-gray-400">Aadhar Card Upload</Label>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div
-                                                onClick={() => aadharFrontRef.current.click()}
-                                                className="border-2 border-dashed rounded-2xl aspect-[3/2] flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all group cursor-pointer overflow-hidden"
-                                            >
-                                                {formData.aadharFront ? (
-                                                    <img src={formData.aadharFront} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <>
-                                                        <Upload className="h-6 w-6 mb-2 group-hover:scale-110 transition-transform" />
-                                                        <span className="text-[10px] font-black uppercase">Front View</span>
-                                                    </>
-                                                )}
+                                        <div className="grid gap-4">
+                                            {/* Front Side */}
+                                            <div className="space-y-2">
+                                                <span className="text-[10px] font-black uppercase text-gray-400 ml-1">Front Side</span>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div
+                                                        onClick={() => aadharFrontRef.current.click()}
+                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group"
+                                                    >
+                                                        {formData.aadharFront ? (
+                                                            <div className="flex flex-col items-center gap-1 text-purple-600">
+                                                                <CheckCircle2 className="h-5 w-5" />
+                                                                <span className="text-[10px] font-bold">Uploaded</span>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                                                <span className="text-[10px] font-black uppercase text-center leading-tight">Upload</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <div
+                                                        onClick={() => startCamera("aadharFront")}
+                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group"
+                                                    >
+                                                        <Camera className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                                        <span className="text-[10px] font-black uppercase text-center leading-tight">Camera</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div
-                                                onClick={() => aadharBackRef.current.click()}
-                                                className="border-2 border-dashed rounded-2xl aspect-[3/2] flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all group cursor-pointer overflow-hidden"
-                                            >
-                                                {formData.aadharBack ? (
-                                                    <img src={formData.aadharBack} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <>
-                                                        <Upload className="h-6 w-6 mb-2 group-hover:scale-110 transition-transform" />
-                                                        <span className="text-[10px] font-black uppercase">Back View</span>
-                                                    </>
-                                                )}
+
+                                            {/* Back Side */}
+                                            <div className="space-y-2">
+                                                <span className="text-[10px] font-black uppercase text-gray-400 ml-1">Back Side</span>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div
+                                                        onClick={() => aadharBackRef.current.click()}
+                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group"
+                                                    >
+                                                        {formData.aadharBack ? (
+                                                            <div className="flex flex-col items-center gap-1 text-purple-600">
+                                                                <CheckCircle2 className="h-5 w-5" />
+                                                                <span className="text-[10px] font-bold">Uploaded</span>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                                                <span className="text-[10px] font-black uppercase text-center leading-tight">Upload</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <div
+                                                        onClick={() => startCamera("aadharBack")}
+                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group"
+                                                    >
+                                                        <Camera className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                                        <span className="text-[10px] font-black uppercase text-center leading-tight">Camera</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div className="space-y-3">
                                         <Label className="text-xs font-black uppercase text-gray-400">PAN Card</Label>
-                                        <div
-                                            onClick={() => panCardRef.current.click()}
-                                            className="border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[100px]"
-                                        >
-                                            {formData.panCard ? (
-                                                <div className="flex items-center gap-2 text-purple-600">
-                                                    <CheckCircle2 className="h-5 w-5" />
-                                                    <span className="text-xs font-bold">PAN Card Uploaded</span>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <Upload className="h-6 w-6 mb-2" />
-                                                    <span className="text-xs font-bold text-gray-500">Tap to upload PAN Card PDF or Image</span>
-                                                </>
-                                            )}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div
+                                                onClick={() => panCardRef.current.click()}
+                                                className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[100px] group"
+                                            >
+                                                {formData.panCard ? (
+                                                    <div className="flex flex-col items-center gap-1 text-purple-600">
+                                                        <CheckCircle2 className="h-5 w-5" />
+                                                        <span className="text-[10px] font-bold">Uploaded</span>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                                        <span className="text-[10px] font-black uppercase text-center leading-tight">Upload PDF/Image</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                            <div
+                                                onClick={() => startCamera("panCard")}
+                                                className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[100px] group"
+                                            >
+                                                <Camera className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                                                <span className="text-[10px] font-black uppercase text-center leading-tight">Take Photo</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1452,13 +1522,22 @@ export default function ProviderRegisterPage() {
                                             multiple
                                             onChange={(e) => handleCertsChange(e.target.files)}
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={() => certsInputRef.current?.click()}
-                                            className="aspect-square rounded-2xl bg-gray-50 border-2 border-dashed flex items-center justify-center text-gray-300 hover:border-purple-600 transition-colors"
-                                        >
-                                            <Plus className="h-6 w-6" />
-                                        </button>
+                                        <div className="flex gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => certsInputRef.current?.click()}
+                                                className="h-12 w-12 rounded-2xl bg-gray-50 border-2 border-dashed flex items-center justify-center text-gray-300 hover:border-purple-600 transition-colors"
+                                            >
+                                                <Plus className="h-6 w-6" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => startCamera("certifications")}
+                                                className="h-12 w-12 rounded-2xl bg-gray-50 border-2 border-dashed flex items-center justify-center text-gray-300 hover:border-violet-600 transition-colors"
+                                            >
+                                                <Camera className="h-6 w-6" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1482,7 +1561,12 @@ export default function ProviderRegisterPage() {
                                             placeholder="e.g. HDFC Bank"
                                             className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
                                             value={formData.bankName}
-                                            onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                if (/^[a-zA-Z\s]*$/.test(val)) {
+                                                    setFormData({ ...formData, bankName: val });
+                                                }
+                                            }}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -1509,7 +1593,11 @@ export default function ProviderRegisterPage() {
                                                 placeholder="HDFC0001234"
                                                 className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold uppercase"
                                                 value={formData.ifscCode}
-                                                onChange={(e) => setFormData({ ...formData, ifscCode: e.target.value.toUpperCase() })}
+                                                maxLength={11}
+                                                onChange={(e) => {
+                                                    const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11);
+                                                    setFormData({ ...formData, ifscCode: val });
+                                                }}
                                             />
                                         </div>
                                         <div className="space-y-2">

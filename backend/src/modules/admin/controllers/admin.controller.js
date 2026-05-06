@@ -111,7 +111,7 @@ function addMonths({ year, month }, delta) {
 function cityPredicate(city) {
   const c = normalizeCity(city);
   if (!c) return {};
-  return { $or: [{ "address.city": c }, { "address.area": c }] };
+  return { $or: [{ "address.city": c }, { "address.area": c }, { "address.zone": c }] };
 }
 
 export async function listVendors(req, res) {
@@ -363,9 +363,15 @@ export async function metricsOverview(req, res) {
               $addFields: {
                 zone: {
                   $cond: [
-                    { $and: [{ $ne: ["$address.area", null] }, { $ne: ["$address.area", ""] }] },
-                    "$address.area",
-                    "$address.city",
+                    { $and: [{ $ne: ["$address.zone", null] }, { $ne: ["$address.zone", ""] }] },
+                    "$address.zone",
+                    {
+                      $cond: [
+                        { $and: [{ $ne: ["$address.area", null] }, { $ne: ["$address.area", ""] }] },
+                        "$address.area",
+                        "$address.city",
+                      ],
+                    },
                   ],
                 },
               },

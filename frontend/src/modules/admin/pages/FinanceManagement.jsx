@@ -401,7 +401,7 @@ export default function FinanceManagement() {
                                                             </div>
                                                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground mt-1">
                                                                 <span className="font-medium flex items-center gap-1"><MapPin className="h-3 w-3" />{payout.city}</span>
-                                                                <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{payout.date ? format(new Date(payout.date), settings.dateFormat || "PPP") : "N/A"}</span>
+                                                                <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{payout.date ? format(new Date(payout.date), settings.dateFormat || "PPP") : "N/A"}</span>
                                                                 <span>ID: {payout.id}</span>
                                                             </div>
                                                         </div>

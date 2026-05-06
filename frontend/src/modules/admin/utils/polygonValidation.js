@@ -8,7 +8,7 @@
  * @param {Array} markers - Array of Google Maps Marker objects
  * @returns {Object} - Validation result
  */
-export function validatePolygonClient(markers) {
+export function validatePolygonClient(markers, existingZones = [], currentZoneId = null) {
     if (!markers || markers.length === 0) {
         return {
             isValid: false,
@@ -23,15 +23,20 @@ export function validatePolygonClient(markers) {
         return { lat: pos.lat(), lng: pos.lng() };
     });
     
-    return validatePolygonCoordinates(coordinates);
+    const filteredZones = currentZoneId 
+        ? (existingZones || []).filter(z => z._id !== currentZoneId)
+        : (existingZones || []);
+        
+    return validatePolygonCoordinates(coordinates, filteredZones);
 }
 
 /**
  * Validate polygon from coordinates
  * @param {Array} coordinates - Array of {lat, lng} objects
+ * @param {Array} existingZones - Array of existing zones to check overlap against
  * @returns {Object} - Validation result
  */
-export function validatePolygonCoordinates(coordinates) {
+export function validatePolygonCoordinates(coordinates, existingZones = []) {
     const errors = [];
     
     // 1. Check minimum points
@@ -64,6 +69,23 @@ export function validatePolygonCoordinates(coordinates) {
     // 5. Check if valid polygon shape
     if (!isValidPolygonShape(coordinates)) {
         errors.push('Points do not form a valid polygon');
+    }
+    
+    // 6. Check for overlap with existing zones
+    if (existingZones && existingZones.length > 0) {
+        for (const zone of existingZones) {
+            if (!zone || !Array.isArray(zone.coordinates) || zone.coordinates.length < 3) continue;
+            
+            const existingCoords = zone.coordinates.map(p => ({
+                lat: Number(p.lat),
+                lng: Number(p.lng)
+            }));
+            
+            if (doPolygonsOverlap(coordinates, existingCoords)) {
+                errors.push(`Zone overlaps with existing zone: ${zone.name}`);
+                break;
+            }
+        }
     }
     
     return {
@@ -161,4 +183,47 @@ function isValidPolygonShape(coordinates) {
     }
     
     return hasNonZeroCross;
+}
+
+/**
+ * Point in polygon (Ray casting)
+ */
+function isPointInPolygon(point, polygon) {
+    let isInside = false;
+    let i, j;
+    for (i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        if (((polygon[i].lat > point.lat) !== (polygon[j].lat > point.lat)) &&
+            (point.lng < (polygon[j].lng - polygon[i].lng) * (point.lat - polygon[i].lat) / (polygon[j].lat - polygon[i].lat) + polygon[i].lng)) {
+            isInside = !isInside;
+        }
+    }
+    return isInside;
+}
+
+/**
+ * Check if two polygons overlap
+ */
+function doPolygonsOverlap(poly1, poly2) {
+    // Check if any edges intersect
+    for (let i = 0; i < poly1.length; i++) {
+        const p1_start = poly1[i];
+        const p1_end = poly1[(i + 1) % poly1.length];
+        
+        for (let j = 0; j < poly2.length; j++) {
+            const p2_start = poly2[j];
+            const p2_end = poly2[(j + 1) % poly2.length];
+            
+            if (linesIntersect(p1_start, p1_end, p2_start, p2_end)) {
+                return true;
+            }
+        }
+    }
+    
+    // Check if poly1 is inside poly2 (just check one point)
+    if (poly1.length > 0 && isPointInPolygon(poly1[0], poly2)) return true;
+    
+    // Check if poly2 is inside poly1 (just check one point)
+    if (poly2.length > 0 && isPointInPolygon(poly2[0], poly1)) return true;
+    
+    return false;
 }

@@ -541,7 +541,7 @@ router.post(
 
     res.json({
       success: true,
-      provider: p,
+      provider: await filterProviderActiveZones(p.toObject()),
       summary: {
         totalRequests: zones.length,
         newZones: newZoneCount,
@@ -587,7 +587,7 @@ router.post(
       });
     } catch { }
 
-    res.json({ success: true, message: "Request sent to admin", provider: p });
+    res.json({ success: true, message: "Request sent to admin", provider: await filterProviderActiveZones(p.toObject()) });
   }
 );
 
@@ -868,11 +868,16 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
     }
     const insurance = { active: !!provider.insuranceActive };
     const training = { completed: !!provider.trainingCompleted };
+    const subscription = await getSubscriptionSnapshot(provider._id.toString(), "provider");
     res.json({
-      provider: {
+      provider: await filterProviderActiveZones({
         ...provider,
         id: provider._id?.toString(),
-      },
+        subscription,
+        isPro: subscription.isPro,
+        proExpiry: subscription.currentPeriodEnd,
+        proPlan: subscription.planId,
+      }),
       performance,
       calendar,
       hub,
@@ -951,6 +956,15 @@ router.post("/logout", async (_req, res) => {
     }
   } catch { }
   res.clearCookie("providerToken").json({ success: true });
+});
+
+router.get("/performance-criteria", async (_req, res) => {
+  try {
+    const s = await PerformanceSettings.findOne().lean();
+    res.json({ settings: s || { minWeeklyHours: 20, minRatingThreshold: 4.5, maxCancellationsThreshold: 5 } });
+  } catch (error) {
+    res.status(500).json({ error: "Internal error" });
+  }
 });
 
 // Delete account endpoint
@@ -1203,7 +1217,7 @@ router.patch("/me/location",
       }
     }
     const acc = await existing.save();
-    res.json({ provider: acc });
+    res.json({ provider: await filterProviderActiveZones(acc.toObject()) });
   }
 );
 
@@ -1257,7 +1271,7 @@ router.post(
       });
     }
     const acc = await ProviderAccount.findOneAndUpdate({ phone }, { $set: finalUpdates }, { new: true, upsert: true });
-    res.json({ provider: acc });
+    res.json({ provider: await filterProviderActiveZones(acc.toObject()) });
   }
 );
 

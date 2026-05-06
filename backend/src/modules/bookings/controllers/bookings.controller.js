@@ -26,6 +26,7 @@ import {
 import { calculateRefundPolicy, processSmartRefund } from "../../../lib/refund.service.js";
 import { buildAssignmentCandidates } from "../../../lib/assignmentCandidates.js";
 import { invalidateProviderSlots } from "../../../lib/availability.js";
+import { findZonesContainingPoint } from "../../../lib/geoMatching.js";
 
 function logDevAssignment(message, payload = {}) {
   if (process.env.NODE_ENV === "production") return;
@@ -268,11 +269,29 @@ export async function create(req, res) {
     landmark: address?.landmark || fallbackAddr.landmark || "",
     city: address?.city || address?.area || fallbackAddr.city || fallbackAddr.area || "",
     cityId: address?.cityId || fallbackAddr.cityId || "",
-    zone: address?.zone || fallbackAddr.zone || address?.area || fallbackAddr.area || "",
+    zone: address?.zone || fallbackAddr.zone || "",
     zoneId: address?.zoneId || fallbackAddr.zoneId || "",
     lat: address?.lat ?? fallbackAddr.lat ?? null,
     lng: address?.lng ?? fallbackAddr.lng ?? null,
   };
+
+  // ✅ NEW: Dynamic proper zone resolution from coordinates
+  if ((!safeAddress.zone || safeAddress.zone === safeAddress.area) && typeof safeAddress.lat === "number" && typeof safeAddress.lng === "number") {
+    try {
+      const resolvedZones = await findZonesContainingPoint(safeAddress.lat, safeAddress.lng, safeAddress.city);
+      if (resolvedZones && resolvedZones.length > 0) {
+        safeAddress.zone = resolvedZones[0];
+        console.log(`[Booking] Resolved proper zone: ${safeAddress.zone} for coordinates: ${safeAddress.lat}, ${safeAddress.lng}`);
+      }
+    } catch (zoneErr) {
+      console.error("[Booking] Zone resolution failed:", zoneErr);
+    }
+  }
+
+  // Final fallback for zone if still empty
+  if (!safeAddress.zone) {
+    safeAddress.zone = safeAddress.area || safeAddress.city || "";
+  }
   const preferredProviderId = String(req.body.preferredProviderId || "").trim();
   const [couponDoc, advanceAmount, settings] = await Promise.all([
     couponCode ? Coupon.findOne({ code: couponCode, isActive: true }).lean() : null,

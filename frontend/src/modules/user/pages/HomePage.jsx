@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import Header from "@/modules/user/components/salon/Header";
@@ -14,6 +16,24 @@ import Testimonials from "@/modules/user/components/salon/Testimonials";
 const HomePage = () => {
   const { gender } = useGenderTheme();
   const { isLoading } = useUserModuleData();
+  const navigate = useNavigate();
+
+  // Redirect to booking summary if there's a pending booking from before login
+  useEffect(() => {
+    const pending = sessionStorage.getItem("swm_pending_booking");
+    if (pending) {
+      try {
+        const { path, state } = JSON.parse(pending);
+        sessionStorage.removeItem("swm_pending_booking");
+        if (path && state) {
+          navigate(path, { state, replace: true });
+        }
+      } catch (e) {
+        console.error("Failed to parse pending booking", e);
+        sessionStorage.removeItem("swm_pending_booking");
+      }
+    }
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-background pb-20 lg:pb-0">
