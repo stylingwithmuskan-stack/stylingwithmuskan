@@ -73,19 +73,17 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             document.body.classList.add("modal-open");
             document.body.style.top = `-${scrollY}px`;
             document.body.dataset.scrollY = scrollY;
-        } else {
-            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
-            document.documentElement.classList.remove("modal-open");
-            document.body.classList.remove("modal-open");
-            document.body.style.top = "";
-            window.scrollTo(0, scrollY);
         }
         return () => {
-            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
-            document.documentElement.classList.remove("modal-open");
-            document.body.classList.remove("modal-open");
-            document.body.style.top = "";
-            window.scrollTo(0, scrollY);
+            // Only remove if no other SWM modals are active
+            const activeModals = document.querySelectorAll('.swm-modal-active').length;
+            if (activeModals <= 1) {
+                const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+                document.documentElement.classList.remove("modal-open");
+                document.body.classList.remove("modal-open");
+                document.body.style.top = "";
+                window.scrollTo(0, scrollY);
+            }
         };
     }, [isOpen]);
 
@@ -320,7 +318,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                     initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.9, opacity: 0 }}
-                    className="relative w-full max-w-lg bg-background rounded-[32px] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+                    className="relative w-full max-w-lg bg-background rounded-[32px] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden swm-modal-active"
                 >
                     {/* Fixed Header */}
                     <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-background z-10">

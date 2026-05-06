@@ -71,7 +71,10 @@ const CityZoneManagement = () => {
         try {
             setLoading(true);
             const res = await api.admin.listCities();
-            setCities(res.cities || []);
+            const citiesData = res.cities || [];
+            setCities(citiesData);
+            // Pre-fetch zones to show correct counts on refresh
+            citiesData.forEach(city => fetchZones(city._id));
         } catch (err) {
             if (err?.status === 401) {
                 redirectToAdminLogin();

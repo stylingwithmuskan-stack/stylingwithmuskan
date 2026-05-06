@@ -31,19 +31,17 @@ const ExpressCheckout = () => {
             document.body.classList.add("modal-open");
             document.body.style.top = `-${scrollY}px`;
             document.body.dataset.scrollY = scrollY;
-        } else {
-            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
-            document.documentElement.classList.remove("modal-open");
-            document.body.classList.remove("modal-open");
-            document.body.style.top = "";
-            window.scrollTo(0, scrollY);
         }
         return () => {
-            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
-            document.documentElement.classList.remove("modal-open");
-            document.body.classList.remove("modal-open");
-            document.body.style.top = "";
-            window.scrollTo(0, scrollY);
+            // Only remove if no other SWM modals are active
+            const activeModals = document.querySelectorAll('.swm-modal-active').length;
+            if (activeModals <= 1) {
+                const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+                document.documentElement.classList.remove("modal-open");
+                document.body.classList.remove("modal-open");
+                document.body.style.top = "";
+                window.scrollTo(0, scrollY);
+            }
         };
     }, [isCartOpen]);
 
@@ -163,7 +161,12 @@ const ExpressCheckout = () => {
         }
 
         if (!isLoggedIn) {
-            navigate('/login');
+            // Save intended booking data for post-login redirect via Home
+            sessionStorage.setItem("swm_pending_booking", JSON.stringify({
+                path: "/booking/summary",
+                state: { ...bookingData, bookingParam: bookingType }
+            }));
+            navigate('/login', { state: { from: '/home' } });
             setIsCartOpen(false);
             return;
         }
@@ -222,7 +225,7 @@ const ExpressCheckout = () => {
                         initial={{ y: "100%" }}
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
-                        className="relative w-full max-w-lg bg-background rounded-t-[32px] sm:rounded-[32px] max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+                        className="relative w-full max-w-lg bg-background rounded-t-[32px] sm:rounded-[32px] max-h-[90vh] flex flex-col shadow-2xl overflow-hidden swm-modal-active"
                     >
                         {/* Header */}
                         <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-background/80 backdrop-blur-md sticky top-0 z-10">
@@ -287,30 +290,28 @@ const ExpressCheckout = () => {
                                 )}
 
                                 {/* Slot Requirement */}
-                                {isLoggedIn && (
-                                    <motion.button
-                                        onClick={() => setIsSlotModalOpen(true)}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        className={`w-full text-left p-4 rounded-2xl flex items-center justify-between border-2 transition-all ${selectedSlot ? "bg-green-500/5 border-green-500/20" : "bg-purple-500/5 border-purple-500/20"
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedSlot ? "bg-green-500/20" : "bg-purple-500/20"}`}>
-                                                <Calendar className={`w-5 h-5 ${selectedSlot ? "text-green-600" : "text-purple-600"}`} />
-                                            </div>
-                                            <div>
-                                                <p className={`text-sm font-bold ${selectedSlot ? "text-green-900" : "text-purple-900"}`}>3. Booking Slot</p>
-                                                <p className={`text-[10px] ${selectedSlot ? "text-green-700" : "text-purple-700"}`}>
-                                                    {selectedSlot
-                                                        ? `${getFormattedDate(selectedSlot.date)} at ${selectedSlot.time} (${selectedSlot.provider?.name || 'Trained Professional'})`
-                                                        : "Pick a date & time"}
-                                                </p>
-                                            </div>
+                                <motion.button
+                                    onClick={() => setIsSlotModalOpen(true)}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className={`w-full text-left p-4 rounded-2xl flex items-center justify-between border-2 transition-all ${selectedSlot ? "bg-green-500/5 border-green-500/20" : "bg-purple-500/5 border-purple-500/20"
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedSlot ? "bg-green-500/20" : "bg-purple-500/20"}`}>
+                                            <Calendar className={`w-5 h-5 ${selectedSlot ? "text-green-600" : "text-purple-600"}`} />
                                         </div>
-                                        <ChevronRight className={`w-4 h-4 ${selectedSlot ? "text-green-600" : "text-purple-600"}`} />
-                                    </motion.button>
-                                )}
+                                        <div>
+                                            <p className={`text-sm font-bold ${selectedSlot ? "text-green-900" : "text-purple-900"}`}>3. Booking Slot</p>
+                                            <p className={`text-[10px] ${selectedSlot ? "text-green-700" : "text-purple-700"}`}>
+                                                {selectedSlot
+                                                    ? `${getFormattedDate(selectedSlot.date)} at ${selectedSlot.time} (${selectedSlot.provider?.name || 'Trained Professional'})`
+                                                    : "Pick a date & time"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className={`w-4 h-4 ${selectedSlot ? "text-green-600" : "text-purple-600"}`} />
+                                </motion.button>
                             </div>
 
                             {/* Savings Banner */}

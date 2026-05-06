@@ -123,7 +123,7 @@ export default function ProviderStatusPage() {
                         <Icon className="h-12 w-12 stroke-[2.5px]" />
                     </div>
 
-                    <h1 className="text-3xl font-black text-gray-900 mb-3 tracking-tight">{config.title}</h1>
+                    <h1 className="text-3xl font-black text-gray-900 mb-3 tracking-tight text-center">{config.title}</h1>
                     <p className="text-gray-500 font-medium text-sm leading-relaxed mb-10 px-4">
                         {config.description}
                     </p>
@@ -164,9 +164,9 @@ export default function ProviderStatusPage() {
                         )}
                     </div>
 
-                    <div className="mt-10 pt-8 border-t border-gray-50 w-full">
+                    <div className="mt-10 pt-8 border-t border-gray-50 w-full text-center">
                         <img src="/logo1.png" alt="SWM" className="h-12 w-12 rounded-full object-cover mx-auto opacity-50 grayscale hover:opacity-100 transition-all shadow-sm" />
-                        <p className="text-[10px] font-black uppercase text-gray-300 mt-2 tracking-widest lowercase">stylingwithmuskan</p>
+                        <p className="text-[10px] font-black uppercase text-gray-300 mt-2 tracking-widest lowercase text-center">stylingwithmuskan</p>
                     </div>
                 </CardContent>
             </Card>

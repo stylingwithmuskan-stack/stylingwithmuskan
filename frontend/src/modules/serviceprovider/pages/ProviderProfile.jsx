@@ -424,6 +424,18 @@ export default function ProviderProfile() {
                                                                                 variant="outline" 
                                                                                 className="justify-start h-12 font-bold"
                                                                                 onClick={async () => {
+                                                                                    const isApproved = (safeProvider.pendingCategoryRequests || []).some(r => r.categoryName === c.label && r.status === 'approved');
+                                                                                    const isPending = (safeProvider.pendingCategoryRequests || []).some(r => r.categoryName === c.label && r.status === 'pending');
+
+                                                                                    if (isApproved) {
+                                                                                        toast.error(`You are already approved for the ${c.label} category.`);
+                                                                                        return;
+                                                                                    }
+                                                                                    if (isPending) {
+                                                                                        toast.error(`You have already requested the ${c.label} category. Please wait for approval.`);
+                                                                                        return;
+                                                                                    }
+
                                                                                     try {
                                                                                         const res = await api.provider.requestCategory({
                                                                                             currentCategory: current || "N/A",

@@ -255,7 +255,7 @@ export default function AdminDashboard() {
         const zonesMap = {};
         if (Array.isArray(bookings)) {
             bookings.forEach(b => {
-                const z = b.address?.area || b.address?.city;
+                const z = b.address?.zone || b.address?.area || b.address?.city;
                 if (z) {
                     zonesMap[z] = (zonesMap[z] || 0) + 1;
                 }

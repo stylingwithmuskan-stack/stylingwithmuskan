@@ -20,7 +20,7 @@ const UserLoginPage = () => {
 
     useEffect(() => {
         if (isLoggedIn) {
-            const from = location.state?.from || "/profile";
+            const from = location.state?.from || "/home";
             const extraState = location.state || {};
             navigate(from, { state: extraState, replace: true });
         }
@@ -109,7 +109,7 @@ const UserLoginPage = () => {
         const code = otp.join("");
         try {
             await loginWithOtp({ phone, otp: code, intent: "login" });
-            navigate("/profile", { replace: true });
+            navigate("/home", { replace: true });
         } catch (ex) {
             setError(ex.message || "Verification failed");
         }

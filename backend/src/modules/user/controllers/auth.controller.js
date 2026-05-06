@@ -5,6 +5,8 @@ import { issueToken } from "../../../middleware/auth.js";
 import { sendOtpSms } from "../../../lib/smsIndiaHub.js";
 import { getDefaultOtpByRole, isDefaultUserOtp } from "../../../lib/otpPolicy.js";
 
+import { ReferralSettings } from "../../../models/Settings.js";
+
 export async function requestOtp(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -37,11 +39,81 @@ export async function verifyOtp(req, res) {
     }
   }
   if (!valid) return res.status(400).json({ error: "Invalid OTP" });
-  let user = await User.findOneAndUpdate(
-    { phone },
-    { $setOnInsert: { phone }, $set: { isVerified: true, name: name || undefined, referralCode: referralCode || undefined } },
-    { new: true, upsert: true }
-  );
+
+  let user = await User.findOne({ phone });
+  const isNewUser = !user;
+
+  if (isNewUser) {
+    user = new User({ 
+      phone, 
+      name, 
+      isVerified: true,
+      wallet: { balance: 0, transactions: [] }
+    });
+    
+    // Process Referral if code provided
+    if (referralCode && typeof referralCode === "string" && referralCode.trim()) {
+      const cleanCode = referralCode.trim();
+      const referrer = await User.findOne({ referralCode: cleanCode });
+      
+      if (referrer) {
+        const settings = await ReferralSettings.findOne().lean() || { 
+          referrerBonus: 100, 
+          refereeBonus: 50, 
+          maxReferrals: 10, 
+          isActive: true 
+        };
+
+        if (settings.isActive) {
+          user.referredBy = referrer._id.toString();
+          user.appliedReferralCode = cleanCode;
+          
+          // Credit Referee (New User)
+          const refereeBonus = Number(settings.refereeBonus || 0);
+          if (refereeBonus > 0) {
+            user.wallet.balance += refereeBonus;
+            user.wallet.transactions.push({
+              title: "Referral Bonus",
+              amount: refereeBonus,
+              type: "credit",
+              balanceAfter: user.wallet.balance,
+              description: `Welcome bonus for using referral code ${cleanCode}`
+            });
+          }
+
+          // Credit Referrer
+          const referrerBonus = Number(settings.referrerBonus || 0);
+          const maxRefs = Number(settings.maxReferrals || 10);
+          const currentRefs = await User.countDocuments({ referredBy: referrer._id.toString() });
+
+          if (referrerBonus > 0 && currentRefs < maxRefs) {
+            referrer.wallet.balance = (referrer.wallet.balance || 0) + referrerBonus;
+            referrer.wallet.transactions.push({
+              title: "Referral Reward",
+              amount: referrerBonus,
+              type: "credit",
+              balanceAfter: referrer.wallet.balance,
+              description: `Reward for referring ${name || phone}`
+            });
+            await referrer.save();
+          }
+        }
+      }
+    }
+    await user.save();
+  } else {
+    // Existing user: Update name if provided and verify
+    let needsSave = false;
+    if (name && !user.name) {
+      user.name = name;
+      needsSave = true;
+    }
+    if (!user.isVerified) {
+      user.isVerified = true;
+      needsSave = true;
+    }
+    if (needsSave) await user.save();
+  }
   const token = issueToken(user);
   res.cookie("token", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
   res.json({ user });

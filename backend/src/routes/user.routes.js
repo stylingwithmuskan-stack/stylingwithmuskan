@@ -150,8 +150,63 @@ router.patch(
     const u = req.user;
     if (req.body.name !== undefined) u.name = String(req.body.name).trim();
     if (req.body.email !== undefined) u.email = String(req.body.email).trim().toLowerCase();
-    if (req.body.referralCode !== undefined) u.referralCode = String(req.body.referralCode).trim();
     if (req.body.avatar !== undefined) u.avatar = req.body.avatar;
+
+    // Process Referral Code if provided and not already applied
+    const inputReferral = String(req.body.referralCode || "").trim();
+    if (inputReferral && !u.appliedReferralCode && !u.referredBy) {
+      // 1. Ensure user isn't referring themselves
+      if (inputReferral !== u.referralCode) {
+        const referrer = await User.findOne({ referralCode: inputReferral });
+        if (referrer) {
+          const s = await ReferralSettings.findOne().lean() || { 
+            referrerBonus: 100, 
+            refereeBonus: 50, 
+            maxReferrals: 10, 
+            isActive: true 
+          };
+
+          if (s.isActive) {
+            u.referredBy = referrer._id.toString();
+            u.appliedReferralCode = inputReferral;
+
+            // Credit Referee (Current User)
+            const refereeBonus = Number(s.refereeBonus || 0);
+            if (refereeBonus > 0) {
+              if (!u.wallet) u.wallet = { balance: 0, transactions: [] };
+              u.wallet.balance = (u.wallet.balance || 0) + refereeBonus;
+              u.wallet.transactions.unshift({
+                title: "Referral Bonus",
+                amount: refereeBonus,
+                type: "credit",
+                balanceAfter: u.wallet.balance,
+                description: `Bonus for using referral code ${inputReferral}`,
+                at: new Date()
+              });
+            }
+
+            // Credit Referrer
+            const referrerBonus = Number(s.referrerBonus || 0);
+            const maxRefs = Number(s.maxReferrals || 10);
+            const currentRefs = await User.countDocuments({ referredBy: referrer._id.toString() });
+
+            if (referrerBonus > 0 && currentRefs < maxRefs) {
+              if (!referrer.wallet) referrer.wallet = { balance: 0, transactions: [] };
+              referrer.wallet.balance = (referrer.wallet.balance || 0) + referrerBonus;
+              referrer.wallet.transactions.unshift({
+                title: "Referral Reward",
+                amount: referrerBonus,
+                type: "credit",
+                balanceAfter: referrer.wallet.balance,
+                description: `Reward for referring ${u.name || u.phone}`,
+                at: new Date()
+              });
+              await referrer.save();
+            }
+          }
+        }
+      }
+    }
 
     await u.save();
     const subscription = await getSubscriptionSnapshot(u._id.toString(), "customer");
