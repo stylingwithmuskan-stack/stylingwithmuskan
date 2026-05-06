@@ -15,6 +15,7 @@ const CommissionSettingsSchema = new mongoose.Schema(
   {
     rate: { type: Number, default: 15 },
     minPayout: { type: Number, default: 500 },
+    dateFormat: { type: String, default: "PPP" },
   },
   { timestamps: true }
 );
@@ -52,6 +53,7 @@ const PerformanceSettingsSchema = new mongoose.Schema(
 const SystemSettingsSchema = new mongoose.Schema(
   {
     menSectionEnabled: { type: Boolean, default: false },
+    availableRoles: { type: [String], default: ["user", "provider", "vendor"] },
   },
   { timestamps: true }
 );
@@ -86,9 +88,23 @@ const SubscriptionSettingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const StatusSettingsSchema = new mongoose.Schema(
+  {
+    statuses: [
+      {
+        key: { type: String, required: true },
+        label: { type: String, required: true },
+        color: { type: String, default: "bg-gray-500/15 text-gray-600" },
+      }
+    ]
+  },
+  { timestamps: true }
+);
+
 export const ReferralSettings = mongoose.models.ReferralSettings || mongoose.model("ReferralSettings", ReferralSettingsSchema);
 export const CommissionSettings = mongoose.models.CommissionSettings || mongoose.model("CommissionSettings", CommissionSettingsSchema);
 export const BookingSettings = mongoose.models.BookingSettings || mongoose.model("BookingSettings", BookingSettingsSchema);
 export const PerformanceSettings = mongoose.models.PerformanceSettings || mongoose.model("PerformanceSettings", PerformanceSettingsSchema);
 export const SystemSettings = mongoose.models.SystemSettings || mongoose.model("SystemSettings", SystemSettingsSchema);
 export const SubscriptionSettings = mongoose.models.SubscriptionSettings || mongoose.model("SubscriptionSettings", SubscriptionSettingsSchema);
+export const StatusSettings = mongoose.models.StatusSettings || mongoose.model("StatusSettings", StatusSettingsSchema);

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wallet, Percent, IndianRupee, Save, Calendar, MapPin, Search, CheckCircle, Clock, Ban, DollarSign, Filter, ChevronDown } from "lucide-react";
+import { Wallet, Percent, IndianRupee, Save, Calendar as CalendarIcon, MapPin, Search, CheckCircle, Clock, Ban, DollarSign, Filter, ChevronDown, Gift } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
@@ -8,6 +8,10 @@ import { Label } from "@/modules/user/components/ui/label";
 import { Slider } from "@/modules/user/components/ui/slider";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/modules/user/components/ui/popover";
+import { Calendar } from "@/modules/user/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/modules/user/lib/utils";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -19,8 +23,10 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } 
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 
 export default function FinanceManagement() {
-    const { getCommissionSettings, updateCommissionSettings, getMetricsCities, getPayouts, updatePayoutStatus } = useAdminAuth();
-    const [settings, setSettings] = useState(getCommissionSettings() || { rate: 15, minPayout: 500 });
+    const { getCommissionSettings, updateCommissionSettings, getMetricsCities, getPayouts, updatePayoutStatus, getSubscriptionSettings, getReferralSettings } = useAdminAuth();
+    const [settings, setSettings] = useState({ rate: 15, minPayout: 500, dateFormat: "PPP" });
+    const [subSettings, setSubSettings] = useState(null);
+    const [refSettings, setRefSettings] = useState(null);
     const [saved, setSaved] = useState(false);
     const [payouts, setPayouts] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -55,15 +61,24 @@ export default function FinanceManagement() {
     React.useEffect(() => {
         (async () => {
             try {
+                const s = await getCommissionSettings();
+                if (s) setSettings(s);
+                
+                const subs = await getSubscriptionSettings();
+                if (subs) setSubSettings(subs);
+
+                const refs = await getReferralSettings();
+                if (refs) setRefSettings(refs);
+
                 const list = await getMetricsCities?.();
                 if (Array.isArray(list) && list.length) {
                     setCities(list);
                 }
             } catch (e) {
-                console.error("Failed to fetch cities", e);
+                console.error("Failed to fetch settings", e);
             }
         })();
-    }, [getMetricsCities]);
+    }, [getCommissionSettings, getSubscriptionSettings, getReferralSettings, getMetricsCities]);
 
     React.useEffect(() => {
         const timer = setTimeout(() => {
@@ -150,6 +165,67 @@ export default function FinanceManagement() {
                         </CardContent>
                     </Card>
 
+                    {/* Subscription & Multi-Tier Commissions */}
+                    <Card className="border-border/50 shadow-none">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-purple-500" /> Subscription & Tiers
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-100">
+                                <p className="text-[10px] font-black text-purple-600 uppercase tracking-widest mb-1">Provider (SWM Pro)</p>
+                                <div className="flex justify-between items-end">
+                                    <span className="text-xs font-bold text-muted-foreground">Pro Commission</span>
+                                    <span className="text-lg font-black text-purple-700">{subSettings?.providerDefaultCommissionRate === 15 ? 5 : subSettings?.providerDefaultCommissionRate || 5}%</span>
+                                </div>
+                                <p className="text-[9px] text-muted-foreground mt-1 font-medium">Applied to SWM Pro Partner members</p>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100">
+                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Customer (SWM Plus)</p>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-muted-foreground">Quarterly Discount</span>
+                                        <span className="text-sm font-black text-blue-700">{subSettings?.userQuarterlyDiscountDefault || 10}%</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-muted-foreground">Annual Discount</span>
+                                        <span className="text-sm font-black text-blue-700">{subSettings?.userAnnualDiscountDefault || 15}%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100">
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Vendor Commission</p>
+                                <div className="flex justify-between items-end">
+                                    <span className="text-xs font-bold text-muted-foreground">Performance Rate</span>
+                                    <span className="text-lg font-black text-emerald-700">{subSettings?.vendorPerformanceCommissionValue || 2}%</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Referral Summary */}
+                    <Card className="border-border/50 shadow-none">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                <Gift className="h-4 w-4 text-orange-500" /> Referral Bonuses
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="flex justify-between items-center text-xs font-medium">
+                                <span className="text-muted-foreground">Referrer Bonus</span>
+                                <span className="font-black">₹{refSettings?.referrerBonus || 100}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs font-medium">
+                                <span className="text-muted-foreground">Referee Bonus</span>
+                                <span className="font-black">₹{refSettings?.refereeBonus || 50}</span>
+                            </div>
+                            <p className="text-[9px] text-muted-foreground pt-1 border-t italic">Manage detailed referral logic in Referral System page</p>
+                        </CardContent>
+                    </Card>
+
                     {/* Quick Stats for filtered view */}
                     <Card className="border-border/50 shadow-none bg-primary/5 border-primary/20">
                         <CardContent className="p-5">
@@ -213,20 +289,53 @@ export default function FinanceManagement() {
                             {/* Filters Row 2: Date & Status */}
                             <div className="flex flex-wrap items-center gap-3 pt-3 mt-3 border-t border-border/50">
                                 <div className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={e => setStartDate(e.target.value)}
-                                        className="h-8 text-xs w-[130px] rounded-md border-border/50"
-                                    />
-                                    <span className="text-xs text-muted-foreground font-medium">to</span>
-                                    <Input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={e => setEndDate(e.target.value)}
-                                        className="h-8 text-xs w-[130px] rounded-md border-border/50"
-                                    />
+                                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                                    
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                className={cn(
+                                                    "h-8 text-[11px] w-[130px] justify-start text-left font-bold rounded-lg border-border/40 bg-muted/20",
+                                                    !startDate && "text-muted-foreground"
+                                                )}
+                                            >
+                                                {startDate ? format(new Date(startDate), settings.dateFormat || "PPP") : "Pick Start Date"}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={startDate ? new Date(startDate) : undefined}
+                                                onSelect={(date) => setStartDate(date ? format(date, "yyyy-MM-dd") : "")}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+
+                                    <span className="text-[10px] text-muted-foreground font-black uppercase">to</span>
+
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                className={cn(
+                                                    "h-8 text-[11px] w-[130px] justify-start text-left font-bold rounded-lg border-border/40 bg-muted/20",
+                                                    !endDate && "text-muted-foreground"
+                                                )}
+                                            >
+                                                {endDate ? format(new Date(endDate), settings.dateFormat || "PPP") : "Pick End Date"}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={endDate ? new Date(endDate) : undefined}
+                                                onSelect={(date) => setEndDate(date ? format(date, "yyyy-MM-dd") : "")}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
 
                                 <div className="h-5 w-px bg-border/50 mx-1 hidden md:block"></div>
@@ -292,7 +401,7 @@ export default function FinanceManagement() {
                                                             </div>
                                                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground mt-1">
                                                                 <span className="font-medium flex items-center gap-1"><MapPin className="h-3 w-3" />{payout.city}</span>
-                                                                <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{payout.date}</span>
+                                                                <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{payout.date ? format(new Date(payout.date), settings.dateFormat || "PPP") : "N/A"}</span>
                                                                 <span>ID: {payout.id}</span>
                                                             </div>
                                                         </div>

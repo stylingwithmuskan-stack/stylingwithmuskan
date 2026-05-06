@@ -132,6 +132,7 @@ import TrainingManagement from "@/modules/admin/pages/TrainingManagement";
 import GalleryManagement from "@/modules/admin/pages/GalleryManagement";
 import SubscriptionManagement from "@/modules/admin/pages/SubscriptionManagement";
 import SupportChat from "@/modules/admin/pages/SupportChat";
+import SystemSettings from "@/modules/admin/pages/SystemSettings";
 
 // Common Pages
 import RoleSelectionPage from "@/modules/common/pages/RoleSelectionPage";
@@ -348,7 +349,7 @@ const App = () => {
                                   <Route path="custom-enquiries" element={<CustomEnquiries />} />
                                   <Route path="gallery" element={<GalleryManagement />} />
                                   <Route path="subscriptions" element={<SubscriptionManagement />} />
-                                  <Route path="support-chat" element={<SupportChat />} />
+                                  <Route path="support-chat" element={<SupportChat />} /><Route path="settings" element={<SystemSettings />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
                                 </Route>
 

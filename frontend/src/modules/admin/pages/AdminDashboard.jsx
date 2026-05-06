@@ -183,7 +183,7 @@ export default function AdminDashboard() {
                     totalBookings: filtered.length,
                     activeBookings: filtered.filter(b => ["accepted", "travelling", "arrived", "in_progress"].includes((b.status || "").toLowerCase())).length,
                     totalRevenue,
-                    commissionEarned: Math.round(totalRevenue * 0.15),
+                    commissionEarned: Math.round(totalRevenue * ((stats.commissionRate || 15) / 100)),
                     cancellationRate: filtered.length > 0 ? Math.round((cancelledBookings.length / filtered.length) * 100) : 0,
                     customerCount: new Set(filtered.map(b => b.customerId).filter(Boolean)).size,
                     zones: getZones(filtered),
@@ -208,7 +208,7 @@ export default function AdminDashboard() {
                     const [y, m] = key.split("-").map(Number);
                     const label = new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en-US", { month: "short" });
                     const revenue = map.get(key) || 0;
-                    return { key, month: label, revenue, commission: Math.round(revenue * 0.15) };
+                    return { key, month: label, revenue, commission: Math.round(revenue * ((stats.commissionRate || 15) / 100)) };
                 });
                 setRevenueSeries(revSeries);
 
@@ -266,13 +266,19 @@ export default function AdminDashboard() {
         return zonesArray.sort((a, b) => b[1] - a[1]);
     };
 
+    const formatTrend = (val) => {
+        if (selectedPeriod === "OVERALL") return null;
+        if (!val || val === 0) return null;
+        return val > 0 ? `+${val}%` : `${val}%`;
+    };
+
     const statCards = [
-        { title: "Total Revenue", value: `₹${(stats.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, color: "from-indigo-500/20 to-indigo-500/5", iconBg: "bg-indigo-500/20 text-indigo-400", trend: "+18%", up: true },
-        { title: "Commission Earned", value: `₹${(stats.commissionEarned || 0).toLocaleString()}`, icon: Percent, color: "from-purple-500/20 to-purple-500/5", iconBg: "bg-purple-500/20 text-purple-400", trend: "+12%", up: true },
-        { title: "Total Bookings", value: stats.totalBookings || 0, icon: CalendarRange, color: "from-blue-500/20 to-blue-500/5", iconBg: "bg-blue-500/20 text-blue-400", badge: stats.activeBookings ? `${stats.activeBookings} active` : null },
+        { title: "Total Revenue", value: `₹${(stats.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, color: "from-indigo-500/20 to-indigo-500/5", iconBg: "bg-indigo-500/20 text-indigo-400", trend: formatTrend(stats.trends?.revenue), up: (stats.trends?.revenue || 0) >= 0 },
+        { title: "Commission Earned", value: `₹${(stats.commissionEarned || 0).toLocaleString()}`, icon: Percent, color: "from-purple-500/20 to-purple-500/5", iconBg: "bg-purple-500/20 text-purple-400", trend: formatTrend(stats.trends?.commission), up: (stats.trends?.commission || 0) >= 0 },
+        { title: "Total Bookings", value: stats.totalBookings || 0, icon: CalendarRange, color: "from-blue-500/20 to-blue-500/5", iconBg: "bg-blue-500/20 text-blue-400", badge: stats.activeBookings ? `${stats.activeBookings} active` : null, trend: formatTrend(stats.trends?.bookings), up: (stats.trends?.bookings || 0) >= 0 },
         { title: "Active SPs", value: stats.activeSPs || 0, icon: Users, color: "from-emerald-500/20 to-emerald-500/5", iconBg: "bg-emerald-500/20 text-emerald-400", badge: stats.pendingSPs ? `${stats.pendingSPs} pending` : null },
         { title: "Vendors", value: stats.totalVendors || 0, icon: Store, color: "from-teal-500/20 to-teal-500/5", iconBg: "bg-teal-500/20 text-teal-400" },
-        { title: "Customers", value: stats.customerCount || 0, icon: UserPlus, color: "from-pink-500/20 to-pink-500/5", iconBg: "bg-pink-500/20 text-pink-400", trend: "+25%", up: true },
+        { title: "Customers", value: stats.customerCount || 0, icon: UserPlus, color: "from-pink-500/20 to-pink-500/5", iconBg: "bg-pink-500/20 text-pink-400", trend: formatTrend(stats.trends?.customers), up: (stats.trends?.customers || 0) >= 0 },
         { title: "Cancellation Rate", value: `${stats.cancellationRate || 0}%`, icon: TrendingDown, color: "from-red-500/20 to-red-500/5", iconBg: "bg-red-500/20 text-red-400", trend: stats.cancellationRate > 15 ? "High" : "Normal", up: false },
         { title: "SOS Alerts", value: stats.sosAlerts || 0, icon: ShieldAlert, color: stats.sosAlerts > 0 ? "from-red-500/20 to-red-500/5" : "from-green-500/20 to-green-500/5", iconBg: stats.sosAlerts > 0 ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400" },
     ];

@@ -5,7 +5,7 @@ import ProviderAccount from "../models/ProviderAccount.js";
 import Booking from "../models/Booking.js";
 import Coupon from "../models/Coupon.js";
 import SOSAlert from "../models/SOSAlert.js";
-import { ReferralSettings, CommissionSettings, BookingSettings, PerformanceSettings, SystemSettings } from "../models/Settings.js";
+import { ReferralSettings, CommissionSettings, BookingSettings, PerformanceSettings, SystemSettings, StatusSettings } from "../models/Settings.js";
 import { upload, uploadMedia } from "../middleware/upload.js";
 import { uploadBase64Image } from "../startup/cloudinary.js";
 import { issueRoleToken, requireRole } from "../middleware/roles.js";
@@ -880,11 +880,34 @@ router.put("/referral",
 
 router.get("/commission", requireRole("admin"), async (_req, res) => {
   const s = await CommissionSettings.findOne().lean();
-  res.json({ settings: s || { rate: 15, minPayout: 500 } });
+  res.json({ settings: s || { rate: 15, minPayout: 500, dateFormat: "PPP" } });
 });
 
-router.put("/commission", requireRole("admin"), body("rate").isNumeric(), body("minPayout").isNumeric(), async (req, res) => {
+router.put("/commission", requireRole("admin"), body("rate").isNumeric(), body("minPayout").isNumeric(), body("dateFormat").optional().isString(), async (req, res) => {
   const s = await CommissionSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
+  res.json({ settings: s });
+});
+
+router.get("/status-settings", requireRole("admin"), async (_req, res) => {
+  let s = await StatusSettings.findOne().lean();
+  if (!s) {
+    const defaults = [
+      { key: "pending", label: "Pending", color: "bg-blue-500/15 text-blue-600" },
+      { key: "accepted", label: "Accepted", color: "bg-indigo-500/15 text-indigo-600" },
+      { key: "travelling", label: "Travelling", color: "bg-purple-500/15 text-purple-600" },
+      { key: "arrived", label: "Arrived", color: "bg-violet-500/15 text-violet-600" },
+      { key: "in_progress", label: "In Progress", color: "bg-yellow-500/15 text-yellow-600" },
+      { key: "completed", label: "Completed", color: "bg-green-500/15 text-green-600" },
+      { key: "cancelled", label: "Cancelled", color: "bg-red-500/15 text-red-600" },
+      { key: "rejected", label: "Rejected", color: "bg-orange-500/15 text-orange-600" },
+    ];
+    s = await StatusSettings.create({ statuses: defaults });
+  }
+  res.json({ settings: s });
+});
+
+router.put("/status-settings", requireRole("admin"), async (req, res) => {
+  const s = await StatusSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
   res.json({ settings: s });
 });
 
@@ -989,10 +1012,10 @@ router.patch("/sos/:id/resolve", requireRole("admin"), param("id").isString(), a
 // System Settings
 router.get("/system-settings", async (_req, res) => {
   const s = await SystemSettings.findOne().lean();
-  res.json({ settings: s || { menSectionEnabled: false } });
+  res.json({ settings: s || { menSectionEnabled: false, availableRoles: ["user", "provider", "vendor"] } });
 });
 
-router.put("/system-settings", requireRole("admin"), body("menSectionEnabled").isBoolean(), async (req, res) => {
+router.put("/system-settings", requireRole("admin"), body("menSectionEnabled").isBoolean(), body("availableRoles").optional().isArray(), async (req, res) => {
   const s = await SystemSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
   res.json({ settings: s });
 });

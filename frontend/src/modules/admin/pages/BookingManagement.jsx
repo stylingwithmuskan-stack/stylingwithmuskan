@@ -33,7 +33,7 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } 
 const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 
 export default function BookingManagement() {
-    const { isLoggedIn, getAllBookings, getAllServiceProviders, getAvailableProvidersForBooking, assignSPToBooking, assignTeamToBooking, approveBookingImages, getParents, getCategories } = useAdminAuth();
+    const { isLoggedIn, getAllBookings, getAllServiceProviders, getAvailableProvidersForBooking, assignSPToBooking, assignTeamToBooking, approveBookingImages, getParents, getCategories, getStatusSettings } = useAdminAuth();
     const { officeSettings, updateOfficeSettings, providers: moduleProviders } = useUserModuleData();
     const [bookings, setBookings] = useState([]);
     const [providers, setProviders] = useState([]);
@@ -64,6 +64,7 @@ export default function BookingManagement() {
     const [total, setTotal] = useState(0);
     const [stats, setStats] = useState({ total: 0, active: 0, pending: 0, unassigned: 0, queued: 0 });
     const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [statusMap, setStatusMap] = useState({});
 
     // Debounce search input
     useEffect(() => {
@@ -89,6 +90,23 @@ export default function BookingManagement() {
         loadContent();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoggedIn]);
+
+    // Fetch dynamic status settings
+    useEffect(() => {
+        const fetchStatusSettings = async () => {
+            try {
+                const settings = await getStatusSettings();
+                const map = (settings?.statuses || []).reduce((acc, s) => {
+                    acc[s.key] = { label: s.label, color: s.color };
+                    return acc;
+                }, {});
+                setStatusMap(map);
+            } catch (err) {
+                console.error("Failed to load status settings:", err);
+            }
+        };
+        if (isLoggedIn) fetchStatusSettings();
+    }, [isLoggedIn, getStatusSettings]);
 
     // Reset page to 1 when filters change
     useEffect(() => {
@@ -401,17 +419,12 @@ export default function BookingManagement() {
 
     const queuedCount = bookings.filter(b => b.notificationStatus === "queued").length;
 
+    const getStatusColor = (status) => {
+        return statusMap[status]?.color || statusColors[status] || "bg-gray-500/15 text-gray-600";
+    };
+
     const getStatusLabel = (status) => {
-        const labels = {
-            vendor_assigned: "Price Set by Vendor",
-            admin_approved: "Price Approved",
-            user_accepted: "User Accepted",
-            team_assigned: "Team Assigned",
-            final_approved: "Ready for Service",
-            payment_pending: "Awaiting Advance",
-            documentation: "Documentation"
-        };
-        return labels[status] || (status || "").replace(/_/g, " ");
+        return statusMap[status]?.label || (status || "").replace(/_/g, " ");
     };
 
     return (
@@ -509,7 +522,7 @@ export default function BookingManagement() {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                         <span className="text-[10px] font-black text-muted-foreground">#{b.id}</span>
-                                                        <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 border-0 ${statusColors[b.status] || ""}`}>
+                                                        <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 border-0 ${getStatusColor(b.status)}`}>
                                                             {getStatusLabel(b.status)}
                                                         </Badge>
                                                         {b.status === "vendor_assigned" && (
@@ -1148,7 +1161,7 @@ export default function BookingManagement() {
                                         <div className="space-y-3">
                                             <div className="flex justify-between items-center">
                                                 <span className="text-xs font-bold text-muted-foreground">Status</span>
-                                                <Badge variant="outline" className={`text-[10px] font-black px-2 py-0.5 border-0 ${statusColors[detailModal.status] || ""}`}>
+                                                <Badge variant="outline" className={`text-[10px] font-black px-2 py-0.5 border-0 ${getStatusColor(detailModal.status)}`}>
                                                     {getStatusLabel(detailModal.status)}
                                                 </Badge>
                                             </div>

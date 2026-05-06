@@ -26,7 +26,6 @@ import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
-const roleOptions = ["user", "provider", "vendor"];
 
 export default function MarketingControl() {
     const {
@@ -37,11 +36,13 @@ export default function MarketingControl() {
         getPushBroadcastHistory,
         sendPushTest,
         getSubscriptionPlans,
+        getSystemSettings,
     } = useAdminAuth();
 
     const { services, categories } = useUserModuleData();
 
     const [banners, setBanners] = useState([]);
+    const [roleOptions, setRoleOptions] = useState(["user", "provider", "vendor"]);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ title: "", imageUrl: "", serviceName: "", linkTo: "", startDate: "", endDate: "", priority: 1 });
     const [selectedImageFile, setSelectedImageFile] = useState(null);
@@ -82,12 +83,14 @@ export default function MarketingControl() {
 
     const loadPushMeta = async () => {
         try {
-            const [history, plans] = await Promise.all([
+            const [history, plans, sys] = await Promise.all([
                 getPushBroadcastHistory(),
                 getSubscriptionPlans().catch(() => []),
+                getSystemSettings().catch(() => null)
             ]);
             setBroadcastHistory(Array.isArray(history) ? history : []);
             setSubscriptionPlans(Array.isArray(plans) ? plans : []);
+            if (sys?.availableRoles) setRoleOptions(sys.availableRoles);
         } catch {
             setBroadcastHistory([]);
             setSubscriptionPlans([]);

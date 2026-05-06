@@ -582,6 +582,8 @@ export const api = {
     updateReferral: (payload) => request("/admin/referral", { method: "PUT", body: payload }),
     getCommission: () => request("/admin/commission"),
     updateCommission: (payload) => request("/admin/commission", { method: "PUT", body: payload }),
+    getStatusSettings: () => request("/admin/status-settings"),
+    updateStatusSettings: (payload) => request("/admin/status-settings", { method: "PUT", body: payload }),
     metricsOverview: (params = {}) => {
       const q = new URLSearchParams(params).toString();
       return request(`/admin/metrics/overview${q ? `?${q}` : ""}`);

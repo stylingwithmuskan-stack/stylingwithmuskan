@@ -212,6 +212,10 @@ export const AdminAuthProvider = ({ children }) => {
     // ───── COMMISSION ─────
     const getCommissionSettings = async () => (await api.admin.getCommission()).settings;
     const updateCommissionSettings = async (settings) => { await api.admin.updateCommission(settings); };
+    const getStatusSettings = async () => (await api.admin.getStatusSettings()).settings;
+    const updateStatusSettings = async (settings) => { await api.admin.updateStatusSettings(settings); };
+    const getSystemSettings = async () => (await api.admin.getSystemSettings()).settings;
+    const updateSystemSettings = async (settings) => { await api.admin.updateSystemSettings(settings); };
 
     // ───── METRICS ─────
     const getMetricsOverview = async (params = {}) => (await api.admin.metricsOverview(params)).overview;
@@ -277,6 +281,7 @@ export const AdminAuthProvider = ({ children }) => {
             getReferralSettings, updateReferralSettings,
             getSOSAlerts, resolveSOSAlert,
             getCommissionSettings, updateCommissionSettings,
+            getStatusSettings, updateStatusSettings,
             getMetricsOverview, getRevenueByMonth, getCustomersByMonth, getProvidersByMonth, getBookingTrend, getMetricsCities,
             getPayouts, updatePayoutStatus,
             getPerformanceCriteria, updatePerformanceCriteria,
@@ -287,7 +292,8 @@ export const AdminAuthProvider = ({ children }) => {
             toggleCustomerCOD, updateCustomerStatus,
             getParents, getCategories, getServices,
             getLeaves, approveLeave, rejectLeave,
-            getCategoryRequests, approveCategoryRequest, rejectCategoryRequest
+            getCategoryRequests, approveCategoryRequest, rejectCategoryRequest,
+            getSystemSettings, updateSystemSettings
         }}>
 
             {children}

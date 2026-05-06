@@ -392,6 +392,51 @@ export async function metricsOverview(req, res) {
   const ratePct = Math.max(0, Number(commissionSettings?.rate ?? 15));
   const commissionEarned = Math.round(totalRevenue * (ratePct / 100));
 
+  // --- GROWTH TREND CALCULATION ---
+  let trends = { revenue: 0, bookings: 0, customers: 0, commission: 0 };
+  if (!isOverall) {
+    const prevPeriod = addMonths(period, -1);
+    const { start: prevStart, end: prevEnd } = monthRangeUtc(prevPeriod, tz);
+    
+    const prevBookingMatch = { ...cityPredicate(city), createdAt: { $gte: prevStart, $lt: prevEnd } };
+    
+    const prevAgg = await Booking.aggregate([
+      { $match: prevBookingMatch },
+      {
+        $facet: {
+          totals: [{ $count: "count" }],
+          completedRevenue: [
+            { $match: { status: "completed" } },
+            { $group: { _id: null, revenue: { $sum: { $ifNull: ["$totalAmount", 0] } } } },
+          ],
+          customers: [
+            { $match: { customerId: { $ne: null } } },
+            { $group: { _id: "$customerId" } },
+            { $count: "count" },
+          ],
+        },
+      },
+    ]);
+
+    const p = (Array.isArray(prevAgg) && prevAgg[0]) ? prevAgg[0] : {};
+    const prevBookings = Number(p?.totals?.[0]?.count || 0);
+    const prevRevenue = Number(p?.completedRevenue?.[0]?.revenue || 0);
+    const prevCustomers = Number(p?.customers?.[0]?.count || 0);
+    const prevCommission = Math.round(prevRevenue * (ratePct / 100));
+
+    const calcGrowth = (curr, prev) => {
+      if (!prev || prev <= 0) return curr > 0 ? 100 : 0;
+      return Math.round(((curr - prev) / prev) * 100);
+    };
+
+    trends = {
+      revenue: calcGrowth(totalRevenue, prevRevenue),
+      bookings: calcGrowth(totalBookings, prevBookings),
+      customers: calcGrowth(customerCount, prevCustomers),
+      commission: calcGrowth(commissionEarned, prevCommission),
+    };
+  }
+
   res.json({
     overview: {
       totalVendors: vendorCount || 0,
@@ -405,8 +450,9 @@ export async function metricsOverview(req, res) {
       cancellationRate: totalBookings ? Math.round((cancelledCount / totalBookings) * 100) : 0,
       customerCount,
       sosActive: sosCount || 0,
-      // Optional: used by existing UI's Zone-wise Analysis section
       zones,
+      trends,
+      commissionRate: ratePct,
     },
   });
 }
@@ -594,23 +640,16 @@ export async function metricsBookingTrend(req, res) {
 }
 
 export async function metricsCities(_req, res) {
-  const [vCities, pCities, bCities, bAreas, cityDocs] = await Promise.all([
-    Vendor.distinct("city", { city: { $nin: [null, ""] } }),
-    ProviderAccount.distinct("city", { city: { $nin: [null, ""] } }),
-    Booking.distinct("address.city", { "address.city": { $nin: [null, ""] } }),
-    Booking.distinct("address.area", { "address.area": { $nin: [null, ""] } }),
-    City.find().sort({ name: 1 }).lean(),
-  ]);
+  const cityDocs = await City.find().sort({ name: 1 }).lean();
+  
   const set = new Set();
-  for (const arr of [vCities, pCities, bCities, bAreas]) {
-    for (const c of arr || []) {
-      const s = String(c || "").trim();
+  for (const cDoc of cityDocs || []) {
+    if (cDoc.name) {
+      const s = String(cDoc.name).trim();
       if (s) set.add(s);
     }
   }
-  for (const cDoc of cityDocs || []) {
-    if (cDoc.name) set.add(cDoc.name.trim());
-  }
+  
   const cities = ["All Cities", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   res.json({ cities });
 }
