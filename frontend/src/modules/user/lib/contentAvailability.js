@@ -63,16 +63,14 @@ export function isContentAvailable(item, location, selectedDate = null, selected
     if (!matches) return false;
   }
 
-  if (item.disabledDates && item.disabledDates.length > 0) {
-    const checkDate = selectedDate || new Date().toISOString().split("T")[0];
-    const checkTime =
-      selectedTime ||
-      new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-
+  if (item.disabledDates && item.disabledDates.length > 0 && selectedDate) {
     const isBlocked = item.disabledDates.some((block) => {
-      if (block.date !== checkDate) return false;
+      if (block.date !== selectedDate) return false;
       if (block.fullDay) return true;
-      return checkTime >= block.startTime && checkTime <= block.endTime;
+      if (selectedTime) {
+        return selectedTime >= block.startTime && selectedTime <= block.endTime;
+      }
+      return false;
     });
 
     if (isBlocked) return false;

@@ -29,7 +29,7 @@ const SupportPage = () => {
         f.a.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const supportPhone = import.meta.env.VITE_SUPPORT_PHONE || "9990000001";
+    const supportPhone = import.meta.env.VITE_SUPPORT_PHONE || "8349764176";
 
     const contactOpts = [
         { 

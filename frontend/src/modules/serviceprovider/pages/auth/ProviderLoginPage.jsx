@@ -182,14 +182,17 @@ export default function ProviderLoginPage() {
                                 {!isLoading && <ArrowRight className="ml-2 h-5 w-5" />}
                             </Button>
 
-                            <div className="text-center pt-4">
-                                <p className="text-gray-500 text-sm font-medium">
-                                    New here?{" "}
-                                    <Link to="/provider/register" className="text-violet-600 font-black hover:underline">
-                                        Register as Partner
-                                    </Link>
-                                </p>
-                            </div>
+                            {/* Hide registration link on iOS for App Store compliance */}
+                            {!(typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))) && (
+                                <div className="text-center pt-4">
+                                    <p className="text-gray-500 text-sm font-medium">
+                                        New here?{" "}
+                                        <Link to="/provider/register" className="text-violet-600 font-black hover:underline">
+                                            Register as Partner
+                                        </Link>
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

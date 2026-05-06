@@ -160,10 +160,20 @@ const PaymentPage = () => {
                 prefill: {
                     name: user?.name || "",
                     email: user?.email || "test@example.com",
-                    contact: user?.phone || ""
+                    contact: (() => {
+                        if (!user?.phone) return "";
+                        const sanitized = user.phone.replace(/\D/g, "");
+                        if (sanitized.length === 10) return `+91${sanitized}`;
+                        if (sanitized.length === 12 && sanitized.startsWith("91")) return `+${sanitized}`;
+                        return sanitized || user.phone;
+                    })()
+                },
+                readonly: {
+                    contact: true,
+                    email: true,
                 },
                 theme: { color: "#7c3aed" },
-                webview_intent: true,
+                webview_intent: /Android/i.test(navigator.userAgent),
                 config: {
                     display: {
                         blocks: {

@@ -161,21 +161,54 @@ export async function unregisterPush(authToken, role = "user") {
   }
 }
 
+const FOREGROUND_SOUND_FILES = {
+  ringtone: "/sounds/ringtone.mp3",
+  notification: "/sounds/massege_ting.mp3",
+  emergency: "/sounds/sos_tone.mp3",
+  alert: "/sounds/alert.mp3",
+  success: "/sounds/massege_ting.mp3",
+};
+
 export function setupForegroundHandler(onMessageCallback) {
   if (!messaging) return;
 
   onMessage(messaging, (payload) => {
     if ("Notification" in window && Notification.permission === "granted") {
       const title = payload.notification?.title || "New Notification";
+      const soundType = payload.data?.sound || "default";
+      const isUrgent = ["ringtone", "emergency"].includes(soundType);
       const options = {
         body: payload.notification?.body || "",
         icon: payload.notification?.icon || "/logo.png",
         data: payload.data || {},
+        requireInteraction: isUrgent,
+        silent: false,
       };
       const notif = new Notification(title, options);
       notif.onclick = () => {
+        window.focus();
         window.location.href = payload.data?.link || "/notifications";
       };
+
+      // Play matching sound when tab is in background (foreground sounds are handled by NotificationContext)
+      if (document.visibilityState === "hidden" && soundType !== "default") {
+        try {
+          const soundFile = FOREGROUND_SOUND_FILES[soundType];
+          if (soundFile) {
+            const audio = new Audio(soundFile);
+            audio.volume = 1.0;
+            if (isUrgent) {
+              audio.loop = true;
+              // Store globally so it can be stopped when user returns to tab
+              window.__swm_active_ringtone__ = audio;
+              setTimeout(() => {
+                try { audio.pause(); audio.currentTime = 0; window.__swm_active_ringtone__ = null; } catch {}
+              }, 30000);
+            }
+            audio.play().catch(() => {});
+          }
+        } catch {}
+      }
     }
     if (typeof onMessageCallback === "function") onMessageCallback(payload);
   });

@@ -2,6 +2,7 @@ import Vendor from "../../../models/Vendor.js";
 import ProviderAccount from "../../../models/ProviderAccount.js";
 import Booking from "../../../models/Booking.js";
 import User from "../../../models/User.js";
+import mongoose from "mongoose";
 import Coupon from "../../../models/Coupon.js";
 import { uploadBuffer } from "../../../startup/cloudinary.js";
 import SOSAlert from "../../../models/SOSAlert.js";
@@ -132,34 +133,86 @@ export async function listProviders(req, res) {
 export async function listBookings(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const total = await Booking.countDocuments();
-  const items = await Booking.find().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+  const { tab, search, bookingType } = req.query;
 
-  // Enrich with provider details
+  const STATUS_GROUPS = {
+    active: ["accepted", "travelling", "arrived", "in_progress"],
+    pending: ["incoming", "pending", "unassigned", "payment_pending", "documentation", "vendor_assigned", "admin_approved", "user_accepted", "team_assigned", "final_approved", "advance_paid"],
+    completed: ["completed"],
+    missed: ["cancelled", "missed", "rejected"]
+  };
+
+  const query = {};
+
+  // Status Group Filter (tab)
+  if (tab && STATUS_GROUPS[tab]) {
+    query.status = { $in: STATUS_GROUPS[tab] };
+  }
+
+  // Booking Type Filter
+  if (bookingType && bookingType !== "all") {
+    query.bookingType = new RegExp(bookingType, "i");
+  }
+
+  // Search Filter
+  if (search) {
+    const searchRegex = new RegExp(search, "i");
+    const orConditions = [
+      { id: searchRegex },
+      { customerName: searchRegex },
+      { customerPhone: searchRegex },
+      { serviceType: searchRegex }
+    ];
+    // If search looks like a Booking ID (e.g. B-123) or is just a number
+    if (mongoose.Types.ObjectId.isValid(search)) {
+      orConditions.push({ _id: search });
+    }
+    query.$or = orConditions;
+  }
+
+  // Execute main queries in parallel
+  const [items, total, statsTotal, statsActive, statsPending, statsUnassigned, statsQueued] = await Promise.all([
+    Booking.find(query)
+      .select("id customerId customerName customerPhone totalAmount discountPrice slot address status serviceType bookingType createdAt assignedProvider maintainProvider maintainerProvider teamMembers notificationStatus services imagesApproved prepaidAmount balanceAmount paymentStatus eventType categoryName")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Booking.countDocuments(query),
+    Booking.estimatedDocumentCount(),
+    Booking.countDocuments({ status: { $in: STATUS_GROUPS.active } }),
+    Booking.countDocuments({ status: { $in: STATUS_GROUPS.pending } }),
+    Booking.countDocuments({ status: { $in: ["unassigned", "incoming", "pending"] } }),
+    Booking.countDocuments({ notificationStatus: "queued" })
+  ]);
+
+  // Extract stats
+  const stats = {
+    total: statsTotal || 0,
+    active: statsActive || 0,
+    pending: statsPending || 0,
+    unassigned: statsUnassigned || 0,
+    queued: statsQueued || 0
+  };
+
+  // Enrich with provider details (Names/Phones)
   const providerIds = Array.from(new Set(
     items.flatMap(b => [b.assignedProvider, b.maintainProvider, b.maintainerProvider].filter(Boolean))
   ));
   
-  const providers = providerIds.length 
-    ? await ProviderAccount.find({ _id: { $in: providerIds } }, "name phone").lean()
-    : [];
-    
-  const provMap = new Map(providers.map(p => [p._id.toString(), p]));
-
-  // Enrich with customer details
-  const customerIds = Array.from(new Set(items.map(b => b.customerId).filter(Boolean)));
-  const customers = customerIds.length
-    ? await User.find({ _id: { $in: customerIds } }, "phone").lean()
-    : [];
-  const custMap = new Map(customers.map(c => [c._id.toString(), c]));
+  const provMap = new Map();
+  if (providerIds.length) {
+    const providers = await ProviderAccount.find({ _id: { $in: providerIds } }, "name phone").lean();
+    providers.forEach(p => provMap.set(p._id.toString(), p));
+  }
 
   const enriched = items.map(b => {
     const p = provMap.get(String(b.assignedProvider || ""));
     const mp = provMap.get(String(b.maintainProvider || b.maintainerProvider || ""));
-    const c = custMap.get(String(b.customerId || ""));
     return {
       ...b,
-      phone: c?.phone || "",
+      // Use customerPhone already on booking to avoid redundant User lookup
+      phone: b.customerPhone || "",
       assignedProviderName: p?.name || "",
       assignedProviderPhone: p?.phone || "",
       maintainProviderName: mp?.name || "",
@@ -167,7 +220,7 @@ export async function listBookings(req, res) {
     };
   });
 
-  res.json({ bookings: enriched, page, limit, total });
+  res.json({ bookings: enriched, page, limit, total, stats });
 }
 
 export async function getAvailableProvidersForBooking(req, res) {
@@ -570,19 +623,50 @@ export async function listCustomEnquiries(_req, res) {
 }
 
 export async function customEnquiryPriceQuote(req, res) {
-  const { totalAmount, discountPrice, notes } = req.body;
-  const item = await CustomEnquiry.findByIdAndUpdate(
-    req.params.id,
-    { 
-      status: "admin_approved",
-      totalAmount,
-      discountPrice,
-      adminNotes: notes || ""
-    },
-    { new: true }
-  );
-  if (!item) return res.status(404).json({ error: "Not found" });
-  res.json({ enquiry: item });
+  const { totalAmount, discountPrice, notes, items, prebookAmount, totalServiceTime, quoteExpiryHours } = req.body;
+  
+  const enq = await CustomEnquiry.findById(req.params.id);
+  if (!enq) return res.status(404).json({ error: "Not found" });
+
+  let expiryAt = null;
+  if (quoteExpiryHours) {
+    const hours = Number(quoteExpiryHours);
+    if (Number.isFinite(hours) && hours > 0) {
+      expiryAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+    }
+  }
+
+  enq.quote = {
+    ...(enq.quote || {}),
+    totalAmount: Number(totalAmount) || 0,
+    discountPrice: Number(discountPrice) || 0,
+    notes: notes || enq.quote?.notes || "",
+    prebookAmount: Number(prebookAmount) || enq.quote?.prebookAmount || 0,
+    totalServiceTime: String(totalServiceTime || enq.quote?.totalServiceTime || ""),
+    expiryAt: expiryAt || enq.quote?.expiryAt || null,
+    items: Array.isArray(items) ? items : (enq.quote?.items?.length ? enq.quote.items : enq.items),
+  };
+  
+  enq.status = "admin_approved";
+  enq.timeline = Array.isArray(enq.timeline) ? enq.timeline : [];
+  enq.timeline.push({ 
+    at: new Date(),
+    action: "admin_approved", 
+    meta: { totalAmount: enq.quote.totalAmount, discountPrice: enq.quote.discountPrice } 
+  });
+
+  await enq.save();
+  
+  try {
+    await notify({
+      recipientId: enq.userId,
+      recipientRole: "user",
+      type: "custom_quote_submitted",
+      meta: { enquiryId: enq._id?.toString?.() },
+    });
+  } catch {}
+
+  res.json({ enquiry: enq });
 }
 
 export async function customEnquiryFinalApprove(req, res) {
@@ -1494,10 +1578,83 @@ export async function updateProviderProfile(req, res) {
     res.json({ success: true, provider: updatedProvider });
   } catch (error) {
     console.error("[Admin] Failed to update provider profile:", error);
+    
+    // Handle Mongoose validation or cast errors with 400 Bad Request
+    if (error.name === "ValidationError" || error.name === "CastError") {
+      return res.status(400).json({ 
+        error: "Invalid profile data provided", 
+        details: error.message 
+      });
+    }
+
     res.status(500).json({ error: "Failed to update provider profile" });
   }
 }
 
+export async function updateProviderProfilePhoto(req, res) {
+  try {
+    console.log("[Admin] Profile photo update request received");
+    console.log("[Admin] Provider ID:", req.params.id);
+    console.log("[Admin] File received:", !!req.file);
+    
+    const { id } = req.params;
+    
+    // Validate provider exists
+    const provider = await ProviderAccount.findById(id);
+    if (!provider) {
+      console.log("[Admin] Provider not found:", id);
+      return res.status(404).json({ error: "Provider not found" });
+    }
+
+    // Validate file upload
+    if (!req.file) {
+      console.log("[Admin] No file in request");
+      return res.status(400).json({ error: "No image file provided" });
+    }
+
+    console.log("[Admin] Uploading to Cloudinary...");
+    // Upload to Cloudinary
+    const folder = `providers/${id}/profile`;
+    const uploadResult = await uploadBuffer(req.file.buffer, folder);
+    console.log("[Admin] Cloudinary upload successful:", uploadResult.secure_url);
+    
+    // Update provider profile photo
+    provider.profilePhoto = uploadResult.secure_url;
+    await provider.save();
+    console.log("[Admin] Provider updated in database");
+
+    // Send notification to provider
+    try {
+      const { notify } = await import("../../../lib/notify.js");
+      await notify({
+        recipientId: id,
+        recipientRole: "provider",
+        title: "Profile Photo Updated",
+        message: "Admin has updated your profile photo.",
+        type: "profile_updated",
+        meta: { updatedBy: "admin" }
+      });
+      console.log("[Admin] Notification sent to provider");
+    } catch (notifyErr) {
+      console.error("[Admin] Failed to send photo update notification:", notifyErr);
+    }
+
+    const responseData = { 
+      success: true, 
+      profilePhoto: provider.profilePhoto,
+      provider: {
+        id: provider._id,
+        name: provider.name,
+        profilePhoto: provider.profilePhoto
+      }
+    };
+    console.log("[Admin] Sending success response:", responseData);
+    res.json(responseData);
+  } catch (error) {
+    console.error("[Admin] Failed to update provider profile photo:", error);
+    res.status(500).json({ error: "Failed to update profile photo" });
+  }
+}
 
 export async function adjustProviderWallet(req, res) {
   const { id } = req.params;
@@ -1546,6 +1703,48 @@ export async function approveBookingImages(req, res) {
   } catch (error) {
     console.error("[Admin] Failed to approve images:", error);
     res.status(500).json({ error: "Failed to approve images" });
+  }
+}
+
+export async function updateProviderGrade(req, res) {
+  try {
+    const { id } = req.params;
+    const { grade } = req.body;
+
+    const allowedGrades = ["A", "B", "C", "D", "Standard", null];
+    if (!allowedGrades.includes(grade)) {
+      return res.status(400).json({ error: "Invalid grade value" });
+    }
+
+    const provider = await ProviderAccount.findByIdAndUpdate(
+      id,
+      { grade },
+      { new: true }
+    );
+
+    if (!provider) {
+      return res.status(404).json({ error: "Provider not found" });
+    }
+
+    // Send notification
+    try {
+      const { notify } = await import("../../../lib/notify.js");
+      await notify({
+        recipientId: id,
+        recipientRole: "provider",
+        title: "Performance Grade Updated",
+        message: `Admin has updated your performance grade to ${grade || "Standard"}.`,
+        type: "profile_updated",
+        meta: { grade }
+      });
+    } catch (notifyErr) {
+      console.error("[Admin] Failed to send grade update notification:", notifyErr);
+    }
+
+    res.json({ success: true, provider });
+  } catch (error) {
+    console.error("[Admin] Failed to update provider grade:", error);
+    res.status(500).json({ error: "Failed to update provider grade" });
   }
 }
 

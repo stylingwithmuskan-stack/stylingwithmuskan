@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { ProviderAuthContext } from "./ProviderAuthContext";
-import { api, API_BASE_URL } from "@/modules/user/lib/api";
+import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
 
@@ -13,7 +13,6 @@ export const useProviderBookings = () => {
 };
 
 const STORAGE_KEY = null;
-const RINGTONE_SRC = "/sounds/ringtone.mp3";
 const RINGTONE_DURATION_MS = 30_000; // auto-stop after 30 seconds
 
 export const ProviderBookingProvider = ({ children }) => {
@@ -29,59 +28,22 @@ export const ProviderBookingProvider = ({ children }) => {
     const normalizeBooking = useCallback((b) => ({ ...b, id: b?.id || b?._id }), []);
     const acceptWindowMs = 10 * 60 * 1000;
 
-    // ─── New-booking ringtone logic ───
+    // ─── Booking tracking refs ───
     const knownBookingIdsRef = useRef(new Set());
-    const ringtoneAudioRef = useRef(null);
-    const userInteractedRef = useRef(false);
     const isFirstLoadRef = useRef(true);
     const locationSocketRef = useRef(null);
+    const chatSocketRef = useRef(null);
 
-    // Unlock audio on first user interaction (browser autoplay policy)
-    useEffect(() => {
-        const unlock = () => {
-            userInteractedRef.current = true;
-            window.removeEventListener("click", unlock);
-            window.removeEventListener("touchstart", unlock);
-            window.removeEventListener("keydown", unlock);
-        };
-        window.addEventListener("click", unlock);
-        window.addEventListener("touchstart", unlock);
-        window.addEventListener("keydown", unlock);
-        return () => {
-            window.removeEventListener("click", unlock);
-            window.removeEventListener("touchstart", unlock);
-            window.removeEventListener("keydown", unlock);
-        };
-    }, []);
-
-    /** Stop any currently playing ringtone */
+    /** Stop any currently playing ringtone (uses global ref from NotificationContext) */
     const stopRingtone = useCallback(() => {
         try {
-            if (ringtoneAudioRef.current) {
-                ringtoneAudioRef.current.pause();
-                ringtoneAudioRef.current.currentTime = 0;
-                ringtoneAudioRef.current = null;
+            if (window.__swm_active_ringtone__) {
+                window.__swm_active_ringtone__.pause();
+                window.__swm_active_ringtone__.currentTime = 0;
+                window.__swm_active_ringtone__ = null;
             }
         } catch {}
     }, []);
-
-    /** Play the ringtone in a loop, auto-stop after RINGTONE_DURATION_MS */
-    const playRingtone = useCallback(() => {
-        if (!userInteractedRef.current) return;
-        stopRingtone();
-        try {
-            const audio = new Audio(RINGTONE_SRC);
-            audio.loop = true;
-            audio.volume = 1.0;
-            const p = audio.play();
-            if (p) p.catch(() => {});
-            ringtoneAudioRef.current = audio;
-            setTimeout(() => stopRingtone(), RINGTONE_DURATION_MS);
-        } catch {}
-    }, [stopRingtone]);
-
-    // Cleanup ringtone on unmount
-    useEffect(() => () => stopRingtone(), [stopRingtone]);
 
     const refreshBookings = useCallback(async () => {
         try {
@@ -139,14 +101,24 @@ export const ProviderBookingProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, [providerId, provider?.phone, refreshBookings]);
 
-    const playMessageSound = useCallback(() => {
-        if (!userInteractedRef.current) return;
+
+
+    const isSlotExpired = useCallback((booking) => {
+        if (!booking?.slot?.date || !booking?.slot?.time) return false;
         try {
-            const audio = new Audio("/sounds/massege_ting.mp3");
-            audio.volume = 1.0;
-            audio.play().catch(() => {});
-        } catch {}
-    }, []);
+            const scheduledDate = new Date(booking.slot.date);
+            const parts = booking.slot.time.split(' ');
+            if (parts.length !== 2) return false;
+            const [time, period] = parts;
+            let [hours, minutes] = time.split(':').map(Number);
+            if (period === 'PM' && hours !== 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+            scheduledDate.setHours(hours, minutes, 0, 0);
+            return nowMs > scheduledDate.getTime();
+        } catch (e) {
+            return false;
+        }
+    }, [nowMs]);
 
     const isExpiredAssignmentForCurrentProvider = useCallback((booking) => {
         const normalizedStatus = String(booking?.status || "").toLowerCase();
@@ -167,7 +139,7 @@ export const ProviderBookingProvider = ({ children }) => {
         }
 
         return false;
-    }, [nowMs]);
+    }, [nowMs, acceptWindowMs]);
 
     // Only show bookings explicitly assigned to this provider
     const myBookings = bookings.filter((b) => {
@@ -178,16 +150,30 @@ export const ProviderBookingProvider = ({ children }) => {
 
     const incomingBookings = myBookings.filter(b => ["incoming", "pending", "Pending", "final_approved", "payment_pending"].includes(b.status));
     const pendingBookings = myBookings.filter(b => ["pending", "Pending", "final_approved", "payment_pending"].includes(b.status));
+    
+    const lapsedBookings = myBookings.filter(b => {
+        const isActiveStatus = ["accepted", "vendor_assigned", "vendor_reassigned"].includes(b.status);
+        if (!isActiveStatus) return false;
+        return isSlotExpired(b);
+    });
+
     const activeBookings = myBookings.filter(b => {
         // Mandatory jobs stay in "Assigned" tab until they move beyond "accepted" state
         if (b.isMandatory && b.status === "accepted") return false;
-        return ["accepted", "travelling", "arrived", "in_progress", "vendor_assigned", "vendor_reassigned", "payment", "documentation"].includes(b.status);
+        
+        const isActiveStatus = ["accepted", "travelling", "arrived", "in_progress", "payment", "documentation"].includes(b.status);
+        
+        // Exclude lapsed bookings from primary active list (only if they haven't started yet)
+        const isLapsed = ["accepted"].includes(b.status) && isSlotExpired(b);
+        
+        return isActiveStatus && !isLapsed;
     });
-    const assignedBookings = myBookings.filter(b => 
-        b.status === "vendor_assigned" || 
-        b.status === "vendor_reassigned" || 
-        (b.isMandatory && b.status === "accepted")
-    );
+
+    const assignedBookings = myBookings.filter(b => {
+        const isAssigned = b.status === "vendor_assigned" || b.status === "vendor_reassigned" || (b.isMandatory && b.status === "accepted");
+        if (!isAssigned) return false;
+        return !isSlotExpired(b);
+    });
     const completedBookings = myBookings.filter(b => b.status === "completed");
     const cancelledBookings = myBookings.filter(b => ["cancelled", "rejected", "provider_cancelled"].includes(b.status));
 
@@ -198,7 +184,7 @@ export const ProviderBookingProvider = ({ children }) => {
 
         // 1. Bookings status sync
         console.log(`[ProviderBookings] 🔄 Connecting sync socket for provider: ${providerId}`);
-        const socket = io(`${API_BASE_URL}/bookings`, {
+        const socket = io(`${SOCKET_BASE_URL}/bookings`, {
             auth: { token },
             transports: ["websocket"],
         });
@@ -214,19 +200,7 @@ export const ProviderBookingProvider = ({ children }) => {
             const myId = String(providerId);
             if (targetId === myId) {
                 console.log("[ProviderBookings] 🔔 New notification received, refreshing bookings...");
-                
-                // Play ringtone for vendor assignment notifications
-                if (payload.type === "booking_assigned" && (payload.meta?.reason === "vendor_assigned" || payload.meta?.reason === "vendor_reassigned")) {
-                    console.log("[ProviderBookings] 🚨 Vendor assignment notification - playing ringtone");
-                    playRingtone();
-                }
-
-                // Play message ting for commission deduction or refund
-                if (payload.type === "commission_hold" || payload.type === "commission_refund") {
-                    console.log("[ProviderBookings] 💰 Wallet adjustment notification - playing message sound");
-                    playMessageSound();
-                }
-                
+                // Sound is handled by NotificationContext (single source of truth)
                 refreshBookings();
             }
         });
@@ -234,15 +208,7 @@ export const ProviderBookingProvider = ({ children }) => {
         socket.on("assignment:changed", (payload) => {
             if (String(payload.toProvider) === String(providerId) || String(payload.fromProvider) === String(providerId)) {
                 console.log("[ProviderBookings] 🚀 Assignment changed, refreshing bookings...");
-                
-                // Play ringtone for new assignments to this provider
-                if (String(payload.toProvider) === String(providerId)) {
-                    if (payload.reason === "vendor_assigned" || payload.reason === "vendor_reassigned") {
-                        console.log("[ProviderBookings] 🚨 Vendor assigned booking - playing ringtone");
-                        playRingtone();
-                    }
-                }
-                
+                // Sound is handled by NotificationContext (single source of truth)
                 refreshBookings();
             }
         });
@@ -258,30 +224,26 @@ export const ProviderBookingProvider = ({ children }) => {
         });
 
         // 2. Booking Chat sync (Global)
-        const chatSocket = io(`${API_BASE_URL}/booking-chat`, {
+        const chatSocket = io(`${SOCKET_BASE_URL}/booking-chat`, {
             auth: { token },
             transports: ["websocket"],
         });
 
         chatSocket.on("connect", () => {
              console.log("[ProviderBookings] 💬 Chat socket connected globally");
-             // Join rooms for all current active/accepted bookings
-             activeBookings.forEach(b => {
-                 chatSocket.emit("join:chat", { bookingId: b.id || b._id });
-             });
+             chatSocketRef.current = chatSocket;
         });
 
         chatSocket.on("receive:message", (newMessage) => {
-            // If sender is customer, play sound
+            // Sound for chat messages is handled by NotificationContext
             if (newMessage.senderRole === "customer") {
                 console.log("[ProviderBookings] 💬 New chat message from customer");
-                playMessageSound();
             }
         });
 
         // 3. Provider Location tracking socket
         console.log(`[ProviderBookings] 📍 Connecting location socket for provider: ${providerId}`);
-        const locationSocket = io(`${API_BASE_URL}/provider-location`, {
+        const locationSocket = io(`${SOCKET_BASE_URL}/provider-location`, {
             auth: { token },
             transports: ["websocket"],
         });
@@ -296,8 +258,20 @@ export const ProviderBookingProvider = ({ children }) => {
             chatSocket.disconnect();
             locationSocket.disconnect();
             locationSocketRef.current = null;
+            chatSocketRef.current = null;
         };
-    }, [providerId, refreshBookings, activeBookings.length, playMessageSound]);
+    }, [providerId, refreshBookings]);
+
+    // ─── Chat Room Management ───
+    useEffect(() => {
+        const cs = chatSocketRef.current;
+        if (!cs || !cs.connected) return;
+
+        // Join rooms for all current active and lapsed bookings
+        [...activeBookings, ...lapsedBookings].forEach(b => {
+            cs.emit("join:chat", { bookingId: b.id || b._id });
+        });
+    }, [activeBookings.length, lapsedBookings.length]);
 
     const updateLiveLocation = useCallback((lat, lng) => {
         if (locationSocketRef.current && locationSocketRef.current.connected) {
@@ -305,12 +279,12 @@ export const ProviderBookingProvider = ({ children }) => {
         }
     }, []);
 
-    // ─── Detect new incoming bookings and play ringtone ───
+    // ─── Detect new incoming bookings (for tracking, no duplicate sound) ───
     useEffect(() => {
         const currentIncomingIds = new Set(incomingBookings.map(b => b.id || b._id).filter(Boolean));
         const knownIds = knownBookingIdsRef.current;
 
-        // On first load, just seed the known set (don't ring)
+        // On first load, just seed the known set
         if (isFirstLoadRef.current) {
             knownBookingIdsRef.current = currentIncomingIds;
             if (currentIncomingIds.size > 0) {
@@ -332,10 +306,9 @@ export const ProviderBookingProvider = ({ children }) => {
         knownBookingIdsRef.current = currentIncomingIds;
 
         if (hasNew) {
-            console.log("[ProviderBookings] 🔔 New incoming booking detected — playing ringtone");
-            playRingtone();
+            console.log("[ProviderBookings] 🔔 New incoming booking detected (sound handled by NotificationContext)");
         }
-    }, [incomingBookings, playRingtone]);
+    }, [incomingBookings]);
 
     const acceptBooking = useCallback(async (id) => {
         stopRingtone(); // Stop ringtone when provider takes action
@@ -417,11 +390,6 @@ export const ProviderBookingProvider = ({ children }) => {
             const res = await api.provider.activateManualAssignment(id);
             if (res.success) {
                 toast.success("Job activated successfully!");
-                // Play sound trigger
-                try {
-                    const audio = new Audio("/sounds/massege_ting.mp3");
-                    audio.play().catch(() => {});
-                } catch {}
                 refreshBookings();
                 // Optionally update provider credits in auth context if needed
                 if (res.credits !== undefined && providerAuth?.setProvider) {
@@ -442,6 +410,7 @@ export const ProviderBookingProvider = ({ children }) => {
             pendingBookings,
             activeBookings,
             assignedBookings,
+            lapsedBookings,
             completedBookings,
             cancelledBookings,
             refreshBookings,

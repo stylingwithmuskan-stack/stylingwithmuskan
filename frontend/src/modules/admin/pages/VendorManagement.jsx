@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { Input } from "@/modules/user/components/ui/input";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/modules/user/components/ui/pagination";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 import { toast } from "sonner";
 
@@ -23,17 +24,49 @@ export default function VendorManagement() {
     const [vendors, setVendors] = useState([]);
     const [search, setSearch] = useState("");
     const [selectedVendor, setSelectedVendor] = useState(null);
+    
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [limit] = useState(20);
+    const [total, setTotal] = useState(0);
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [loading, setLoading] = useState(false);
+    
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Reset page to 1 when search changes
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch]);
 
     const load = async () => {
         if (!isLoggedIn) return;
+        setLoading(true);
         try {
-            const items = await getAllVendors();
-            setVendors(Array.isArray(items) ? items : []);
-        } catch {}
+            const response = await getAllVendors({ page, limit });
+            // Handle both array (old format) and object with pagination (new format)
+            const vendorList = Array.isArray(response) 
+                ? response 
+                : (response?.vendors || []);
+            const totalCount = response?.total || vendorList.length;
+            
+            setVendors(vendorList);
+            setTotal(totalCount);
+        } catch (err) {
+            console.error("Failed to load vendors:", err);
+            setVendors([]);
+        } finally {
+            setLoading(false);
+        }
     };
-    useEffect(() => { load(); }, [isLoggedIn]);
+    
+    useEffect(() => { load(); }, [isLoggedIn, page, debouncedSearch]);
 
-    const filtered = vendors.filter(v => v.name?.toLowerCase().includes(search.toLowerCase()) || v.city?.toLowerCase().includes(search.toLowerCase()));
+    const filtered = vendors.filter(v => v.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) || v.city?.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
     const handleAction = async (id, status) => {
         try {
@@ -88,83 +121,137 @@ export default function VendorManagement() {
                     <p className="text-sm font-bold text-muted-foreground">No vendors registered yet</p>
                     <p className="text-xs text-muted-foreground/60 mt-1">Vendors will appear here once they register via /vender/register</p>
                 </CardContent></Card>
+            ) : loading ? (
+                <Card className="border-border/50">
+                    <CardContent className="py-24 text-center">
+                        <RefreshCw className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+                        <p className="text-sm font-bold text-muted-foreground animate-pulse">Fetching vendors...</p>
+                    </CardContent>
+                </Card>
             ) : (
-                <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
-                    {filtered.map(v => (
-                        <motion.div key={v._id || v.id} variants={item}>
-                            <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all">
-                                <CardContent className="p-4 flex flex-col gap-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-sm font-black text-primary">{v.name?.charAt(0) || "V"}</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="text-sm font-bold truncate">{v.name}</h3>
-                                                <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 border ${statusColors[v.status] || statusColors.pending}`}>
-                                                    {(v.status || "pending").toUpperCase()}
-                                                </Badge>
+                <>
+                    <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
+                        {filtered.map(v => (
+                            <motion.div key={v._id || v.id} variants={item}>
+                                <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all">
+                                    <CardContent className="p-4 flex flex-col gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
+                                                <span className="text-sm font-black text-primary">{v.name?.charAt(0) || "V"}</span>
                                             </div>
-                                            <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3" />{v.phone || "N/A"}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-sm font-bold truncate">{v.name}</h3>
+                                                    <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 border ${statusColors[v.status] || statusColors.pending}`}>
+                                                        {(v.status || "pending").toUpperCase()}
+                                                    </Badge>
+                                                </div>
+                                                <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3" />{v.phone || "N/A"}</span>
+                                            </div>
+                                            <Button 
+                                                size="sm" 
+                                                variant="ghost" 
+                                                className="h-8 w-8 p-0 rounded-full hover:bg-primary/10 flex-shrink-0" 
+                                                onClick={(e) => { e.stopPropagation(); setSelectedVendor(v); }}
+                                                title="View Details"
+                                            >
+                                                <Eye className="h-4 w-4 text-primary" />
+                                            </Button>
+                                            <div className="flex gap-1.5">
+                                                {v.status === "pending" && (
+                                                    <>
+                                                        <Button size="sm" className="h-7 text-[10px] font-bold bg-green-600 hover:bg-green-700 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleAction(v._id || v.id, "approved"); }}><CheckCircle className="h-3 w-3 mr-1" />Approve</Button>
+                                                        <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold border-red-500/30 text-red-400 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleAction(v._id || v.id, "rejected"); }}><XCircle className="h-3 w-3 mr-1" />Reject</Button>
+                                                    </>
+                                                )}
+                                                {v.status === "approved" && (
+                                                    <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold border-red-500/30 text-red-400 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleAction(v._id || v.id, "blocked"); }}><Ban className="h-3 w-3 mr-1" />Block</Button>
+                                                )}
+                                                {(v.status === "blocked" || v.status === "rejected") && (
+                                                    <Button size="sm" className="h-7 text-[10px] font-bold bg-primary rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleAction(v._id || v.id, "approved"); }}><UserCheck className="h-3 w-3 mr-1" />Unblock</Button>
+                                                )}
+                                            </div>
                                         </div>
-                                        <Button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            className="h-8 w-8 p-0 rounded-full hover:bg-primary/10 flex-shrink-0" 
-                                            onClick={(e) => { e.stopPropagation(); setSelectedVendor(v); }}
-                                            title="View Details"
-                                        >
-                                            <Eye className="h-4 w-4 text-primary" />
-                                        </Button>
-                                        <div className="flex gap-1.5">
-                                            {v.status === "pending" && (
-                                                <>
-                                                    <Button size="sm" className="h-7 text-[10px] font-bold bg-green-600 hover:bg-green-700 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleAction(v._id || v.id, "approved"); }}><CheckCircle className="h-3 w-3 mr-1" />Approve</Button>
-                                                    <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold border-red-500/30 text-red-400 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleAction(v._id || v.id, "rejected"); }}><XCircle className="h-3 w-3 mr-1" />Reject</Button>
-                                                </>
-                                            )}
-                                            {v.status === "approved" && (
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold border-red-500/30 text-red-400 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleAction(v._id || v.id, "blocked"); }}><Ban className="h-3 w-3 mr-1" />Block</Button>
-                                            )}
-                                            {(v.status === "blocked" || v.status === "rejected") && (
-                                                <Button size="sm" className="h-7 text-[10px] font-bold bg-primary rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleAction(v._id || v.id, "approved"); }}><UserCheck className="h-3 w-3 mr-1" />Unblock</Button>
-                                            )}
+                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                            {(v.zones || []).map(z => (
+                                                <Badge key={z} variant="secondary" className="text-[9px] font-bold bg-muted/50 text-muted-foreground border-none">
+                                                    {z}
+                                                </Badge>
+                                            ))}
                                         </div>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1.5 mt-2">
-                                        {(v.zones || []).map(z => (
-                                            <Badge key={z} variant="secondary" className="text-[9px] font-bold bg-muted/50 text-muted-foreground border-none">
-                                                {z}
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                    {v.pendingZones?.length > 0 && (
-                                        <div className="mt-3 p-3 bg-amber-50/50 rounded-xl border border-amber-100/50 flex items-center justify-between">
-                                            <div className="flex-1">
-                                                <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">New Zone Request</p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {v.pendingZones.map(z => (
-                                                        <Badge key={z} className="bg-white text-amber-600 border-amber-200 text-[9px] font-bold">
-                                                            + {z}
-                                                        </Badge>
-                                                    ))}
+                                        {v.pendingZones?.length > 0 && (
+                                            <div className="mt-3 p-3 bg-amber-50/50 rounded-xl border border-amber-100/50 flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">New Zone Request</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {v.pendingZones.map(z => (
+                                                            <Badge key={z} className="bg-white text-amber-600 border-amber-200 text-[9px] font-bold">
+                                                                + {z}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-1 ml-4">
+                                                    <Button size="sm" className="h-7 text-[9px] font-black bg-amber-600 hover:bg-amber-700 text-white rounded-lg" onClick={(e) => { e.stopPropagation(); handleZoneAction(v._id || v.id, "approve"); }}>
+                                                        Approve
+                                                    </Button>
+                                                    <Button size="sm" variant="ghost" className="h-7 text-[9px] font-black text-amber-700 hover:bg-amber-100 rounded-lg" onClick={(e) => { e.stopPropagation(); handleZoneAction(v._id || v.id, "reject"); }}>
+                                                        Reject
+                                                    </Button>
                                                 </div>
                                             </div>
-                                            <div className="flex gap-1 ml-4">
-                                                <Button size="sm" className="h-7 text-[9px] font-black bg-amber-600 hover:bg-amber-700 text-white rounded-lg" onClick={(e) => { e.stopPropagation(); handleZoneAction(v._id || v.id, "approve"); }}>
-                                                    Approve
-                                                </Button>
-                                                <Button size="sm" variant="ghost" className="h-7 text-[9px] font-black text-amber-700 hover:bg-amber-100 rounded-lg" onClick={(e) => { e.stopPropagation(); handleZoneAction(v._id || v.id, "reject"); }}>
-                                                    Reject
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                    ))}
-                </motion.div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        ))}
+                    </motion.div>
+                    
+                    {/* Pagination Controls */}
+                    {!loading && Math.ceil(total / limit) > 1 && (
+                        <div className="mt-8 pb-8">
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious 
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                        />
+                                    </PaginationItem>
+                                    
+                                    {Array.from({ length: Math.ceil(total / limit) }, (_, i) => i + 1).map(p => {
+                                        if (p === 1 || p === Math.ceil(total / limit) || (p >= page - 1 && p <= page + 1)) {
+                                            return (
+                                                <PaginationItem key={p}>
+                                                    <PaginationLink 
+                                                        isActive={page === p}
+                                                        onClick={() => setPage(p)}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        {p}
+                                                    </PaginationLink>
+                                                </PaginationItem>
+                                            );
+                                        } else if (p === page - 2 || p === page + 2) {
+                                            return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>;
+                                        }
+                                        return null;
+                                    })}
+
+                                    <PaginationItem>
+                                        <PaginationNext 
+                                            onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                                            className={page === Math.ceil(total / limit) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                            <p className="text-[10px] text-center text-muted-foreground mt-4 font-bold uppercase tracking-widest">
+                                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} vendors
+                            </p>
+                        </div>
+                    )}
+                </>
             )}
 
             {/* Vendor Details Modal */}

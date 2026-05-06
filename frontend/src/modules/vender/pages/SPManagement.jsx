@@ -9,6 +9,7 @@ import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { Input } from "@/modules/user/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/modules/user/components/ui/pagination";
 import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
 import { toast } from "sonner";
 
@@ -24,17 +25,46 @@ export default function SPManagement() {
     const [feedback, setFeedback] = useState([]);
     const [allBookings, setAllBookings] = useState([]);
     const [performanceCriteria, setPerformanceCriteria] = useState(null);
+    
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [limit] = useState(20);
+    const [total, setTotal] = useState(0);
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [loading, setLoading] = useState(false);
+    
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [activeTab, debouncedSearch]);
+    
     const loadProviders = async () => {
+        setLoading(true);
         try {
             if (!hydrated || !isLoggedIn) return;
-            const sps = await getServiceProviders();
+            const spsResponse = await getServiceProviders({ page, limit });
+            
+            // Handle pagination response
+            const sps = Array.isArray(spsResponse) ? spsResponse : (spsResponse?.providers || []);
+            const totalCount = spsResponse?.total || sps.length;
+            setTotal(totalCount);
+            
             setProviders(Array.isArray(sps) ? sps : []);
-        } catch {}
+        } catch {
+        } finally {
+            setLoading(false);
+        }
         setFeedback(JSON.parse(localStorage.getItem('muskan-feedback') || '[]'));
         setAllBookings(JSON.parse(localStorage.getItem('muskan-bookings') || '[]'));
         // Fetch performance criteria from admin settings
     };
-    useEffect(() => { loadProviders(); }, [hydrated, isLoggedIn]);
+    useEffect(() => { loadProviders(); }, [hydrated, isLoggedIn, page, activeTab, debouncedSearch]);
 
     const getSPRating = (sp) => {
         const spFeedback = feedback.filter(f => (f.providerName === sp.name || f.assignedProvider === sp.id) && f.type === 'customer_to_provider');
@@ -48,7 +78,7 @@ export default function SPManagement() {
     };
 
     const filtered = providers.filter(sp => {
-        const matchSearch = sp.name?.toLowerCase().includes(search.toLowerCase()) || sp.phone?.includes(search);
+        const matchSearch = sp.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) || sp.phone?.includes(debouncedSearch);
         if (activeTab === "all") return matchSearch;
         if (activeTab === "pending") return matchSearch && (sp.approvalStatus === "pending" || sp.approvalStatus === "pending_vendor");
         if (activeTab === "approved") return matchSearch && sp.approvalStatus === "approved";
@@ -127,7 +157,14 @@ export default function SPManagement() {
                     </div>
 
                     <TabsContent value={activeTab} className="mt-0">
-                        {filtered.length === 0 ? (
+                        {loading ? (
+                            <Card className="shadow-sm">
+                                <CardContent className="py-24 text-center">
+                                    <RefreshCw className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+                                    <p className="text-sm font-bold text-muted-foreground animate-pulse">Fetching service providers...</p>
+                                </CardContent>
+                            </Card>
+                        ) : filtered.length === 0 ? (
                             <Card className="shadow-sm">
                                 <CardContent className="py-16 text-center">
                                     <Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -237,6 +274,51 @@ export default function SPManagement() {
                                     );
                                 })}
                             </motion.div>
+                        )}
+                        
+                        {/* Pagination Controls */}
+                        {!loading && Math.ceil(total / limit) > 1 && (
+                            <div className="mt-8 pb-8">
+                                <Pagination>
+                                    <PaginationContent>
+                                        <PaginationItem>
+                                            <PaginationPrevious 
+                                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                                className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                            />
+                                        </PaginationItem>
+                                        
+                                        {Array.from({ length: Math.ceil(total / limit) }, (_, i) => i + 1).map(p => {
+                                            if (p === 1 || p === Math.ceil(total / limit) || (p >= page - 1 && p <= page + 1)) {
+                                                return (
+                                                    <PaginationItem key={p}>
+                                                        <PaginationLink 
+                                                            isActive={page === p}
+                                                            onClick={() => setPage(p)}
+                                                            className="cursor-pointer"
+                                                        >
+                                                            {p}
+                                                        </PaginationLink>
+                                                    </PaginationItem>
+                                                );
+                                            } else if (p === page - 2 || p === page + 2) {
+                                                return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>;
+                                            }
+                                            return null;
+                                        })}
+
+                                        <PaginationItem>
+                                            <PaginationNext 
+                                                onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                                                className={page === Math.ceil(total / limit) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                            />
+                                        </PaginationItem>
+                                    </PaginationContent>
+                                </Pagination>
+                                <p className="text-[10px] text-center text-muted-foreground mt-4 font-bold uppercase tracking-widest">
+                                    Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} providers
+                                </p>
+                            </div>
                         )}
                     </TabsContent>
 

@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Smile, Paperclip, Phone, CheckCircle2, Loader2, MessageSquare } from "lucide-react";
 import { io } from "socket.io-client";
-import { api } from "@/modules/user/lib/api";
+import { api, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { useBookingChat } from "@/modules/user/contexts/BookingChatContext";
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
 
 const ChatModal = ({ isOpen, onClose, booking }) => {
     const { setActiveChatId, clearUnread } = useBookingChat();
@@ -16,6 +14,30 @@ const ChatModal = ({ isOpen, onClose, booking }) => {
     const [connected, setConnected] = useState(false);
     const scrollRef = useRef(null);
     const socketRef = useRef(null);
+
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (isOpen) {
+            const scrollY = window.scrollY;
+            document.documentElement.classList.add("modal-open");
+            document.body.classList.add("modal-open");
+            document.body.style.top = `-${scrollY}px`;
+            document.body.dataset.scrollY = scrollY;
+        } else {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        }
+        return () => {
+            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+            document.documentElement.classList.remove("modal-open");
+            document.body.classList.remove("modal-open");
+            document.body.style.top = "";
+            window.scrollTo(0, scrollY);
+        };
+    }, [isOpen]);
 
     const scrollToBottom = useCallback(() => {
         if (scrollRef.current) {
@@ -48,7 +70,7 @@ const ChatModal = ({ isOpen, onClose, booking }) => {
 
         // Initialize socket
         const token = localStorage.getItem("swm_token");
-        socketRef.current = io(`${SOCKET_URL}/booking-chat`, {
+        socketRef.current = io(`${SOCKET_BASE_URL}/booking-chat`, {
             auth: { token },
             transports: ["polling", "websocket"]
         });

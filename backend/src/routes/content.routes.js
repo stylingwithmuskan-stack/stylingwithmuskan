@@ -9,18 +9,50 @@ import { resolveServiceLocation } from "../lib/locationResolution.js";
 
 const router = Router();
 
+const CACHE_TIMEOUT_MS = Number(process.env.CONTENT_CACHE_TIMEOUT_MS || 1200);
+const CACHE_TTL_SECONDS = Number(process.env.CONTENT_CACHE_TTL_SECONDS || 300);
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 async function cached(keyBase, fn) {
+  const key = await versionedKey(keyBase);
   try {
-    const key = await versionedKey(keyBase);
-    const hit = await redis.get(key);
+    const hit = await withTimeout(redis.get(key), CACHE_TIMEOUT_MS, `redis.get(${keyBase})`);
     if (hit) return JSON.parse(hit);
-    const data = await fn();
-    await redis.set(key, JSON.stringify(data), { EX: 300 });
-    return data;
-  } catch {
-    // If Redis is down/misconfigured, serve fresh data without caching.
-    return await fn();
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[content-cache] cache read bypass", {
+        keyBase,
+        reason: error?.message || "unknown",
+      });
+    }
   }
+
+  const data = await fn();
+
+  try {
+    await withTimeout(
+      redis.set(key, JSON.stringify(data), { EX: CACHE_TTL_SECONDS }),
+      CACHE_TIMEOUT_MS,
+      `redis.set(${keyBase})`
+    );
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[content-cache] cache write bypass", {
+        keyBase,
+        reason: error?.message || "unknown",
+      });
+    }
+  }
+
+  return data;
 }
 
 // Master Initialization Endpoint - Aggregates 10 calls into 1
@@ -56,8 +88,9 @@ router.get("/init", async (req, res) => {
         });
         active.sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
         const grouped = active.reduce((acc, b) => {
-          acc[b.gender] = acc[b.gender] || [];
-          acc[b.gender].push({ ...b, priority: b.priority || 1 });
+          const g = String(b.gender || "women").toLowerCase();
+          acc[g] = acc[g] || [];
+          acc[g].push({ ...b, priority: b.priority || 1 });
           return acc;
         }, {});
         return { women: grouped.women || [], men: grouped.men || [] };
@@ -187,13 +220,16 @@ router.get("/categories", async (req, res) => {
 });
 
 router.get("/services", async (req, res) => {
-  const { category, gender, page = 1, limit = 10 } = req.query;
+  const { category, gender, page = 1, limit } = req.query;
   const q = {};
   if (category) q.category = category;
   if (gender) q.gender = gender;
   
-  const skip = (parseInt(page) - 1) * parseInt(limit);
-  const key = `content:services:${category || "all"}:${gender || "all"}:p${page}:l${limit}`;
+  // ✅ FIX: Use a high default limit (1000) for registration/catalog, 
+  // but respect the requested limit if provided (e.g., from infinite scroll).
+  const effectiveLimit = limit ? parseInt(limit) : 1000;
+  const skip = (parseInt(page) - 1) * effectiveLimit;
+  const key = `content:services:${category || "all"}:${gender || "all"}:p${page}:l${effectiveLimit}`;
   
   let data = [];
   try {
@@ -201,7 +237,7 @@ router.get("/services", async (req, res) => {
       Service.find(q)
         .select("-gallery -steps")
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(effectiveLimit)
         .lean()
     );
   } catch {
@@ -213,7 +249,7 @@ router.get("/services", async (req, res) => {
       data = await Service.find(q)
         .select("-gallery -steps")
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(effectiveLimit)
         .lean();
     } catch { }
   }
@@ -297,8 +333,9 @@ router.get("/banners", async (req, res) => {
       });
       active.sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
       const grouped = active.reduce((acc, b) => {
-        acc[b.gender] = acc[b.gender] || [];
-        acc[b.gender].push({
+        const g = String(b.gender || "women").toLowerCase();
+        acc[g] = acc[g] || [];
+        acc[g].push({
           id: b.id,
           title: b.title,
           subtitle: b.subtitle,

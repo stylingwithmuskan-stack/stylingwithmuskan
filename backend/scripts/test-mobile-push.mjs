@@ -6,13 +6,13 @@
  * then verifies the full push delivery pipeline end-to-end.
  *
  * Run: node backend/scripts/test-mobile-push.mjs
- * (backend server must be running on PORT 3001)
+ * (backend server must be running on PORT 5000)
  *
  * To test with a REAL mobile FCM token, set:
  *   REAL_MOBILE_FCM_TOKEN=<token_from_your_device> node backend/scripts/test-mobile-push.mjs
  */
 
-const BASE_URL = "http://localhost:3001";
+const BASE_URL = "http://localhost:5000";
 const TEST_PHONE = "9990000001";
 const TEST_OTP = "123456";
 

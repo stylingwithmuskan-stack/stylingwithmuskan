@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
-import { api, API_BASE_URL } from "@/modules/user/lib/api";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { safeStorage } from "@/modules/user/lib/safeStorage";
 import { io } from "socket.io-client";
 import { ProviderAuthContext } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
@@ -66,6 +66,7 @@ export const NotificationProvider = ({ children, role }) => {
     }, [activeRole]);
 
     const [userInteracted, setUserInteracted] = useState(false);
+    const lastSoundPlayedRef = useRef(0); // Debounce ref to prevent double-plays
 
     const currentUserId = activeRole === "provider"
         ? (provider?._id || provider?.id)
@@ -94,6 +95,17 @@ export const NotificationProvider = ({ children, role }) => {
         };
     }, []);
 
+    /** Stop any currently active looping sound (ringtone/emergency) */
+    const stopActiveSound = useCallback(() => {
+        try {
+            if (window.__swm_active_ringtone__) {
+                window.__swm_active_ringtone__.pause();
+                window.__swm_active_ringtone__.currentTime = 0;
+                window.__swm_active_ringtone__ = null;
+            }
+        } catch {}
+    }, []);
+
     const playNotificationSound = useCallback((soundType) => {
         console.log(`[NotificationContext] Attempting to play sound: ${soundType}`);
         if (!soundType) return;
@@ -103,18 +115,29 @@ export const NotificationProvider = ({ children, role }) => {
             return;
         }
 
+        // Debounce: skip if a sound was played within the last 500ms
+        const now = Date.now();
+        if (now - lastSoundPlayedRef.current < 500) {
+            console.log(`[NotificationContext] Sound debounced (too soon): ${soundType}`);
+            return;
+        }
+        lastSoundPlayedRef.current = now;
+
         try {
             const audio = new Audio(file);
             audio.volume = 1.0;
             
             // Loop for ringtones (providers)
             if (soundType === "ringtone" || soundType === "emergency") {
+                // Stop any existing looping sound first
+                stopActiveSound();
                 audio.loop = true;
+                // Store globally so other contexts (e.g. ProviderBookingContext) can stop it
+                window.__swm_active_ringtone__ = audio;
                 // Auto-stop after 30 seconds to prevent infinite ringing if unattended
                 setTimeout(() => {
                     console.log(`[NotificationContext] Auto-stopping loop for: ${soundType}`);
-                    audio.pause();
-                    audio.currentTime = 0;
+                    stopActiveSound();
                 }, 30000);
             }
 
@@ -133,7 +156,7 @@ export const NotificationProvider = ({ children, role }) => {
         } catch (err) {
             console.error("[NotificationContext] Audio error:", err);
         }
-    }, []);
+    }, [stopActiveSound]);
 
 
     const fetchNotifications = useCallback(async () => {
@@ -162,7 +185,7 @@ export const NotificationProvider = ({ children, role }) => {
         }
 
         console.log(`[NotificationContext] Connecting socket for ${activeRole}: ${currentUserId}`);
-        const socket = io(`${API_BASE_URL}/bookings`, {
+        const socket = io(`${SOCKET_BASE_URL}/bookings`, {
             auth: { token: activeToken },
             transports: ["websocket", "polling"], // Ensure websocket is tried first
         });
@@ -210,7 +233,11 @@ export const NotificationProvider = ({ children, role }) => {
     useEffect(() => {
         if (activeRole && currentUserId && activeToken) {
             fetchNotifications();
-            const interval = setInterval(fetchNotifications, 60000);
+            const interval = setInterval(() => {
+                if (document.visibilityState === "visible") {
+                    fetchNotifications();
+                }
+            }, 60000);
             return () => clearInterval(interval);
         }
     }, [role, activeRole, activeToken, fetchNotifications, currentUserId]);
@@ -278,6 +305,7 @@ export const NotificationProvider = ({ children, role }) => {
             deleteNotification,
             deleteAllNotifications,
             deleteMultipleNotifications,
+            stopActiveSound,
         }}>
             {children}
         </NotificationContext.Provider>

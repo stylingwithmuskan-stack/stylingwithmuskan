@@ -39,8 +39,10 @@ const ServiceDetail = () => {
 
   const userLocation = user?.addresses?.[0] || user?.address || null;
   const isAvailable = useMemo(() => {
-    return checkAvailability(service, userLocation, selectedDate, selectedSlot?.split(' ')[0]);
-  }, [service, userLocation, selectedDate, selectedSlot, checkAvailability]);
+    // Only check location/zone availability on the detail page. 
+    // Date/time availability is checked in the SlotSelectionModal.
+    return checkAvailability(service, userLocation);
+  }, [service, userLocation, checkAvailability]);
 
   // Scroll to top and fetch full details if needed
   useEffect(() => {
@@ -155,6 +157,11 @@ const ServiceDetail = () => {
     ? Math.round(((service.originalPrice - service.price) / service.originalPrice) * 100)
     : 0;
 
+  const handleShare = () => {
+    const shareText = encodeURIComponent(`Check out this amazing service: ${service.name} at Styling with Muskan!\n\n${window.location.href}`);
+    window.open(`https://wa.me/?text=${shareText}`, '_blank');
+  };
+
   const handleAddToCart = () => {
     if (!isLoggedIn) {
       navigate('/login');
@@ -203,11 +210,7 @@ const ServiceDetail = () => {
               <Heart className={`w-5 h-5 transition-all ${isFav ? "fill-red-500 text-red-500 scale-110" : "text-foreground"}`} />
             </button>
             <button
-              onClick={() => shareContent({
-                title: service.name,
-                text: `Check out this ${service.name} at Styling with Muskan!`,
-                url: window.location.href,
-              })}
+              onClick={handleShare}
               className="w-10 h-10 rounded-full glass flex items-center justify-center backdrop-blur-xl"
             >
               <Share2 className="w-5 h-5 text-foreground" />

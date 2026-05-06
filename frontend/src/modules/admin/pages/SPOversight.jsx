@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X, CalendarRange, MapPin, Wallet, Plus } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X, CalendarRange, MapPin, Wallet, Plus, Camera } from "lucide-react";
 
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { Input } from "@/modules/user/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/modules/user/components/ui/pagination";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
+import { api } from "@/modules/user/lib/api";
+
 import { toast } from "sonner";
 import { cn } from "@/modules/user/lib/utils";
 
@@ -33,11 +36,14 @@ export default function SPOversight() {
         getCategories, 
         getServices, 
         updateProviderProfile,
+        updateProviderProfilePhoto,
         getLeaves,
         approveLeave,
         rejectLeave,
-        adjustProviderWallet
+        adjustProviderWallet,
+        updateProviderGrade
     } = useAdminAuth();
+
 
     const [providers, setProviders] = useState([]);
     const [leaves, setLeaves] = useState([]);
@@ -46,7 +52,57 @@ export default function SPOversight() {
     const [tab, setTab] = useState("all");
     const [categoryRequests, setCategoryRequests] = useState([]);
     const [selectedSP, setSelectedSP] = useState(null);
+    const [spSummary, setSpSummary] = useState(null);
+    const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+    const [isEditingGrade, setIsEditingGrade] = useState(false);
+    const [tempGrade, setTempGrade] = useState("");
+
+    useEffect(() => {
+        if (selectedSP?.phone) {
+            fetchSPSummary(selectedSP.phone);
+        } else {
+            setSpSummary(null);
+            setIsEditingGrade(false);
+        }
+    }, [selectedSP]);
+
+    const fetchSPSummary = async (phone) => {
+        setIsLoadingSummary(true);
+        try {
+            const data = await api.provider.summary(phone);
+            if (data && data.performance) {
+                setSpSummary(data);
+                setTempGrade(data.performance?.grade || "Standard");
+            }
+        } catch (error) {
+            console.error("Failed to fetch SP summary:", error);
+        } finally {
+            setIsLoadingSummary(false);
+        }
+    };
+
+    const handleUpdateGrade = async () => {
+        if (!selectedSP?._id && !selectedSP?.id) return;
+        const id = selectedSP._id || selectedSP.id;
+        try {
+            await updateProviderGrade(id, tempGrade);
+            toast.success("Performance grade updated successfully");
+            setIsEditingGrade(false);
+            // Refresh summary to reflect changes
+            fetchSPSummary(selectedSP.phone);
+        } catch (error) {
+            toast.error(error.message || "Failed to update grade");
+        }
+    };
+
     const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
+    
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [limit] = useState(20);
+    const [total, setTotal] = useState(0);
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [loading, setLoading] = useState(false);
     
     // Profile Editing State
     const [isEditingCategories, setIsEditingCategories] = useState(false);
@@ -57,30 +113,101 @@ export default function SPOversight() {
     const [availableCategories, setAvailableCategories] = useState([]);
     const [availableServices, setAvailableServices] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [isContentLoading, setIsContentLoading] = useState(false);
+    
+    // Profile Photo Upload State
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const fileInputRef = useRef(null);
+    const [brokenPhotoProviderIds, setBrokenPhotoProviderIds] = useState(() => new Set());
     const [isWalletAdjusting, setIsWalletAdjusting] = useState(false);
     const [walletAmount, setWalletAmount] = useState("");
     const [walletType, setWalletType] = useState("add");
     const [walletReason, setWalletReason] = useState("");
 
+    const buildPortfolioPayload = () => {
+        return {
+            primaryCategory: tempCategories,
+            specializations: tempSpecializations,
+            services: tempServices,
+        };
+    };
+
 
     const [feedback, setFeedback] = useState([]);
+    
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [tab, debouncedSearch]);
 
     const load = async () => {
-        try {
-            const items = await getAllServiceProviders();
-            setProviders(Array.isArray(items) ? items : []);
-        } catch {}
-        try {
-            const [parents, cats, svcs] = await Promise.all([getParents(), getCategories(), getServices()]);
-            setAvailableParents(parents || []);
-            setAvailableCategories(cats || []);
-            setAvailableServices(svcs || []);
-        } catch (err) {
-            console.error("Failed to load content:", err);
+        // Only paginate provider tabs, not category-requests or leaves
+        const shouldPaginate = ["all", "pending", "approved", "blocked"].includes(tab);
+        
+        if (shouldPaginate) {
+            setLoading(true);
         }
+        
+        try {
+            const response = shouldPaginate 
+                ? await getAllServiceProviders({ page, limit })
+                : await getAllServiceProviders({ limit: 1000 }); // Load all for non-paginated tabs
+            
+            // Handle both array (old format) and object with pagination (new format)
+            const providerList = Array.isArray(response) 
+                ? response 
+                : (response?.providers || []);
+            const totalCount = response?.total || providerList.length;
+            
+            const normalized = providerList.map((p) => ({ 
+                ...p, 
+                profilePhoto: p?.profilePhoto ?? "" 
+            }));
+            
+            setProviders(normalized);
+            if (shouldPaginate) {
+                setTotal(totalCount);
+            }
+        } catch (err) {
+            console.error("Failed to load providers:", err);
+            setProviders([]);
+        } finally {
+            if (shouldPaginate) {
+                setLoading(false);
+            }
+        }
+
         setFeedback(JSON.parse(localStorage.getItem("muskan-feedback") || "[]"));
         setCategoryRequests(JSON.parse(localStorage.getItem("muskan-category-requests") || "[]"));
         loadLeaves();
+    };
+
+    const ensureContent = async () => {
+        // Only load if not already loaded or currently loading
+        if (isContentLoading || (availableParents.length > 0 && availableCategories.length > 0)) return;
+
+        setIsContentLoading(true);
+        try {
+            const [parentsRes, catsRes, svcsRes] = await Promise.allSettled([
+                getParents(), 
+                getCategories({ limit: 1000, minimal: true }), 
+                getServices({ limit: 2000, minimal: true })
+            ]);
+
+            setAvailableParents(parentsRes.status === 'fulfilled' ? (parentsRes.value || []) : []);
+            setAvailableCategories(catsRes.status === 'fulfilled' ? (catsRes.value || []) : []);
+            setAvailableServices(svcsRes.status === 'fulfilled' ? (svcsRes.value || []) : []);
+        } catch (err) {
+            console.error("Critical content load failure:", err);
+        } finally {
+            setIsContentLoading(false);
+        }
     };
 
     const loadLeaves = async () => {
@@ -95,9 +222,10 @@ export default function SPOversight() {
         }
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => { load(); }, [page, tab, debouncedSearch]);
 
     const startEditing = () => {
+        ensureContent(); // Trigger lazy load if needed
         setTempCategories(selectedSP.documents?.primaryCategory || []);
         setTempSpecializations(selectedSP.documents?.specializations || []);
         setTempServices(selectedSP.documents?.services || []);
@@ -107,11 +235,8 @@ export default function SPOversight() {
     const handleSaveProfile = async () => {
         setIsSaving(true);
         try {
-            await updateProviderProfile(selectedSP._id || selectedSP.id, {
-                primaryCategory: tempCategories,
-                specializations: tempSpecializations,
-                services: tempServices
-            });
+            const payload = buildPortfolioPayload();
+            await updateProviderProfile(selectedSP._id || selectedSP.id, payload);
             toast.success("Provider profile updated successfully");
             setIsEditingCategories(false);
             load();
@@ -132,6 +257,75 @@ export default function SPOversight() {
         }
     };
 
+    // Profile Photo Upload Handlers
+    const handlePhotoFileSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error("Please select a valid image file");
+            return;
+        }
+        
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Image size must be less than 5MB");
+            return;
+        }
+        
+        // Proceed with upload
+        handleProfilePhotoUpload(file);
+    };
+
+    const handleProfilePhotoUpload = async (file) => {
+        if (!selectedSP) return;
+        
+        setUploadingPhoto(true);
+        
+        try {
+            const targetId = String(selectedSP?._id || selectedSP?.id || "");
+            if (!targetId) throw new Error("Provider ID is missing");
+
+            const data = await updateProviderProfilePhoto(targetId, file);
+            const nextPhoto = data?.profilePhoto || "";
+            
+            // Update local state - providers list
+            setProviders(prev => prev.map(p => 
+                (targetId !== "" && String(p?._id || p?.id || "") === targetId)
+                    ? { ...p, profilePhoto: nextPhoto }
+                    : p
+            ));
+            
+            // Update selected provider in modal
+            setSelectedSP(prev => {
+                const prevId = String(prev?._id || prev?.id || "");
+                if (!prev || prevId !== targetId) return prev;
+                return {
+                    ...prev,
+                    profilePhoto: nextPhoto
+                };
+            });
+
+            setBrokenPhotoProviderIds(prev => {
+                const next = new Set(prev);
+                next.delete(targetId);
+                return next;
+            });
+            
+            toast.success("Profile photo updated successfully");
+            
+        } catch (error) {
+            console.error("Photo upload error:", error);
+            toast.error(error.message || "Failed to update profile photo");
+        } finally {
+            setUploadingPhoto(false);
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        }
+    };
 
     const handleWalletAdjust = async () => {
         if (!walletAmount || isNaN(walletAmount)) {
@@ -193,7 +387,7 @@ export default function SPOversight() {
     };
 
     const filtered = providers.filter(sp => {
-        const ms = sp.name?.toLowerCase().includes(search.toLowerCase()) || sp.phone?.includes(search);
+        const ms = sp.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) || sp.phone?.includes(debouncedSearch);
         if (tab === "all") return ms;
         if (tab === "pending") return ms && (sp.approvalStatus === "pending" || sp.approvalStatus === "pending_vendor" || sp.approvalStatus === "pending_admin");
         if (tab === "approved") return ms && sp.approvalStatus === "approved";
@@ -283,21 +477,51 @@ export default function SPOversight() {
                 </div>
                 {["all", "pending", "approved", "blocked"].map(t => (
                     <TabsContent key={t} value={t} className="mt-0">
-                    {filtered.length === 0 ? (
+                    {loading ? (
+                        <Card className="border-border/50">
+                            <CardContent className="py-24 text-center">
+                                <RefreshCw className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+                                <p className="text-sm font-bold text-muted-foreground animate-pulse">Fetching providers...</p>
+                            </CardContent>
+                        </Card>
+                    ) : filtered.length === 0 ? (
                         <Card className="border-border/50"><CardContent className="py-16 text-center">
                             <Users className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
                             <p className="text-sm font-bold text-muted-foreground">No service providers found</p>
                         </CardContent></Card>
                     ) : (
-                        <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
+                        <>
+                            <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
                             {filtered.map(sp => (
                                 <motion.div key={sp._id || sp.id || sp.phone} variants={item}>
                                     <Card className="border-border/50 shadow-none hover:border-primary/30 transition-all">
                                         <CardContent className="p-4 flex flex-col gap-4">
                                             <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
-                                                    <span className="text-sm font-black text-primary">{sp.name?.charAt(0) || "?"}</span>
-                                                </div>
+                                                {(() => {
+                                                    const providerId = String(sp?._id || sp?.id || "");
+                                                    const hasPhoto = !!sp?.profilePhoto && !brokenPhotoProviderIds.has(providerId);
+                                                    return (
+                                                        <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                                            {hasPhoto ? (
+                                                                <img
+                                                                    src={sp.profilePhoto}
+                                                                    alt={sp.name || "Provider"}
+                                                                    className="h-full w-full object-cover"
+                                                                    onError={() => {
+                                                                        if (!providerId) return;
+                                                                        setBrokenPhotoProviderIds(prev => {
+                                                                            const next = new Set(prev);
+                                                                            next.add(providerId);
+                                                                            return next;
+                                                                        });
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <span className="text-sm font-black text-primary">{sp.name?.charAt(0) || "?"}</span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         <h3 className="text-sm font-bold truncate">{sp.name || "Unknown"}</h3>
@@ -405,6 +629,52 @@ export default function SPOversight() {
                                 </motion.div>
                             ))}
                         </motion.div>
+                        
+                        {/* Pagination Controls */}
+                        {!loading && Math.ceil(total / limit) > 1 && (
+                            <div className="mt-8 pb-8">
+                                <Pagination>
+                                    <PaginationContent>
+                                        <PaginationItem>
+                                            <PaginationPrevious 
+                                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                                className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                            />
+                                        </PaginationItem>
+                                        
+                                        {Array.from({ length: Math.ceil(total / limit) }, (_, i) => i + 1).map(p => {
+                                            if (p === 1 || p === Math.ceil(total / limit) || (p >= page - 1 && p <= page + 1)) {
+                                                return (
+                                                    <PaginationItem key={p}>
+                                                        <PaginationLink 
+                                                            isActive={page === p}
+                                                            onClick={() => setPage(p)}
+                                                            className="cursor-pointer"
+                                                        >
+                                                            {p}
+                                                        </PaginationLink>
+                                                    </PaginationItem>
+                                                );
+                                            } else if (p === page - 2 || p === page + 2) {
+                                                return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>;
+                                            }
+                                            return null;
+                                        })}
+
+                                        <PaginationItem>
+                                            <PaginationNext 
+                                                onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                                                className={page === Math.ceil(total / limit) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                            />
+                                        </PaginationItem>
+                                    </PaginationContent>
+                                </Pagination>
+                                <p className="text-[10px] text-center text-muted-foreground mt-4 font-bold uppercase tracking-widest">
+                                    Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} providers
+                                </p>
+                            </div>
+                        )}
+                    </>
                     )}
                 </TabsContent>
                 ))}
@@ -538,22 +808,57 @@ export default function SPOversight() {
                         >
                             <div className="p-6 space-y-5">
                                 {/* Header */}
-                                <div className="flex items-center gap-4">
-                                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-green-500 flex items-center justify-center text-white text-2xl font-black">
-                                        {selectedSP.name?.charAt(0) || "?"}
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-black">{selectedSP.name || "Unknown"}</h2>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <Badge variant="outline" className={`text-[9px] font-black ${statusColors[selectedSP.approvalStatus] || statusColors.pending}`}>
-                                                {selectedSP.approvalStatus || "pending"}
-                                            </Badge>
-                                            <span className="text-[10px] text-muted-foreground font-medium">ID: {selectedSP._id || selectedSP.id}</span>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        {/* Profile Photo */}
+                                        <img 
+                                            src={selectedSP.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedSP.name || "P")}&background=random&color=fff`}
+                                            alt={selectedSP.name}
+                                            className="h-16 w-16 rounded-2xl object-cover border-2 border-border shadow-lg"
+                                        />
+                                        {/* Hidden file input */}
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handlePhotoFileSelect}
+                                        />
+                                        <div>
+                                            <h2 className="text-lg font-black">{selectedSP.name || "Unknown"}</h2>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Badge variant="outline" className={`text-[9px] font-black ${statusColors[selectedSP.approvalStatus] || statusColors.pending}`}>
+                                                    {selectedSP.approvalStatus || "pending"}
+                                                </Badge>
+                                                <span className="text-[10px] text-muted-foreground font-medium">ID: {selectedSP._id || selectedSP.id}</span>
+                                            </div>
                                         </div>
                                     </div>
+                                    
+                                    {/* Edit Photo Button - Top Right Corner */}
+                                    <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        className="h-9 px-3 rounded-xl border-primary/30 hover:bg-primary/10 hover:border-primary transition-all"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploadingPhoto}
+                                    >
+                                        {uploadingPhoto ? (
+                                            <>
+                                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                                <span className="text-xs font-bold">Uploading...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Camera className="h-4 w-4 mr-2" />
+                                                <span className="text-xs font-bold">Edit Photo</span>
+                                            </>
+                                        )}
+                                    </Button>
                                 </div>
 
                                 {/* Contact */}
+
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-muted/50 rounded-xl p-3">
                                         <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Phone</p>
@@ -606,18 +911,27 @@ export default function SPOversight() {
                                                 )}
                                             </div>
 
-                                            {isEditingCategories ? (
+                                            {isContentLoading && availableParents.length === 0 ? (
+                                                <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                                                    <RefreshCw className="h-6 w-6 text-primary animate-spin" />
+                                                    <p className="text-[10px] font-black text-muted-foreground animate-pulse uppercase tracking-widest">Fetching Categories & Services...</p>
+                                                </div>
+                                            ) : isEditingCategories ? (
                                                 <div className="space-y-4">
                                                     <div>
                                                         <p className="text-[10px] font-black text-muted-foreground mb-2 uppercase tracking-tight">Step 1: Select Service Types (Parents)</p>
                                                         <div className="flex flex-wrap gap-1.5 p-3 bg-muted/20 rounded-xl border border-border/50">
                                                             {availableParents.map(parent => {
                                                                 const isSelected = tempCategories.includes(parent.label);
+                                                                const isOriginal = Array.isArray(selectedSP.documents?.primaryCategory) 
+                                                                    ? selectedSP.documents.primaryCategory.includes(parent.label)
+                                                                    : selectedSP.documents?.primaryCategory === parent.label;
+
                                                                 return (
                                                                     <Badge 
                                                                         key={parent._id || parent.id} 
                                                                         variant={isSelected ? "default" : "outline"}
-                                                                        className={`text-[10px] cursor-pointer transition-all py-1 px-2.5 ${isSelected ? 'bg-primary border-primary shadow-sm ring-2 ring-primary/20' : 'hover:border-primary/50 text-muted-foreground'}`}
+                                                                        className={`text-[10px] cursor-pointer transition-all py-1 px-2.5 ${isSelected ? (isOriginal ? 'bg-red-600 border-red-600 text-white shadow-sm ring-2 ring-red-100' : 'bg-primary border-primary shadow-sm ring-2 ring-primary/20') : 'hover:border-primary/50 text-muted-foreground'}`}
                                                                         onClick={() => {
                                                                             const pid = parent.id || parent._id;
                                                                             if (isSelected) {
@@ -681,11 +995,12 @@ export default function SPOversight() {
                                                                                 <div className="flex flex-wrap gap-1.5 p-2 bg-background border border-border/50 rounded-xl">
                                                                                     {children.map(cat => {
                                                                                         const isSelected = tempSpecializations.includes(cat.name);
+                                                                                        const isOriginal = (selectedSP.documents?.specializations || []).includes(cat.name);
                                                                                         return (
                                                                                             <Badge 
                                                                                                 key={cat._id || cat.id} 
                                                                                                 variant={isSelected ? "secondary" : "outline"}
-                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-primary/15 text-primary border-primary/30 font-bold' : 'text-muted-foreground hover:border-primary/30'}`}
+                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? (isOriginal ? 'bg-red-600 border-red-600 text-white font-bold' : 'bg-primary/15 text-primary border-primary/30 font-bold') : 'text-muted-foreground hover:border-primary/30'}`}
                                                                                                 onClick={() => {
                                                                                                     if (isSelected) {
                                                                                                         setTempSpecializations(prev => prev.filter(s => s !== cat.name));
@@ -741,11 +1056,12 @@ export default function SPOversight() {
                                                                                 <div className="flex flex-wrap gap-1.5 p-2 bg-green-50/20 border border-green-100 rounded-xl">
                                                                                     {services.map(svc => {
                                                                                         const isSelected = tempServices.includes(svc.name);
+                                                                                        const isOriginal = (selectedSP.documents?.services || []).includes(svc.name);
                                                                                         return (
                                                                                             <Badge 
                                                                                                 key={svc._id || svc.id} 
                                                                                                 variant={isSelected ? "default" : "outline"}
-                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? 'bg-green-600 border-green-600 shadow-sm' : 'text-muted-foreground hover:border-green-300'}`}
+                                                                                                className={`text-[10px] cursor-pointer transition-all ${isSelected ? (isOriginal ? 'bg-red-600 border-red-600 text-white shadow-sm' : 'bg-green-600 border-green-600 shadow-sm text-white') : 'text-muted-foreground hover:border-green-300'}`}
                                                                                                 onClick={() => {
                                                                                                     if (isSelected) setTempServices(prev => prev.filter(s => s !== svc.name));
                                                                                                     else setTempServices(prev => [...prev, svc.name]);
@@ -965,7 +1281,91 @@ export default function SPOversight() {
                                     </div>
                                 </div>
 
+                                {/* Performance Analytics Section */}
+                                <div className="space-y-3 py-4 border-t border-border/50">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                            <Award className="h-3 w-3" /> Performance Analytics
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            {isEditingGrade ? (
+                                                <div className="flex items-center gap-1">
+                                                    <select 
+                                                        value={tempGrade} 
+                                                        onChange={(e) => setTempGrade(e.target.value)}
+                                                        className="text-[10px] font-black h-7 bg-muted/50 border border-border/50 rounded-lg px-2 outline-none focus:border-primary/50"
+                                                    >
+                                                        <option value="A">Grade A</option>
+                                                        <option value="B">Grade B</option>
+                                                        <option value="C">Grade C</option>
+                                                        <option value="D">Grade D</option>
+                                                        <option value="Standard">Standard</option>
+                                                    </select>
+                                                    <Button size="sm" className="h-7 w-7 p-0 bg-green-600 hover:bg-green-700" onClick={handleUpdateGrade}>
+                                                        <Save className="h-3 w-3" />
+                                                    </Button>
+                                                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setIsEditingGrade(false)}>
+                                                        <X className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <Button variant="ghost" size="sm" className="h-7 px-2 hover:bg-primary/10 text-primary font-black text-[10px]" onClick={() => setIsEditingGrade(true)}>
+                                                    <Edit2 className="h-3 w-3 mr-1" /> SET GRADE
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {isLoadingSummary ? (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {[1, 2, 3, 4].map(i => (
+                                                <div key={i} className="h-16 bg-muted/30 rounded-xl animate-pulse" />
+                                            ))}
+                                        </div>
+                                    ) : spSummary ? (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-3 border border-primary/10">
+                                                <p className="text-[9px] font-black text-primary/60 uppercase tracking-widest">Performance Grade</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Award className={cn("h-4 w-4", 
+                                                        spSummary.performance?.grade === "A" ? "text-amber-400" : 
+                                                        spSummary.performance?.grade === "B" ? "text-slate-400" : 
+                                                        spSummary.performance?.grade === "C" ? "text-amber-700" : "text-slate-500")} />
+                                                    <p className="text-sm font-black">{spSummary.performance?.grade || "Standard"}</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/30 rounded-xl p-3 border border-border/50">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Weekly Hours</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Clock className="h-4 w-4 text-primary/60" />
+                                                    <p className="text-sm font-black">{spSummary.calendar?.availableHoursWeek || 0} hrs <span className="text-[10px] text-muted-foreground font-medium">(last 7d)</span></p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/30 rounded-xl p-3 border border-border/50">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Response Rate</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <CheckCircle className="h-4 w-4 text-green-500/60" />
+                                                    <p className="text-sm font-black text-green-600">{spSummary.performance?.responseRate || 0}%</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/30 rounded-xl p-3 border border-border/50">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Cancellations</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <XCircle className="h-4 w-4 text-red-500/60" />
+                                                    <p className="text-sm font-black text-red-600">{spSummary.performance?.cancellations || 0}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 rounded-xl bg-muted/20 border border-dashed border-border flex flex-col items-center justify-center text-center">
+                                            <AlertCircle className="h-5 w-5 text-muted-foreground/40 mb-2" />
+                                            <p className="text-[10px] font-bold text-muted-foreground">Unable to load metrics</p>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Actions */}
+
                                 <div className="flex gap-2 pt-2">
                                     {selectedSP.approvalStatus === "pending_admin" && (
                                         <>

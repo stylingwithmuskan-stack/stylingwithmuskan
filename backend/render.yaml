@@ -14,6 +14,6 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3001
+        value: 5000
       # Add other environment variables in Render Dashboard
       # MONGO_URI, JWT_SECRET, etc.

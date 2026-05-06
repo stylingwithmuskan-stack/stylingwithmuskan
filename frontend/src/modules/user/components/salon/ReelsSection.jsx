@@ -44,9 +44,9 @@ const ReelsSection = () => {
                     <div>
                         <div className="flex items-center gap-2 mb-2">
                             <Flame className="w-4 h-4 text-rose-500" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">Trending</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">Happy Clients</span>
                         </div>
-                        <h2 className="text-xl md:text-2xl font-black font-display uppercase tracking-widest text-foreground">Reels</h2>
+                        <h2 className="text-xl md:text-2xl font-black font-display uppercase tracking-widest text-foreground">REAL EXPERIENCE</h2>
                     </div>
                 </div>
 

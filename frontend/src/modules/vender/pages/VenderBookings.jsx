@@ -10,6 +10,7 @@ import { Badge } from "@/modules/user/components/ui/badge";
 import { Input } from "@/modules/user/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/modules/user/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/modules/user/components/ui/pagination";
 import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
 import { toast } from "sonner";
 
@@ -49,6 +50,14 @@ export default function VenderBookings() {
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("all");
     const [typeFilter, setTypeFilter] = useState("all");
+    
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [limit] = useState(20);
+    const [total, setTotal] = useState(0);
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [loading, setLoading] = useState(false);
+    
     const [assignModal, setAssignModal] = useState(null);
     const [selectedProvider, setSelectedProvider] = useState("");
     const [selectedTeam, setSelectedTeam] = useState([]);
@@ -61,6 +70,7 @@ export default function VenderBookings() {
     const [teamAssignModal, setTeamAssignModal] = useState(null);
     const [teamSelectedMembers, setTeamSelectedMembers] = useState([]);
     const [teamLeadMember, setTeamLeadMember] = useState("");
+    const [quotedItems, setQuotedItems] = useState([]);
 
     // Reassignment for provider-cancelled bookings
     const [reassignModal, setReassignModal] = useState(null);
@@ -71,12 +81,34 @@ export default function VenderBookings() {
     const [availableProviders, setAvailableProviders] = useState([]);
     const [loadingAvailableProviders, setLoadingAvailableProviders] = useState(false);
     const [escalatedSelectedProvider, setEscalatedSelectedProvider] = useState("");
+    
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [tab, typeFilter, debouncedSearch]);
 
     const load = async () => {
+        setLoading(true);
         try {
             if (!hydrated || !isLoggedIn) return;
-            const [bks, sps, enqs] = await Promise.all([getAllBookings(), getServiceProviders(), getCustomEnquiries()]);
-            const normal = (Array.isArray(bks) ? bks : []).map((b) => ({ ...b, id: b._id || b.id }));
+            const [bksResponse, sps, enqs] = await Promise.all([
+                getAllBookings({ page, limit }),
+                getServiceProviders(),
+                getCustomEnquiries()
+            ]);
+            
+            // Handle pagination response
+            const bks = Array.isArray(bksResponse) ? bksResponse : (bksResponse?.bookings || []);
+            const totalCount = bksResponse?.total || bks.length;
+            setTotal(totalCount);
+            
+            const normal = bks.map((b) => ({ ...b, id: b._id || b.id }));
             const custom = (Array.isArray(enqs) ? enqs : []).map((e) => ({
                 id: e._id || e.id,
                 bookingType: "customized",
@@ -102,14 +134,19 @@ export default function VenderBookings() {
             }));
             const combined = [...normal, ...custom].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             setBookings(combined);
-            const sArr = Array.isArray(sps) ? sps : [];
-            setProviders(sArr.filter(sp => sp.approvalStatus === "approved").map((sp) => ({ ...sp, id: sp._id?.toString?.() || sp.id || sp.phone })));
-        } catch {}
+            
+            const spResponse = Array.isArray(sps) ? sps : (sps?.providers || []);
+            setProviders(spResponse.filter(sp => sp.approvalStatus === "approved").map((sp) => ({ ...sp, id: sp._id?.toString?.() || sp.id || sp.phone })));
+        } catch {
+        } finally {
+            setLoading(false);
+        }
     };
-    useEffect(() => { load(); }, [hydrated, isLoggedIn]);
+    
+    useEffect(() => { load(); }, [hydrated, isLoggedIn, page, tab, typeFilter, debouncedSearch]);
 
     const filtered = bookings.filter(b => {
-        const matchSearch = b.customerName?.toLowerCase().includes(search.toLowerCase()) || b.id?.includes(search) || b.serviceType?.toLowerCase().includes(search.toLowerCase());
+        const matchSearch = b.customerName?.toLowerCase().includes(debouncedSearch.toLowerCase()) || b.id?.includes(debouncedSearch) || b.serviceType?.toLowerCase().includes(debouncedSearch.toLowerCase());
         const status = (b.status || "").toLowerCase();
 
         let tabMatch = true;
@@ -146,6 +183,7 @@ export default function VenderBookings() {
                 prebookAmount: parseFloat(prebookAmount) || 0,
                 totalServiceTime: totalServiceTime || "",
                 quoteExpiryHours: Number(quoteExpiryHours) || 12,
+                items: quotedItems,
                 status: "quote_submitted"
             };
             try {
@@ -322,7 +360,32 @@ export default function VenderBookings() {
             setPrebookAmount(booking.prebookAmount || 0);
             setTotalServiceTime(booking.totalServiceTime || "");
             setQuoteExpiryHours(12);
+
+            // Initialize quoted items
+            const itemsToQuote = booking.enquiry?.quote?.items?.length 
+                ? booking.enquiry.quote.items 
+                : (booking.enquiry?.items || booking.items || booking.services || []);
+            
+            setQuotedItems(itemsToQuote.map(it => ({
+                id: it.id || it._id,
+                name: it.name,
+                category: it.category || it.categoryName,
+                serviceType: it.serviceType,
+                quantity: it.quantity || 1,
+                price: it.price || 0,
+                image: it.image
+            })));
         }
+    };
+
+    const handleItemPriceChange = (index, newPrice) => {
+        const updated = [...quotedItems];
+        updated[index].price = parseFloat(newPrice) || 0;
+        setQuotedItems(updated);
+        
+        // Auto-update total customPrice
+        const newTotal = updated.reduce((acc, it) => acc + (it.price * (it.quantity || 1)), 0);
+        setCustomPrice(newTotal);
     };
 
     const canShowAction = (booking) => {
@@ -471,7 +534,14 @@ export default function VenderBookings() {
                 </div>
 
                 <TabsContent value={tab} className="mt-0">
-                    {filtered.length === 0 ? (
+                    {loading ? (
+                        <Card className="shadow-sm">
+                            <CardContent className="py-24 text-center">
+                                <RefreshCw className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+                                <p className="text-sm font-bold text-muted-foreground animate-pulse">Fetching latest bookings...</p>
+                            </CardContent>
+                        </Card>
+                    ) : filtered.length === 0 ? (
                         <Card className="shadow-sm">
                             <CardContent className="py-16 text-center">
                                 <CalendarRange className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -592,6 +662,51 @@ export default function VenderBookings() {
                             ))}
                         </motion.div>
                     )}
+                    
+                    {/* Pagination Controls */}
+                    {!loading && Math.ceil(total / limit) > 1 && (
+                        <div className="mt-8 pb-8">
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious 
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                        />
+                                    </PaginationItem>
+                                    
+                                    {Array.from({ length: Math.ceil(total / limit) }, (_, i) => i + 1).map(p => {
+                                        if (p === 1 || p === Math.ceil(total / limit) || (p >= page - 1 && p <= page + 1)) {
+                                            return (
+                                                <PaginationItem key={p}>
+                                                    <PaginationLink 
+                                                        isActive={page === p}
+                                                        onClick={() => setPage(p)}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        {p}
+                                                    </PaginationLink>
+                                                </PaginationItem>
+                                            );
+                                        } else if (p === page - 2 || p === page + 2) {
+                                            return <PaginationItem key={p}><PaginationEllipsis /></PaginationItem>;
+                                        }
+                                        return null;
+                                    })}
+
+                                    <PaginationItem>
+                                        <PaginationNext 
+                                            onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                                            className={page === Math.ceil(total / limit) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                            <p className="text-[10px] text-center text-muted-foreground mt-4 font-bold uppercase tracking-widest">
+                                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} bookings
+                            </p>
+                        </div>
+                    )}
                 </TabsContent>
             </Tabs>
 
@@ -623,7 +738,7 @@ export default function VenderBookings() {
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Reference</p>
                                         <div className="flex items-center gap-2">
-                                            <p className="text-sm font-black">#{assignModal.id}</p>
+                                            <p className="text-sm font-black">#{assignModal.id?.slice(-8)}</p>
                                             {assignModal.bookingType && (
                                                 <Badge variant="secondary" className="text-[8px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 font-black uppercase tracking-tighter">
                                                     {assignModal.bookingType}
@@ -697,75 +812,115 @@ export default function VenderBookings() {
                             {/* Customized Booking: Price & Discount Price Fields */}
                             {(assignModal.bookingType === "customized" || assignModal.eventType) && (
                                 <div className="space-y-4 py-2 border-y border-border/50">
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                         <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 flex items-center gap-1.5">
-                                            <IndianRupee className="h-3 w-3 text-primary" /> Booking Price (₹)
+                                            <LayoutGrid className="h-3 w-3 text-primary" /> Itemized Pricing
                                         </label>
-                                        <Input
-                                            type="number"
-                                            value={customPrice}
-                                            onChange={(e) => setCustomPrice(e.target.value)}
-                                            placeholder="Enter total price for user"
-                                            className="h-11 rounded-xl"
-                                        />
+                                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-hide">
+                                            {quotedItems.map((item, idx) => (
+                                                <div key={idx} className="bg-muted/30 rounded-xl p-3 border border-border/50 space-y-2">
+                                                    <div className="flex justify-between items-start gap-2">
+                                                        <div className="min-w-0">
+                                                            <p className="text-[11px] font-black truncate">{item.name}</p>
+                                                            <p className="text-[9px] text-muted-foreground font-bold italic">{item.category}</p>
+                                                        </div>
+                                                        <Badge variant="outline" className="text-[9px] font-black bg-white shrink-0">
+                                                            Qty: {item.quantity}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="relative flex-1">
+                                                            <IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                                            <Input
+                                                                type="number"
+                                                                value={item.price}
+                                                                onChange={(e) => handleItemPriceChange(idx, e.target.value)}
+                                                                placeholder="Price per unit"
+                                                                className="h-8 pl-7 text-[11px] font-black rounded-lg bg-white"
+                                                            />
+                                                        </div>
+                                                        <div className="text-right min-w-[60px]">
+                                                            <p className="text-[8px] font-bold text-muted-foreground uppercase leading-none">Total</p>
+                                                            <p className="text-[11px] font-black text-primary">₹{(item.price * (item.quantity || 1)).toLocaleString()}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 flex items-center gap-1.5">
-                                            <Percent className="h-3 w-3 text-green-600" /> Discount Price (₹)
-                                        </label>
-                                        <Input
-                                            type="number"
-                                            value={discountPrice}
-                                            onChange={(e) => setDiscountPrice(e.target.value)}
-                                            placeholder="Enter discount amount (optional)"
-                                            className="h-11 rounded-xl"
-                                        />
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest ml-1">
+                                                Total Price (₹)
+                                            </label>
+                                            <Input
+                                                type="number"
+                                                value={customPrice}
+                                                onChange={(e) => setCustomPrice(e.target.value)}
+                                                className="h-9 rounded-xl font-black text-xs"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black uppercase text-green-600 tracking-widest ml-1">
+                                                Discount (₹)
+                                            </label>
+                                            <Input
+                                                type="number"
+                                                value={discountPrice}
+                                                onChange={(e) => setDiscountPrice(e.target.value)}
+                                                className="h-9 rounded-xl font-black text-xs"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 flex items-center gap-1.5">
-                                            <IndianRupee className="h-3 w-3 text-amber-600" /> Advance Amount (₹)
-                                        </label>
-                                        <Input
-                                            type="number"
-                                            value={prebookAmount}
-                                            onChange={(e) => setPrebookAmount(e.target.value)}
-                                            placeholder="Advance to confirm booking"
-                                            className="h-11 rounded-xl"
-                                        />
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black uppercase text-amber-600 tracking-widest ml-1">
+                                                Advance (₹)
+                                            </label>
+                                            <Input
+                                                type="number"
+                                                value={prebookAmount}
+                                                onChange={(e) => setPrebookAmount(e.target.value)}
+                                                className="h-9 rounded-xl font-black text-xs"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest ml-1">
+                                                Service Time
+                                            </label>
+                                            <Input
+                                                type="text"
+                                                value={totalServiceTime}
+                                                onChange={(e) => setTotalServiceTime(e.target.value)}
+                                                placeholder="e.g. 4 hrs"
+                                                className="h-9 rounded-xl font-black text-xs"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">
-                                            Total Service Time
-                                        </label>
-                                        <Input
-                                            type="text"
-                                            value={totalServiceTime}
-                                            onChange={(e) => setTotalServiceTime(e.target.value)}
-                                            placeholder="Example: 4 hours"
-                                            className="h-11 rounded-xl"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest ml-1">
                                             Quote Expiry (hours)
                                         </label>
                                         <Input
                                             type="number"
                                             value={quoteExpiryHours}
                                             onChange={(e) => setQuoteExpiryHours(e.target.value)}
-                                            placeholder="12"
-                                            className="h-11 rounded-xl"
+                                            className="h-9 rounded-xl font-black text-xs"
                                         />
                                     </div>
+
                                     {customPrice > 0 && (
-                                        <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
+                                        <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100 shadow-sm">
                                             <div className="flex justify-between items-center">
                                                 <span className="text-[10px] font-black uppercase text-emerald-700">Final Price for User</span>
                                                 <span className="text-lg font-black text-emerald-700">₹{(parseFloat(customPrice) - (parseFloat(discountPrice) || 0)).toLocaleString()}</span>
                                             </div>
                                             {parseFloat(discountPrice) > 0 && (
                                                 <p className="text-[9px] text-emerald-600 mt-1 font-bold">
-                                                    Original: ₹{parseFloat(customPrice).toLocaleString()} → Discount: ₹{parseFloat(discountPrice).toLocaleString()}
+                                                    Original Total: ₹{parseFloat(customPrice).toLocaleString()}
                                                 </p>
                                             )}
                                         </div>

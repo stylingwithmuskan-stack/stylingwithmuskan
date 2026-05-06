@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { io } from "socket.io-client";
+import { SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
 import { useBookings } from "./BookingContext";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
 
 const BookingChatContext = createContext();
 
@@ -45,7 +45,7 @@ export const BookingChatProvider = ({ children }) => {
         if (!token) return;
 
         // Initialize Global Chat Socket
-        socketRef.current = io(`${SOCKET_URL}/booking-chat`, {
+        socketRef.current = io(`${SOCKET_BASE_URL}/booking-chat`, {
             auth: { token },
             transports: ["polling", "websocket"]
         });

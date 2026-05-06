@@ -132,10 +132,20 @@ export default function SubscriptionPortal({
         prefill: {
           name: entity?.name || "",
           email: entity?.email || "",
-          contact: entity?.phone || "",
+          contact: (() => {
+            if (!entity?.phone) return "";
+            const sanitized = entity.phone.replace(/\D/g, "");
+            if (sanitized.length === 10) return `+91${sanitized}`;
+            if (sanitized.length === 12 && sanitized.startsWith("91")) return `+${sanitized}`;
+            return sanitized || entity.phone;
+          })(),
+        },
+        readonly: {
+          contact: true,
+          email: true,
         },
         theme: { color: "#7c3aed" },
-        webview_intent: true,
+        webview_intent: /Android/i.test(navigator.userAgent),
         config: {
           display: {
             blocks: {

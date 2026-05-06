@@ -396,15 +396,24 @@ export async function listProviders(req, res) {
   
   console.log('[Vendor] Query:', JSON.stringify(q, null, 2));
   
-  let items = await ProviderAccount.find(q).sort({ createdAt: -1 }).lean();
+  // Pagination parameters
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+  
+  const total = await ProviderAccount.countDocuments(q);
+  let items = await ProviderAccount.find(q)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .lean();
   items = items.filter((item) => belongsToCity(item, cityId, city));
   
-  console.log('[Vendor] Found providers:', items.length);
+  console.log('[Vendor] Found providers:', items.length, 'of', total);
   if (items.length > 0) {
     console.log('[Vendor] Sample provider cities:', items.slice(0, 3).map(p => ({ name: p.name, city: p.city, zones: p.zones })));
   }
   
-  res.json({ providers: items });
+  res.json({ providers: items, page, limit, total });
 }
 
 // List vendors in the same city as current vendor
@@ -670,8 +679,15 @@ export async function listBookings(req, res) {
   const zones = vendor?.zones || [];
 
   if (!city && zones.length === 0) {
-    const bookings = await Booking.find().sort({ createdAt: -1 }).limit(200).lean();
-    return res.json({ bookings });
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const total = await Booking.countDocuments();
+    const bookings = await Booking.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+    return res.json({ bookings, page, limit, total });
   }
 
   // Find providers in vendor's areas
@@ -691,47 +707,60 @@ export async function listBookings(req, res) {
     .filter((provider) => belongsToCity(provider, cityId, city));
   const providerIds = providers.map((p) => p._id?.toString());
 
-  // Bookings assigned to these providers OR escalated to this vendor
-  let byProvider = providerIds.length
-    ? await Booking.find({
-        $or: [
-          { assignedProvider: { $in: providerIds } },
-          { 
-            vendorEscalated: true, 
-            assignedProvider: "", 
-            "address.city": new RegExp(`^${escapeRegex(city)}`, "i")
-          }
-        ]
-      })
-      .sort({ createdAt: -1 })
-      .lean()
-    : [];
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
 
-  // Bookings in vendor's areas (by address)
-  let bQuery = {};
+  const orConditions = [];
+
+  // 1. By Provider Assignment or Escalation
+  if (providerIds.length > 0) {
+    orConditions.push({ assignedProvider: { $in: providerIds } });
+  }
+  
+  // Vendor escalation logic
+  orConditions.push({ 
+    vendorEscalated: true, 
+    assignedProvider: "", 
+    "address.city": new RegExp(`^${escapeRegex(city)}`, "i")
+  });
+
+  // 2. By Address Match (Zone or City)
   if (zones.length > 0) {
-    bQuery = { "address.area": { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } };
+    orConditions.push({ "address.area": { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } });
   } else {
-    bQuery = {
-      $or: [
-        { "address.area": new RegExp(escapeRegex(city), "i") },
-        { "address.city": new RegExp(escapeRegex(city), "i") },
-      ],
-    };
+    orConditions.push({ "address.area": new RegExp(escapeRegex(city), "i") });
+    orConditions.push({ "address.city": new RegExp(escapeRegex(city), "i") });
   }
 
-  const byAddress = await Booking.find(bQuery).sort({ createdAt: -1 }).lean();
-  
-  let combined = [...byProvider, ...byAddress];
-  combined = combined.filter((booking) => {
-    if (cityId && String(booking?.address?.cityId || "") === cityId) return true;
-    return !cityId ? sameText(String(booking?.address?.city || ""), city) : false;
-  });
-  
-  const map = new Map();
-  combined.forEach((b) => map.set(b._id.toString(), b));
-  const bookings = Array.from(map.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  res.json({ bookings });
+  // Combine conditions with overall city/cityId filter
+  const finalQuery = {
+    $and: [
+      { $or: orConditions }
+    ]
+  };
+
+  // Add the strict cityId or text city match to $and condition
+  if (cityId) {
+    finalQuery.$and.push({ "address.cityId": cityId });
+  } else {
+    // If no cityId, match the city name textually
+    finalQuery.$and.push({
+      $or: [
+        { "address.city": new RegExp(`^${escapeRegex(city)}$`, "i") }
+      ]
+    });
+  }
+
+  const [bookings, total] = await Promise.all([
+    Booking.find(finalQuery)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Booking.countDocuments(finalQuery)
+  ]);
+
+  res.json({ bookings, page, limit, total });
 }
 
 export async function getAvailableProvidersForBooking(req, res) {
@@ -820,7 +849,20 @@ export async function assignBooking(req, res) {
   const commissionSettings = await CommissionSettings.findOne().lean();
   const rate = Number(commissionSettings?.rate || 20);
   const totalAmount = Number(existing.totalAmount || 0);
-  const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+  const discountAmount = Number(existing.discount || 0);
+  const fundedBy = String(existing.discountFundedBy || "admin").toLowerCase();
+
+  let required = 0;
+  if (fundedBy === "admin") {
+    const originalTotal = totalAmount + discountAmount;
+    const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
+    const effectiveRate = Math.max(0, rate - discountRate);
+    required = Math.round(totalAmount * (effectiveRate / 100));
+  } else {
+    // For "platform" funded or other sources, commission is on the net amount paid by customer
+    required = Math.round(totalAmount * (rate / 100));
+  }
+  required = Math.max(required, 0);
   
   // Check if commission not already charged
   if (!existing.commissionChargedAt && required > 0) {
@@ -943,7 +985,20 @@ export async function reassignBooking(req, res) {
   const commissionSettings = await CommissionSettings.findOne().lean();
   const rate = Number(commissionSettings?.rate || 20);
   const totalAmount = Number(existing.totalAmount || 0);
-  const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+  const discountAmount = Number(existing.discount || 0);
+  const fundedBy = String(existing.discountFundedBy || "admin").toLowerCase();
+
+  let required = 0;
+  if (fundedBy === "admin") {
+    const originalTotal = totalAmount + discountAmount;
+    const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
+    const effectiveRate = Math.max(0, rate - discountRate);
+    required = Math.round(totalAmount * (effectiveRate / 100));
+  } else {
+    // For "platform" funded or other sources, commission is on the net amount paid by customer
+    required = Math.round(totalAmount * (rate / 100));
+  }
+  required = Math.max(required, 0);
   
     // Handle commission for reassignment
     if (required > 0) {
@@ -1148,7 +1203,7 @@ export async function priceQuoteCustomEnquiry(req, res) {
     prebookAmount: Number(req.body.prebookAmount) || enq.quote?.prebookAmount || 0,
     totalServiceTime: String(req.body.totalServiceTime || enq.quote?.totalServiceTime || ""),
     expiryAt: expiryAt || enq.quote?.expiryAt || null,
-    items: enq.quote?.items?.length ? enq.quote.items : enq.items,
+    items: Array.isArray(req.body.items) ? req.body.items : (enq.quote?.items?.length ? enq.quote.items : enq.items),
   };
   enq.status = "quote_submitted";
   enq.timeline = Array.isArray(enq.timeline) ? enq.timeline : [];
@@ -1197,7 +1252,20 @@ export async function assignTeamCustomEnquiry(req, res) {
   const commissionSettings = await CommissionSettings.findOne().lean();
   const rate = Number(commissionSettings?.rate || 20);
   const totalAmount = Number(enq.quote?.totalAmount || 0);
-  const required = Math.max(Math.round(totalAmount * (rate / 100)), 0);
+  const discountAmount = Number(enq.quote?.discountPrice || 0);
+  const fundedBy = String(enq.quote?.discountFundedBy || "admin").toLowerCase();
+
+  let required = 0;
+  if (fundedBy === "admin") {
+    const originalTotal = totalAmount + discountAmount;
+    const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
+    const effectiveRate = Math.max(0, rate - discountRate);
+    required = Math.round(totalAmount * (effectiveRate / 100));
+  } else {
+    // For "platform" funded or other sources, commission is on the net amount paid by customer
+    required = Math.round(totalAmount * (rate / 100));
+  }
+  required = Math.max(required, 0);
   if (required > 0 && Number(provider.credits || 0) < required) {
     return res.status(409).json({
       error: "Selected service provider does not have sufficient wallet balance to cover the platform commission.",

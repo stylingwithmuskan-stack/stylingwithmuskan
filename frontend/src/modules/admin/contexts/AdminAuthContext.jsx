@@ -68,18 +68,41 @@ export const AdminAuthProvider = ({ children }) => {
     };
 
     // ───── VENDORS ─────
-    const getAllVendors = async () => (await api.admin.vendors()).vendors;
+    const getAllVendors = async (params = {}) => {
+        const response = await api.admin.vendors(params);
+        // Handle both old format (array) and new format (object with pagination)
+        if (Array.isArray(response)) {
+            return { vendors: response, total: response.length };
+        }
+        return response;
+    };
     const updateVendorStatus = async (vendorId, status) => { await api.admin.updateVendorStatus(vendorId, status); };
     const approveVendorZones = async (vendorId) => { await api.admin.approveVendorZones(vendorId); };
     const rejectVendorZones = async (vendorId) => { await api.admin.rejectVendorZones(vendorId); };
 
     // ───── CUSTOMERS ─────
-    const getAllCustomers = async () => (await api.admin.customers()).customers;
+    const getAllCustomers = async (params = {}) => {
+        const response = await api.admin.customers(params);
+        // Handle both old format (array) and new format (object with pagination)
+        if (Array.isArray(response)) {
+            return { customers: response, total: response.length };
+        }
+        return response;
+    };
 
     // ───── SERVICE PROVIDERS ─────
-    const getAllServiceProviders = async () => (await api.admin.providers({ limit: 1000 })).providers;
+    const getAllServiceProviders = async (params = {}) => {
+        const response = await api.admin.providers(params);
+        // Handle both old format (array) and new format (object with pagination)
+        if (Array.isArray(response)) {
+            return { providers: response, total: response.length };
+        }
+        return response;
+    };
     const updateSPStatus = async (id, status) => { await api.admin.updateProviderStatus(id, status); };
     const updateProviderProfile = async (id, data) => { await api.admin.updateProviderProfile(id, data); };
+    const updateProviderProfilePhoto = async (id, file) => await api.admin.updateProviderProfilePhoto(id, file);
+    const updateProviderGrade = async (id, grade) => { await api.admin.updateProviderGrade(id, grade); };
 
     const approveProviderZones = async (id) => { await api.admin.approveProviderZones(id); };
     const rejectProviderZones = async (id) => { await api.admin.rejectProviderZones(id); };
@@ -91,8 +114,8 @@ export const AdminAuthProvider = ({ children }) => {
     const finalApproveEnquiry = async (id, payload) => { await api.admin.customEnquiryFinalApprove(id, payload); };
 
     // ───── BOOKINGS ─────
-    const getAllBookings = async () => (await api.admin.bookings()).bookings;
-    const getUserBookings = async () => (await api.admin.bookings()).bookings;
+    const getAllBookings = async (params = {}) => await api.admin.bookings(params);
+    const getUserBookings = async (params = {}) => await api.admin.bookings(params);
     const approveBookingImages = async (id, approved) => { await api.admin.approveBookingImages(id, approved); };
     const assignSPToBooking = async (bookingId, spId) => { await api.admin.assignBooking(bookingId, spId); };
     const getAvailableProvidersForBooking = async (bookingId) => (await api.admin.getAvailableProviders(bookingId)).availableProviders || [];
@@ -240,7 +263,7 @@ export const AdminAuthProvider = ({ children }) => {
             getAllVendors, updateVendorStatus,
             approveVendorZones, rejectVendorZones,
             getAllCustomers,
-            getAllServiceProviders, updateSPStatus, updateProviderProfile,
+            getAllServiceProviders, updateSPStatus, updateProviderProfile, updateProviderProfilePhoto, updateProviderGrade,
             approveProviderZones, rejectProviderZones, adjustProviderWallet,
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,
             getAllBookings, getUserBookings, approveBookingImages, assignSPToBooking, getAvailableProvidersForBooking, assignTeamToBooking,

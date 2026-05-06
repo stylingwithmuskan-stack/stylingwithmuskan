@@ -5,10 +5,10 @@
  * when a user logs in and calls POST /notifications/push/register.
  *
  * Run: node backend/scripts/test-fcm-token-save.mjs
- * (backend server must be running on PORT 3001)
+ * (backend server must be running on PORT 5000)
  */
 
-const BASE_URL = "http://localhost:3001";
+const BASE_URL = "http://localhost:5000";
 const TEST_PHONE = "9990000001";
 const TEST_OTP = "123456";
 const FAKE_FCM_TOKEN = `test-fcm-${Date.now()}`;

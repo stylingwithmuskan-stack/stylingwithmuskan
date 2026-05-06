@@ -129,7 +129,7 @@ export default function SWMSupport() {
                 </div>
                 <Button 
                     variant="outline" 
-                    onClick={() => window.location.href = `tel:+91${import.meta.env.VITE_SUPPORT_PHONE || "9990000001"}`}
+                    onClick={() => window.location.href = `tel:+91${import.meta.env.VITE_SUPPORT_PHONE || "8349764176"}`}
                     className="rounded-full border-slate-200 text-slate-700 font-bold gap-2 text-xs"
                 >
                     <Phone className="h-3.5 w-3.5" /> Call

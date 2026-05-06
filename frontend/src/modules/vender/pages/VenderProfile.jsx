@@ -53,7 +53,7 @@ export default function VenderProfile() {
     const handleDeleteAccount = async () => {
         setIsDeleting(true);
         try {
-            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://stylingwithmuskan.in/api';
             const response = await fetch(`${apiBaseUrl}/vendor/me/account`, {
                 method: 'DELETE',
                 credentials: 'include',

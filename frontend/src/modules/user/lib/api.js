@@ -1,6 +1,8 @@
 import { safeStorage } from "@/modules/user/lib/safeStorage";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://stylingwithmuskan.in/api";
+export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://stylingwithmuskan.in/api";
+export const SOCKET_BASE_URL = API_BASE_URL.replace(/\/api$/, "");
 
 function getToken() {
   try {
@@ -359,7 +361,13 @@ export const api = {
     getPerformanceCriteria: () => request("/provider/performance-criteria"),
     requestZones: (body) => request("/provider/request-zones", { method: "POST", body }),
     requestCategory: (body) => request("/provider/request-category", { method: "POST", body }),
-    rankings: (city) => request(`/provider/rankings/${city}`),
+    rankings: (city, zone, limit) => {
+      let q = [];
+      if (zone) q.push(`zone=${encodeURIComponent(zone)}`);
+      if (limit) q.push(`limit=${limit}`);
+      const qs = q.length > 0 ? `?${q.join("&")}` : "";
+      return request(`/provider/rankings/${city}${qs}`);
+    },
     credits: (phone) => request(`/provider/credits/${phone}`),
     bookings: (providerId) => request(`/provider/bookings/${providerId}`),
     updateBookingStatus: (id, status, payload = {}) => request(`/provider/bookings/${id}/status`, { method: "PATCH", body: { status, ...payload } }),
@@ -474,13 +482,19 @@ export const api = {
     verifyOtp: (phone, otp) => request("/vendor/verify-otp", { method: "POST", body: { phone, otp } }),
     logout: () => request("/vendor/logout", { method: "POST" }),
     me: () => request("/vendor/me"),
-    providers: () => request("/vendor/providers"),
+    providers: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/vendor/providers${q ? `?${q}` : ""}`);
+    },
     vendors: () => request("/vendor/vendors"),
     listZoneRequests: () => request("/vendor/zone-requests"),
     updateSPStatus: (id, status) => request(`/vendor/providers/${id}/status`, { method: "PATCH", body: { status } }),
     approveSPZones: (id, body) => request(`/vendor/providers/${id}/approve-zones`, { method: "PATCH", body: body || {} }),
     rejectSPZones: (id, body) => request(`/vendor/providers/${id}/reject-zones`, { method: "PATCH", body: body || {} }),
-    bookings: () => request("/vendor/bookings"),
+    bookings: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/vendor/bookings${q ? `?${q}` : ""}`);
+    },
     getAvailableProviders: (bookingId) => request(`/vendor/bookings/${bookingId}/available-providers`),
     assignBooking: (id, providerId) => request(`/vendor/bookings/${id}/assign`, { method: "PATCH", body: { providerId } }),
     reassignBooking: (id, providerId) => request(`/vendor/bookings/${id}/reassign`, { method: "PATCH", body: { providerId } }),
@@ -492,7 +506,13 @@ export const api = {
     sos: () => request("/vendor/sos"),
     resolveSos: (id) => request(`/vendor/sos/${id}/resolve`, { method: "PATCH" }),
     requestZones: (body) => request("/vendor/request-zones", { method: "POST", body }),
-    getProviderRankings: (city) => request(`/provider/rankings/${city}`),
+    getProviderRankings: (city, zone, limit) => {
+      let q = [];
+      if (zone) q.push(`zone=${encodeURIComponent(zone)}`);
+      if (limit) q.push(`limit=${limit}`);
+      const qs = q.length > 0 ? `?${q.join("&")}` : "";
+      return request(`/provider/rankings/${city}${qs}`);
+    },
     subAccounts: () => request("/vendor/subaccounts"),
     createSubAccount: (body) => request("/vendor/subaccounts", { method: "POST", body }),
     deleteSubAccount: (id) => request(`/vendor/subaccounts/${id}`, { method: "DELETE" }),
@@ -513,21 +533,36 @@ export const api = {
   admin: {
     login: (email, password) => request("/admin/login", { method: "POST", body: { email, password } }),
     logout: () => request("/admin/logout", { method: "POST" }),
-    vendors: () => request("/admin/vendors"),
+    vendors: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/admin/vendors${q ? `?${q}` : ""}`);
+    },
     updateVendorStatus: (id, status) => request(`/admin/vendors/${id}/status`, { method: "PATCH", body: { status } }),
     approveVendorZones: (id) => request(`/admin/vendors/${id}/approve-zones`, { method: "PATCH" }),
     rejectVendorZones: (id) => request(`/admin/vendors/${id}/reject-zones`, { method: "PATCH" }),
     approveProviderZones: (id) => request(`/admin/providers/${id}/approve-zones`, { method: "PATCH" }),
     rejectProviderZones: (id) => request(`/admin/providers/${id}/reject-zones`, { method: "PATCH" }),
-    customers: () => request("/admin/customers"),
+    customers: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/admin/customers${q ? `?${q}` : ""}`);
+    },
     providers: (params = {}) => {
       const q = new URLSearchParams(params).toString();
       return request(`/admin/providers${q ? `?${q}` : ""}`);
     },
     updateProviderStatus: (id, status) => request(`/admin/providers/${id}/status`, { method: "PATCH", body: { status } }),
     updateProviderProfile: (id, payload) => request(`/admin/providers/${id}/profile`, { method: "PATCH", body: payload }),
+    updateProviderProfilePhoto: (id, file) => {
+      const formData = new FormData();
+      formData.append("profilePhoto", file);
+      return request(`/admin/providers/${id}/profile-photo`, { method: "PATCH", body: formData });
+    },
+    updateProviderGrade: (id, grade) => request(`/admin/providers/${id}/grade`, { method: "PATCH", body: { grade } }),
     adjustProviderWallet: (id, payload) => request(`/admin/providers/${id}/wallet/adjust`, { method: "PATCH", body: payload }),
-    bookings: () => request("/admin/bookings"),
+    bookings: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/admin/bookings${q ? `?${q}` : ""}`);
+    },
     getAvailableProviders: (bookingId) => request(`/admin/bookings/${bookingId}/available-providers`),
     approveBookingImages: (id, approved) => request(`/admin/bookings/${id}/approve-images`, { method: "PATCH", body: { approved } }),
 

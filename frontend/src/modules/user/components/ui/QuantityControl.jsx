@@ -10,10 +10,10 @@ const QuantityControl = ({
 }) => {
   const sizeClasses = {
     sm: {
-      button: "w-7 h-7",
-      icon: "w-3.5 h-3.5",
-      text: "text-sm",
-      gap: "gap-1.5"
+      button: "w-[26px] h-[26px]",
+      icon: "w-3 h-3",
+      text: "text-[12px]",
+      gap: "gap-1"
     },
     md: {
       button: "w-8 h-8",
@@ -62,7 +62,7 @@ const QuantityControl = ({
         initial={{ scale: 1.3, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className={`w-8 text-center ${styles.text} font-black text-primary`}
+        className={`w-6 text-center ${styles.text} font-black text-primary`}
       >
         {quantity}
       </motion.div>

@@ -27,6 +27,20 @@ function hasTokenIntersection(left, right) {
   return leftTokens.some((token) => rightTokens.includes(token));
 }
 
+function pushValueVariants(targetSet, value) {
+  const normalized = normalizeValue(value);
+  if (!normalized) return;
+  targetSet.add(normalized);
+  const tokens = tokenize(normalized);
+  for (const token of tokens) targetSet.add(token);
+}
+
+function buildCanonicalSet(values = []) {
+  const out = new Set();
+  for (const value of values) pushValueVariants(out, value);
+  return out;
+}
+
 export async function getContentMaps() {
   const now = Date.now();
   if (contentCache.loadedAt && (now - contentCache.loadedAt) < CONTENT_CACHE_TTL_MS) {
@@ -49,22 +63,31 @@ export async function resolveRequestedSpecialtySets({ serviceTypeValues = [], ca
   const wantCats = new Set((categoryValues || []).map(normalizeValue).filter(Boolean));
   const wantTypeLabels = new Set();
   const wantCatLabels = new Set();
+  const canonicalWanted = buildCanonicalSet([...wantTypes, ...wantCats]);
 
   if (wantTypes.size > 0 || wantCats.size > 0) {
     try {
       const maps = await getContentMaps();
       for (const id of wantTypes) {
-        const label = maps.serviceTypeIdToLabel.get(id);
-        if (label) wantTypeLabels.add(normalizeValue(label));
+        const label = maps.serviceTypeIdToLabel.get(id) || maps.serviceTypeIdToLabel.get(String(id));
+        if (label) {
+          const normalized = normalizeValue(label);
+          wantTypeLabels.add(normalized);
+          pushValueVariants(canonicalWanted, normalized);
+        }
       }
       for (const id of wantCats) {
-        const label = maps.categoryIdToName.get(id);
-        if (label) wantCatLabels.add(normalizeValue(label));
+        const label = maps.categoryIdToName.get(id) || maps.categoryIdToName.get(String(id));
+        if (label) {
+          const normalized = normalizeValue(label);
+          wantCatLabels.add(normalized);
+          pushValueVariants(canonicalWanted, normalized);
+        }
       }
-    } catch {}
+    } catch { }
   }
 
-  return { wantTypes, wantCats, wantTypeLabels, wantCatLabels };
+  return { wantTypes, wantCats, wantTypeLabels, wantCatLabels, canonicalWanted };
 }
 
 export function providerMatchesRequestedSpecialties(provider, requested = {}) {
@@ -75,22 +98,103 @@ export function providerMatchesRequestedSpecialties(provider, requested = {}) {
     ...(requested.wantTypeLabels || []),
   ].map(normalizeValue).filter(Boolean);
 
-  if (wants.length === 0) return true;
+  const canonicalWanted = requested.canonicalWanted instanceof Set
+    ? new Set(Array.from(requested.canonicalWanted).map(normalizeValue).filter(Boolean))
+    : buildCanonicalSet(wants);
 
-  const spec = Array.isArray(provider?.documents?.specializations) ? provider.documents.specializations : [];
-  const primary = Array.isArray(provider?.documents?.primaryCategory) ? provider.documents.primaryCategory : [];
-  const services = Array.isArray(provider?.documents?.services) ? provider.documents.services : [];
+  if (canonicalWanted.size === 0) return true;
+
+  // ✅ FIX: Support both root-level and documents-nested data structures
+  // This ensures backward compatibility with both old and new provider data formats
+
+  // Try root level first (new format), then fallback to documents (old format)
+  const spec = Array.isArray(provider?.categories)
+    ? provider.categories
+    : (Array.isArray(provider?.documents?.specializations) ? provider.documents.specializations : []);
+
+  const primary = Array.isArray(provider?.serviceTypes)
+    ? provider.serviceTypes
+    : (Array.isArray(provider?.documents?.primaryCategory) ? provider.documents.primaryCategory : []);
+
+  const services = Array.isArray(provider?.services)
+    ? provider.services
+    : (Array.isArray(provider?.documents?.services) ? provider.documents.services : []);
+
+  // If no specialties found in either location, provider doesn't match
   if (spec.length === 0 && primary.length === 0 && services.length === 0) return false;
 
   const providerTags = [...spec, ...primary, ...services].map(normalizeValue).filter(Boolean);
+  const canonicalProvider = buildCanonicalSet(providerTags);
 
-  return providerTags.some((tag) =>
-    wants.some((want) =>
-      tag === want ||
-      tag.includes(want) ||
-      want.includes(tag) ||
-      hasTokenIntersection(tag, want)
-    )
+  for (const wanted of canonicalWanted) {
+    if (canonicalProvider.has(wanted)) return true;
+  }
+
+  // Fallback broad matching for mixed legacy values.
+  return providerTags.some((tag) => {
+    for (const wanted of canonicalWanted) {
+      if (tag === wanted) return true;
+      if (tag.includes(wanted) || wanted.includes(tag)) return true;
+      if (hasTokenIntersection(tag, wanted)) return true;
+    }
+    return false;
+  });
+}
+
+/**
+ * Optimized AND-based matching for multiple services.
+ * Ensures a provider is capable of performing ALL requested services.
+ * 
+ * @param {Object} provider - The provider document
+ * @param {string[]} requestedServiceIds - List of service IDs from cart
+ * @param {Object[]} [preFetchedServiceData] - Optional pre-fetched [id, category] pairs to avoid redundant DB calls
+ */
+export async function providerMatchesAllServiceIds(provider, requestedServiceIds = [], preFetchedServiceData = null) {
+  if (!requestedServiceIds || requestedServiceIds.length === 0) return true;
+
+  const normalizedRequested = requestedServiceIds.map(s => String(s).trim()).filter(Boolean);
+  if (normalizedRequested.length === 0) return true;
+
+  // 1. Prepare provider skill sets
+  const pServices = new Set(
+    (Array.isArray(provider?.documents?.services) ? provider.documents.services : 
+    (Array.isArray(provider?.services) ? provider.services : []))
+    .map(s => String(s).trim())
   );
+  
+  const pCats = new Set([
+    ...(Array.isArray(provider?.documents?.primaryCategory) ? provider.documents.primaryCategory : []),
+    ...(Array.isArray(provider?.documents?.specializations) ? provider.documents.specializations : []),
+    ...(Array.isArray(provider?.serviceTypes) ? provider.serviceTypes : []),
+    ...(Array.isArray(provider?.categories) ? provider.categories : [])
+  ].map(c => String(c).trim()));
+
+  // 2. Resolve Service-to-Category mapping
+  let serviceData = preFetchedServiceData;
+  if (!serviceData) {
+    try {
+      const { Service } = await import("../models/Content.js");
+      serviceData = await Service.find({ id: { $in: normalizedRequested } }).select("id category").lean();
+    } catch (err) {
+      console.error("[ServiceMatching] Fallback to basic matching due to DB error:", err.message);
+      serviceData = []; 
+    }
+  }
+
+  // 3. Strict AND check: For EVERY requested service, provider must have either the ID or the Category
+  return normalizedRequested.every(sId => {
+    // A. Direct match on Service ID
+    if (pServices.has(sId)) return true;
+
+    // B. Fallback match on Category ID
+    const sInfo = Array.isArray(serviceData) ? serviceData.find(d => d.id === sId) : null;
+    if (sInfo && sInfo.category && pCats.has(String(sInfo.category).trim())) return true;
+
+    // C. Fail-Safe: If we can't find service info in DB, we "Fail-Open" ONLY if the provider 
+    // has any category that matches the general request (to avoid blocking bookings during DB blips)
+    if (!sInfo && pCats.size > 0) return true; 
+
+    return false;
+  });
 }
 

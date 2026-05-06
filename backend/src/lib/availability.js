@@ -3,7 +3,7 @@ import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import mongoose from "mongoose";
 import { redis } from "../startup/redis.js";
-import { DEFAULT_TIME_SLOTS, defaultSlotsMap, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes } from "./slots.js";
+import { DEFAULT_TIME_SLOTS, defaultSlotsMap, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes, isTimeInWindow } from "./slots.js";
 import { isoDateToLocalEnd, isoDateToLocalStart, toIsoDateFromAny, getIndiaDate } from "./isoDateTime.js";
 
 async function getVersion(providerId, date) {
@@ -30,6 +30,19 @@ export async function invalidateProviderSlots(providerId, dates = []) {
       await redis.incr(`slots:ver:${providerId}:${d}`);
     } catch {}
   }
+}
+
+export async function invalidateProviderSlotsForNextDays(providerId, days = 30, fromDate = new Date()) {
+  const safeDays = Math.max(Number(days || 0), 0);
+  if (!providerId || safeDays <= 0) return;
+  const dates = [];
+  const base = new Date(fromDate);
+  for (let i = 0; i < safeDays; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  await invalidateProviderSlots(providerId, dates);
 }
 
 export async function computeAvailableSlots(providerId, date, settings, opts = {}) {
@@ -66,6 +79,17 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   }
 
   const availDoc = await ProviderDayAvailability.findOne({ providerId, date }).lean();
+  
+  // Explicit Blocked Provider Check (as requested)
+  // Although usually handled in routes, this adds an extra layer of safety.
+  const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
+  const provCheck = await ProviderAccount.findById(providerId).select("approvalStatus").lean();
+  if (provCheck && provCheck.approvalStatus === "blocked") {
+    const slotMap = {};
+    DEFAULT_TIME_SLOTS.forEach((s) => { slotMap[s] = false; });
+    return { date, slots: [], slotMap, reason: "provider_blocked" };
+  }
+
   // FIXED: Treat empty array as "no availability set" and default to TRUE
   const baseMap = (availDoc && availDoc.availableSlots && availDoc.availableSlots.length > 0)
     ? (() => {
@@ -76,7 +100,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
       }
       return m;
     })()
-    : defaultSlotsMap();
+    : defaultSlotsMap(settings?.serviceStartTime || settings?.startTime, settings?.serviceEndTime || settings?.endTime);
 
   const excludeBookingId = opts.excludeBookingId ? String(opts.excludeBookingId) : null;
   if (excludeBookingId) {
@@ -165,12 +189,26 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
       const hm = parseSlotLabelToHM(s);
       if (hm) {
         const slotMin = hm.hour * 60 + hm.minute;
-        // Strict enforcement of Admin Office Hours
-        if (slotMin < windowStartMin || slotMin > windowEndMin) ok = false;
+        if (!isTimeInWindow(slotMin, windowStartMin, windowEndMin)) ok = false;
         
         if (ok && requestedDurationMinutes > 0) {
           const requiredEndMin = slotMin + requestedDurationMinutes + bufferMin;
-          if (requiredEndMin > windowEndMin) ok = false;
+          // For overnight windows, the end time enforcement is slightly more complex.
+          // But for now, we enforce that the service must finish within the (possibly wrapped) window.
+          if (windowStartMin <= windowEndMin) {
+            if (requiredEndMin > windowEndMin) ok = false;
+          } else {
+            // In overnight case, if it started after windowStartMin, it can go up to windowEndMin (next day)
+            // If it started before windowEndMin, it must finish before windowEndMin
+            if (slotMin >= windowStartMin) {
+               // Service starts late night, can cross midnight but must end before next day's windowEndMin
+               // (Technically 1440 + windowEndMin is the boundary)
+               if (requiredEndMin > (1440 + windowEndMin)) ok = false;
+            } else {
+               // Service starts early morning, must end before windowEndMin
+               if (requiredEndMin > windowEndMin) ok = false;
+            }
+          }
         }
       }
     }
