@@ -421,10 +421,10 @@ const ExplorePage = () => {
                                     </div>
 
                                     <div className="flex items-center justify-between gap-1 mt-auto pt-2">
-                                        <div className="flex items-center gap-1 min-w-0 flex-shrink">
-                                            <span className="text-base font-black text-primary truncate">₹{service.price}</span>
+                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                            <span className="text-base font-black text-primary">₹{service.price}</span>
                                             {service.originalPrice && (
-                                                <span className="text-[10px] text-muted-foreground line-through opacity-60 font-bold truncate">₹{service.originalPrice}</span>
+                                                <span className="text-[10px] text-muted-foreground line-through opacity-60 font-bold">₹{service.originalPrice}</span>
                                             )}
                                         </div>
                                         {(() => {

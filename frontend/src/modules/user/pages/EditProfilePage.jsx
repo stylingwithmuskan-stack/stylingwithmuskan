@@ -85,7 +85,6 @@ const EditProfilePage = () => {
                             ref={fileInputRef}
                             onChange={handleImageChange}
                             accept="image/*"
-                            capture="user"
                             className="hidden"
                         />
                         <div className={`w-24 h-24 rounded-full bg-gradient-theme flex items-center justify-center shadow-xl p-1 transition-all ${selectedFile ? 'scale-105 ring-4 ring-primary/20' : ''}`}>

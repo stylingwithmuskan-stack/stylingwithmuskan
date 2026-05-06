@@ -13,7 +13,7 @@ import {
 import { Button } from "@/modules/user/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
 import { Badge } from "@/modules/user/components/ui/badge";
-import { Wallet, Plus, ArrowDownRight, ArrowUpRight, Ban, ArrowLeft } from "lucide-react";
+import { Wallet, Plus, ArrowDownRight, ArrowUpRight, Ban, ArrowLeft, Filter } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LeadCreditManager() {
@@ -263,6 +263,17 @@ export default function LeadCreditManager() {
         </div>
     );
 
+    const [filterType, setFilterType] = useState("all");
+
+    const getFilteredTransactions = () => {
+        if (filterType === "all") return transactions;
+        if (filterType === "in") return filterDocs("Recharge");
+        if (filterType === "out") return filterDocs("Expense");
+        if (filterType === "ref") return filterDocs("Refund");
+        if (filterType === "pen") return filterDocs("Penalty");
+        return transactions;
+    };
+
     return (
         <div className="flex flex-1 w-full flex-col gap-6 pt-4 md:pt-0">
             <div className="flex items-center gap-3">
@@ -274,14 +285,14 @@ export default function LeadCreditManager() {
                 </button>
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Credits & Leads</h1>
-                    <p className="text-muted-foreground">Manage your wallet balance and review transactions.</p>
+                    <p className="text-muted-foreground text-sm">Manage your wallet balance and review transactions.</p>
                 </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-[1fr_2fr]">
                 <Card className="h-max bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-background">
                     <CardHeader>
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
                             <Wallet className="h-4 w-4 text-purple-600" />
                             Wallet Balance
                         </CardTitle>
@@ -293,16 +304,16 @@ export default function LeadCreditManager() {
                         <p className="text-xs text-muted-foreground mt-2">1 CR = ₹1.00</p>
                     </CardContent>
                     <CardFooter className="flex flex-col gap-2">
-                        <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setIsRechargeModalOpen(true)} disabled={rechargeBusy}>
+                        <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl h-12" onClick={() => setIsRechargeModalOpen(true)} disabled={rechargeBusy}>
                             <Plus className="mr-2 h-4 w-4" /> Recharge Credits
                         </Button>
 
                         {import.meta.env.DEV && (
                             <div className="w-full flex gap-2 mt-4 pt-4 border-t">
-                                <Button variant="outline" size="sm" className="w-full text-xs" onClick={handleBuyLead}>
+                                <Button variant="outline" size="sm" className="w-full text-xs font-bold" onClick={handleBuyLead}>
                                     Test Buy
                                 </Button>
-                                <Button variant="outline" size="sm" className="w-full text-xs" onClick={handleRefund}>
+                                <Button variant="outline" size="sm" className="w-full text-xs font-bold" onClick={handleRefund}>
                                     Test Refund
                                 </Button>
                             </div>
@@ -310,27 +321,29 @@ export default function LeadCreditManager() {
                     </CardFooter>
                 </Card>
 
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle>Transaction History</CardTitle>
-                        <CardDescription>A complete log of your wallet activity.</CardDescription>
+                <Card className="border-none shadow-sm ring-1 ring-border">
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                        <div className="flex-1 mr-2 overflow-hidden">
+                            <CardTitle className="text-base sm:text-lg font-bold whitespace-nowrap">Transaction History</CardTitle>
+                            <CardDescription className="text-xs hidden sm:block">A complete log of your wallet activity.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2 bg-muted/50 px-3 py-2 rounded-xl border border-border">
+                            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+                            <select 
+                                value={filterType}
+                                onChange={(e) => setFilterType(e.target.value)}
+                                className="bg-transparent border-none text-[11px] font-black uppercase tracking-tight focus:ring-0 outline-none cursor-pointer"
+                            >
+                                <option value="all">All Records</option>
+                                <option value="in">Recharges</option>
+                                <option value="out">Expenses</option>
+                                <option value="ref">Refunds</option>
+                                <option value="pen">Penalties</option>
+                            </select>
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <Tabs defaultValue="all" className="w-full">
-                            <TabsList className="grid w-full grid-cols-5 mb-4 max-w-[400px]">
-                                <TabsTrigger value="all">All</TabsTrigger>
-                                <TabsTrigger value="in">Recharges</TabsTrigger>
-                                <TabsTrigger value="out">Expenses</TabsTrigger>
-                                <TabsTrigger value="ref">Refunds</TabsTrigger>
-                                <TabsTrigger value="pen">Penalties</TabsTrigger>
-                            </TabsList>
-
-                            <TabsContent value="all">{renderTransactionList(transactions)}</TabsContent>
-                            <TabsContent value="in">{renderTransactionList(filterDocs("Recharge"))}</TabsContent>
-                            <TabsContent value="out">{renderTransactionList(filterDocs("Expense"))}</TabsContent>
-                            <TabsContent value="ref">{renderTransactionList(filterDocs("Refund"))}</TabsContent>
-                            <TabsContent value="pen">{renderTransactionList(filterDocs("Penalty"))}</TabsContent>
-                        </Tabs>
+                    <CardContent className="pt-2">
+                        {renderTransactionList(getFilteredTransactions())}
                     </CardContent>
                 </Card>
             </div>

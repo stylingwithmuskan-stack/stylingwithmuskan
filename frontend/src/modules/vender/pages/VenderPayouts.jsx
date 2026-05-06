@@ -79,8 +79,8 @@ export default function VenderPayouts() {
     return (
         <div className="space-y-6">
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-                <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
-                    <Wallet className="h-7 w-7 text-primary" /> Payouts & Commission
+                <h1 className="text-lg sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 whitespace-nowrap">
+                    <Wallet className="h-5 w-5 sm:h-7 sm:w-7 text-primary shrink-0" /> Payouts & Commission
                 </h1>
                 <p className="text-sm text-muted-foreground font-medium mt-1">Track earnings and manage payouts</p>
             </motion.div>

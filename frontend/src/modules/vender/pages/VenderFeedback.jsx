@@ -77,8 +77,8 @@ export default function VenderFeedback() {
             {/* Header */}
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
-                        <MessageSquare className="h-7 w-7 text-primary" /> Feedback Management
+                    <h1 className="text-lg sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 whitespace-nowrap">
+                        <MessageSquare className="h-5 w-5 sm:h-7 sm:w-7 text-primary shrink-0" /> Feedback Management
                     </h1>
                     <p className="text-sm text-muted-foreground font-medium mt-1">
                         Monitor and analyze customer reviews in <span className="text-primary font-bold">{vendor?.city}</span>
@@ -149,15 +149,15 @@ export default function VenderFeedback() {
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Search feedback content, provider or customer..."
-                        className="pl-9 rounded-xl h-12 bg-white ring-1 ring-border focus-visible:ring-primary shadow-sm"
+                        placeholder="Search feedback..."
+                        className="pl-9 rounded-xl h-12 bg-white ring-1 ring-border focus-visible:ring-primary shadow-sm text-sm"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 w-full md:w-auto">
                     <select
-                        className="h-12 px-4 rounded-xl bg-white border border-border text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                        className="h-12 w-full md:w-auto px-3 rounded-xl bg-white border border-border text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
                         value={ratingFilter}
                         onChange={(e) => setRatingFilter(e.target.value)}
                     >
@@ -167,11 +167,11 @@ export default function VenderFeedback() {
                         <option value="negative">Negative (1-2★)</option>
                     </select>
                     <select
-                        className="h-12 px-4 rounded-xl bg-white border border-border text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                        className="h-12 w-full md:w-auto px-3 rounded-xl bg-white border border-border text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
                         value={typeFilter}
                         onChange={(e) => setTypeFilter(e.target.value)}
                     >
-                        <option value="all">Check All Types</option>
+                        <option value="all">All Types</option>
                         <option value="customer_to_provider">By Customer</option>
                         <option value="provider_to_customer">By Provider</option>
                     </select>
@@ -238,10 +238,12 @@ export default function VenderFeedback() {
                                                     )}
                                                 </div>
 
-                                                <div className="flex flex-col items-end gap-2 shrink-0">
-                                                    <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">BK ID: {fb.bookingId}</p>
-                                                    <p className="text-[10px] font-bold text-muted-foreground">{new Date(fb.createdAt).toLocaleDateString()} {new Date(fb.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                                                    <Button variant="ghost" size="sm" className="h-8 rounded-lg text-primary hover:bg-primary/5 font-bold text-xs gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity mt-4">
+                                                <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 mt-2 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-border/40">
+                                                    <div className="flex flex-col sm:items-end gap-0.5">
+                                                        <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">BK ID: {fb.bookingId}</p>
+                                                        <p className="text-[10px] font-bold text-muted-foreground">{new Date(fb.createdAt).toLocaleDateString()} {new Date(fb.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                    </div>
+                                                    <Button variant="ghost" size="sm" className="h-8 rounded-lg text-primary hover:bg-primary/5 font-bold text-xs gap-1.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity sm:mt-4">
                                                         View Booking <ArrowUpRight className="h-3.5 w-3.5" />
                                                     </Button>
                                                 </div>
