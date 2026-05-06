@@ -14,6 +14,7 @@ import { validatePolygon } from "../../../lib/polygonValidation.js";
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 import ProviderWalletTxn from "../../../models/ProviderWalletTxn.js";
 import { canAssignProviderToBooking } from "../../../lib/assignment.js";
+import { providerMatchesAllServiceIds } from "../../../lib/serviceMatching.js";
 
 const DEFAULT_TZ = "Asia/Kolkata";
 
@@ -228,33 +229,29 @@ export async function getAvailableProvidersForBooking(req, res) {
   const booking = await Booking.findById(bookingId).lean();
   if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-  const city = booking.address?.city || "";
-  const cityId = booking.address?.cityId || "";
+  const city = (booking.address?.city || "").trim();
+  const cityId = (booking.address?.cityId || "").trim();
+  const zoneId = (booking.address?.zoneId || "").trim();
   
   let pQuery = {
     approvalStatus: "approved",
     registrationComplete: true,
   };
 
-  if (cityId) {
-    pQuery.cityId = cityId;
-  } else if (city) {
+  // Lenient city matching: Match by cityId OR city name
+  const cityMatch = [];
+  if (cityId) cityMatch.push({ cityId });
+  if (city) {
     const escaped = city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    pQuery.city = new RegExp(`^${escaped}`, "i");
+    cityMatch.push({ city: new RegExp(escaped, "i") });
   }
 
-  const zoneId = booking.address?.zoneId || "";
-  const area = (booking.address?.area || booking.address?.zone || "").trim();
-
-  // For Admin manual assignment, we relax the zone filter.
-  // We only apply it if we have a specific zoneId from the booking.
-  if (zoneId) {
-    pQuery.$or = [
-      { serviceZoneIds: zoneId },
-      { zoneIds: zoneId },
-      { baseZoneId: zoneId }
-    ];
+  if (cityMatch.length > 0) {
+    pQuery.$or = cityMatch;
   }
+
+  // NOTE: We removed the strict zoneId filter from the query to ensure admins can see all city providers.
+  // This helps when providers are misconfigured or when admins want to override zone boundaries.
 
   const allProviders = await ProviderAccount.find(pQuery).lean();
   
@@ -266,7 +263,24 @@ export async function getAvailableProvidersForBooking(req, res) {
       booking,
       { ignoreLeadTime: true }
     );
+
     if (isAvailable) {
+      // Check specialty match
+      // eslint-disable-next-line no-await-in-loop
+      const matchesSpecialty = await providerMatchesAllServiceIds(
+        provider, 
+        (booking.services || booking.items || []).map(s => s.id).filter(Boolean)
+      );
+
+      // Check zone match
+      const pZoneIds = [
+        ...(provider.serviceZoneIds || []),
+        ...(provider.zoneIds || []),
+        provider.baseZoneId
+      ].filter(Boolean).map(id => String(id));
+      
+      const inZone = zoneId ? pZoneIds.includes(zoneId) : true;
+
       availableProviders.push({
         _id: provider._id,
         name: provider.name,
@@ -274,9 +288,24 @@ export async function getAvailableProvidersForBooking(req, res) {
         rating: provider.rating || 0,
         totalJobs: provider.totalJobs || 0,
         credits: provider.credits || 0,
+        specialties: [
+          ...(provider.documents?.primaryCategory || []),
+          ...(provider.documents?.specializations || []),
+          ...(provider.primaryCategory || []),
+          ...(provider.specializations || []),
+        ],
+        inZone,
+        matchesSpecialty,
       });
     }
   }
+
+  // Sort: In-Zone & Specialty Match providers first
+  availableProviders.sort((a, b) => {
+    if (a.inZone !== b.inZone) return a.inZone ? -1 : 1;
+    if (a.matchesSpecialty !== b.matchesSpecialty) return a.matchesSpecialty ? -1 : 1;
+    return (b.rating || 0) - (a.rating || 0);
+  });
   
   res.json({ availableProviders });
 }

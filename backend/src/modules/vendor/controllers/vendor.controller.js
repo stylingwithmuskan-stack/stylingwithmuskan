@@ -20,6 +20,7 @@ import { OfficeSettings } from "../../../models/Content.js";
 import { canAssignProviderToBooking } from "../../../lib/assignment.js";
 import { invalidateProviderSlots } from "../../../lib/availability.js";
 import { belongsToCity, ensureCityAndZoneNames, locationOutOfZoneMessage, resolveServiceLocation } from "../../../lib/locationResolution.js";
+import { providerMatchesAllServiceIds } from "../../../lib/serviceMatching.js";
 
 // Helper function to create default availability for provider (30 days)
 async function createDefaultProviderAvailability(providerId) {
@@ -773,39 +774,31 @@ export async function getAvailableProvidersForBooking(req, res) {
   const booking = await Booking.findById(bookingId).lean();
   if (!booking) return res.status(404).json({ error: "Booking not found" });
   
-  // Get all providers in vendor's city
-  const city = vendor.city || "";
-  const cityId = vendor.cityId || "";
+  const city = (vendor.city || "").trim();
+  const cityId = (vendor.cityId || "").trim();
+  const bookingZoneId = (booking.address?.zoneId || "").trim();
   
-  let pQuery = {};
-  if (cityId) {
-    pQuery = { cityId };
-  } else if (city) {
-    pQuery = { city: new RegExp(`^${escapeRegex(city)}`, "i") };
+  let pQuery = {
+    approvalStatus: "approved",
+    registrationComplete: true,
+  };
+
+  // Lenient city matching: Match by cityId OR city name
+  const cityMatch = [];
+  if (cityId) cityMatch.push({ cityId });
+  if (city) {
+    cityMatch.push({ city: new RegExp(escapeRegex(city), "i") });
+  }
+
+  if (cityMatch.length > 0) {
+    pQuery.$or = cityMatch;
   } else {
     return res.json({ availableProviders: [] });
   }
 
-  const zoneId = booking.address?.zoneId || "";
-  const area = booking.address?.area || booking.address?.zone || "";
-  if (zoneId) {
-    pQuery.$or = [
-      { serviceZoneIds: zoneId },
-      { zoneIds: zoneId },
-      { baseZoneId: zoneId }
-    ];
-  } else if (area) {
-    const escapedArea = area.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    pQuery.zones = { $in: [new RegExp(`^${escapedArea}$`, "i")] };
-  }
+  // We relax the zone filter for vendor assignment as well.
+  const allProviders = await ProviderAccount.find(pQuery).lean();
   
-  const allProviders = await ProviderAccount.find({
-    ...pQuery,
-    approvalStatus: "approved",
-    registrationComplete: true,
-  }).lean();
-  
-  // Filter providers who are available for this booking's slot
   const availableProviders = [];
   for (const provider of allProviders) {
     // eslint-disable-next-line no-await-in-loop
@@ -814,7 +807,24 @@ export async function getAvailableProvidersForBooking(req, res) {
       booking,
       { ignoreLeadTime: true }
     );
+
     if (isAvailable) {
+      // Check specialty match
+      // eslint-disable-next-line no-await-in-loop
+      const matchesSpecialty = await providerMatchesAllServiceIds(
+        provider, 
+        (booking.services || booking.items || []).map(s => s.id).filter(Boolean)
+      );
+
+      // Check zone match against booking location
+      const pZoneIds = [
+        ...(provider.serviceZoneIds || []),
+        ...(provider.zoneIds || []),
+        provider.baseZoneId
+      ].filter(Boolean).map(id => String(id));
+      
+      const inZone = bookingZoneId ? pZoneIds.includes(bookingZoneId) : true;
+
       availableProviders.push({
         _id: provider._id,
         name: provider.name,
@@ -822,9 +832,24 @@ export async function getAvailableProvidersForBooking(req, res) {
         rating: provider.rating || 0,
         totalJobs: provider.totalJobs || 0,
         credits: provider.credits || 0,
+        specialties: [
+          ...(provider.documents?.primaryCategory || []),
+          ...(provider.documents?.specializations || []),
+          ...(provider.primaryCategory || []),
+          ...(provider.specializations || []),
+        ],
+        inZone,
+        matchesSpecialty,
       });
     }
   }
+
+  // Sort: In-Zone & Specialty Match providers first
+  availableProviders.sort((a, b) => {
+    if (a.inZone !== b.inZone) return a.inZone ? -1 : 1;
+    if (a.matchesSpecialty !== b.matchesSpecialty) return a.matchesSpecialty ? -1 : 1;
+    return (b.rating || 0) - (a.rating || 0);
+  });
   
   res.json({ availableProviders });
 }

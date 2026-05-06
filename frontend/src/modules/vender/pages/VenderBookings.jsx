@@ -955,7 +955,24 @@ export default function VenderBookings() {
                                                     <RefreshCw className="h-3 w-3 animate-spin" /> Fetching available professionals...
                                                 </div>
                                             ) : availableProviders.length > 0 ? availableProviders.map(p => (
-                                                <SelectItem key={p._id || p.id || p.phone} value={String(p._id || p.id || p.phone)}>{p.name} ({p.phone})</SelectItem>
+                                                <SelectItem key={p._id || p.id || p.phone} value={String(p._id || p.id || p.phone)}>
+                                                    <div className="flex flex-col">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="font-bold">{p.name}</span>
+                                                            {p.matchesSpecialty && (
+                                                                <Badge variant="outline" className="h-3.5 px-1 text-[7px] bg-emerald-50 text-emerald-600 border-emerald-200 font-black">
+                                                                    SKILL MATCH
+                                                                </Badge>
+                                                            )}
+                                                            {!p.inZone && (
+                                                                <Badge variant="outline" className="h-3.5 px-1 text-[7px] bg-amber-50 text-amber-600 border-amber-200 font-black">
+                                                                    OUT OF ZONE
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[10px] opacity-70">{p.phone}</span>
+                                                    </div>
+                                                </SelectItem>
                                             )) : (
                                                 <div className="p-4 text-center text-xs text-red-500 font-bold">
                                                     No providers available for this slot
@@ -1296,7 +1313,19 @@ export default function VenderBookings() {
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <div>
-                                                        <p className="text-sm font-black">{p.name}</p>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <p className="text-sm font-black">{p.name}</p>
+                                                            {p.matchesSpecialty && (
+                                                                <Badge variant="outline" className="h-3.5 px-1 text-[7px] bg-emerald-50 text-emerald-600 border-emerald-200 font-black">
+                                                                    MATCH
+                                                                </Badge>
+                                                            )}
+                                                            {!p.inZone && (
+                                                                <Badge variant="outline" className="h-3.5 px-1 text-[7px] bg-amber-50 text-amber-600 border-amber-200 font-black">
+                                                                    OUT ZONE
+                                                                </Badge>
+                                                            )}
+                                                        </div>
                                                         <p className="text-[10px] text-muted-foreground font-medium">{p.phone}</p>
                                                     </div>
                                                     <div className="text-right">
@@ -1307,10 +1336,15 @@ export default function VenderBookings() {
                                                         <p className="text-[9px] text-muted-foreground font-bold">{p.totalJobs || 0} jobs</p>
                                                     </div>
                                                 </div>
-                                                <div className="mt-2 pt-2 border-t border-border/50">
+                                                <div className="mt-2 pt-2 border-t border-border/50 flex justify-between items-center">
                                                     <p className="text-[9px] font-bold text-emerald-600 flex items-center gap-1">
                                                         <Wallet className="h-2.5 w-2.5" /> Wallet: ₹{p.credits || 0}
                                                     </p>
+                                                    {p.specialties && p.specialties.length > 0 && (
+                                                        <p className="text-[8px] text-muted-foreground font-medium italic truncate max-w-[150px]">
+                                                            {p.specialties.slice(0, 2).join(", ")}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </button>
                                         ))}

@@ -36,11 +36,9 @@ const ProviderLayout = () => {
 
   const navLinks = [
     { name: "Dashboard", path: "/provider/dashboard", icon: LayoutDashboard },
-    ...(provider?.approvalStatus === "approved" ? [
-      { name: "Bookings", path: "/provider/bookings", icon: CalendarRange },
-      { name: "Availability", path: "/provider/availability", icon: CalendarClock },
-      { name: "Performance", path: "/provider/performance", icon: BarChart2 },
-    ] : []),
+    { name: "Bookings", path: "/provider/bookings", icon: CalendarRange },
+    { name: "Availability", path: "/provider/availability", icon: CalendarClock },
+    { name: "Performance", path: "/provider/performance", icon: BarChart2 },
     { name: "Profile", path: "/provider/profile", icon: User },
   ];
 
@@ -103,53 +101,53 @@ const ProviderLayout = () => {
         {/* Mobile Header */}
         {!(location.pathname.includes("/notifications") || location.pathname.includes("/activity")) && (
           <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:hidden">
-          <Link to="/provider/profile" className="flex items-center gap-3 group max-w-[70%]">
-            <div className="relative shrink-0">
-              <img src={profileImage} alt="Logo" className="h-10 w-10 rounded-full object-cover border-2 border-primary/20 shadow-md" onError={(e) => { e.target.onerror = null; e.target.src = '/logo1.png' }} />
-              <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-white"></div>
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-[14px] font-bold leading-none text-gray-900 tracking-tight truncate">{name}</span>
-              <div className="flex items-center gap-1 mt-1">
-                <span className="text-[8px] font-black uppercase text-purple-600 tracking-[0.2em] leading-none">Professional</span>
+            <Link to="/provider/profile" className="flex items-center gap-3 group max-w-[70%]">
+              <div className="relative shrink-0">
+                <img src={profileImage} alt="Logo" className="h-10 w-10 rounded-full object-cover border-2 border-primary/20 shadow-md" onError={(e) => { e.target.onerror = null; e.target.src = '/logo1.png' }} />
+                <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-white"></div>
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[14px] font-bold leading-none text-gray-900 tracking-tight truncate">{name}</span>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-[8px] font-black uppercase text-purple-600 tracking-[0.2em] leading-none">Professional</span>
+                </div>
+              </div>
+            </Link>
+
+            {/* Right side icons */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  if (window.confirm("EMERGENCY: Do you want to trigger SOS alert?")) {
+                    api.sos.create({ userType: "beautician", userId: safeProvider?._id || safeProvider?.id || "sp_demo", source: "provider-app" })
+                      .then(() => alert("SOS Alert Sent! Emergency team notified."))
+                      .catch(() => alert("Failed to send SOS"));
+                  }
+                }}
+                className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
+                title="Emergency SOS"
+              >
+                <ShieldAlert className="h-5 w-5 animate-pulse" />
+              </button>
+              <Link to="/provider/credits" className="p-2 bg-purple-50 text-purple-600 rounded-full hover:bg-purple-100 transition-colors">
+                <Wallet className="h-5 w-5" />
+              </Link>
+              <div className="relative">
+                <button
+                  onClick={() => setIsNotifOpen(!isNotifOpen)}
+                  className={`p-2 rounded-full relative transition-all active:scale-90 ${isNotifOpen ? 'bg-primary/10 text-primary' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 h-3.5 w-3.5 bg-red-500 text-[8px] font-bold text-white flex items-center justify-center rounded-full border border-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
               </div>
             </div>
-          </Link>
-
-          {/* Right side icons */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                if (window.confirm("EMERGENCY: Do you want to trigger SOS alert?")) {
-                  api.sos.create({ userType: "beautician", userId: safeProvider?._id || safeProvider?.id || "sp_demo", source: "provider-app" })
-                    .then(() => alert("SOS Alert Sent! Emergency team notified."))
-                    .catch(() => alert("Failed to send SOS"));
-                }
-              }}
-              className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
-              title="Emergency SOS"
-            >
-              <ShieldAlert className="h-5 w-5 animate-pulse" />
-            </button>
-            <Link to="/provider/credits" className="p-2 bg-purple-50 text-purple-600 rounded-full hover:bg-purple-100 transition-colors">
-              <Wallet className="h-5 w-5" />
-            </Link>
-            <div className="relative">
-              <button 
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className={`p-2 rounded-full relative transition-all active:scale-90 ${isNotifOpen ? 'bg-primary/10 text-primary' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 h-3.5 w-3.5 bg-red-500 text-[8px] font-bold text-white flex items-center justify-center rounded-full border border-white">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
-            </div>
-          </div>
-        </header>
+          </header>
         )}
 
         <main className={`flex-1 items-start ${isProfilePage ? '' : 'p-4 sm:px-6 md:p-8'} pb-20 md:pb-8`}>

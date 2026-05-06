@@ -291,8 +291,8 @@ const BookingsPage = () => {
                                     // Strictly exclude customized bookings from normal tab
                                     if (isCustom) return false;
 
-                                    if (activeTab === "Upcoming") return s !== "completed";
-                                    if (activeTab === "Past") return s === "completed";
+                                    if (activeTab === "Upcoming") return !["completed", "cancelled"].includes(s);
+                                    if (activeTab === "Past") return ["completed", "cancelled"].includes(s);
                                     return false;
                                 })
                                 .map((booking, i) => (
@@ -371,7 +371,9 @@ const BookingsPage = () => {
                                                         ) : (
                                                             <div className="flex items-center gap-1.5 text-muted-foreground/50 italic">
                                                                 <Users className="w-3.5 h-3.5" />
-                                                                <span className="font-medium text-[10px] uppercase tracking-tighter">Assigning Expert...</span>
+                                                                <span className="font-medium text-[10px] uppercase tracking-tighter">
+                                                                    {booking.status?.toLowerCase() === 'cancelled' ? 'No Expert Assigned' : 'Assigning Expert...'}
+                                                                </span>
                                                             </div>
                                                         )}
                                                         </div>
@@ -439,7 +441,13 @@ const BookingsPage = () => {
                                                         </>
                                                     ) : (
                                                         <>
-                                                            {!booking.customerFeedbackSubmitted && (
+                                                            <button
+                                                                onClick={() => setDetailsBooking(booking)}
+                                                                className="h-10 px-4 rounded-xl bg-accent/50 text-primary text-[11px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 border border-primary/10"
+                                                            >
+                                                                Details
+                                                            </button>
+                                                            {!booking.customerFeedbackSubmitted && booking.status?.toLowerCase() === 'completed' && (
                                                                 <button onClick={() => setFeedbackBooking(booking)} className="h-10 px-4 rounded-xl border border-primary/20 bg-primary/5 text-primary text-[11px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-primary hover:text-white transition-all active:scale-95">
                                                                     <Star className="w-3.5 h-3.5 fill-current" /> Review
                                                                 </button>
@@ -471,8 +479,8 @@ const BookingsPage = () => {
                             // Strictly exclude customized bookings from normal tab
                             if (isCustom) return false;
 
-                            if (activeTab === "Upcoming") return s !== "completed";
-                            return s === "completed";
+                            if (activeTab === "Upcoming") return !["completed", "cancelled"].includes(s);
+                            return ["completed", "cancelled"].includes(s);
                         }).length === 0 && (
                             <div className="py-20 text-center">
                                 <div className="w-20 h-20 bg-accent rounded-full flex items-center justify-center mx-auto mb-4 scale-110">

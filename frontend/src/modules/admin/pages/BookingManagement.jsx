@@ -984,7 +984,19 @@ export default function BookingManagement() {
                                         ) : availableProviders.length > 0 ? availableProviders.map(p => (
                                             <SelectItem key={p._id || p.id || p.phone} value={String(p._id || p.id || p.phone)} className="rounded-lg">
                                                 <div className="flex flex-col py-0.5">
-                                                    <span className="font-bold text-sm">{p.name}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-sm">{p.name}</span>
+                                                        {p.matchesSpecialty && (
+                                                            <Badge variant="outline" className="h-4 px-1 text-[7px] bg-emerald-50 text-emerald-600 border-emerald-200 font-black">
+                                                                MATCHES SKILL
+                                                            </Badge>
+                                                        )}
+                                                        {!p.inZone && (
+                                                            <Badge variant="outline" className="h-4 px-1 text-[7px] bg-amber-50 text-amber-600 border-amber-200 font-black">
+                                                                OUT OF ZONE
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                     <span className="text-[10px] text-muted-foreground">
                                                         {p.phone} {formatProviderSpecialties(p) ? `• ${formatProviderSpecialties(p)}` : ""}
                                                     </span>

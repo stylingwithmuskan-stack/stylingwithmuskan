@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Send, CheckCircle2, Loader2, MessageSquare, X } from "lucide-react";
+import { Send, CheckCircle2, Loader2, MessageSquare, X, AlertCircle } from "lucide-react";
 import { io } from "socket.io-client";
+import { toast } from "sonner";
 import { Button } from "@/modules/user/components/ui/button";
 import { api, SOCKET_BASE_URL } from "@/modules/user/lib/api";
+import { safeStorage } from "@/modules/user/lib/safeStorage";
 
 export default function BookingChat({ bookingId, onClose }) {
     const [messages, setMessages] = useState([]);
@@ -33,10 +35,19 @@ export default function BookingChat({ bookingId, onClose }) {
         fetchHistory();
 
         // Initialize socket
-        const token = localStorage.getItem("swm_provider_token");
+        const token = safeStorage.getItem("swm_provider_token") || localStorage.getItem("swm_provider_token");
+        
+        if (!token) {
+            console.error("[Chat] No provider token found");
+            setLoading(false);
+            return;
+        }
+
         socketRef.current = io(`${SOCKET_BASE_URL}/booking-chat`, {
             auth: { token },
-            transports: ["polling", "websocket"]
+            transports: ["polling", "websocket"],
+            reconnectionAttempts: 5,
+            timeout: 10000
         });
 
         socketRef.current.on("connect", () => {
@@ -47,7 +58,8 @@ export default function BookingChat({ bookingId, onClose }) {
 
         socketRef.current.on("connect_error", (err) => {
             console.error("[Socket] Connection error:", err);
-            // Don't set connected to false immediately to allow retries
+            setConnected(false);
+            // toast.error("Chat connection failed. Please check your internet.");
         });
 
         socketRef.current.on("receive:message", (newMessage) => {
@@ -174,6 +186,9 @@ export default function BookingChat({ bookingId, onClose }) {
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         placeholder="Type message..."
+                        autoFocus
+                        autoComplete="off"
+                        autoCorrect="off"
                         className="w-full bg-gray-50 h-12 pl-5 pr-14 rounded-2xl border-none focus:ring-2 focus:ring-purple-500 text-[13px] font-bold transition-all outline-none"
                     />
                     <button

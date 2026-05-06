@@ -16,6 +16,7 @@ function normalizePhone(phone) {
 function parsePhones(raw) {
   return String(raw || "")
     .split(",")
+    .map((p) => p.trim())
     .map((p) => normalizePhone(p))
     .filter((p) => p.length > 0);
 }
