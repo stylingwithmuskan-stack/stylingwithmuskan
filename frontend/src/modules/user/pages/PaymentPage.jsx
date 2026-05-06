@@ -69,18 +69,18 @@ const PaymentPage = () => {
 
     const handlePayment = async () => {
         setError("");
-        
+
         // Check if COD is disabled for this user
         if (selectedMethod === "cod" && isCODDisabled) {
             setError("Pay After Service is disabled for your account. Please select another payment method.");
             return;
         }
-        
+
         setIsProcessing(true);
         try {
             const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
             console.log("[Payment] Razorpay Key Status:", rzpKey ? "Found" : "NOT FOUND");
-            
+
             if (!rzpKey) {
                 setError("Razorpay key is not configured in frontend.");
                 setIsProcessing(false);
@@ -114,7 +114,7 @@ const PaymentPage = () => {
                     setIsProcessing(false);
                     return;
                 }
-                
+
                 // Confirm the booking on the backend for COD
                 if (bookingId) {
                     try {
@@ -125,7 +125,7 @@ const PaymentPage = () => {
                         return;
                     }
                 }
-                
+
                 await finalizeSuccess();
                 return;
             }
@@ -340,13 +340,12 @@ const PaymentPage = () => {
                                 }
                             }}
                             disabled={method.disabled}
-                            className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${
-                                method.disabled
+                            className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${method.disabled
                                     ? "opacity-50 cursor-not-allowed bg-muted border-border/30"
                                     : selectedMethod === method.id
-                                    ? "bg-primary/5 border-primary shadow-lg shadow-primary/5"
-                                    : "bg-accent/40 border-transparent hover:border-border"
-                            }`}
+                                        ? "bg-primary/5 border-primary shadow-lg shadow-primary/5"
+                                        : "bg-accent/40 border-transparent hover:border-border"
+                                }`}
                         >
                             <div className="flex items-center gap-4">
                                 <div className={`w-12 h-12 rounded-xl ${method.bg} flex items-center justify-center transition-transform duration-500 ${selectedMethod === method.id && !method.disabled ? 'rotate-[360deg]' : ''}`}>
@@ -356,9 +355,8 @@ const PaymentPage = () => {
                                     {method.name}
                                 </span>
                             </div>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                                selectedMethod === method.id && !method.disabled ? "border-primary bg-primary" : "border-muted-foreground/30"
-                            }`}>
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedMethod === method.id && !method.disabled ? "border-primary bg-primary" : "border-muted-foreground/30"
+                                }`}>
                                 {selectedMethod === method.id && !method.disabled && <div className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                             </div>
                         </motion.button>
@@ -398,10 +396,10 @@ const PaymentPage = () => {
                             </div>
                         ) : (
                             <>
-                                {isCOD 
-                                    ? "CONFIRM BOOKING" 
-                                    : (advanceAmt > 0 
-                                        ? `PAY ADVANCE ₹${advanceAmt.toLocaleString()}` 
+                                {isCOD
+                                    ? "CONFIRM BOOKING"
+                                    : (advanceAmt > 0
+                                        ? `PAY ADVANCE ₹${advanceAmt.toLocaleString()}`
                                         : `SECURELY PAY ₹${finalTotal.toLocaleString()}`)}
                                 <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center group-hover:translate-x-1 transition-transform">
                                     <ChevronRight className="w-5 h-5 text-white" />
