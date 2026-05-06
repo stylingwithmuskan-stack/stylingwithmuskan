@@ -35,11 +35,12 @@ const ProviderLayout = () => {
 
   const navLinks = [
     { name: "Dashboard", path: "/provider/dashboard", icon: LayoutDashboard },
-    { name: "Bookings", path: "/provider/bookings", icon: CalendarRange },
-    { name: "Availability", path: "/provider/availability", icon: CalendarClock },
-    { name: "Performance", path: "/provider/performance", icon: BarChart2 },
+    ...(provider?.approvalStatus === "approved" ? [
+      { name: "Bookings", path: "/provider/bookings", icon: CalendarRange },
+      { name: "Availability", path: "/provider/availability", icon: CalendarClock },
+      { name: "Performance", path: "/provider/performance", icon: BarChart2 },
+    ] : []),
     { name: "Profile", path: "/provider/profile", icon: User },
-    // { name: "Admin", path: "/provider/admin", icon: Settings },
   ];
 
   const isActive = (path) => location.pathname === path;

@@ -145,6 +145,19 @@ export default function VenderBookings() {
     
     useEffect(() => { load(); }, [hydrated, isLoggedIn, page, tab, typeFilter, debouncedSearch]);
 
+    // Lock body scroll when any modal is open
+    useEffect(() => {
+        const isAnyModalOpen = !!(assignModal || teamAssignModal || reassignModal || escalatedAssignModal);
+        if (isAnyModalOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [assignModal, teamAssignModal, reassignModal, escalatedAssignModal]);
+
     const filtered = bookings.filter(b => {
         const matchSearch = b.customerName?.toLowerCase().includes(debouncedSearch.toLowerCase()) || b.id?.includes(debouncedSearch) || b.serviceType?.toLowerCase().includes(debouncedSearch.toLowerCase());
         const status = (b.status || "").toLowerCase();
@@ -558,7 +571,7 @@ export default function VenderBookings() {
                                                 {/* Booking Info */}
                                                 <div className="flex-1 min-w-0 w-full">
                                                     <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2">
-                                                        <span className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest truncate max-w-full sm:max-w-[100px]">#{booking.id.slice(-8)}</span>
+                                                        <span className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest truncate max-w-full sm:max-w-[100px]">#{booking.id.slice(-6)}</span>
                                                         <Badge variant="outline" className={`text-[8px] md:text-[9px] font-black px-1.5 py-0 h-4 border shrink-0 ${statusColors[booking.status] || ""}`}>
                                                             {(booking.status || "").replace(/_/g, " ")}
                                                         </Badge>
@@ -738,7 +751,7 @@ export default function VenderBookings() {
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Reference</p>
                                         <div className="flex items-center gap-2">
-                                            <p className="text-sm font-black">#{assignModal.id?.slice(-8)}</p>
+                                            <p className="text-sm font-black">#{assignModal.id?.slice(-6)}</p>
                                             {assignModal.bookingType && (
                                                 <Badge variant="secondary" className="text-[8px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 font-black uppercase tracking-tighter">
                                                     {assignModal.bookingType}

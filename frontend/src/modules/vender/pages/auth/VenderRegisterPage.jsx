@@ -20,6 +20,37 @@ export default function VenderRegisterPage() {
     const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
+    const [timer, setTimer] = useState(0);
+    const [canResend, setCanResend] = useState(false);
+
+    useEffect(() => {
+        let interval;
+        if (isOtpModalOpen && timer > 0) {
+            interval = setInterval(() => {
+                setTimer(prev => prev - 1);
+            }, 1000);
+        } else if (timer === 0) {
+            setCanResend(true);
+            clearInterval(interval);
+        }
+        return () => clearInterval(interval);
+    }, [isOtpModalOpen, timer]);
+
+    const handleResendOtp = async () => {
+        setLoading(true);
+        try {
+            const res = await registerRequest(form.phone);
+            if (res?.success) {
+                setTimer(30);
+                setCanResend(false);
+                toast.success("OTP resent successfully");
+            }
+        } catch (err) {
+            toast.error(err.message || "Failed to resend OTP");
+        } finally {
+            setLoading(false);
+        }
+    };
     
     const [cities, setCities] = useState([]);
     const [zones, setZones] = useState([]);
@@ -77,8 +108,10 @@ export default function VenderRegisterPage() {
             toast.error("Please enter your name");
             return;
         }
-        if (!/^\S+@\S+\.\S+$/.test(form.email)) {
-            toast.error("Please enter a valid email address");
+        const emailRegex = /^[^\s@]+@[^\s@]+\.(com|net|org|edu|gov|mil|in|uk|us|ca|au|de|jp|fr|it|ru|br|cn|nl|se|no|es|mx|za|nz|sg|hk|ae|sa|eg|pk|bd|my|th|vn|id|ph|kr|tw|tr|pl|ua|ro|cz|be|gr|pt|hu|at|ch|dk|fi|ie|il|ar|cl|co\.in|co\.uk|co\.za|ac\.in|edu\.in|gov\.in|org\.in|net\.in|info|biz|io|app|dev|tech|online|site|store|shop|xyz|pro|name|mobi|asia|tel|travel|jobs|cat|aero|coop|museum)$/i;
+        const isTypo = /@(gnail\.com|gmil\.com|gmal\.com|gmail\.con)$/i.test(form.email.trim());
+        if (!form.email.trim() || !emailRegex.test(form.email) || isTypo) {
+            toast.error("Please enter a valid email address (e.g., name@gmail.com)");
             return;
         }
         if (!/^[6-9]\d{9}$/.test(form.phone)) {
@@ -99,6 +132,8 @@ export default function VenderRegisterPage() {
             const res = await registerRequest(form.phone);
             if (res?.success) {
                 setOtpDeliveryMode(res?.deliveryMode || "sms");
+                setTimer(30);
+                setCanResend(false);
                 setIsOtpModalOpen(true);
                 toast.success(res?.message || "OTP sent to your mobile number");
             }
@@ -366,6 +401,17 @@ export default function VenderRegisterPage() {
                                     className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white shadow-lg shadow-emerald-200">
                                     {loading ? "Verifying..." : "Verify & Submit"}
                                 </Button>
+                                <div className="text-center">
+                                    {canResend ? (
+                                        <button type="button" onClick={handleResendOtp} disabled={loading} className="text-xs font-bold text-emerald-600 hover:underline">
+                                            Resend OTP
+                                        </button>
+                                    ) : (
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                            Resend in {timer}s
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </motion.div>
                     </div>

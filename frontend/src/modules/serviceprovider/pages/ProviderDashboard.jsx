@@ -136,6 +136,27 @@ const ProviderDashboard = () => {
 
     const availableHours = summary?.calendar?.availableHoursToday ?? null;
 
+    if (provider?.approvalStatus === "pending") {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[70vh] text-center p-8 bg-white rounded-[32px] shadow-sm border border-violet-50">
+                <div className="w-24 h-24 bg-violet-50 rounded-[32px] flex items-center justify-center mb-8 shadow-inner">
+                    <Clock className="h-12 w-12 text-violet-600 animate-pulse" />
+                </div>
+                <h1 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">Pending for Admin Approval</h1>
+                <p className="text-gray-500 font-medium text-base leading-relaxed mb-10 max-w-md mx-auto">
+                    Thanks for joining SWM! Our admin team is currently reviewing your registration request. You'll receive a notification once approved.
+                </p>
+                <Button 
+                    onClick={() => handleRefresh()} 
+                    disabled={loading}
+                    className="h-14 px-10 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl font-black text-lg shadow-xl shadow-violet-100 transition-all hover:scale-[1.02]"
+                >
+                    {loading ? <RefreshCw className="h-6 w-6 animate-spin" /> : "Refresh Status"}
+                </Button>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-1 w-full flex-col gap-4 md:gap-8 pt-4 md:pt-0 pb-20">
             {/* Header with Zone Filter */}

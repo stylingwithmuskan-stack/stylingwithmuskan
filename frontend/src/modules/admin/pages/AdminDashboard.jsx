@@ -273,14 +273,14 @@ export default function AdminDashboard() {
     };
 
     const statCards = [
-        { title: "Total Revenue", value: `₹${(stats.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, color: "from-indigo-500/20 to-indigo-500/5", iconBg: "bg-indigo-500/20 text-indigo-400", trend: formatTrend(stats.trends?.revenue), up: (stats.trends?.revenue || 0) >= 0 },
-        { title: "Commission Earned", value: `₹${(stats.commissionEarned || 0).toLocaleString()}`, icon: Percent, color: "from-purple-500/20 to-purple-500/5", iconBg: "bg-purple-500/20 text-purple-400", trend: formatTrend(stats.trends?.commission), up: (stats.trends?.commission || 0) >= 0 },
-        { title: "Total Bookings", value: stats.totalBookings || 0, icon: CalendarRange, color: "from-blue-500/20 to-blue-500/5", iconBg: "bg-blue-500/20 text-blue-400", badge: stats.activeBookings ? `${stats.activeBookings} active` : null, trend: formatTrend(stats.trends?.bookings), up: (stats.trends?.bookings || 0) >= 0 },
-        { title: "Active SPs", value: stats.activeSPs || 0, icon: Users, color: "from-emerald-500/20 to-emerald-500/5", iconBg: "bg-emerald-500/20 text-emerald-400", badge: stats.pendingSPs ? `${stats.pendingSPs} pending` : null },
-        { title: "Vendors", value: stats.totalVendors || 0, icon: Store, color: "from-teal-500/20 to-teal-500/5", iconBg: "bg-teal-500/20 text-teal-400" },
-        { title: "Customers", value: stats.customerCount || 0, icon: UserPlus, color: "from-pink-500/20 to-pink-500/5", iconBg: "bg-pink-500/20 text-pink-400", trend: formatTrend(stats.trends?.customers), up: (stats.trends?.customers || 0) >= 0 },
-        { title: "Cancellation Rate", value: `${stats.cancellationRate || 0}%`, icon: TrendingDown, color: "from-red-500/20 to-red-500/5", iconBg: "bg-red-500/20 text-red-400", trend: stats.cancellationRate > 15 ? "High" : "Normal", up: false },
-        { title: "SOS Alerts", value: stats.sosAlerts || 0, icon: ShieldAlert, color: stats.sosAlerts > 0 ? "from-red-500/20 to-red-500/5" : "from-green-500/20 to-green-500/5", iconBg: stats.sosAlerts > 0 ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400" },
+        { title: "Total Revenue", value: `₹${(stats.totalRevenue || 0).toLocaleString()}`, icon: IndianRupee, color: "from-indigo-500/20 to-indigo-500/5", iconBg: "bg-indigo-500/20 text-indigo-400", trend: formatTrend(stats.trends?.revenue), up: (stats.trends?.revenue || 0) >= 0, link: "/admin/finance" },
+        { title: "Commission Earned", value: `₹${(stats.commissionEarned || 0).toLocaleString()}`, icon: Percent, color: "from-purple-500/20 to-purple-500/5", iconBg: "bg-purple-500/20 text-purple-400", trend: formatTrend(stats.trends?.commission), up: (stats.trends?.commission || 0) >= 0, link: "/admin/finance" },
+        { title: "Total Bookings", value: stats.totalBookings || 0, icon: CalendarRange, color: "from-blue-500/20 to-blue-500/5", iconBg: "bg-blue-500/20 text-blue-400", badge: stats.activeBookings ? `${stats.activeBookings} active` : null, trend: formatTrend(stats.trends?.bookings), up: (stats.trends?.bookings || 0) >= 0, link: "/admin/bookings" },
+        { title: "Active SPs", value: stats.activeSPs || 0, icon: Users, color: "from-emerald-500/20 to-emerald-500/5", iconBg: "bg-emerald-500/20 text-emerald-400", badge: stats.pendingSPs ? `${stats.pendingSPs} pending` : null, link: "/admin/service-providers" },
+        { title: "Vendors", value: stats.totalVendors || 0, icon: Store, color: "from-teal-500/20 to-teal-500/5", iconBg: "bg-teal-500/20 text-teal-400", link: "/admin/vendors" },
+        { title: "Customers", value: stats.customerCount || 0, icon: UserPlus, color: "from-pink-500/20 to-pink-500/5", iconBg: "bg-pink-500/20 text-pink-400", trend: formatTrend(stats.trends?.customers), up: (stats.trends?.customers || 0) >= 0, link: "/admin/customers" },
+        { title: "Cancellation Rate", value: `${stats.cancellationRate || 0}%`, icon: TrendingDown, color: "from-red-500/20 to-red-500/5", iconBg: "bg-red-500/20 text-red-400", trend: stats.cancellationRate > 15 ? "High" : "Normal", up: false, link: "/admin/bookings" },
+        { title: "SOS Alerts", value: stats.sosAlerts || 0, icon: ShieldAlert, color: stats.sosAlerts > 0 ? "from-red-500/20 to-red-500/5" : "from-green-500/20 to-green-500/5", iconBg: stats.sosAlerts > 0 ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400", link: "/admin/sos" },
     ];
 
     return (
@@ -343,26 +343,28 @@ export default function AdminDashboard() {
                     const Icon = stat.icon;
                     return (
                         <motion.div key={stat.title} variants={item}>
-                            <Card className={`border-border/50 shadow-none bg-gradient-to-br ${stat.color} hover:border-primary/30 transition-all duration-300 cursor-default`}>
-                                <CardContent className="p-4">
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className={`h-9 w-9 rounded-xl ${stat.iconBg} flex items-center justify-center`}>
-                                            <Icon className="h-4 w-4" />
+                            <Link to={stat.link}>
+                                <Card className={`border-border/50 shadow-none bg-gradient-to-br ${stat.color} hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer group`}>
+                                    <CardContent className="p-4">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className={`h-9 w-9 rounded-xl ${stat.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                                                <Icon className="h-4 w-4" />
+                                            </div>
+                                            {stat.trend && (
+                                                <span className={`text-[10px] font-black flex items-center gap-0.5 ${stat.up ? "text-green-400" : "text-red-400"}`}>
+                                                    {stat.up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                                    {stat.trend}
+                                                </span>
+                                            )}
                                         </div>
-                                        {stat.trend && (
-                                            <span className={`text-[10px] font-black flex items-center gap-0.5 ${stat.up ? "text-green-400" : "text-red-400"}`}>
-                                                {stat.up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                                {stat.trend}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="text-xl font-black tracking-tight">{stat.value}</div>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{stat.title}</p>
-                                        {stat.badge && <Badge variant="outline" className="text-[7px] font-black px-1 py-0 h-3.5 border-primary/30 text-primary">{stat.badge}</Badge>}
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                        <div className="text-xl font-black tracking-tight">{stat.value}</div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{stat.title}</p>
+                                            {stat.badge && <Badge variant="outline" className="text-[7px] font-black px-1 py-0 h-3.5 border-primary/30 text-primary">{stat.badge}</Badge>}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </Link>
                         </motion.div>
                     );
                 })}

@@ -112,6 +112,27 @@ export default function VenderDashboard() {
     const heatmapData = Object.entries(stats.heatmap).sort((a, b) => b[1] - a[1]);
     const maxBookings = Math.max(...Object.values(stats.heatmap), 1);
 
+    if (vendor?.status === "pending") {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[70vh] text-center p-8 bg-white rounded-[32px] shadow-sm border border-emerald-50">
+                <div className="w-24 h-24 bg-emerald-50 rounded-[32px] flex items-center justify-center mb-8 shadow-inner">
+                    <Clock className="h-12 w-12 text-emerald-600 animate-pulse" />
+                </div>
+                <h1 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">Pending for Admin Approval</h1>
+                <p className="text-gray-500 font-medium text-base leading-relaxed mb-10 max-w-md mx-auto">
+                    Thanks for joining SWM! Our admin team is currently reviewing your registration request. You'll receive a notification once approved.
+                </p>
+                <Button 
+                    onClick={() => load()} 
+                    disabled={loading}
+                    className="h-14 px-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-lg shadow-xl shadow-emerald-100 transition-all hover:scale-[1.02]"
+                >
+                    {loading ? <RefreshCw className="h-6 w-6 animate-spin" /> : "Refresh Status"}
+                </Button>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-8 pb-20">
             {/* Header */}

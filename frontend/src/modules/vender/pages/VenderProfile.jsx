@@ -145,7 +145,7 @@ export default function VenderProfile() {
                                         <Shield className="h-2 w-2 md:h-2.5 md:w-2.5 mr-0.5 md:mr-1" /> Verified
                                     </Badge>
                                 </div>
-                                <p className="text-[10px] md:text-xs text-muted-foreground font-medium">ID: {vendor?._id?.toString().slice(-8).toUpperCase()}</p>
+                                <p className="text-[10px] md:text-xs text-muted-foreground font-medium">ID: {vendor?._id?.toString().slice(-6).toUpperCase()}</p>
                             </div>
                         </div>
                     </div>

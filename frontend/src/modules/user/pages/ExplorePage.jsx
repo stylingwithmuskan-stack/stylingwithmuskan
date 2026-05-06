@@ -404,6 +404,19 @@ const ExplorePage = () => {
                                         >
                                             <Heart className={`w-3.5 h-3.5 ${isInWishlist(service.id) ? "fill-primary text-primary" : "text-white"}`} />
                                         </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                shareContent({
+                                                    title: service.name,
+                                                    text: `Check out this amazing service: ${service.name} at Styling with Muskan!`,
+                                                    url: `${window.location.origin}/service/${service.id}`
+                                                });
+                                            }}
+                                            className="w-7 h-7 rounded-full glass-strong border border-white/20 flex items-center justify-center shadow-lg"
+                                        >
+                                            <Share2 className="w-3.5 h-3.5 text-white" />
+                                        </button>
                                     </div>
                                 </div>
 

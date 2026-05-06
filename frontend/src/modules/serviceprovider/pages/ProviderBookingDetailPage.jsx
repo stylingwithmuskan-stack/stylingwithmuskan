@@ -205,6 +205,19 @@ const ProviderBookingDetailPage = () => {
         };
     }, [trackingActive, bookingId]);
 
+    // Lock body scroll when any modal or chat is open
+    useEffect(() => {
+        const isAnyModalOpen = !!(showCancelConfirm || showEarlyStartWarning || showOTP || showComplete || showChat);
+        if (isAnyModalOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [showCancelConfirm, showEarlyStartWarning, showOTP, showComplete, showChat]);
+
     if (!booking) return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6">
             <h2 className="text-sm font-bold text-gray-500 uppercase mb-2 text-[10px] tracking-widest font-black">Booking Not Found</h2>

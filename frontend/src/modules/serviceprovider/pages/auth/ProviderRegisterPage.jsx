@@ -368,6 +368,9 @@ export default function ProviderRegisterPage() {
 
     // Camera capture state
     const [capturingField, setCapturingField] = useState(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [isVideoReady, setIsVideoReady] = useState(false);
+    const [cameraError, setCameraError] = useState("");
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const streamRef = useRef(null);

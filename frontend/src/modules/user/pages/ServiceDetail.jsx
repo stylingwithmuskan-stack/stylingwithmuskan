@@ -14,6 +14,7 @@ import { useCart } from "@/modules/user/contexts/CartContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import { api, API_BASE_URL } from "@/modules/user/lib/api";
+import { shareContent } from "@/modules/user/lib/utils";
 
 const ServiceDetail = () => {
   const { id } = useParams();
@@ -158,8 +159,11 @@ const ServiceDetail = () => {
     : 0;
 
   const handleShare = () => {
-    const shareText = encodeURIComponent(`Check out this amazing service: ${service.name} at Styling with Muskan!\n\n${window.location.href}`);
-    window.open(`https://wa.me/?text=${shareText}`, '_blank');
+    shareContent({
+      title: service.name,
+      text: `Check out this amazing service: ${service.name} at Styling with Muskan!`,
+      url: window.location.href,
+    });
   };
 
   const handleAddToCart = () => {

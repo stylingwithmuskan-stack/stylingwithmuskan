@@ -45,6 +45,11 @@ export default function BookingChat({ bookingId, onClose }) {
             socketRef.current.emit("join:chat", { bookingId });
         });
 
+        socketRef.current.on("connect_error", (err) => {
+            console.error("[Socket] Connection error:", err);
+            // Don't set connected to false immediately to allow retries
+        });
+
         socketRef.current.on("receive:message", (newMessage) => {
             setMessages((prev) => [...prev, newMessage]);
             scrollToBottom();
@@ -54,7 +59,8 @@ export default function BookingChat({ bookingId, onClose }) {
             console.error("[Socket] Chat error:", err);
         });
 
-        socketRef.current.on("disconnect", () => {
+        socketRef.current.on("disconnect", (reason) => {
+            console.log("[Socket] Disconnected:", reason);
             setConnected(false);
         });
 
@@ -68,7 +74,12 @@ export default function BookingChat({ bookingId, onClose }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!message.trim() || !connected) return;
+        if (!message.trim()) return;
+
+        if (!connected) {
+            toast.error("Connecting to chat server... please wait.");
+            return;
+        }
 
         const text = message.trim();
         socketRef.current.emit("send:message", { bookingId, message: text });
@@ -95,7 +106,7 @@ export default function BookingChat({ bookingId, onClose }) {
                     <div>
                         <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight">Chat with Customer</h3>
                         <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest flex items-center gap-1">
-                             <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-gray-300'}`} />
+                             <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-amber-500 animate-pulse'}`} />
                              {connected ? "Online" : "Connecting..."}
                         </p>
                     </div>
@@ -163,14 +174,13 @@ export default function BookingChat({ bookingId, onClose }) {
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         placeholder="Type message..."
-                        disabled={!connected}
-                        className="w-full bg-gray-50 h-12 pl-5 pr-14 rounded-2xl border-none focus:ring-2 focus:ring-purple-500 text-[13px] font-bold transition-all outline-none disabled:opacity-50"
+                        className="w-full bg-gray-50 h-12 pl-5 pr-14 rounded-2xl border-none focus:ring-2 focus:ring-purple-500 text-[13px] font-bold transition-all outline-none"
                     />
                     <button
                         type="submit"
-                        disabled={!message.trim() || !connected}
+                        disabled={!message.trim()}
                         className={`absolute right-1.5 top-1.5 h-9 w-9 flex items-center justify-center rounded-xl transition-all ${
-                            message.trim() && connected
+                            message.trim()
                                 ? "bg-purple-600 text-white shadow-lg"
                                 : "bg-gray-200 text-gray-400"
                         }`}

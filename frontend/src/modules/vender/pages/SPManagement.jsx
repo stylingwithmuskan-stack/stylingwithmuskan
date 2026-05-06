@@ -116,6 +116,18 @@ export default function SPManagement() {
         }
     };
 
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (selectedSP) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [selectedSP]);
+
     const statusConfig = {
         pending: { label: "Pending Vendor", color: "bg-amber-100 text-amber-700 border-amber-200" },
         pending_vendor: { label: "Pending Vendor", color: "bg-amber-100 text-amber-700 border-amber-200" },
@@ -351,7 +363,7 @@ export default function SPManagement() {
                                             <Badge variant="outline" className={`text-[9px] font-black ${(statusConfig[selectedSP.approvalStatus] || statusConfig.pending).color}`}>
                                                 {(statusConfig[selectedSP.approvalStatus] || statusConfig.pending).label}
                                             </Badge>
-                                            <span className="text-[10px] text-muted-foreground font-medium">ID: {selectedSP._id || selectedSP.id}</span>
+                                            <span className="text-[10px] text-muted-foreground font-medium">ID: {(selectedSP._id || selectedSP.id || "").toString().slice(-6).toUpperCase()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -392,8 +404,8 @@ export default function SPManagement() {
                                             <div className="bg-muted/30 rounded-xl p-3">
                                                 <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Primary Category</p>
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {selectedSP.documents?.primaryCategory?.length > 0 ? (
-                                                        selectedSP.documents.primaryCategory.map(cat => (
+                                                    {(selectedSP.documents?.primaryCategory || selectedSP.primaryCategory)?.length > 0 ? (
+                                                        (selectedSP.documents?.primaryCategory || selectedSP.primaryCategory).map(cat => (
                                                             <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-none">
                                                                 {cat}
                                                             </Badge>
@@ -406,8 +418,8 @@ export default function SPManagement() {
                                             <div className="bg-muted/30 rounded-xl p-3">
                                                 <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Sub Category</p>
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {selectedSP.documents?.specializations?.length > 0 ? (
-                                                        selectedSP.documents.specializations.map(spec => (
+                                                    {(selectedSP.documents?.specializations || selectedSP.specializations || selectedSP.subCategory)?.length > 0 ? (
+                                                        (selectedSP.documents?.specializations || selectedSP.specializations || selectedSP.subCategory).map(spec => (
                                                             <Badge key={spec} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
                                                                 {spec}
                                                             </Badge>
@@ -420,8 +432,8 @@ export default function SPManagement() {
                                             <div className="bg-muted/30 rounded-xl p-3">
                                                 <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Services</p>
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {selectedSP.documents?.services?.length > 0 ? (
-                                                        selectedSP.documents.services.map(svc => (
+                                                    {(selectedSP.documents?.services || selectedSP.services)?.length > 0 ? (
+                                                        (selectedSP.documents?.services || selectedSP.services).map(svc => (
                                                             <Badge key={svc} variant="outline" className="text-[10px] font-bold bg-green-50 text-green-700 border-green-200">
                                                                 {svc}
                                                             </Badge>
@@ -433,15 +445,15 @@ export default function SPManagement() {
                                             </div>
                                         </div>
                                         
-                                        {selectedSP.documents?.certifications?.length > 0 && (
+                                        {(selectedSP.documents?.certifications || selectedSP.certifications)?.length > 0 && (
                                             <div className="bg-muted/30 rounded-xl p-3">
                                                 <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Professional Certificates</p>
                                                 <div className="grid grid-cols-3 gap-2">
-                                                    {selectedSP.documents.certifications.map((cert, idx) => (
+                                                    {(selectedSP.documents?.certifications || selectedSP.certifications).map((cert, idx) => (
                                                         <div key={idx} className="aspect-square rounded-lg bg-muted overflow-hidden border border-border/50 relative group">
-                                                            <img src={cert} alt={`Cert ${idx}`} className="w-full h-full object-cover" />
+                                                            <img src={cert.data || cert} alt={`Cert ${idx}`} className="w-full h-full object-cover" />
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <Button size="sm" variant="secondary" className="h-6 w-6 p-0 rounded-full" onClick={() => window.open(cert, '_blank')}>
+                                                                <Button size="sm" variant="secondary" className="h-6 w-6 p-0 rounded-full" onClick={() => window.open(cert.data || cert, '_blank')}>
                                                                     <Eye className="h-3 w-3" />
                                                                 </Button>
                                                             </div>
@@ -473,14 +485,14 @@ export default function SPManagement() {
                                                             <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><Users className="h-6 w-6" /></div>
                                                         )
                                                     ) : (
-                                                        selectedSP.documents?.[doc.key] ? (
-                                                            <img src={selectedSP.documents[doc.key]} alt={doc.label} className="w-full h-full object-cover" />
+                                                        (selectedSP.documents?.[doc.key] || selectedSP[doc.key]) ? (
+                                                            <img src={selectedSP.documents?.[doc.key] || selectedSP[doc.key]} alt={doc.label} className="w-full h-full object-cover" />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><FileText className="h-6 w-6" /></div>
                                                         )
                                                     )}
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <Button size="sm" variant="secondary" className="h-7 text-[10px] font-bold" onClick={() => window.open(doc.isProfile ? selectedSP.profilePhoto : selectedSP.documents?.[doc.key], '_blank')}>View Large</Button>
+                                                        <Button size="sm" variant="secondary" className="h-7 text-[10px] font-bold" onClick={() => window.open(doc.isProfile ? selectedSP.profilePhoto : (selectedSP.documents?.[doc.key] || selectedSP[doc.key]), '_blank')}>View Large</Button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -498,7 +510,7 @@ export default function SPManagement() {
                                                     <Shield className="h-3.5 w-3.5 text-muted-foreground" /> {doc.label}
                                                 </span>
                                                 <span className="text-[12px] font-bold">
-                                                    {selectedSP.documents?.[doc.key] || "N/A"}
+                                                    {selectedSP.documents?.[doc.key] || selectedSP[doc.key] || "N/A"}
                                                 </span>
                                             </div>
                                         ))}
@@ -532,7 +544,7 @@ export default function SPManagement() {
                                             <UserCheck className="h-4 w-4" /> Re-approve (Vendor)
                                         </Button>
                                     )}
-                                    <Button variant="outline" className="h-11 rounded-xl font-bold" onClick={() => setSelectedSP(null)}>Close</Button>
+                                    <Button variant="outline" className="flex-1 h-11 rounded-xl font-bold" onClick={() => setSelectedSP(null)}>Close</Button>
                                 </div>
                             </div>
                         </motion.div>
