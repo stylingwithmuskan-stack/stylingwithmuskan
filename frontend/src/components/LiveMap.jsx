@@ -183,7 +183,13 @@ const LiveMap = ({
             })
             .catch(err => {
                 console.error("Route Fetch Error:", err);
-                setRouteError(err.message);
+                // If it's a service disabled error, don't show a blocking UI error to the provider
+                // as they can't do anything about it. Just show markers without the route.
+                if (err.message?.includes("Routes API has not been used") || err.message?.includes("disabled")) {
+                    setRouteError("Maps config issue: Enable Routes API in Google Console");
+                } else {
+                    setRouteError(err.message);
+                }
             });
     }
   }, [ready, userLocation?.lat, userLocation?.lng, providerLocation?.lat, providerLocation?.lng, bikeIconUrl, key]);
