@@ -37,5 +37,10 @@ export const openFlutterCamera = async () => {
 };
 
 export const isFlutterWebView = () => {
-    return !!(window.flutter_inappwebview && window.flutter_inappwebview.callHandler);
+    // Check for standard InAppWebView or common custom interfaces
+    return !!(
+        (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) ||
+        window.FlutterInterface ||
+        navigator.userAgent.includes('Flutter')
+    );
 };
