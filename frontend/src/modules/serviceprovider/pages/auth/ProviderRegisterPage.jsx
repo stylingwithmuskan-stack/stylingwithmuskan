@@ -11,6 +11,8 @@ import {
     Banknote,
     FileText,
     Loader2,
+    Trash2,
+    RotateCcw,
     X,
     Plus,
     AlertCircle,
@@ -158,7 +160,14 @@ export default function ProviderRegisterPage() {
         } catch (error) {
             console.error('Failed to load saved registration:', error);
         }
-    }, []);
+    }, [cities]); // Added cities to dependency to ensure cityId mapping works
+
+    // Sanitize and validate formData after loading or during updates
+    useEffect(() => {
+        if (!Array.isArray(formData.certifications)) {
+            setFormData(prev => ({ ...prev, certifications: [] }));
+        }
+    }, [formData.certifications]);
 
     // Auto-save registration progress to localStorage
     useEffect(() => {
@@ -467,7 +476,7 @@ export default function ProviderRegisterPage() {
             if (capturingField === "certifications") {
                 setFormData(prev => ({
                     ...prev,
-                    certifications: [...prev.certifications, {
+                    certifications: [...(Array.isArray(prev.certifications) ? prev.certifications : []), {
                         name: `camera_cert_${Date.now()}.png`,
                         type: "image/png",
                         data
@@ -496,7 +505,7 @@ export default function ProviderRegisterPage() {
         Promise.all(readers).then((items) => {
             setFormData((prev) => ({
                 ...prev,
-                certifications: [...prev.certifications, ...items],
+                certifications: [...(Array.isArray(prev.certifications) ? prev.certifications : []), ...items],
             }));
         });
     };
@@ -555,8 +564,16 @@ export default function ProviderRegisterPage() {
                 setOtpError("Please verify your mobile number with OTP");
                 return;
             }
+            if (!formData.profilePhoto) {
+                setStepError("Please capture your live profile photo");
+                return;
+            }
             if (!formData.name.trim()) {
                 setStepError("Please enter your full name as per Aadhar");
+                return;
+            }
+            if (!formData.gender) {
+                setStepError("Please select your gender");
                 return;
             }
             // Email validation: Allow common valid TLDs, reject .co
@@ -638,7 +655,7 @@ export default function ProviderRegisterPage() {
             // UPI ID validation (optional field, but if provided must be valid)
             if (formData.upiId.trim()) {
                 // Valid UPI format: username@provider (e.g., 9876543210@paytm, name@okaxis)
-                const upiRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/;
+                const upiRegex = /^[a-zA-Z0-9._\-]+@[a-zA-Z0-9.\-]+$/;
                 if (!upiRegex.test(formData.upiId)) {
                     setStepError("Please enter a valid UPI ID (e.g., 9876543210@paytm or username@upi)");
                     return;
@@ -787,41 +804,45 @@ export default function ProviderRegisterPage() {
 
                                 {/* 1. Profile Photo - Live Camera */}
                                 <div className="flex flex-col items-center py-4">
-                                    <div
-                                        className="relative group cursor-pointer"
-                                        onClick={() => startCamera("profilePhoto")}
-                                    >
-                                        <div className="w-32 h-32 rounded-3xl bg-gray-50 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-violet-600 group-active:scale-95">
+                                        <div className="w-32 h-32 rounded-3xl bg-gray-50 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-violet-600">
                                             {formData.profilePhoto ? (
-                                                <img src={formData.profilePhoto} className="w-full h-full object-cover" alt="Profile" />
+                                                <div 
+                                                    className="relative w-full h-full group/photo cursor-pointer"
+                                                    onClick={() => startCamera("profilePhoto")}
+                                                >
+                                                    <img src={formData.profilePhoto} className="w-full h-full object-cover" alt="Profile" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                                        <div 
+                                                            className="p-2 bg-white rounded-full text-violet-600 hover:scale-110 transition-transform shadow-lg"
+                                                            title="Retake Photo"
+                                                        >
+                                                            <RotateCcw className="h-4 w-4" />
+                                                        </div>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFormData(prev => ({ ...prev, profilePhoto: null }));
+                                                            }}
+                                                            className="p-2 bg-white rounded-full text-red-600 hover:scale-110 transition-transform shadow-lg"
+                                                            title="Delete Photo"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             ) : (
-                                                <>
+                                                <div 
+                                                    className="w-full h-full flex flex-col items-center justify-center cursor-pointer group-active:scale-95 transition-transform"
+                                                    onClick={() => startCamera("profilePhoto")}
+                                                >
                                                     <Camera className="h-10 w-10 text-gray-300 group-hover:text-violet-600 transition-colors" />
                                                     <span className="text-[10px] font-black uppercase text-gray-400 mt-1">Live Photo</span>
-                                                </>
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
                                     <p className="text-[10px] font-bold text-gray-400 mt-4 uppercase tracking-widest leading-none">Live Camera Only</p>
 
-                                    {/* Camera Modal */}
-                                    {isCameraOpen && (
-                                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                                            <div className="absolute inset-0 bg-black/70" onClick={stopCamera} />
-                                            <div className="relative bg-white rounded-2xl p-4 w-full max-w-sm z-10">
-                                                <div className="rounded-xl overflow-hidden bg-black">
-                                                    <video ref={videoRef} className="w-full h-80 object-cover" autoPlay muted playsInline />
-                                                    <canvas ref={canvasRef} className="hidden" />
-                                                </div>
-                                                {!isVideoReady && !cameraError && <p className="text-sm text-gray-500 mt-2">Starting camera...</p>}
-                                                {cameraError && <p className="text-sm text-red-600 mt-2">{cameraError}</p>}
-                                                <div className="flex gap-3 mt-4">
-                                                    <Button type="button" className="flex-1 h-12 rounded-xl font-bold" disabled={!isVideoReady} onClick={capturePhoto}>Capture</Button>
-                                                    <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancel</Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
 
                                 {/* 2. Full Name */}
@@ -840,7 +861,28 @@ export default function ProviderRegisterPage() {
                                     />
                                 </div>
 
-                                {/* 3. Email */}
+                                {/* 3. Gender Selection */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-black uppercase text-gray-400">Gender</Label>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {['Male', 'Female', 'Other'].map((g) => (
+                                            <button
+                                                key={g}
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, gender: g })}
+                                                className={`h-12 rounded-xl font-bold border-2 transition-all ${
+                                                    formData.gender === g 
+                                                        ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100' 
+                                                        : 'bg-gray-50 border-gray-100 text-gray-600 hover:border-violet-200'
+                                                }`}
+                                            >
+                                                {g}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* 4. Email */}
                                 <div className="space-y-2">
                                     <Label className="text-xs font-black uppercase text-gray-400">Email Address</Label>
                                     <Input
@@ -938,107 +980,7 @@ export default function ProviderRegisterPage() {
                                 <div className="space-y-4">
                                     <Label className="text-xs font-black uppercase text-gray-400">Address & Hub Location</Label>
 
-                                    {/* 6.1 Flat/Building/Landmark */}
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-bold text-gray-500 uppercase">Flat/Building/Landmark</Label>
-                                        <Input
-                                            placeholder="Enter flat, building or landmark"
-                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                            value={formData.addressLine1}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, addressLine1: e.target.value }))}
-                                        />
-                                    </div>
-
-                                    {/* 6.2 Area/Locality */}
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-bold text-gray-500 uppercase">Area/Locality</Label>
-                                        <Input
-                                            placeholder="Enter area or locality name"
-                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
-                                            value={formData.area}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, area: e.target.value }))}
-                                        />
-                                    </div>
-
-                                    {/* 6.3 City Selection */}
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-bold text-gray-500 uppercase">City</Label>
-                                        <Select value={formData.city} onValueChange={v => {
-                                            const selectedCity = cities.find((city) => city.name === v);
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                city: v,
-                                                cityId: selectedCity?._id || "",
-                                                zones: [],
-                                                zoneIds: [],
-                                            }));
-                                        }}>
-                                            <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600">
-                                                <SelectValue placeholder="Select City" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {cities.map(c => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* 6.4 Hub Zones Selection */}
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hub Zones (Multiple)</Label>
-                                        <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            {zonesLoading ? (
-                                                <div className="flex items-center gap-2 py-2">
-                                                    <Loader2 className="h-4 w-4 text-violet-600 animate-spin" />
-                                                    <span className="text-xs font-bold text-gray-400">Fetching zones...</span>
-                                                </div>
-                                            ) : zones.length > 0 ? (
-                                                <>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-[10px] font-black text-gray-400 uppercase">Available Hubs</span>
-                                                        <Button type="button" variant="ghost" size="sm" onClick={() => {
-                                                            if (formData.zones.length === zones.length) {
-                                                                setFormData(prev => ({ ...prev, zones: [], zoneIds: [] }));
-                                                            } else {
-                                                                syncSelectedZoneIds(zones.map(z => z.name));
-                                                            }
-                                                        }} className="h-6 text-[9px] font-black text-violet-600 hover:bg-violet-50">
-                                                            {formData.zones.length === zones.length ? "Deselect All" : "Select All"}
-                                                        </Button>
-                                                    </div>
-                                                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-                                                        {zones.map(z => (
-                                                            <div key={z._id} onClick={() => {
-                                                                const current = [...formData.zones];
-                                                                const idx = current.indexOf(z.name);
-                                                                if (idx > -1) current.splice(idx, 1);
-                                                                else current.push(z.name);
-                                                                syncSelectedZoneIds(current);
-                                                            }} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.zones.includes(z.name) ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100' : 'bg-white border-gray-100 text-gray-600 hover:border-violet-200'}`}>
-                                                                <div className={`h-5 w-5 rounded flex items-center justify-center ${formData.zones.includes(z.name) ? 'bg-white text-violet-600' : 'bg-gray-100'}`}>
-                                                                    {formData.zones.includes(z.name) && <Check className="h-3 w-3" />}
-                                                                </div>
-                                                                <span className="text-xs font-black truncate">{z.name}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </>
-                                            ) : formData.city ? (
-                                                <p className="text-xs font-semibold text-gray-400 py-2">No zones available for selected city</p>
-                                            ) : (
-                                                <p className="text-xs font-semibold text-gray-400 py-2">Please select a city first</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* 7. Custom Zone Section with Use Current Location */}
-                                <div className="space-y-4 p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs font-black uppercase text-amber-900">Custom Zone (Optional)</Label>
-                                        <p className="text-[10px] text-amber-700 font-medium">If your location is not listed in the zones above</p>
-                                    </div>
-
-                                    {/* Use Current Location Button */}
+                                    {/* Use Current Location Button moved here */}
                                     <Button
                                         type="button"
                                         variant={formData.lat ? "default" : "outline"}
@@ -1147,8 +1089,30 @@ export default function ProviderRegisterPage() {
                                                         }
                                                     };
 
-                                                    // Try Google Maps Geocoding first
-                                                    if (window.google?.maps && googleKey) {
+                                                    // Ensure Google Maps is loaded
+                                                    const loadGoogleMaps = () => {
+                                                        if (window.google?.maps) return Promise.resolve();
+                                                        const existing = document.getElementById("google-maps-sdk");
+                                                        if (existing) return Promise.resolve();
+                                                        
+                                                        return new Promise((resolve, reject) => {
+                                                            const script = document.createElement("script");
+                                                            script.id = "google-maps-sdk";
+                                                            script.src = `https://maps.googleapis.com/maps/api/js?key=${googleKey}&libraries=places`;
+                                                            script.onload = resolve;
+                                                            script.onerror = reject;
+                                                            document.head.appendChild(script);
+                                                        });
+                                                    };
+
+                                                    try {
+                                                        await loadGoogleMaps();
+                                                    } catch (e) {
+                                                        console.warn("Google Maps script failed to load:", e);
+                                                    }
+
+                                                    // Try Google Maps Geocoding
+                                                    if (window.google?.maps) {
                                                         try {
                                                             const geocoder = new window.google.maps.Geocoder();
                                                             geocoder.geocode(
@@ -1169,34 +1133,29 @@ export default function ProviderRegisterPage() {
                                                                         const area = getComp(["sublocality_level_1", "sublocality"]);
                                                                         const city = getComp(["locality", "administrative_area_level_2"]);
 
-                                                                        // Format address line 1
+                                                                        // Format address line 1 - use formatted address as fallback if specific components missing
                                                                         const addressLine1 = [houseNo, street, landmark]
                                                                             .filter(Boolean)
-                                                                            .join(", ");
+                                                                            .join(", ") || res.formatted_address.split(",")[0];
 
-                                                                        // Use formatted_address as fallback for area
+                                                                        // Use area or formatted_address
                                                                         const areaText = area || res.formatted_address;
 
                                                                         // Now resolve with backend API
                                                                         resolveLocationAndSetFields(city, addressLine1, areaText);
                                                                     } else {
-                                                                        if (status === "REQUEST_DENIED") {
-                                                                            console.warn("Google Maps Geocoding API is not enabled");
-                                                                        }
                                                                         // Fallback to backend only
-                                                                        resolveLocationAndSetFields("", "", "Current Location");
+                                                                        resolveLocationAndSetFields("", "Current Location", "Current Location");
                                                                     }
                                                                 }
                                                             );
                                                         } catch (error) {
                                                             console.error("Google Maps Geocoding error:", error);
-                                                            // Fallback to backend only
-                                                            resolveLocationAndSetFields("", "", "Current Location");
+                                                            resolveLocationAndSetFields("", "Current Location", "Current Location");
                                                         }
                                                     } else {
-                                                        // Google Maps not available, use backend only
-                                                        console.warn("Google Maps not loaded, using backend API only");
-                                                        resolveLocationAndSetFields("", "", "Current Location");
+                                                        // Google Maps not available, use backend only with dummy address to pass validation
+                                                        resolveLocationAndSetFields("", "Current Location", "Current Location");
                                                     }
                                                 },
                                                 (error) => {
@@ -1222,20 +1181,105 @@ export default function ProviderRegisterPage() {
                                             "📍 Use Current Location"
                                         )}
                                     </Button>
+                                    <p className="text-[10px] text-amber-700 font-medium">
+                                        💡 Tip: Click "Use Current Location" to auto-detect your zone and fill address details
+                                    </p>
 
-                                    {/* Custom Zone Input */}
+
+                                    {/* 6.1 Flat/Building/Landmark */}
                                     <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold text-gray-500 uppercase">Flat/Building/Landmark</Label>
                                         <Input
-                                            placeholder="Enter custom zone name if not listed above"
-                                            className="h-12 rounded-xl bg-white border-amber-200 font-bold focus:ring-amber-500"
-                                            value={formData.customZone}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, customZone: e.target.value }))}
+                                            placeholder="Enter flat, building or landmark"
+                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
+                                            value={formData.addressLine1}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, addressLine1: e.target.value }))}
                                         />
-                                        <p className="text-[10px] text-amber-700 font-medium">
-                                            💡 Tip: Click "Use Current Location" to auto-detect your zone and fill address details
-                                        </p>
+                                    </div>
+
+                                    {/* 6.2 Area/Locality */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold text-gray-500 uppercase">Area/Locality</Label>
+                                        <Input
+                                            placeholder="Enter area or locality name"
+                                            className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600"
+                                            value={formData.area}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, area: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    {/* 6.3 City Selection */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold text-gray-500 uppercase">City</Label>
+                                        <Select value={formData.city} onValueChange={v => {
+                                            const selectedCity = cities.find((city) => city.name === v);
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                city: v,
+                                                cityId: selectedCity?._id || "",
+                                                zones: [],
+                                                zoneIds: [],
+                                            }));
+                                        }}>
+                                            <SelectTrigger className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold focus:ring-violet-600">
+                                                <SelectValue placeholder="Select City" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {cities.map(c => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* 6.4 Hub Zones Selection */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hub Zones (Multiple)</Label>
+                                        <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            {zonesLoading ? (
+                                                <div className="flex items-center gap-2 py-2">
+                                                    <Loader2 className="h-4 w-4 text-violet-600 animate-spin" />
+                                                    <span className="text-xs font-bold text-gray-400">Fetching zones...</span>
+                                                </div>
+                                            ) : zones.length > 0 ? (
+                                                <>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-[10px] font-black text-gray-400 uppercase">Available Hubs</span>
+                                                        <Button type="button" variant="ghost" size="sm" onClick={() => {
+                                                            if (formData.zones.length === zones.length) {
+                                                                setFormData(prev => ({ ...prev, zones: [], zoneIds: [] }));
+                                                            } else {
+                                                                syncSelectedZoneIds(zones.map(z => z.name));
+                                                            }
+                                                        }} className="h-6 text-[9px] font-black text-violet-600 hover:bg-violet-50">
+                                                            {formData.zones.length === zones.length ? "Deselect All" : "Select All"}
+                                                        </Button>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                                                        {zones.map(z => (
+                                                            <div key={z._id} onClick={() => {
+                                                                const current = [...formData.zones];
+                                                                const idx = current.indexOf(z.name);
+                                                                if (idx > -1) current.splice(idx, 1);
+                                                                else current.push(z.name);
+                                                                syncSelectedZoneIds(current);
+                                                            }} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.zones.includes(z.name) ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100' : 'bg-white border-gray-100 text-gray-600 hover:border-violet-200'}`}>
+                                                                <div className={`h-5 w-5 rounded flex items-center justify-center ${formData.zones.includes(z.name) ? 'bg-white text-violet-600' : 'bg-gray-100'}`}>
+                                                                    {formData.zones.includes(z.name) && <Check className="h-3 w-3" />}
+                                                                </div>
+                                                                <span className="text-xs font-black truncate">{z.name}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            ) : formData.city ? (
+                                                <p className="text-xs font-semibold text-gray-400 py-2">No zones available for selected city</p>
+                                            ) : (
+                                                <p className="text-xs font-semibold text-gray-400 py-2">Please select a city first</p>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+
+
 
                                 {/* 8. Professional Experience */}
                                 <div className="space-y-2">
@@ -1279,19 +1323,45 @@ export default function ProviderRegisterPage() {
                                                 <span className="text-[10px] font-black uppercase text-gray-400 ml-1">Front Side</span>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div
-                                                        onClick={() => aadharFrontRef.current.click()}
-                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group"
+                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group relative"
                                                     >
                                                         {formData.aadharFront ? (
-                                                            <div className="flex flex-col items-center gap-1 text-purple-600">
-                                                                <CheckCircle2 className="h-5 w-5" />
-                                                                <span className="text-[10px] font-bold">Uploaded</span>
+                                                            <div 
+                                                                className="relative w-full h-full flex flex-col items-center cursor-pointer"
+                                                                onClick={() => startCamera("aadharFront")}
+                                                            >
+                                                                <div className="absolute top-0 right-0 z-10 flex gap-1">
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); startCamera("aadharFront"); }}
+                                                                        className="p-1.5 bg-white shadow-md rounded-lg text-violet-600 hover:scale-110 transition-transform"
+                                                                        title="Retake Photo"
+                                                                    >
+                                                                        <RotateCcw className="h-3 w-3" />
+                                                                    </button>
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, aadharFront: null })); }}
+                                                                        className="p-1.5 bg-white shadow-md rounded-lg text-red-600 hover:scale-110 transition-transform"
+                                                                        title="Delete Photo"
+                                                                    >
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                    </button>
+                                                                </div>
+                                                                {formData.aadharFront.startsWith('data:image') ? (
+                                                                    <img src={formData.aadharFront} className="h-10 w-full object-cover rounded-lg mb-1" alt="Aadhar Front" />
+                                                                ) : (
+                                                                    <div className="flex flex-col items-center gap-1 text-purple-600">
+                                                                        <CheckCircle2 className="h-5 w-5" />
+                                                                        <span className="text-[10px] font-bold">Uploaded</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         ) : (
-                                                            <>
+                                                            <div className="flex flex-col items-center" onClick={() => aadharFrontRef.current.click()}>
                                                                 <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
                                                                 <span className="text-[10px] font-black uppercase text-center leading-tight">Upload</span>
-                                                            </>
+                                                            </div>
                                                         )}
                                                     </div>
                                                     <div
@@ -1309,19 +1379,45 @@ export default function ProviderRegisterPage() {
                                                 <span className="text-[10px] font-black uppercase text-gray-400 ml-1">Back Side</span>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div
-                                                        onClick={() => aadharBackRef.current.click()}
-                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group"
+                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group relative"
                                                     >
                                                         {formData.aadharBack ? (
-                                                            <div className="flex flex-col items-center gap-1 text-purple-600">
-                                                                <CheckCircle2 className="h-5 w-5" />
-                                                                <span className="text-[10px] font-bold">Uploaded</span>
+                                                            <div 
+                                                                className="relative w-full h-full flex flex-col items-center cursor-pointer"
+                                                                onClick={() => startCamera("aadharBack")}
+                                                            >
+                                                                <div className="absolute top-0 right-0 z-10 flex gap-1">
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); startCamera("aadharBack"); }}
+                                                                        className="p-1.5 bg-white shadow-md rounded-lg text-violet-600 hover:scale-110 transition-transform"
+                                                                        title="Retake Photo"
+                                                                    >
+                                                                        <RotateCcw className="h-3 w-3" />
+                                                                    </button>
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, aadharBack: null })); }}
+                                                                        className="p-1.5 bg-white shadow-md rounded-lg text-red-600 hover:scale-110 transition-transform"
+                                                                        title="Delete Photo"
+                                                                    >
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                    </button>
+                                                                </div>
+                                                                {formData.aadharBack.startsWith('data:image') ? (
+                                                                    <img src={formData.aadharBack} className="h-10 w-full object-cover rounded-lg mb-1" alt="Aadhar Back" />
+                                                                ) : (
+                                                                    <div className="flex flex-col items-center gap-1 text-purple-600">
+                                                                        <CheckCircle2 className="h-5 w-5" />
+                                                                        <span className="text-[10px] font-bold">Uploaded</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         ) : (
-                                                            <>
+                                                            <div className="flex flex-col items-center" onClick={() => aadharBackRef.current.click()}>
                                                                 <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
                                                                 <span className="text-[10px] font-black uppercase text-center leading-tight">Upload</span>
-                                                            </>
+                                                            </div>
                                                         )}
                                                     </div>
                                                     <div
@@ -1340,19 +1436,45 @@ export default function ProviderRegisterPage() {
                                         <Label className="text-xs font-black uppercase text-gray-400">PAN Card</Label>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div
-                                                onClick={() => panCardRef.current.click()}
-                                                className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[100px] group"
+                                                className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[100px] group relative"
                                             >
                                                 {formData.panCard ? (
-                                                    <div className="flex flex-col items-center gap-1 text-purple-600">
-                                                        <CheckCircle2 className="h-5 w-5" />
-                                                        <span className="text-[10px] font-bold">Uploaded</span>
+                                                    <div 
+                                                        className="relative w-full h-full flex flex-col items-center cursor-pointer"
+                                                        onClick={() => startCamera("panCard")}
+                                                    >
+                                                        <div className="absolute top-0 right-0 z-10 flex gap-1">
+                                                            <button 
+                                                                type="button"
+                                                                onClick={(e) => { e.stopPropagation(); startCamera("panCard"); }}
+                                                                className="p-1.5 bg-white shadow-md rounded-lg text-violet-600 hover:scale-110 transition-transform"
+                                                                title="Retake Photo"
+                                                            >
+                                                                <RotateCcw className="h-3 w-3" />
+                                                            </button>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, panCard: null })); }}
+                                                                className="p-1.5 bg-white shadow-md rounded-lg text-red-600 hover:scale-110 transition-transform"
+                                                                title="Delete Photo"
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                        {formData.panCard.startsWith('data:image') ? (
+                                                            <img src={formData.panCard} className="h-12 w-full object-cover rounded-lg mb-1" alt="PAN Card" />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center gap-1 text-purple-600">
+                                                                <CheckCircle2 className="h-5 w-5" />
+                                                                <span className="text-[10px] font-bold">Uploaded</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ) : (
-                                                    <>
+                                                    <div className="flex flex-col items-center" onClick={() => panCardRef.current.click()}>
                                                         <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
                                                         <span className="text-[10px] font-black uppercase text-center leading-tight">Upload PDF/Image</span>
-                                                    </>
+                                                    </div>
                                                 )}
                                             </div>
                                             <div
@@ -1506,7 +1628,7 @@ export default function ProviderRegisterPage() {
                                     <Label className="text-xs font-black uppercase text-gray-400">Upload Certifications</Label>
                                     <div className="grid grid-cols-3 gap-3">
                                         {formData.certifications.map((c, idx) => (
-                                            <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border bg-white">
+                                            <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border bg-white group/cert">
                                                 {c.type?.includes("image") ? (
                                                     <img src={c.data} alt={c.name} className="w-full h-full object-cover" />
                                                 ) : (
@@ -1515,6 +1637,18 @@ export default function ProviderRegisterPage() {
                                                         <span className="px-2 truncate">{c.name}</span>
                                                     </div>
                                                 )}
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            certifications: prev.certifications.filter((_, i) => i !== idx)
+                                                        }));
+                                                    }}
+                                                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-lg opacity-0 group-hover/cert:opacity-100 transition-opacity"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
                                             </div>
                                         ))}
                                         <input
@@ -1608,7 +1742,7 @@ export default function ProviderRegisterPage() {
                                             <Input
                                                 placeholder="e.g., 9876543210@paytm, username@ybl"
                                                 className="h-12 rounded-xl bg-gray-50 border-gray-100 font-bold"
-                                                pattern="[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+"
+                                                pattern="[a-zA-Z0-9._\-]+@[a-zA-Z0-9.\-]+"
                                                 title="Enter valid UPI ID (Google Pay, PhonePe, Paytm, BHIM supported)"
                                                 value={formData.upiId}
                                                 onChange={(e) => setFormData({ ...formData, upiId: e.target.value.toLowerCase().trim() })}
@@ -1779,6 +1913,25 @@ export default function ProviderRegisterPage() {
                                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none">
                                     Already a partner? <Link to="/provider/login" className="text-violet-600">Login Here</Link>
                                 </p>
+                            </div>
+                        )}
+
+                        {/* Global Camera Modal */}
+                        {isCameraOpen && (
+                            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                                <div className="absolute inset-0 bg-black/70" onClick={stopCamera} />
+                                <div className="relative bg-white rounded-2xl p-4 w-full max-w-sm z-10">
+                                    <div className="rounded-xl overflow-hidden bg-black">
+                                        <video ref={videoRef} className="w-full h-80 object-cover" autoPlay muted playsInline />
+                                        <canvas ref={canvasRef} className="hidden" />
+                                    </div>
+                                    {!isVideoReady && !cameraError && <p className="text-sm text-gray-500 mt-2">Starting camera...</p>}
+                                    {cameraError && <p className="text-sm text-red-600 mt-2">{cameraError}</p>}
+                                    <div className="flex gap-3 mt-4">
+                                        <Button type="button" className="flex-1 h-12 rounded-xl font-bold" disabled={!isVideoReady} onClick={capturePhoto}>Capture</Button>
+                                        <Button type="button" variant="outline" className="flex-1 h-12 rounded-xl font-bold" onClick={stopCamera}>Cancel</Button>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </CardContent>

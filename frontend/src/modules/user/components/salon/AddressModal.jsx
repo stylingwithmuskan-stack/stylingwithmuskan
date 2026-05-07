@@ -4,6 +4,7 @@ import { X, MapPin, Navigation, Home, Briefcase, Plus } from "lucide-react";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { Button } from "@/modules/user/components/ui/button";
 import { api } from "@/modules/user/lib/api";
+import { toast } from "sonner";
 
 const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
     const { updateAddress, updateExistingAddress } = useAuth();
@@ -161,7 +162,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
 
     const handleGetCurrentLocation = () => {
         if (!navigator.geolocation) {
-            alert("Geolocation is not supported by your browser");
+            toast.error("Geolocation is not supported by your browser");
             return;
         }
 
@@ -189,9 +190,13 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                             zoneId: location.zoneId || prev.zoneId,
                         }));
                         if (location.insideServiceArea && location.zoneName) {
-                            alert(`Location captured!\nDetected zone: ${location.zoneName}`);
+                            toast.success(`Location captured!`, {
+                                description: `Detected zone: ${location.zoneName}`
+                            });
                         } else if (location.reason === "out_of_zone") {
-                            alert("Service is not available at your current location yet.");
+                            toast.info("Service not available", {
+                                description: "Service is not available at your current location yet."
+                            });
                         }
                     } catch {}
                 };
@@ -224,7 +229,9 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                     setIsLocating(false);
                                 } else {
                                     if (status === "REQUEST_DENIED") {
-                                        alert("Google Maps Geocoding API is not enabled. Please enable it in your Google Cloud Console.");
+                                        toast.error("Google Maps API error", {
+                                            description: "Google Maps Geocoding API is not enabled. Please check console."
+                                        });
                                     }
                                     apply("Current Location", "");
                                     resolveZone("");
@@ -241,7 +248,9 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
             },
             (error) => {
                 setIsLocating(false);
-                alert("Unable to retrieve your location. Please enter manually.");
+                toast.error("Unable to retrieve your location", {
+                    description: "Please enter your address manually."
+                });
                 console.error(error);
             }
         );
@@ -286,7 +295,14 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
             } catch (error) {
                 console.error("[AddressModal] Save failed:", error);
                 const msg = error.data?.error || error.message || "Failed to save address";
-                alert(msg);
+                
+                if (msg.toLowerCase().includes("unauthorized") || error.status === 401) {
+                    toast.error("Please login first to save address", {
+                        description: "You need to be logged in to manage your addresses."
+                    });
+                } else {
+                    toast.error(msg);
+                }
             } finally {
                 setIsSaving(false);
             }
