@@ -578,6 +578,7 @@ export const api = {
     customEnquiryFinalApprove: (id) => request(`/admin/custom-enquiries/${id}/final-approve`, { method: "PATCH" }),
     coupons: () => request("/admin/coupons"),
     addCoupon: (payload) => request("/admin/coupons", { method: "POST", body: payload }),
+    updateCoupon: (id, payload) => request(`/admin/coupons/${id}`, { method: "PUT", body: payload }),
     deleteCoupon: (id) => request(`/admin/coupons/${id}`, { method: "DELETE" }),
     addBanner: (payload) => request("/admin/banners", { method: "POST", body: payload }),
     bannersList: () => request("/admin/banners"),

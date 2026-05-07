@@ -524,7 +524,8 @@ const UserModuleManagement = () => {
                 // Try admin API with pagination
                 const res = await api.admin.getServices({ 
                     page: currentPage, 
-                    limit: itemsPerPage 
+                    limit: itemsPerPage,
+                    search: searchTerm
                 });
                 
                 if (!cancelled && res.services) {
@@ -537,7 +538,8 @@ const UserModuleManagement = () => {
                 try {
                     const contentRes = await api.content.services({ 
                         page: currentPage, 
-                        limit: itemsPerPage 
+                        limit: itemsPerPage,
+                        search: searchTerm 
                     });
                     if (!cancelled && contentRes.data) {
                         setAdminServices(contentRes.data);
@@ -555,7 +557,7 @@ const UserModuleManagement = () => {
         };
         fetchPaginatedServices();
         return () => { cancelled = true; };
-    }, [currentPage, activeTab]);
+    }, [currentPage, activeTab, searchTerm]);
 
     // Reset page when tab or search changes
     useEffect(() => {
@@ -731,16 +733,12 @@ const UserModuleManagement = () => {
 
     const filteredData = getDataForTab().filter(item => {
         const term = searchTerm.trim().toLowerCase();
+        if (!term) return true;
+
+        // For services, the filtering is already done by the server globally
+        if (activeTab === "services") return true;
+
         const matchesMain = (item.name || item.label || item.title || "").toLowerCase().includes(term);
-        
-        // Extended search for services: include category and parent category names
-        if (activeTab === "services" && !matchesMain) {
-            const subCat = categories?.find(c => c.id === item.category);
-            const parentCat = serviceTypes?.find(st => st.id === subCat?.serviceType);
-            return (subCat?.name || "").toLowerCase().includes(term) || 
-                   (parentCat?.label || "").toLowerCase().includes(term);
-        }
-        
         return matchesMain;
     });
 

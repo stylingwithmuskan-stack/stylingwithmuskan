@@ -36,6 +36,34 @@ export const openFlutterCamera = async () => {
   return null;
 };
 
+export const playFlutterSound = async (soundKey = 'notification') => {
+  if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+    try {
+      await window.flutter_inappwebview.callHandler('playSound', { sound: soundKey });
+      return true;
+    } catch (error) {
+      console.error('Flutter Sound Bridge Error:', error);
+    }
+  }
+  return false;
+};
+
+export const shareToFlutter = async (data) => {
+  if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+    try {
+      await window.flutter_inappwebview.callHandler('shareContent', {
+        title: data.title || 'Styling with Muskan',
+        text: data.text || '',
+        url: data.url || ''
+      });
+      return true;
+    } catch (error) {
+      console.error('Flutter Share Bridge Error:', error);
+    }
+  }
+  return false;
+};
+
 export const isFlutterWebView = () => {
   // Check for standard InAppWebView or common custom interfaces
   return !!(

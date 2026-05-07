@@ -18,6 +18,8 @@ const WalletPage = () => {
     const { user } = useAuth();
     const { gender } = useGenderTheme();
     const [balance, setBalance] = useState(0);
+    const [totalCashback, setTotalCashback] = useState(0);
+    const [points, setPoints] = useState(0);
     const [transactions, setTransactions] = useState([]);
     const [processing, setProcessing] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,6 +29,8 @@ const WalletPage = () => {
         api.wallet().then(({ wallet }) => {
             if (cancelled) return;
             setBalance(wallet?.balance || 0);
+            setTotalCashback(wallet?.totalCashback || 0);
+            setPoints(wallet?.points || 0);
             setTransactions((wallet?.transactions || []).map((t, i) => ({
                 id: i + 1,
                 title: t.title || (t.type === "credit" ? "Credit" : "Debit"),
@@ -52,6 +56,8 @@ const WalletPage = () => {
         try {
             const { wallet } = await api.wallet();
             setBalance(wallet?.balance || 0);
+            setTotalCashback(wallet?.totalCashback || 0);
+            setPoints(wallet?.points || 0);
             setTransactions((wallet?.transactions || []).map((t, i) => ({
                 id: i + 1,
                 title: t.title || (t.type === "credit" ? "Credit" : "Debit"),
@@ -219,11 +225,11 @@ const WalletPage = () => {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="glass-strong rounded-2xl p-4 border border-border/50">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Cashback</p>
-                        <p className="text-xl font-bold text-green-600">₹450</p>
+                        <p className="text-xl font-bold text-green-600">₹{totalCashback.toLocaleString()}</p>
                     </div>
                     <div className="glass-strong rounded-2xl p-4 border border-border/50">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Points Earned</p>
-                        <p className="text-xl font-bold text-primary">1,240</p>
+                        <p className="text-xl font-bold text-primary">{points.toLocaleString()}</p>
                     </div>
                 </div>
 

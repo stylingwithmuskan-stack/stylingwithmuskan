@@ -8,14 +8,14 @@ import { AdminAuthContext } from "@/modules/admin/contexts/AdminAuthContext";
 import { AuthContext } from "@/modules/user/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
 import { setupForegroundHandler } from "@/services/pushNotificationService";
-import { toast } from "sonner";
+import { playFlutterSound, isFlutterWebView } from "@/utils/flutterBridge";
 
 const SOUND_FILES = {
-    ringtone: "/sounds/ringtone.mp3",
-    notification: "/sounds/massege_ting.mp3",
-    emergency: "/sounds/sos_tone.mp3",
-    alert: "/sounds/alert.mp3",
-    success: "/sounds/massege_ting.mp3", // Fallback to ting
+    ringtone: window.location.origin + "/sounds/ringtone.mp3",
+    notification: window.location.origin + "/sounds/massege_ting.mp3",
+    emergency: window.location.origin + "/sounds/sos_tone.mp3",
+    alert: window.location.origin + "/sounds/alert.mp3",
+    success: window.location.origin + "/sounds/massege_ting.mp3",
 };
 
 
@@ -66,7 +66,8 @@ export const NotificationProvider = ({ children, role }) => {
     }, [activeRole]);
 
     const [userInteracted, setUserInteracted] = useState(false);
-    const lastSoundPlayedRef = useRef(0); // Debounce ref to prevent double-plays
+    const lastSoundPlayedRef = useRef(0);
+    const audioRef = useRef(null);
 
     const currentUserId = activeRole === "provider"
         ? (provider?._id || provider?.id)
@@ -79,7 +80,6 @@ export const NotificationProvider = ({ children, role }) => {
     // Audio context "warm up" to bypass browser autoplay policies
     useEffect(() => {
         const handleInteraction = () => {
-            console.log("[NotificationContext] User interacted, audio unlocked");
             setUserInteracted(true);
             window.removeEventListener("click", handleInteraction);
             window.removeEventListener("touchstart", handleInteraction);
@@ -98,6 +98,11 @@ export const NotificationProvider = ({ children, role }) => {
     /** Stop any currently active looping sound (ringtone/emergency) */
     const stopActiveSound = useCallback(() => {
         try {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                audioRef.current = null;
+            }
             if (window.__swm_active_ringtone__) {
                 window.__swm_active_ringtone__.pause();
                 window.__swm_active_ringtone__.currentTime = 0;
@@ -106,53 +111,49 @@ export const NotificationProvider = ({ children, role }) => {
         } catch {}
     }, []);
 
-    const playNotificationSound = useCallback((soundType) => {
-        console.log(`[NotificationContext] Attempting to play sound: ${soundType}`);
-        if (!soundType) return;
-        const file = SOUND_FILES[soundType];
-        if (!file) {
-            console.warn(`[NotificationContext] No sound file mapped for: ${soundType}`);
-            return;
-        }
+    const playNotificationSound = useCallback(async (soundKey = "notification") => {
+        console.log(`[NotificationContext] Attempting to play sound: ${soundKey}`);
+        if (!soundKey) return;
 
         // Debounce: skip if a sound was played within the last 500ms
         const now = Date.now();
         if (now - lastSoundPlayedRef.current < 500) {
-            console.log(`[NotificationContext] Sound debounced (too soon): ${soundType}`);
+            console.log(`[NotificationContext] Sound debounced (too soon): ${soundKey}`);
             return;
         }
         lastSoundPlayedRef.current = now;
 
         try {
-            const audio = new Audio(file);
-            audio.volume = 1.0;
+            // First try Flutter bridge if in app
+            if (isFlutterWebView()) {
+                console.log("[NotificationContext] Running in App, trying Flutter Sound Bridge");
+                const success = await playFlutterSound(soundKey);
+                if (success) return;
+            }
+
+            // Fallback to HTML Audio
+            stopActiveSound();
+            const audioPath = SOUND_FILES[soundKey] || SOUND_FILES.notification;
+            const audio = new Audio(audioPath);
             
-            // Loop for ringtones (providers)
-            if (soundType === "ringtone" || soundType === "emergency") {
-                // Stop any existing looping sound first
-                stopActiveSound();
+            audioRef.current = audio;
+            if (soundKey === "ringtone" || soundKey === "emergency") {
                 audio.loop = true;
-                // Store globally so other contexts (e.g. ProviderBookingContext) can stop it
                 window.__swm_active_ringtone__ = audio;
-                // Auto-stop after 30 seconds to prevent infinite ringing if unattended
+                // Auto-stop after 30 seconds
                 setTimeout(() => {
-                    console.log(`[NotificationContext] Auto-stopping loop for: ${soundType}`);
                     stopActiveSound();
                 }, 30000);
             }
 
-            const playPromise = audio.play();
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    console.log(`[NotificationContext] Sound playing: ${soundType}`);
-                }).catch((error) => {
-                    console.error("[NotificationContext] Audio play failed:", error.message);
-                    console.info("[NotificationContext] Note: Audio usually requires a user click on the page first.");
-                    toast.info("New notification! (Click anywhere to enable sounds)");
+            const audioPromise = audio.play();
+            if (audioPromise !== undefined) {
+                audioPromise.catch((error) => {
+                    console.error("[NotificationContext] Autoplay blocked or audio failed:", error);
                 });
             }
             
-            return audio; // Return for manual stop if needed
+            return audio;
         } catch (err) {
             console.error("[NotificationContext] Audio error:", err);
         }
@@ -180,47 +181,29 @@ export const NotificationProvider = ({ children, role }) => {
         window.__DEBUG_PLAY_SOUND__ = playNotificationSound;
         
         if (!currentUserId || !activeToken) {
-            console.log("[NotificationContext] Socket skipped: Missing userId or token");
             return;
         }
 
-        console.log(`[NotificationContext] Connecting socket for ${activeRole}: ${currentUserId}`);
         const socket = io(`${SOCKET_BASE_URL}/bookings`, {
             auth: { token: activeToken },
-            transports: ["websocket", "polling"], // Ensure websocket is tried first
-        });
-
-        socket.on("connect", () => {
-            console.log("[NotificationContext] Socket connected!");
-        });
-
-        socket.on("connect_error", (err) => {
-            console.error("[NotificationContext] Socket connection error:", err.message);
+            transports: ["websocket", "polling"],
         });
 
         socket.on("new_notification", (payload) => {
-            console.log("[NotificationContext] Received socket notification:", payload);
             const targetId = String(payload.recipientId);
             const myId = String(currentUserId);
             const targetRole = payload?.notification?.recipientRole || payload?.recipientRole;
 
             if (targetId === myId && (!targetRole || targetRole === activeRole)) {
-                console.log("[NotificationContext] Notification matches current user. Updating UI.");
                 setNotifications((prev) => insertUniqueNotification(prev, payload.notification));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));
 
-                // Trigger audio alert
                 if (payload.notification?.sound) {
                     playNotificationSound(payload.notification.sound);
-                } else {
-                    console.log("[NotificationContext] Notification has no sound assigned.");
                 }
-            } else {
-                console.log("[NotificationContext] Notification ignored (ID or Role mismatch)", { targetId, myId, targetRole, activeRole });
             }
         });
 
-        // Wire FCM foreground handler — refreshes notification list on foreground push
         setupForegroundHandler(() => {
             fetchNotifications();
         });
@@ -228,7 +211,7 @@ export const NotificationProvider = ({ children, role }) => {
         return () => {
             socket.disconnect();
         };
-    }, [currentUserId, activeRole, activeToken]);
+    }, [currentUserId, activeRole, activeToken, playNotificationSound, fetchNotifications]);
 
     useEffect(() => {
         if (activeRole && currentUserId && activeToken) {
@@ -240,7 +223,7 @@ export const NotificationProvider = ({ children, role }) => {
             }, 60000);
             return () => clearInterval(interval);
         }
-    }, [role, activeRole, activeToken, fetchNotifications, currentUserId]);
+    }, [activeRole, activeToken, fetchNotifications, currentUserId]);
 
     const markAllAsRead = async () => {
         try {

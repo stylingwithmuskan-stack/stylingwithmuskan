@@ -10,15 +10,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/modules/user/components/ui/switch";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
+import { api } from "@/modules/user/lib/api";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 
 export default function CouponSystem() {
-    const { getCoupons, addCoupon, deleteCoupon } = useAdminAuth();
+    const { getCoupons, addCoupon, updateCoupon, deleteCoupon } = useAdminAuth();
     const { categories } = useUserModuleData();
     const [coupons, setCoupons] = useState([]);
+    const [zones, setZones] = useState([]);
     const [showForm, setShowForm] = useState(false);
+    const [editId, setEditId] = useState(null);
     const [copied, setCopied] = useState(null);
     const [form, setForm] = useState({
         code: "", discountType: "percentage", discountValue: 10, minOrder: 0,
@@ -29,8 +32,12 @@ export default function CouponSystem() {
 
     const load = async () => {
         try {
-            const items = await getCoupons();
+            const [items, zonesRes] = await Promise.all([
+                getCoupons(),
+                api.content.zones()
+            ]);
             setCoupons(Array.isArray(items) ? items : []);
+            setZones(zonesRes.zones || []);
         } catch {
             setCoupons([]);
         }
@@ -39,10 +46,35 @@ export default function CouponSystem() {
 
     const handleAdd = async (e) => {
         e.preventDefault();
-        await addCoupon(form);
+        if (editId) {
+            await updateCoupon(editId, form);
+        } else {
+            await addCoupon(form);
+        }
         setForm({ code: "", discountType: "percentage", discountValue: 10, minOrder: 0, maxDiscount: 500, perUserLimit: 1, totalLimit: 100, category: "All", zone: "", firstTimeOnly: false, expiryDate: "", isActive: true, discountBorneBy: "admin" });
         setShowForm(false);
+        setEditId(null);
         load();
+    };
+
+    const handleEdit = (coupon) => {
+        setForm({
+            code: coupon.code,
+            discountType: coupon.discountType || "percentage",
+            discountValue: coupon.discountValue || 0,
+            minOrder: coupon.minOrder || 0,
+            maxDiscount: coupon.maxDiscount || 0,
+            perUserLimit: coupon.perUserLimit || 1,
+            totalLimit: coupon.totalLimit || 100,
+            category: coupon.category || "All",
+            zone: coupon.zone || "",
+            firstTimeOnly: !!coupon.firstTimeOnly,
+            expiryDate: coupon.expiryDate || "",
+            isActive: !!coupon.isActive,
+            discountBorneBy: coupon.discountBorneBy || "admin"
+        });
+        setEditId(coupon._id || coupon.id);
+        setShowForm(true);
     };
 
     const handleCopy = (code) => {
@@ -60,14 +92,16 @@ export default function CouponSystem() {
                     <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2"><Ticket className="h-7 w-7 text-primary" /> Coupon System</h1>
                     <p className="text-sm text-muted-foreground font-medium mt-1">Create and manage discount coupons</p>
                 </div>
-                <Button onClick={() => setShowForm(!showForm)} className="gap-2 rounded-xl font-bold"><Plus className="h-4 w-4" /> Create Coupon</Button>
+                <Button onClick={() => { setShowForm(!showForm); if(showForm) setEditId(null); }} className="gap-2 rounded-xl font-bold">
+                    {showForm ? "Close Form" : <><Plus className="h-4 w-4" /> Create Coupon</>}
+                </Button>
             </motion.div>
 
             <AnimatePresence>
                 {showForm && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
                         <Card className="border-border/50 shadow-none">
-                            <CardHeader><CardTitle className="text-base font-bold">New Coupon</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-base font-bold">{editId ? "Edit Coupon" : "New Coupon"}</CardTitle></CardHeader>
                             <CardContent>
                                 <form onSubmit={handleAdd} className="grid gap-4 md:grid-cols-3">
                                     <div className="space-y-2">
@@ -86,23 +120,23 @@ export default function CouponSystem() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Discount Value</Label>
-                                        <Input type="number" value={form.discountValue} onChange={e => update("discountValue", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
+                                        <Input type="number" min="0" value={form.discountValue} onChange={e => update("discountValue", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Min Order (₹)</Label>
-                                        <Input type="number" value={form.minOrder} onChange={e => update("minOrder", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
+                                        <Input type="number" min="0" value={form.minOrder} onChange={e => update("minOrder", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Max Discount (₹)</Label>
-                                        <Input type="number" value={form.maxDiscount} onChange={e => update("maxDiscount", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
+                                        <Input type="number" min="0" value={form.maxDiscount} onChange={e => update("maxDiscount", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Per User Limit</Label>
-                                        <Input type="number" value={form.perUserLimit} onChange={e => update("perUserLimit", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
+                                        <Input type="number" min="0" value={form.perUserLimit} onChange={e => update("perUserLimit", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Total Usage Limit</Label>
-                                        <Input type="number" value={form.totalLimit} onChange={e => update("totalLimit", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
+                                        <Input type="number" min="0" value={form.totalLimit} onChange={e => update("totalLimit", parseInt(e.target.value))} className="rounded-xl h-10 bg-muted/30" />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Category</Label>
@@ -120,7 +154,13 @@ export default function CouponSystem() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Zone (Optional)</Label>
-                                        <Input placeholder="Delhi NCR" value={form.zone} onChange={e => update("zone", e.target.value)} className="rounded-xl h-10 bg-muted/30" />
+                                        <Select value={form.zone} onValueChange={v => update("zone", v)}>
+                                            <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="All Zones" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="All">All Zones</SelectItem>
+                                                {zones.map(z => <SelectItem key={z._id || z.id} value={z.name}>{z.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="flex items-center gap-3 pt-6">
                                         <Switch checked={form.firstTimeOnly} onCheckedChange={v => update("firstTimeOnly", v)} />
@@ -137,8 +177,8 @@ export default function CouponSystem() {
                                         </Select>
                                     </div>
                                     <div className="md:col-span-3 flex gap-2 mt-2">
-                                        <Button type="submit" className="rounded-xl font-bold gap-2"><Save className="h-4 w-4" />Save Coupon</Button>
-                                        <Button type="button" variant="outline" className="rounded-xl font-bold" onClick={() => setShowForm(false)}>Cancel</Button>
+                                        <Button type="submit" className="rounded-xl font-bold gap-2"><Save className="h-4 w-4" />{editId ? "Update Coupon" : "Save Coupon"}</Button>
+                                        <Button type="button" variant="outline" className="rounded-xl font-bold" onClick={() => { setShowForm(false); setEditId(null); }}>Cancel</Button>
                                     </div>
                                 </form>
                             </CardContent>
@@ -166,9 +206,14 @@ export default function CouponSystem() {
                                                 {copied === c.code ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3 opacity-40" />}
                                             </button>
                                         </div>
-                                        <Button size="sm" variant="outline" className="h-7 text-[10px] border-red-500/30 text-red-400 rounded-lg px-2" onClick={() => { deleteCoupon(c._id || c.id); load(); }}>
-                                            <Trash2 className="h-3 w-3" />
-                                        </Button>
+                                        <div className="flex items-center gap-1">
+                                            <Button size="sm" variant="outline" className="h-7 text-[10px] border-primary/30 text-primary rounded-lg px-2" onClick={() => handleEdit(c)}>
+                                                Edit
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="h-7 text-[10px] border-red-500/30 text-red-400 rounded-lg px-2" onClick={() => { deleteCoupon(c._id || c.id); load(); }}>
+                                                <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                        </div>
                                     </div>
                                     <div className="text-xl font-black text-foreground mb-2">
                                         {c.discountType === "percentage" ? `${c.discountValue}% OFF` : `₹${c.discountValue} OFF`}

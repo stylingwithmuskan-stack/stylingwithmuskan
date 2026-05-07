@@ -36,6 +36,8 @@ const UserSchema = new mongoose.Schema(
     codDisabledBy: { type: String, default: "" },
     wallet: {
       balance: { type: Number, default: 0 },
+      totalCashback: { type: Number, default: 0 },
+      points: { type: Number, default: 0 },
       transactions: [
         {
           title: { type: String, default: "" },

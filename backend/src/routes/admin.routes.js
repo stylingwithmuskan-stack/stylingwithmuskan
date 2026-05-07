@@ -17,6 +17,7 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../config.js";
 import { ServiceType, Category, Service, OfficeSettings, Banner, BookingType } from "../models/Content.js";
 import { Spotlight, GalleryItem, Testimonial } from "../models/SiteContent.js";
 import { City } from "../models/CityZone.js";
+import User from "../models/User.js";
 import * as BookingsController from "../modules/bookings/controllers/bookings.controller.js";
 import { canAssignProviderToBooking, computeExpiresAt } from "../lib/assignment.js";
 import { bumpContentVersion } from "../lib/contentCache.js";
@@ -75,8 +76,13 @@ router.get("/metrics/booking-trend", requireRole("admin"), AdminController.metri
 router.get("/metrics/cities", requireRole("admin"), AdminController.metricsCities);
 
 // ───── ADMIN CONTENT (Parents/Categories/Services) ─────
-router.get("/parents", requireRole("admin"), async (_req, res) => {
-  const items = await ServiceType.find().lean();
+router.get("/parents", requireRole("admin"), async (req, res) => {
+  const { search } = req.query;
+  const q = {};
+  if (search) {
+    q.label = new RegExp(search, "i");
+  }
+  const items = await ServiceType.find(q).lean();
   res.json({ parents: items });
 });
 router.post("/parents",
@@ -120,10 +126,14 @@ router.delete("/parents/:id",
 );
 
 router.get("/categories", requireRole("admin"), async (req, res) => {
-  const { gender, serviceType, minimal } = req.query;
+  const { gender, serviceType, minimal, search } = req.query;
   const q = {};
   if (gender) q.gender = gender;
   if (serviceType) q.serviceType = serviceType;
+  if (search) {
+    const regex = new RegExp(search, "i");
+    q.$or = [{ name: regex }, { id: regex }];
+  }
   
   let query = Category.find(q);
   if (minimal === "true") {
@@ -172,10 +182,14 @@ router.delete("/categories/:id",
 );
 
 router.get("/services", requireRole("admin"), async (req, res) => {
-  const { category, gender, page = 1, limit = 10, minimal } = req.query;
+  const { category, gender, page = 1, limit = 10, minimal, search } = req.query;
   const q = {};
   if (category) q.category = category;
   if (gender) q.gender = gender;
+  if (search) {
+    const regex = new RegExp(search, "i");
+    q.$or = [{ name: regex }, { id: regex }, { description: regex }];
+  }
   
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const total = await Service.countDocuments(q);
@@ -692,6 +706,12 @@ router.delete("/coupons/:id", requireRole("admin"), param("id").isString(), asyn
   res.json({ success: true });
 });
 
+router.put("/coupons/:id", requireRole("admin"), param("id").isString(), async (req, res) => {
+  const c = await Coupon.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!c) return res.status(404).json({ error: "Coupon not found" });
+  res.json({ coupon: c });
+});
+
 router.get("/banners", requireRole("admin"), async (_req, res) => {
   // Admin listing should show all banners (including scheduled/future), unlike /content/banners which is active-only.
   const items = await Banner.find().lean();
@@ -1000,8 +1020,47 @@ router.put(
 );
 
 router.get("/sos", requireRole("admin"), async (_req, res) => {
-  const alerts = await SOSAlert.find().sort({ createdAt: -1 }).lean();
-  res.json({ alerts });
+  const rawAlerts = await SOSAlert.find().sort({ createdAt: -1 }).lean();
+  
+  const enrichedAlerts = await Promise.all(rawAlerts.map(async (alert) => {
+    // If it already has userName, keep it
+    if (alert.userName && alert.userName !== "Unknown Source") return alert;
+
+    try {
+      const typeLower = String(alert.userType || "").toLowerCase();
+      if (typeLower === "provider" || typeLower === "beautician") {
+        const p = await ProviderAccount.findById(alert.userId).lean();
+        if (p) {
+          alert.userName = p.name || "Unknown Provider";
+          alert.userPhone = p.phone || "";
+          alert.city = p.city || "";
+          if ((!alert.location || !alert.location.lat) && p.currentLocation?.lat) {
+            alert.location = { lat: p.currentLocation.lat, lng: p.currentLocation.lng };
+          }
+        }
+      } else if (typeLower === "vendor") {
+        const v = await Vendor.findById(alert.userId).lean();
+        if (v) {
+          alert.userName = v.name || "Unknown Vendor";
+          alert.userPhone = v.phone || "";
+          alert.city = v.city || "";
+        }
+      } else {
+        const u = await User.findById(alert.userId).lean();
+        if (u) {
+          alert.userName = u.name || "Unknown User";
+          alert.userPhone = u.phone || "";
+          alert.city = u.addresses?.[0]?.city || "";
+        }
+      }
+    } catch (err) {
+      console.error("[SOS Enrichment] Failed for alert", alert._id, err.message);
+    }
+    
+    return alert;
+  }));
+
+  res.json({ alerts: enrichedAlerts });
 });
 
 router.patch("/sos/:id/resolve", requireRole("admin"), param("id").isString(), async (req, res) => {

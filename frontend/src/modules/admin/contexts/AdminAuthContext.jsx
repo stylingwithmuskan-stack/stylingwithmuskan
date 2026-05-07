@@ -141,6 +141,7 @@ export const AdminAuthProvider = ({ children }) => {
     // ───── COUPONS ─────
     const getCoupons = async () => (await api.admin.coupons()).coupons;
     const addCoupon = async (coupon) => { await api.admin.addCoupon(coupon); };
+    const updateCoupon = async (id, coupon) => { await api.admin.updateCoupon(id, coupon); };
     const deleteCoupon = async (id) => { await api.admin.deleteCoupon(id); };
 
     // ───── BANNERS ─────
@@ -276,7 +277,7 @@ export const AdminAuthProvider = ({ children }) => {
             approveProviderZones, rejectProviderZones, adjustProviderWallet,
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,
             getAllBookings, getUserBookings, approveBookingImages, assignSPToBooking, getAvailableProvidersForBooking, assignTeamToBooking,
-            getCoupons, addCoupon, deleteCoupon,
+            getCoupons, addCoupon, updateCoupon, deleteCoupon,
             getBanners, addBanner, deleteBanner,
             getReferralSettings, updateReferralSettings,
             getSOSAlerts, resolveSOSAlert,

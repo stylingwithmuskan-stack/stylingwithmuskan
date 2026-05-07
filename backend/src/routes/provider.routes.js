@@ -997,6 +997,25 @@ router.delete("/me/account", requireRole("provider"), async (req, res) => {
   }
 });
 
+router.patch("/me/profile", requireRole("provider"), async (req, res) => {
+  try {
+    const providerId = req.auth.sub;
+    const { name, email } = req.body;
+
+    const updates = {};
+    if (name !== undefined) updates.name = String(name).trim();
+    if (email !== undefined) updates.email = String(email).trim().toLowerCase();
+
+    const p = await ProviderAccount.findByIdAndUpdate(providerId, { $set: updates }, { new: true });
+    if (!p) return res.status(404).json({ error: "Provider not found" });
+
+    res.json({ success: true, provider: await filterProviderActiveZones(p.toObject()) });
+  } catch (error) {
+    console.error("Error updating provider profile:", error);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
 router.get("/credits/:phone", param("phone").matches(/^\d{10}$/), async (req, res) => {
   const acc = await ProviderAccount.findOne({ phone: req.params.phone }).lean();
   if (!acc) return res.status(404).json({ error: "Not found" });

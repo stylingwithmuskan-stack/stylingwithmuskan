@@ -4,6 +4,8 @@ export function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
 
+import { shareToFlutter, isFlutterWebView } from "@/utils/flutterBridge";
+
 export async function shareContent(data) {
     const shareData = {
         title: data.title || "Styling with Muskan",
@@ -11,7 +13,13 @@ export async function shareContent(data) {
         url: data.url || window.location.href,
     };
 
-    // Try Web Share API first
+    // 0. Try Flutter native share if in app
+    if (isFlutterWebView()) {
+        const success = await shareToFlutter(shareData);
+        if (success) return;
+    }
+
+    // 1. Try Web Share API
     if (navigator.share) {
         try {
             await navigator.share(shareData);

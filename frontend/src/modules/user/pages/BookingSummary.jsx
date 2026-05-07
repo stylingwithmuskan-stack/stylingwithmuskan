@@ -69,6 +69,21 @@ const BookingSummary = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [quotePreview, setQuotePreview] = useState(null);
   const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
+  const [hasPlans, setHasPlans] = useState(false);
+
+  // Check if any subscription plans exist
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.subscriptions.getPlans("user");
+        if (res.plans && res.plans.length > 0) {
+          setHasPlans(true);
+        }
+      } catch (err) {
+        console.error("Failed to fetch plans:", err);
+      }
+    })();
+  }, []);
 
   // Determine effective booking type
   const effectiveBookingType = bookingParam || contextBookingType || "instant";
@@ -698,7 +713,7 @@ const BookingSummary = () => {
         </motion.div>
 
         {/* SWM Plus Banner (for non-members) */}
-        {!isPlusMember && displayTotalPrice >= 499 && (
+        {!isPlusMember && hasPlans && displayTotalPrice >= 499 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

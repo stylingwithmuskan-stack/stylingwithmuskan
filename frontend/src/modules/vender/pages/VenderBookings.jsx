@@ -1021,7 +1021,7 @@ export default function VenderBookings() {
                                 <div className="flex justify-between items-start">
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Booking</p>
-                                        <p className="text-sm font-black">#{teamAssignModal.id}</p>
+                                        <p className="text-sm font-black">#{teamAssignModal.id?.slice(-6)}</p>
                                     </div>
                                     <Badge variant="outline" className="text-[9px] bg-teal-50 text-teal-600 border-teal-200">Advance Paid ✓</Badge>
                                 </div>
@@ -1139,7 +1139,7 @@ export default function VenderBookings() {
                                 <div className="flex justify-between items-start">
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Booking</p>
-                                        <p className="text-sm font-black">#{reassignModal.id}</p>
+                                        <p className="text-sm font-black">#{reassignModal.id?.slice(-6)}</p>
                                     </div>
                                     <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-600 border-purple-200 uppercase font-black tracking-widest">{reassignModal.serviceType}</Badge>
                                 </div>
@@ -1233,7 +1233,7 @@ export default function VenderBookings() {
                                 <div className="flex justify-between items-start">
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Booking</p>
-                                        <p className="text-sm font-black">#{escalatedAssignModal.id}</p>
+                                        <p className="text-sm font-black">#{escalatedAssignModal.id?.slice(-6)}</p>
                                     </div>
                                     <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-600 border-purple-200 uppercase font-black tracking-widest">{escalatedAssignModal.serviceType}</Badge>
                                 </div>

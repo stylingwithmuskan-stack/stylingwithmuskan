@@ -173,8 +173,9 @@ router.patch(
             // Credit Referee (Current User)
             const refereeBonus = Number(s.refereeBonus || 0);
             if (refereeBonus > 0) {
-              if (!u.wallet) u.wallet = { balance: 0, transactions: [] };
+              if (!u.wallet) u.wallet = { balance: 0, totalCashback: 0, points: 0, transactions: [] };
               u.wallet.balance = (u.wallet.balance || 0) + refereeBonus;
+              u.wallet.totalCashback = (u.wallet.totalCashback || 0) + refereeBonus;
               u.wallet.transactions.unshift({
                 title: "Referral Bonus",
                 amount: refereeBonus,
@@ -191,8 +192,9 @@ router.patch(
             const currentRefs = await User.countDocuments({ referredBy: referrer._id.toString() });
 
             if (referrerBonus > 0 && currentRefs < maxRefs) {
-              if (!referrer.wallet) referrer.wallet = { balance: 0, transactions: [] };
+              if (!referrer.wallet) referrer.wallet = { balance: 0, totalCashback: 0, points: 0, transactions: [] };
               referrer.wallet.balance = (referrer.wallet.balance || 0) + referrerBonus;
+              referrer.wallet.totalCashback = (referrer.wallet.totalCashback || 0) + referrerBonus;
               referrer.wallet.transactions.unshift({
                 title: "Referral Reward",
                 amount: referrerBonus,
@@ -326,8 +328,15 @@ router.patch(
 );
 
 router.get("/me/wallet", requireAuth, async (req, res) => {
-  const w = req.user.wallet || { balance: 0, transactions: [] };
-  res.json({ wallet: { balance: w.balance || 0, transactions: w.transactions || [] } });
+  const w = req.user.wallet || { balance: 0, totalCashback: 0, points: 0, transactions: [] };
+  res.json({ 
+    wallet: { 
+      balance: w.balance || 0, 
+      totalCashback: w.totalCashback || 0,
+      points: w.points || 0,
+      transactions: w.transactions || [] 
+    } 
+  });
 });
 
 router.post(
