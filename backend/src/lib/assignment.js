@@ -123,7 +123,7 @@ export async function pickNextProviderForBooking(booking, startIndex = 0) {
   return null;
 }
 
-const EXHAUSTED_CHAIN_VENDOR_WINDOW_MS = 60 * 60 * 1000;
+const EXHAUSTED_CHAIN_VENDOR_WINDOW_MS = 10 * 60 * 1000;
 
 function getBookingCityInfo(booking) {
   return {

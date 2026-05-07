@@ -407,7 +407,7 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
   // Create default availability when provider is approved
   if (status === "approved" && p?._id) {
     try {
-      await bootstrapProviderAvailability(p._id.toString(), { days: 30 });
+      await bootstrapProviderAvailability(p._id.toString(), { days: 30, overwriteSystemDocs: true });
     } catch (bootstrapErr) {
       console.error("[Admin] Failed to bootstrap provider availability:", bootstrapErr?.message || bootstrapErr);
     }

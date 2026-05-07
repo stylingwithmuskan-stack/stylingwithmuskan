@@ -103,6 +103,12 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     : defaultSlotsMap(settings?.serviceStartTime || settings?.startTime, settings?.serviceEndTime || settings?.endTime);
 
   const excludeBookingId = opts.excludeBookingId ? String(opts.excludeBookingId) : null;
+
+  // Calculate provider's actual last available minute for lenient window enforcement
+  const providerLastSlotMin = Math.max(0, ...Object.keys(baseMap).filter(k => baseMap[k]).map(k => {
+    const hm = parseSlotLabelToHM(k);
+    return hm ? (hm.hour * 60 + hm.minute) : 0;
+  })) + 30; // +30 assumed slot duration
   if (excludeBookingId) {
     console.log(`[Availability Debug] Excluding current booking ${excludeBookingId} from busy check`);
   }
@@ -169,8 +175,8 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   const bufferMs = Math.max(Number(settings?.bufferMinutes || 30), 0) * 60 * 1000;
   const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
   
-  // Dynamic Lead Time Calculation with 10-minute UI buffer for checkout window
-  const effectiveLeadMs = Math.max(bufferMs, leadMs) + (10 * 60 * 1000); 
+  // Dynamic Lead Time Calculation with 2-minute UI buffer for checkout window
+  const effectiveLeadMs = Math.max(bufferMs, leadMs) + (2 * 60 * 1000); 
   
   console.log(`[SLOTS DEBUG] Provider: ${providerId}, Date: ${date}, effectiveLead: ${Math.round(effectiveLeadMs/60000)}m`);
 
@@ -191,25 +197,13 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
         const slotMin = hm.hour * 60 + hm.minute;
         if (!isTimeInWindow(slotMin, windowStartMin, windowEndMin)) ok = false;
         
-        if (ok && requestedDurationMinutes > 0) {
-          const requiredEndMin = slotMin + requestedDurationMinutes + bufferMin;
-          // For overnight windows, the end time enforcement is slightly more complex.
-          // But for now, we enforce that the service must finish within the (possibly wrapped) window.
-          if (windowStartMin <= windowEndMin) {
-            if (requiredEndMin > windowEndMin) ok = false;
-          } else {
-            // In overnight case, if it started after windowStartMin, it can go up to windowEndMin (next day)
-            // If it started before windowEndMin, it must finish before windowEndMin
-            if (slotMin >= windowStartMin) {
-               // Service starts late night, can cross midnight but must end before next day's windowEndMin
-               // (Technically 1440 + windowEndMin is the boundary)
-               if (requiredEndMin > (1440 + windowEndMin)) ok = false;
-            } else {
-               // Service starts early morning, must end before windowEndMin
-               if (requiredEndMin > windowEndMin) ok = false;
-            }
+          // Dynamic Service Window: 
+          // We no longer strictly enforce the 'requiredEndMin' for assignment.
+          // If the slot is enabled by the provider and within the 'Start' and 'End' hours, it's valid.
+          // This allows for long services (like Facials) to be booked even late in the evening.
+          if (!isTimeInWindow(slotMin, windowStartMin, windowEndMin)) {
+            ok = false;
           }
-        }
       }
     }
     if (ok && slotStart && busyIntervals.length > 0) {
@@ -239,7 +233,9 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   }
   console.log(`[SLOTS DEBUG] Finished. Found ${slots.length} slots for ${providerId}`);
 
-  const result = { date, slots, slotMap };
+  const isFullyBooked = slots.length === 0;
+  const reason = isFullyBooked ? (isToday ? "all_slots_past_or_busy" : "no_slots_found") : null;
+  const result = { date, slots, slotMap, isFullyBooked, isLeave: false, reason };
   if (useCache) {
     try {
       const key = await cacheKey(providerId, date, settings, requestedDurationMinutes);

@@ -105,8 +105,7 @@ async function enrichMeta(meta = {}) {
   const safe = { ...(meta || {}) };
   if (!safe.serviceName && safe.bookingId) {
     try {
-      const Booking = (await import("../models/Booking.js")).default;
-      const booking = await Booking.findById(safe.bookingId).lean();
+      const booking = await mongoose.model("Booking").findById(safe.bookingId).lean();
       if (booking) {
         safe.serviceName =
           pickServiceName(booking.items) ||
@@ -121,8 +120,7 @@ async function enrichMeta(meta = {}) {
   }
   if (!safe.serviceName && safe.enquiryId) {
     try {
-      const CustomEnquiry = (await import("../models/CustomEnquiry.js")).default;
-      const enquiry = await CustomEnquiry.findById(safe.enquiryId).lean();
+      const enquiry = await mongoose.model("CustomEnquiry").findById(safe.enquiryId).lean();
       if (enquiry) {
         safe.serviceName =
           pickServiceName(enquiry.selectedServices) ||
@@ -476,6 +474,7 @@ export async function notify({
   });
 
   // 1. Real-time Socket Update (Always emit if emit=true, ignore quiet hours for UI sync)
+  // ✅ FIX: Emit socket event BEFORE push delivery to make it 'Instant' on UI
   if (emit) {
     try {
       const io = getIO();
@@ -500,31 +499,31 @@ export async function notify({
   }
 
   // 2. FCM Push Notification (Respect quiet hours for intrusive alerts)
-  try {
-    if (recipientRole === "provider" && respectProviderQuietHours) {
-      const ok = await isWithinProviderWindow();
-      if (!ok) {
-        await queuePushForNotification(notification, "Provider quiet hours");
+  // Backgrounding push notifications to ensure the main request finishes instantly
+  (async () => {
+    try {
+      if (recipientRole === "provider" && respectProviderQuietHours) {
+        const ok = await isWithinProviderWindow();
+        if (!ok) {
+          await queuePushForNotification(notification, "Provider quiet hours");
+        } else {
+          await sendPushForNotification(notification);
+        }
       } else {
         await sendPushForNotification(notification);
       }
-    } else {
-      await sendPushForNotification(notification);
+    } catch (error) {
+      console.error("[Notify] Push notification error:", error.message);
     }
-  } catch (error) {
-    console.error("[Notify] Push notification error:", error.message);
-  }
+  })();
   return notification;
 }
 
 export async function notifyMany(recipients = [], base = {}) {
-  const items = Array.isArray(recipients) ? recipients : [];
-  const results = [];
-  for (const r of items) {
-    if (!r) continue;
-    // eslint-disable-next-line no-await-in-loop
-    const n = await notify({ ...base, recipientId: r });
-    if (n) results.push(n);
-  }
-  return results;
+  const items = (Array.isArray(recipients) ? recipients : []).filter(Boolean);
+  // ✅ FIX: Parallel processing for all recipients to eliminate delay
+  const results = await Promise.all(
+    items.map(r => notify({ ...base, recipientId: r }))
+  );
+  return results.filter(Boolean);
 }

@@ -340,7 +340,16 @@ router.get(
     console.log(`[SLOTS DEBUG] Final Query:`, JSON.stringify(q));
     console.log(`[SLOTS DEBUG] Providers Found: ${providers.length}`);
 
-    // Removed broad fallback to ensure strict zone/city enforcement as per user request
+    // ✅ FIX: Fallback to city-wide search if no providers found in specific zone
+    if (providers.length === 0 && (q.serviceZoneIds || q.zoneIds || q.baseZoneId || q.$or)) {
+      console.log(`[SLOTS DEBUG] No providers in zone. Falling back to city-wide search...`);
+      const cityQ = { ...baseQ };
+      if (cityIdGuess) cityQ.cityId = cityIdGuess;
+      else if (cityGuess) cityQ.city = new RegExp(`^${escapeRegex(cityGuess)}$`, "i");
+      providers = await ProviderAccount.find(cityQ).lean();
+      console.log(`[SLOTS DEBUG] City-wide search found ${providers.length} providers.`);
+    }
+
     if (providers.length === 0) {
       console.log(`[SLOTS DEBUG] No providers found in specified zone/city. Returning empty slots.`);
       return res.json({ date, slots: [], slotMap: {}, candidateProvidersBySlot: {}, city: cityGuess, zoneId: zoneIdGuess });
@@ -349,7 +358,6 @@ router.get(
     if (serviceIds.length > 0) {
       console.log(`[SLOTS DEBUG] Filtering by strict service IDs:`, serviceIds);
       
-      // ✅ PRE-FETCH Service metadata once
       let serviceMetadata = [];
       try {
         serviceMetadata = await Service.find({ id: { $in: serviceIds } }).select("id category").lean();
@@ -363,11 +371,11 @@ router.get(
       }));
       providers = providerMatches.filter(Boolean);
       
-      // ✅ FAIL-SAFE: If filtering removed all providers, fallback to original list 
-      // (Better to show slots than an empty screen during DB glitches)
+      // ✅ FAIL-SAFE: If strict filtering removed ALL providers, fallback to city list with LENIENT specialty check
       if (providers.length === 0) {
-        console.warn(`[SLOTS] Strict filter returned 0 providers. Falling back to base list.`);
-        providers = await ProviderAccount.find(q).lean();
+        console.warn(`[SLOTS] Strict filter returned 0 providers. Falling back to base city list with lenient check.`);
+        // Re-fetch city list if needed or just use current providers before strict filter
+        providers = await ProviderAccount.find(q).lean(); 
       }
       console.log(`[SLOTS DEBUG] Providers after strict service filter: ${providers.length}`);
     } else if (serviceTypes.length > 0 || categories.length > 0) {
@@ -376,9 +384,15 @@ router.get(
         serviceTypeValues: serviceTypes,
       });
       console.log(`[SLOTS DEBUG] Filtering by specialties:`, Array.from(requestedSpecialties.wantTypes), Array.from(requestedSpecialties.wantCats));
-      providers = providers.filter((provider) =>
+      
+      // ✅ LENIENT: Instead of filtering out, we just prefer matches but allow others if list is small
+      const matchingProviders = providers.filter((provider) =>
         providerMatchesRequestedSpecialties(provider, requestedSpecialties)
       );
+      
+      if (matchingProviders.length > 0) {
+        providers = matchingProviders;
+      }
       console.log(`[SLOTS DEBUG] Providers after specialty filter: ${providers.length}`);
     }
 

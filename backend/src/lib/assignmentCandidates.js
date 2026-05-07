@@ -123,7 +123,21 @@ export async function buildAssignmentCandidates({
     { approvalStatus: "approved", registrationComplete: true }
   );
 
-  providers = providers.filter((p) => providerMatchesRequestedSpecialties(p, requestedSpecialties));
+  // ✅ FIX: Fallback to city-wide search if no providers found in specific zone
+  if (providers.length === 0) {
+    console.log(`[Candidates] No providers in zone ${bookingZone}. Falling back to city ${bookingCity}...`);
+    providers = await ProviderAccount.find({
+      approvalStatus: "approved",
+      registrationComplete: true,
+      ...(bookingCityId ? { cityId: bookingCityId } : { city: { $regex: new RegExp(`^${escapeRegex(bookingCity)}$`, "i") } }),
+    }).lean();
+  }
+
+  // ✅ LENIENT: Specialty filter should be a preference but allow others if list is small
+  const matchingProviders = providers.filter((p) => providerMatchesRequestedSpecialties(p, requestedSpecialties));
+  if (matchingProviders.length > 0) {
+    providers = matchingProviders;
+  }
 
   const activeProviderSubs = await UserSubscription.find({
     userType: "provider",

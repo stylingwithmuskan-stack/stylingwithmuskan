@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, MapPin, Clock, Calendar, Check, Navigation, Camera, ChevronRight,
     Shield, IndianRupee, Map as MapIcon, UserCircle, Package, CheckCircle2,
-    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone, Briefcase, X
+    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone, Briefcase, X, Plus
 } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
