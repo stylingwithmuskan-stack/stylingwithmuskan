@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 import dotenv from "dotenv";
 import dns from "dns";
 import path from "path";

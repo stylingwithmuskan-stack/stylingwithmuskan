@@ -188,9 +188,12 @@ export async function quote(req, res) {
   let coupon = couponDoc;
   if (coupon && coupon.expiryDate) {
     const expiry = new Date(coupon.expiryDate);
-    if (!isNaN(expiry.getTime()) && expiry < new Date()) {
-      console.log(`[Quote] Coupon ${coupon.code} expired on ${coupon.expiryDate}, ignoring.`);
-      coupon = null;
+    if (!isNaN(expiry.getTime())) {
+      expiry.setHours(23, 59, 59, 999);
+      if (expiry < new Date()) {
+        console.log(`[Quote] Coupon ${coupon.code} expired on ${coupon.expiryDate}, ignoring.`);
+        coupon = null;
+      }
     }
   }
 
@@ -302,8 +305,11 @@ export async function create(req, res) {
   let coupon = couponDoc;
   if (coupon && coupon.expiryDate) {
     const expiry = new Date(coupon.expiryDate);
-    if (!isNaN(expiry.getTime()) && expiry < new Date()) {
-      coupon = null;
+    if (!isNaN(expiry.getTime())) {
+      expiry.setHours(23, 59, 59, 999);
+      if (expiry < new Date()) {
+        coupon = null;
+      }
     }
   }
 

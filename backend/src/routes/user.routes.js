@@ -357,7 +357,11 @@ router.get("/me/coupons", requireAuth, async (req, res) => {
     // Filter out expired coupons
     if (c.expiryDate) {
       const expiry = new Date(c.expiryDate);
-      if (!isNaN(expiry.getTime()) && expiry < now) return false;
+      if (!isNaN(expiry.getTime())) {
+        // Set expiry to end of day to include the full day
+        expiry.setHours(23, 59, 59, 999);
+        if (expiry < now) return false;
+      }
     }
     return true;
   });
