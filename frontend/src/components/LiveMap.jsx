@@ -183,7 +183,13 @@ const LiveMap = ({
             })
             .catch(err => {
                 console.error("Route Fetch Error:", err);
-                setRouteError(err.message);
+                // If it's a service disabled error, don't show a blocking UI error to the provider
+                // as they can't do anything about it. Just show markers without the route.
+                if (err.message?.includes("Routes API has not been used") || err.message?.includes("disabled")) {
+                    setRouteError("Maps config issue: Enable Routes API in Google Console");
+                } else {
+                    setRouteError(err.message);
+                }
             });
     }
   }, [ready, userLocation?.lat, userLocation?.lng, providerLocation?.lat, providerLocation?.lng, bikeIconUrl, key]);
@@ -225,7 +231,7 @@ const LiveMap = ({
                     <span className="text-[10px] font-black text-gray-900">{eta}</span>
                 </div>
             )}
-            {routeError && (
+            {routeError && !routeError.includes("config issue") && (
                 <div className="bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 flex items-center gap-2">
                     <span className="text-[9px] font-bold text-red-600 uppercase tracking-tighter">Route Hub Error</span>
                 </div>
@@ -438,7 +444,7 @@ const LiveMapContent = ({
                         </div>
                     </div>
                 )}
-                {routeError && (
+                {routeError && !routeError.includes("config issue") && (
                     <div className="bg-red-600 px-5 py-3 rounded-2xl shadow-2xl flex flex-col gap-1 max-w-xs">
                          <div className="flex items-center gap-2 text-white">
                             <ShieldAlert className="w-4 h-4" />

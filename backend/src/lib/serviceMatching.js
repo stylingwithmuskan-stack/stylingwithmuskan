@@ -58,9 +58,10 @@ export async function getContentMaps() {
   return contentCache;
 }
 
-export async function resolveRequestedSpecialtySets({ serviceTypeValues = [], categoryValues = [] } = {}) {
+export async function resolveRequestedSpecialtySets({ serviceTypeValues = [], categoryValues = [], serviceIds = [] } = {}) {
   const wantTypes = new Set((serviceTypeValues || []).map(normalizeValue).filter(Boolean));
   const wantCats = new Set((categoryValues || []).map(normalizeValue).filter(Boolean));
+  const wantServiceIds = new Set((serviceIds || []).map(normalizeValue).filter(Boolean));
   const wantTypeLabels = new Set();
   const wantCatLabels = new Set();
   const canonicalWanted = buildCanonicalSet([...wantTypes, ...wantCats]);
@@ -87,7 +88,7 @@ export async function resolveRequestedSpecialtySets({ serviceTypeValues = [], ca
     } catch { }
   }
 
-  return { wantTypes, wantCats, wantTypeLabels, wantCatLabels, canonicalWanted };
+  return { wantTypes, wantCats, wantTypeLabels, wantCatLabels, wantServiceIds, canonicalWanted };
 }
 
 export function providerMatchesRequestedSpecialties(provider, requested = {}) {
@@ -126,19 +127,42 @@ export function providerMatchesRequestedSpecialties(provider, requested = {}) {
   const providerTags = [...spec, ...primary, ...services].map(normalizeValue).filter(Boolean);
   const canonicalProvider = buildCanonicalSet(providerTags);
 
-  for (const wanted of canonicalWanted) {
-    if (canonicalProvider.has(wanted)) return true;
+  // If specific IDs are provided, ensure provider has ALL of them (Strict Triple Match)
+  const wantServiceIds = Array.from(requested.wantServiceIds || []).map(normalizeValue);
+  const wantCats = Array.from(requested.wantCats || []).map(normalizeValue);
+  const wantTypes = Array.from(requested.wantTypes || []).map(normalizeValue);
+
+  // 1. Check Services (Sub-categories level 2)
+  for (const sId of wantServiceIds) {
+    if (!canonicalProvider.has(sId)) return false; 
   }
 
-  // Fallback broad matching for mixed legacy values.
-  return providerTags.some((tag) => {
+  // 2. Check Categories (Top level)
+  for (const catId of wantCats) {
+    if (!canonicalProvider.has(catId)) {
+      const hasMatch = providerTags.some(tag => tag === catId || tag.includes(catId));
+      if (!hasMatch) return false;
+    }
+  }
+
+  // 3. Check Sub-categories/ServiceTypes (Mid level)
+  for (const typeId of wantTypes) {
+    if (!canonicalProvider.has(typeId)) {
+      const hasMatch = providerTags.some(tag => tag === typeId || tag.includes(typeId));
+      if (!hasMatch) return false;
+    }
+  }
+
+  // If we only have labels/tokens (no IDs), fallback to broad intersection but ensure it's robust
+  if (wantCats.length === 0 && wantTypes.length === 0) {
+    if (canonicalWanted.size === 0) return true;
     for (const wanted of canonicalWanted) {
-      if (tag === wanted) return true;
-      if (tag.includes(wanted) || wanted.includes(tag)) return true;
-      if (hasTokenIntersection(tag, wanted)) return true;
+      if (canonicalProvider.has(wanted)) return true;
     }
     return false;
-  });
+  }
+
+  return true;
 }
 
 /**

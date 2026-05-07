@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, MapPin, Clock, Calendar, Check, Navigation, Camera, ChevronRight,
     Shield, IndianRupee, Map as MapIcon, UserCircle, Package, CheckCircle2,
-    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone, Briefcase
+    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone, Briefcase, X
 } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
@@ -32,6 +32,7 @@ const ProviderBookingDetailPage = () => {
     const { 
         bookings, updateBookingStatus, requestPayment, verifyOTP, 
         addBeforeImages, addAfterImages, addProductImages, addProviderImages,
+        removeBeforeImage, removeAfterImage, removeProductImage, removeProviderImage,
         updateLiveLocation, activateManualAssignment
     } = useProviderBookings();
     const { provider } = useProviderAuth();
@@ -366,13 +367,12 @@ const ProviderBookingDetailPage = () => {
                 return {
                     label: hasBefore ? "Collect Service Payment" : "Upload Before Photos",
                     icon: IndianRupee,
-                    action: async () => {
+                    action: () => {
                         if (!hasBefore) {
                             if (isFlutterWebView()) {
-                                const file = await openFlutterCamera();
-                                if (file) {
-                                    await addBeforeImages(bookingId, [file]);
-                                }
+                                openFlutterCamera().then(file => {
+                                    if (file) addBeforeImages(bookingId, [file]);
+                                });
                             } else {
                                 toast.error("Please upload at least one 'Before Service' photo first.");
                                 // Scroll to images section
@@ -391,13 +391,12 @@ const ProviderBookingDetailPage = () => {
                 return {
                     label: hasAfter ? "Finalize & Complete" : "Upload After Photos",
                     icon: CheckCircle2,
-                    action: async () => {
+                    action: () => {
                         if (!hasAfter) {
                             if (isFlutterWebView()) {
-                                const file = await openFlutterCamera();
-                                if (file) {
-                                    await addAfterImages(bookingId, [file]);
-                                }
+                                openFlutterCamera().then(file => {
+                                    if (file) addAfterImages(bookingId, [file]);
+                                });
                             } else {
                                 toast.error("Please upload at least one 'After Service' photo first.");
                                 document.getElementById("verification-section")?.scrollIntoView({ behavior: 'smooth' });
@@ -794,6 +793,19 @@ const ProviderBookingDetailPage = () => {
                         {/* Provider Verification Section */}
                         <div className="bg-white border border-gray-100 rounded-[20px] p-5 shadow-sm shadow-purple-50">
                             <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2"><Shield className="w-3.5 h-3.5 text-amber-500" /> Provider Verification</h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                        {[
+                                            { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, removeFn: removeBeforeImage, show: true, capture: "environment", isMultiple: true },
+                                            { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, removeFn: removeAfterImage, show: booking.status !== "in_progress", capture: "environment", isMultiple: true },
+                                            { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, removeFn: removeProductImage, show: true, capture: "environment", isMultiple: true },
+                                            { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, removeFn: removeProviderImage, show: booking.status !== "in_progress", capture: "user", isMultiple: false }
+                                        ].filter(p => p.show).map(phase => (
+                                    <div key={phase.key} className="space-y-3">
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">{phase.label} Photo</p>
+                                        
+                                        {/* Upload area with photos inside */}
+                                        <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 p-3 min-h-[120px]">
+                                            {/* Show photos if available */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {[
                                     { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, show: true, capture: "environment", isMultiple: true },
@@ -813,8 +825,22 @@ const ProviderBookingDetailPage = () => {
                                             {phase.data.length > 0 ? (
                                                 <div className="flex gap-2.5 flex-wrap justify-center sm:justify-start">
                                                     {phase.data.map((img, i) => (
+                                                        <div key={i} className="relative w-20 h-20 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm">
                                                         <div key={i} className="relative w-24 h-24 rounded-xl bg-gray-100 overflow-hidden border border-gray-200 shadow-sm group">
                                                             <img src={img} className="w-full h-full object-cover" alt="" />
+                                                            {booking.status !== "completed" && (
+                                                                <button 
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (window.confirm("Remove this photo?")) {
+                                                                            phase.removeFn(bookingId, img);
+                                                                        }
+                                                                    }}
+                                                                    className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 z-10"
+                                                                >
+                                                                    <X className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            )}
                                                             {booking.status !== "completed" && (
                                                                 <button 
                                                                     onClick={() => {
@@ -832,14 +858,15 @@ const ProviderBookingDetailPage = () => {
                                                     {/* Add more button */}
                                                     {booking.status !== "completed" && (
                                                         <label 
+                                                            className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+                                                            onClick={(e) => {
                                                             className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 bg-white flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all active:scale-95"
                                                             onClick={async (e) => {
                                                                 if (isFlutterWebView()) {
                                                                     e.preventDefault();
-                                                                    const file = await openFlutterCamera();
-                                                                    if (file) {
-                                                                        phase.addFn(booking._id || id, [file]);
-                                                                    }
+                                                                    openFlutterCamera().then(file => {
+                                                                        if (file) phase.addFn(bookingId, [file]);
+                                                                    });
                                                                 }
                                                             }}
                                                         >
@@ -849,9 +876,17 @@ const ProviderBookingDetailPage = () => {
                                                                 capture={phase.capture}
                                                                 multiple={phase.isMultiple}
                                                                 className="hidden"
+                                                                onClick={(e) => {
+                                                                    if (isFlutterWebView()) {
+                                                                        e.preventDefault();
+                                                                        openFlutterCamera().then(file => {
+                                                                            if (file) phase.addFn(bookingId, [file]);
+                                                                        });
+                                                                    }
+                                                                }}
                                                                 onChange={e => {
                                                                     const files = Array.from(e.target.files || []);
-                                                                    if (files.length) phase.addFn(booking._id || id, files);
+                                                                    if (files.length) phase.addFn(bookingId, files);
                                                                 }} 
                                                             />
                                                             <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center mb-1">
@@ -865,14 +900,15 @@ const ProviderBookingDetailPage = () => {
                                                 /* Show upload prompt if no photos OR message if completed */
                                                 booking.status !== "completed" ? (
                                                     <label 
+                                                        className="flex flex-col items-center justify-center h-full min-h-[100px] cursor-pointer hover:bg-purple-50 transition-all rounded-xl"
+                                                        onClick={(e) => {
                                                         className="flex flex-col items-center justify-center py-6 cursor-pointer hover:bg-white hover:shadow-sm transition-all rounded-xl group border-2 border-dashed border-transparent hover:border-purple-100"
                                                         onClick={async (e) => {
                                                             if (isFlutterWebView()) {
                                                                 e.preventDefault();
-                                                                const file = await openFlutterCamera();
-                                                                if (file) {
-                                                                    phase.addFn(booking._id || id, [file]);
-                                                                }
+                                                                openFlutterCamera().then(file => {
+                                                                    if (file) phase.addFn(bookingId, [file]);
+                                                                });
                                                             }
                                                         }}
                                                     >
@@ -884,7 +920,7 @@ const ProviderBookingDetailPage = () => {
                                                             className="hidden"
                                                             onChange={e => {
                                                                 const files = Array.from(e.target.files || []);
-                                                                if (files.length) phase.addFn(booking._id || id, files);
+                                                                if (files.length) phase.addFn(bookingId, files);
                                                             }} 
                                                         />
                                                         <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">

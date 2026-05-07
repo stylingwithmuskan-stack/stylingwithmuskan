@@ -380,10 +380,21 @@ export const ProviderBookingProvider = ({ children }) => {
         setBookings(prev => prev.map(b => (b._id === normalized._id ? normalized : b)));
     }, [normalizeBooking]);
 
+    const removeImage = useCallback(async (id, type, imageUrl) => {
+        const { booking } = await api.provider.removeBookingImage(id, type, imageUrl);
+        const normalized = normalizeBooking(booking);
+        setBookings(prev => prev.map(b => (b._id === normalized._id ? normalized : b)));
+    }, [normalizeBooking]);
+
     const addBeforeImages = useCallback((id, files) => uploadImages(id, "before-images", files), [uploadImages]);
     const addAfterImages = useCallback((id, files) => uploadImages(id, "after-images", files), [uploadImages]);
     const addProductImages = useCallback((id, files) => uploadImages(id, "product-images", files), [uploadImages]);
     const addProviderImages = useCallback((id, files) => uploadImages(id, "provider-images", files), [uploadImages]);
+
+    const removeBeforeImage = useCallback((id, url) => removeImage(id, "before-images", url), [removeImage]);
+    const removeAfterImage = useCallback((id, url) => removeImage(id, "after-images", url), [removeImage]);
+    const removeProductImage = useCallback((id, url) => removeImage(id, "product-images", url), [removeImage]);
+    const removeProviderImage = useCallback((id, url) => removeImage(id, "provider-images", url), [removeImage]);
 
     const activateManualAssignment = useCallback(async (id) => {
         try {
@@ -425,6 +436,10 @@ export const ProviderBookingProvider = ({ children }) => {
             addAfterImages,
             addProductImages,
             addProviderImages,
+            removeBeforeImage,
+            removeAfterImage,
+            removeProductImage,
+            removeProviderImage,
             stopRingtone,
             updateLiveLocation,
         }}>

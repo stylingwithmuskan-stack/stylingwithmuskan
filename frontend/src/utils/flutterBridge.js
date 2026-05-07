@@ -3,39 +3,44 @@
  */
 
 export const openFlutterCamera = async () => {
-    // Check if we are running inside the Flutter InAppWebView
-    if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
-        try {
-            const result = await window.flutter_inappwebview.callHandler('openCamera');
-            if (result && result.success) {
-                const mimeType = result.mimeType || 'image/jpeg';
-                const base64 = result.base64;
-                
-                // Convert base64 to Blob
-                const byteCharacters = atob(base64);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: mimeType });
-                
-                // Create File object
-                const fileName = result.fileName || `camera_${Date.now()}.jpg`;
-                const file = new File([blob], fileName, { type: mimeType });
-                
-                // Add dataUrl for easy preview
-                file.dataUrl = `data:${mimeType};base64,${base64}`;
-                
-                return file;
-            }
-        } catch (error) {
-            console.error('Flutter Camera Bridge Error:', error);
+  // Check if we are running inside the Flutter InAppWebView
+  if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+    try {
+      const result = await window.flutter_inappwebview.callHandler('openCamera');
+      if (result && result.success) {
+        const mimeType = result.mimeType || 'image/jpeg';
+        const base64 = result.base64;
+
+        // Convert base64 to Blob
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+
+        // Create File object
+        const fileName = result.fileName || `camera_${Date.now()}.jpg`;
+        const file = new File([blob], fileName, { type: mimeType });
+
+        // Add dataUrl for easy preview
+        file.dataUrl = `data:${mimeType};base64,${base64}`;
+
+        return file;
+      }
+    } catch (error) {
+      console.error('Flutter Camera Bridge Error:', error);
     }
-    return null;
+  }
+  return null;
 };
 
 export const isFlutterWebView = () => {
-    return !!(window.flutter_inappwebview && window.flutter_inappwebview.callHandler);
+  // Check for standard InAppWebView or common custom interfaces
+  return !!(
+    (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) ||
+    window.FlutterInterface ||
+    navigator.userAgent.includes('Flutter')
+  );
 };

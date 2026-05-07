@@ -2019,6 +2019,38 @@ router.post(
   }
 );
 
+router.delete(
+  "/bookings/:id/:type",
+  requireRole("provider"),
+  param("id").isString(),
+  body("imageUrl").isString(),
+  async (req, res) => {
+    const { id, type } = req.params;
+    const { imageUrl } = req.body;
+    const providerId = req.auth?.sub;
+
+    const fieldMap = {
+      "before-images": "beforeImages",
+      "after-images": "afterImages",
+      "product-images": "productImages",
+      "provider-images": "providerImages"
+    };
+
+    const field = fieldMap[type];
+    if (!field) return res.status(400).json({ error: "Invalid image type" });
+
+    const booking = await Booking.findOneAndUpdate(
+      { _id: id, assignedProvider: providerId },
+      { $pull: { [field]: imageUrl } },
+      { new: true }
+    );
+
+    if (!booking) return res.status(404).json({ error: "Booking not found or not assigned to you" });
+
+    res.json({ success: true, booking });
+  }
+);
+
 router.patch("/bookings/:id/activate-manual-assignment", requireRole("provider"), param("id").isString(), async (req, res) => {
   const providerId = req.auth?.sub;
   const booking = await Booking.findById(req.params.id);
