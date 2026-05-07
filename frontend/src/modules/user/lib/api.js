@@ -427,7 +427,6 @@ export const api = {
       const token = getProviderToken();
       const formData = new FormData();
       for (const file of files) formData.append("images", file);
-      
       const res = await fetch(`${API_BASE_URL}/provider/bookings/${bookingId}/${type}`, {
         method: "POST",
         headers: {
@@ -437,20 +436,25 @@ export const api = {
         body: formData,
       });
       const data = await res.json().catch(() => ({}));
-      if (import.meta?.env?.DEV) {
-        try {
-          console.log("[API]", "POST", `/provider/bookings/${bookingId}/${type}`, { status: res.status, ok: res.ok, data });
-        } catch {}
-      }
       if (!res.ok) {
-        const err = data?.error || "Failed to upload images";
-        if (import.meta?.env?.DEV) {
-          try {
-            console.error("[API ERROR]", "POST", `/provider/bookings/${bookingId}/${type}`, { status: res.status, data });
-          } catch {}
-        }
-        if (res.status === 401) setToken("");
-        throw new Error(err);
+        throw new Error(data?.error || "Failed to upload images");
+      }
+      return data;
+    },
+    removeBookingImage: async (bookingId, type, imageUrl) => {
+      const token = getProviderToken();
+      const res = await fetch(`${API_BASE_URL}/provider/bookings/${bookingId}/${type}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({ imageUrl }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to remove image");
       }
       return data;
     },

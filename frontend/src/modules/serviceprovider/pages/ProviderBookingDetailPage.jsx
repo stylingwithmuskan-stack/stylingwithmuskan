@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, MapPin, Clock, Calendar, Check, Navigation, Camera, ChevronRight,
     Shield, IndianRupee, Map as MapIcon, UserCircle, Package, CheckCircle2,
-    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone, Briefcase
+    Smartphone, Wallet, Star, MessageSquare, AlertTriangle, Trash2, Phone, Briefcase, X
 } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
@@ -32,6 +32,7 @@ const ProviderBookingDetailPage = () => {
     const { 
         bookings, updateBookingStatus, requestPayment, verifyOTP, 
         addBeforeImages, addAfterImages, addProductImages, addProviderImages,
+        removeBeforeImage, removeAfterImage, removeProductImage, removeProviderImage,
         updateLiveLocation, activateManualAssignment
     } = useProviderBookings();
     const { provider } = useProviderAuth();
@@ -757,10 +758,10 @@ const ProviderBookingDetailPage = () => {
                             <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2"><Shield className="w-3.5 h-3.5 text-amber-500" /> Provider Verification</h3>
                             <div className="grid grid-cols-2 gap-3">
                                         {[
-                                            { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, show: true, capture: "environment", isMultiple: true },
-                                            { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, show: booking.status !== "in_progress", capture: "environment", isMultiple: true },
-                                            { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, show: true, capture: "environment", isMultiple: true },
-                                            { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, show: booking.status !== "in_progress", capture: "user", isMultiple: false }
+                                            { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, removeFn: removeBeforeImage, show: true, capture: "environment", isMultiple: true },
+                                            { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, removeFn: removeAfterImage, show: booking.status !== "in_progress", capture: "environment", isMultiple: true },
+                                            { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, removeFn: removeProductImage, show: true, capture: "environment", isMultiple: true },
+                                            { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, removeFn: removeProviderImage, show: booking.status !== "in_progress", capture: "user", isMultiple: false }
                                         ].filter(p => p.show).map(phase => (
                                     <div key={phase.key} className="space-y-3">
                                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">{phase.label} Photo</p>
@@ -771,8 +772,20 @@ const ProviderBookingDetailPage = () => {
                                             {phase.data.length > 0 ? (
                                                 <div className="flex gap-2 flex-wrap">
                                                     {phase.data.map((img, i) => (
-                                                        <div key={i} className="w-20 h-20 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm">
+                                                        <div key={i} className="relative w-20 h-20 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm group">
                                                             <img src={img} className="w-full h-full object-cover" alt="" />
+                                                            {booking.status !== "completed" && (
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        if (window.confirm("Remove this photo?")) {
+                                                                            phase.removeFn(bookingId, img);
+                                                                        }
+                                                                    }}
+                                                                    className="absolute top-1 right-1 w-6 h-6 bg-red-600/90 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg active:scale-95"
+                                                                >
+                                                                    <X className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     ))}
                                                     
