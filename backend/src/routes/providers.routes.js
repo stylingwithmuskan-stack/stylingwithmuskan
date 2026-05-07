@@ -52,7 +52,7 @@ router.get(
     const approvalOk = allowPending
       ? (provider.approvalStatus === "approved" || pendingStatuses.has(provider.approvalStatus))
       : provider.approvalStatus === "approved";
-    if (!approvalOk || !provider.registrationComplete || provider.isOnline !== true) {
+    if (!approvalOk || !provider.registrationComplete) {
       return res.status(404).json({ error: "Provider not available" });
     }
 
@@ -258,7 +258,7 @@ router.get(
     if (providerId && providerId !== "null" && mongoose.isValidObjectId(providerId)) {
       const provider = await ProviderAccount.findById(providerId).lean();
       if (!provider) return res.status(404).json({ error: "Provider not found" });
-      if (provider.approvalStatus !== "approved" || provider.registrationComplete !== true || provider.isOnline !== true) {
+      if (provider.approvalStatus !== "approved" || provider.registrationComplete !== true) {
         return res.json({
           date,
           slots: [],
@@ -313,8 +313,7 @@ router.get(
     const pendingStatuses = ["pending", "pending_vendor", "pending_admin"];
     const baseQ = {
       approvalStatus: allowPending ? { $in: ["approved", ...pendingStatuses] } : "approved",
-      registrationComplete: true,
-      isOnline: true,
+      ...(allowPending ? {} : { registrationComplete: true }),
     };
 
     let q = { ...baseQ };
@@ -350,8 +349,15 @@ router.get(
       console.log(`[SLOTS DEBUG] City-wide search found ${providers.length} providers.`);
     }
 
+    // ✅ FINAL FALLBACK (Dev only): If still no providers found, try searching ALL providers (ignoring city/zone)
+    if (providers.length === 0 && process.env.NODE_ENV !== "production") {
+      console.log(`[SLOTS DEBUG] Still no providers. Trying final fallback (any city)...`);
+      providers = await ProviderAccount.find(baseQ).lean();
+      console.log(`[SLOTS DEBUG] Global fallback found ${providers.length} providers.`);
+    }
+
     if (providers.length === 0) {
-      console.log(`[SLOTS DEBUG] No providers found in specified zone/city. Returning empty slots.`);
+      console.log(`[SLOTS DEBUG] No providers found even after fallbacks. Returning empty slots.`);
       return res.json({ date, slots: [], slotMap: {}, candidateProvidersBySlot: {}, city: cityGuess, zoneId: zoneIdGuess });
     }
 

@@ -438,6 +438,9 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
   
   try {
     if (p?._id) {
+      // ✅ Cache invalidation for public content (to show Muskan immediately)
+      await bumpContentVersion();
+
       await notify({
         recipientId: p._id.toString(),
         recipientRole: "provider",

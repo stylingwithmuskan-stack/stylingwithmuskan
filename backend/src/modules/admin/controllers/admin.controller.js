@@ -15,6 +15,7 @@ import CustomEnquiry from "../../../models/CustomEnquiry.js";
 import ProviderWalletTxn from "../../../models/ProviderWalletTxn.js";
 import { canAssignProviderToBooking } from "../../../lib/assignment.js";
 import { providerMatchesAllServiceIds } from "../../../lib/serviceMatching.js";
+import { bumpContentVersion } from "../../../lib/contentCache.js";
 
 const DEFAULT_TZ = "Asia/Kolkata";
 
@@ -126,9 +127,71 @@ export async function listVendors(req, res) {
 export async function listProviders(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 1000);
-  const total = await ProviderAccount.countDocuments({ registrationComplete: true });
-  const items = await ProviderAccount.find({ registrationComplete: true }).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
-  res.json({ providers: items, page, limit, total });
+  const { status, tab, search } = req.query;
+
+  const query = { registrationComplete: true };
+
+  // Handle both 'status' and 'tab' query params for compatibility
+  const activeTab = status || tab || "all";
+
+  if (activeTab === "active" || activeTab === "approved") {
+    query.approvalStatus = "approved";
+  } else if (activeTab === "pending") {
+    query.approvalStatus = { $in: ["pending", "pending_vendor", "pending_admin"] };
+  } else if (activeTab === "blocked") {
+    query.approvalStatus = "blocked";
+  } else if (activeTab === "rejected") {
+    query.approvalStatus = "rejected";
+  }
+
+  if (search) {
+    const searchRegex = new RegExp(String(search).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    query.$or = [
+      { name: searchRegex },
+      { phone: searchRegex },
+      { email: searchRegex },
+      { city: searchRegex }
+    ];
+  }
+
+  // Fetch counts for all tabs in parallel
+  const [items, filteredTotal, totalAll, activeCount, pendingCount, blockedCount] = await Promise.all([
+    ProviderAccount.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    ProviderAccount.countDocuments(query),
+    ProviderAccount.countDocuments({ registrationComplete: true }),
+    ProviderAccount.countDocuments({ registrationComplete: true, approvalStatus: "approved" }),
+    ProviderAccount.countDocuments({ registrationComplete: true, approvalStatus: { $in: ["pending", "pending_vendor", "pending_admin"] } }),
+    ProviderAccount.countDocuments({ registrationComplete: true, approvalStatus: "blocked" }),
+  ]);
+
+  // ✅ SMART RESET: If we are in a filtered tab (Active/Pending) and the page is empty,
+  // serve Page 1 data immediately to avoid the 1-2 second delay/flicker.
+  let effectivePage = page;
+  if (activeTab !== "all" && page > 1 && (items.length === 0 || (page - 1) * limit >= filteredTotal)) {
+    effectivePage = 1;
+    items = await ProviderAccount.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+  }
+
+  res.json({ 
+    providers: items, 
+    page: effectivePage, 
+    limit, 
+    total: filteredTotal, 
+    totalCount: activeTab === "all" ? totalAll : filteredTotal, 
+    stats: {
+      all: totalAll,
+      active: activeCount,
+      pending: pendingCount,
+      blocked: blockedCount
+    }
+  });
 }
 
 export async function listBookings(req, res) {
@@ -1540,6 +1603,9 @@ export async function createZoneFromRequest(req, res) {
       console.error('[Admin] Failed to send zone creation notifications:', notifyError);
     }
 
+    // ✅ Clear public content cache (for new zone availability)
+    await bumpContentVersion();
+
     res.status(201).json({ 
       success: true, 
       zone,
@@ -1649,6 +1715,9 @@ export async function updateProviderProfile(req, res) {
       }
     }
 
+    // ✅ Clear public content cache so Muskan shows up immediately
+    await bumpContentVersion();
+
     res.json({ success: true, provider: updatedProvider });
   } catch (error) {
     console.error("[Admin] Failed to update provider profile:", error);
@@ -1722,6 +1791,9 @@ export async function updateProviderProfilePhoto(req, res) {
         profilePhoto: provider.profilePhoto
       }
     };
+    // ✅ Clear public content cache
+    await bumpContentVersion();
+
     console.log("[Admin] Sending success response:", responseData);
     res.json(responseData);
   } catch (error) {
@@ -1815,6 +1887,9 @@ export async function updateProviderGrade(req, res) {
       console.error("[Admin] Failed to send grade update notification:", notifyErr);
     }
 
+    // ✅ Clear public content cache
+    await bumpContentVersion();
+
     res.json({ success: true, provider });
   } catch (error) {
     console.error("[Admin] Failed to update provider grade:", error);
@@ -1889,6 +1964,9 @@ export async function approveCategoryRequest(req, res) {
         type: "system"
       });
     } catch {}
+
+    // ✅ Clear public content cache
+    await bumpContentVersion();
 
     res.json({ success: true, provider });
   } catch (error) {
