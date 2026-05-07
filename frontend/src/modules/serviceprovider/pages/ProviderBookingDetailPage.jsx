@@ -366,11 +366,18 @@ const ProviderBookingDetailPage = () => {
                 return {
                     label: hasBefore ? "Collect Service Payment" : "Upload Before Photos",
                     icon: IndianRupee,
-                    action: () => {
+                    action: async () => {
                         if (!hasBefore) {
-                            toast.error("Please upload at least one 'Before Service' photo first.");
-                            // Scroll to images section
-                            document.getElementById("verification-section")?.scrollIntoView({ behavior: 'smooth' });
+                            if (isFlutterWebView()) {
+                                const file = await openFlutterCamera();
+                                if (file) {
+                                    await addBeforeImages(bookingId, [file]);
+                                }
+                            } else {
+                                toast.error("Please upload at least one 'Before Service' photo first.");
+                                // Scroll to images section
+                                document.getElementById("verification-section")?.scrollIntoView({ behavior: 'smooth' });
+                            }
                             return;
                         }
                         handleCollectPayment();
@@ -384,10 +391,17 @@ const ProviderBookingDetailPage = () => {
                 return {
                     label: hasAfter ? "Finalize & Complete" : "Upload After Photos",
                     icon: CheckCircle2,
-                    action: () => {
+                    action: async () => {
                         if (!hasAfter) {
-                            toast.error("Please upload at least one 'After Service' photo first.");
-                            document.getElementById("verification-section")?.scrollIntoView({ behavior: 'smooth' });
+                            if (isFlutterWebView()) {
+                                const file = await openFlutterCamera();
+                                if (file) {
+                                    await addAfterImages(bookingId, [file]);
+                                }
+                            } else {
+                                toast.error("Please upload at least one 'After Service' photo first.");
+                                document.getElementById("verification-section")?.scrollIntoView({ behavior: 'smooth' });
+                            }
                             return;
                         }
                         setShowComplete(true);
