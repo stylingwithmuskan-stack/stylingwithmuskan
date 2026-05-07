@@ -772,16 +772,17 @@ const ProviderBookingDetailPage = () => {
                                             {phase.data.length > 0 ? (
                                                 <div className="flex gap-2 flex-wrap">
                                                     {phase.data.map((img, i) => (
-                                                        <div key={i} className="relative w-20 h-20 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm group">
+                                                        <div key={i} className="relative w-20 h-20 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm">
                                                             <img src={img} className="w-full h-full object-cover" alt="" />
                                                             {booking.status !== "completed" && (
                                                                 <button 
-                                                                    onClick={() => {
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
                                                                         if (window.confirm("Remove this photo?")) {
                                                                             phase.removeFn(bookingId, img);
                                                                         }
                                                                     }}
-                                                                    className="absolute top-1 right-1 w-6 h-6 bg-red-600/90 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg active:scale-95"
+                                                                    className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 z-10"
                                                                 >
                                                                     <X className="w-3.5 h-3.5" />
                                                                 </button>
