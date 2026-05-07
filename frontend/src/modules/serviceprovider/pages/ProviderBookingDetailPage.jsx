@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/modules/user/componen
 import LiveMap from "@/components/LiveMap";
 import { api } from "@/modules/user/lib/api";
 import BookingChat from "../components/chat/BookingChat";
+import { openFlutterCamera, isFlutterWebView } from "@/utils/flutterBridge";
 
 const statusSteps = [
     { key: "accepted", label: "Accepted", icon: Check },
@@ -765,7 +766,18 @@ const ProviderBookingDetailPage = () => {
                                                     
                                                     {/* Add more button */}
                                                     {booking.status !== "completed" && (
-                                                        <label className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all">
+                                                        <label 
+                                                            className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+                                                            onClick={async (e) => {
+                                                                if (isFlutterWebView()) {
+                                                                    e.preventDefault();
+                                                                    const file = await openFlutterCamera();
+                                                                    if (file) {
+                                                                        phase.addFn(booking._id || id, [file]);
+                                                                    }
+                                                                }
+                                                            }}
+                                                        >
                                                             <input 
                                                                 type="file" 
                                                                 accept="image/*" 
@@ -785,7 +797,18 @@ const ProviderBookingDetailPage = () => {
                                             ) : (
                                                 /* Show upload prompt if no photos OR message if completed */
                                                 booking.status !== "completed" ? (
-                                                    <label className="flex flex-col items-center justify-center h-full min-h-[100px] cursor-pointer hover:bg-purple-50 transition-all rounded-xl">
+                                                    <label 
+                                                        className="flex flex-col items-center justify-center h-full min-h-[100px] cursor-pointer hover:bg-purple-50 transition-all rounded-xl"
+                                                        onClick={async (e) => {
+                                                            if (isFlutterWebView()) {
+                                                                e.preventDefault();
+                                                                const file = await openFlutterCamera();
+                                                                if (file) {
+                                                                    phase.addFn(booking._id || id, [file]);
+                                                                }
+                                                            }
+                                                        }}
+                                                    >
                                                         <input 
                                                             type="file" 
                                                             accept="image/*" 

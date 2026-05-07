@@ -6,6 +6,7 @@ import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { ArrowLeft, Camera, User, Mail, Phone, MapPin, Check, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { toast } from "sonner";
+import { openFlutterCamera, isFlutterWebView } from "@/utils/flutterBridge";
 
 const EditProfilePage = () => {
     const navigate = useNavigate();
@@ -243,7 +244,31 @@ const EditProfilePage = () => {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <button
-                                    onClick={() => cameraInputRef.current.click()}
+                                    onClick={async () => {
+                                        if (isFlutterWebView()) {
+                                            const file = await openFlutterCamera();
+                                            if (file) {
+                                                // Preview
+                                                setFormData(prev => ({ ...prev, image: file.dataUrl }));
+                                                setSelectedFile(file);
+                                                setShowActionSheet(false);
+
+                                                // Update immediately
+                                                setIsUploadingImage(true);
+                                                try {
+                                                    await updateAvatar(file);
+                                                    toast.success("Profile photo updated successfully");
+                                                } catch (err) {
+                                                    console.error("Avatar update failed:", err);
+                                                    toast.error("Failed to update profile photo.");
+                                                } finally {
+                                                    setIsUploadingImage(false);
+                                                }
+                                            }
+                                        } else {
+                                            cameraInputRef.current.click();
+                                        }
+                                    }}
                                     className="flex flex-col items-center gap-3 p-6 rounded-3xl bg-accent/50 border-2 border-transparent hover:border-primary/30 transition-all active:scale-95"
                                 >
                                     <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">

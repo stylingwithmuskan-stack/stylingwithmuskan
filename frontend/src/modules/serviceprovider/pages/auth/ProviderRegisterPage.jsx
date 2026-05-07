@@ -37,6 +37,7 @@ import { Label } from "@/modules/user/components/ui/label";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { api } from "@/modules/user/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
+import { openFlutterCamera, isFlutterWebView } from "@/utils/flutterBridge";
 
 const steps = [
     { title: "Personal", icon: CheckCircle2 },
@@ -385,6 +386,29 @@ export default function ProviderRegisterPage() {
     const streamRef = useRef(null);
 
     const startCamera = async (field = "profilePhoto") => {
+        // Check for Flutter Bridge First
+        if (isFlutterWebView()) {
+            const file = await openFlutterCamera();
+            if (file) {
+                const data = file.dataUrl;
+                if (field === "certifications") {
+                    setFormData(prev => ({
+                        ...prev,
+                        certifications: [...(Array.isArray(prev.certifications) ? prev.certifications : []), {
+                            name: file.name,
+                            type: file.type,
+                            data
+                        }]
+                    }));
+                } else {
+                    setFormData(prev => ({ ...prev, [field]: data }));
+                }
+                return;
+            }
+            // If user cancelled bridge camera, don't fallback to web camera
+            // return;
+        }
+
         setCapturingField(field);
         setCameraError("");
         setIsVideoReady(false);
