@@ -139,14 +139,14 @@ export default function ProviderRegisterPage() {
 
     useEffect(() => {
         api.content.cities().then(res => setCities(res.cities || [])).catch(() => { });
-        
+
         // Load saved registration data from localStorage
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 const { data, timestamp } = JSON.parse(saved);
                 const daysPassed = (Date.now() - timestamp) / (1000 * 60 * 60 * 24);
-                
+
                 // Check if data is not expired
                 if (daysPassed <= EXPIRY_DAYS) {
                     setCurrentStep(data.currentStep || 1);
@@ -255,18 +255,18 @@ export default function ProviderRegisterPage() {
         let cats = [];
         const catsRaw = Array.isArray(categoriesList) ? categoriesList.filter(c => c?.name) : [];
         if (selectedTypeIds.size > 0 || selectedTypeLabels.size > 0) {
-            cats = catsRaw.filter(c => 
+            cats = catsRaw.filter(c =>
                 selectedTypeIds.has(c.serviceType) || selectedTypeLabels.has(c.serviceType)
             );
         }
 
         const selectedCatNames = new Set(formData.specializations);
         const selectedCatIds = new Set(cats.filter(c => selectedCatNames.has(c.name)).map(c => c.id));
-        
+
         let services = [];
         const servicesRaw = Array.isArray(servicesList) ? servicesList.filter(s => s?.name) : [];
         if (selectedCatIds.size > 0 || selectedCatNames.size > 0) {
-            services = servicesRaw.filter(s => 
+            services = servicesRaw.filter(s =>
                 selectedCatIds.has(s.category) || selectedCatNames.has(s.category)
             );
         }
@@ -723,7 +723,7 @@ export default function ProviderRegisterPage() {
             const finalZones = [...formData.zones];
             if (formData.customZone.trim()) finalZones.push(formData.customZone.trim());
             await register({ ...formData, zones: finalZones });
-            
+
             // Meta Pixel Tracking
             try {
                 if (window.fbq) {
@@ -738,7 +738,7 @@ export default function ProviderRegisterPage() {
 
             // Clear localStorage after successful registration
             localStorage.removeItem(STORAGE_KEY);
-            
+
             setIsLoading(false);
             setIsSuccess(true);
         } catch (err) {
@@ -828,45 +828,45 @@ export default function ProviderRegisterPage() {
 
                                 {/* 1. Profile Photo - Live Camera */}
                                 <div className="flex flex-col items-center py-4">
-                                        <div className="w-32 h-32 rounded-3xl bg-gray-50 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-violet-600">
-                                            {formData.profilePhoto ? (
-                                                <div 
-                                                    className="relative w-full h-full group/photo cursor-pointer"
-                                                    onClick={() => startCamera("profilePhoto")}
-                                                >
-                                                    <img src={formData.profilePhoto} className="w-full h-full object-cover" alt="Profile" />
-                                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center gap-3">
-                                                        <button 
-                                                            type="button"
-                                                            onClick={(e) => { e.stopPropagation(); startCamera("profilePhoto"); }}
-                                                            className="p-2.5 bg-white rounded-xl text-violet-600 shadow-lg active:scale-95"
-                                                            title="Retake Photo"
-                                                        >
-                                                            <RotateCcw className="h-5 w-5" />
-                                                        </button>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setFormData(prev => ({ ...prev, profilePhoto: null }));
-                                                            }}
-                                                            className="p-2.5 bg-white rounded-xl text-red-600 shadow-lg active:scale-95"
-                                                            title="Delete Photo"
-                                                        >
-                                                            <Trash2 className="h-5 w-5" />
-                                                        </button>
-                                                    </div>
+                                    <div className="w-32 h-32 rounded-3xl bg-gray-50 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-violet-600">
+                                        {formData.profilePhoto ? (
+                                            <div
+                                                className="relative w-full h-full group/photo cursor-pointer"
+                                                onClick={() => startCamera("profilePhoto")}
+                                            >
+                                                <img src={formData.profilePhoto} className="w-full h-full object-cover" alt="Profile" />
+                                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); startCamera("profilePhoto"); }}
+                                                        className="p-2.5 bg-white rounded-xl text-violet-600 shadow-lg active:scale-95"
+                                                        title="Retake Photo"
+                                                    >
+                                                        <RotateCcw className="h-5 w-5" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setFormData(prev => ({ ...prev, profilePhoto: null }));
+                                                        }}
+                                                        className="p-2.5 bg-white rounded-xl text-red-600 shadow-lg active:scale-95"
+                                                        title="Delete Photo"
+                                                    >
+                                                        <Trash2 className="h-5 w-5" />
+                                                    </button>
                                                 </div>
-                                            ) : (
-                                                <div 
-                                                    className="w-full h-full flex flex-col items-center justify-center cursor-pointer group-active:scale-95 transition-transform"
-                                                    onClick={() => startCamera("profilePhoto")}
-                                                >
-                                                    <Camera className="h-10 w-10 text-gray-300 group-hover:text-violet-600 transition-colors" />
-                                                    <span className="text-[10px] font-black uppercase text-gray-400 mt-1">Live Photo</span>
-                                                </div>
-                                            )}
-                                        </div>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className="w-full h-full flex flex-col items-center justify-center cursor-pointer group-active:scale-95 transition-transform"
+                                                onClick={() => startCamera("profilePhoto")}
+                                            >
+                                                <Camera className="h-10 w-10 text-gray-300 group-hover:text-violet-600 transition-colors" />
+                                                <span className="text-[10px] font-black uppercase text-gray-400 mt-1">Live Photo</span>
+                                            </div>
+                                        )}
+                                    </div>
                                     <p className="text-[10px] font-bold text-gray-400 mt-4 uppercase tracking-widest leading-none">Live Camera Only</p>
 
                                 </div>
@@ -896,11 +896,10 @@ export default function ProviderRegisterPage() {
                                                 key={g}
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, gender: g })}
-                                                className={`h-12 rounded-xl font-bold border-2 transition-all ${
-                                                    formData.gender === g 
-                                                        ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100' 
-                                                        : 'bg-gray-50 border-gray-100 text-gray-600 hover:border-violet-200'
-                                                }`}
+                                                className={`h-12 rounded-xl font-bold border-2 transition-all ${formData.gender === g
+                                                    ? 'bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-100'
+                                                    : 'bg-gray-50 border-gray-100 text-gray-600 hover:border-violet-200'
+                                                    }`}
                                             >
                                                 {g}
                                             </button>
@@ -990,12 +989,12 @@ export default function ProviderRegisterPage() {
                                             const selectedDate = new Date(e.target.value);
                                             const today = new Date();
                                             today.setHours(0, 0, 0, 0);
-                                            
+
                                             if (selectedDate > today) {
                                                 setStepError("Date of birth cannot be in the future");
                                                 return;
                                             }
-                                            
+
                                             setStepError("");
                                             setFormData({ ...formData, dob: e.target.value });
                                         }}
@@ -1120,7 +1119,7 @@ export default function ProviderRegisterPage() {
                                                         if (window.google?.maps) return Promise.resolve();
                                                         const existing = document.getElementById("google-maps-sdk");
                                                         if (existing) return Promise.resolve();
-                                                        
+
                                                         return new Promise((resolve, reject) => {
                                                             const script = document.createElement("script");
                                                             script.id = "google-maps-sdk";
@@ -1351,7 +1350,7 @@ export default function ProviderRegisterPage() {
                                                     {formData.aadharFront ? (
                                                         <div className="border-2 border-violet-100 rounded-2xl p-2 bg-violet-50/30 overflow-hidden relative group">
                                                             <div className="absolute top-3 right-3 z-20 flex gap-2">
-                                                                <button 
+                                                                <button
                                                                     type="button"
                                                                     onClick={() => startCamera("aadharFront")}
                                                                     className="p-2 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl text-violet-600 hover:bg-white hover:scale-110 transition-all border border-violet-100"
@@ -1359,7 +1358,7 @@ export default function ProviderRegisterPage() {
                                                                 >
                                                                     <RotateCcw className="h-4 w-4" />
                                                                 </button>
-                                                                <button 
+                                                                <button
                                                                     type="button"
                                                                     onClick={() => setFormData(prev => ({ ...prev, aadharFront: null }))}
                                                                     className="p-2 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl text-red-600 hover:bg-white hover:scale-110 transition-all border border-red-100"
@@ -1408,7 +1407,7 @@ export default function ProviderRegisterPage() {
                                                     {formData.aadharBack ? (
                                                         <div className="border-2 border-violet-100 rounded-2xl p-2 bg-violet-50/30 overflow-hidden relative group">
                                                             <div className="absolute top-3 right-3 z-20 flex gap-2">
-                                                                <button 
+                                                                <button
                                                                     type="button"
                                                                     onClick={() => startCamera("aadharBack")}
                                                                     className="p-2 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl text-violet-600 hover:bg-white hover:scale-110 transition-all border border-violet-100"
@@ -1416,7 +1415,7 @@ export default function ProviderRegisterPage() {
                                                                 >
                                                                     <RotateCcw className="h-4 w-4" />
                                                                 </button>
-                                                                <button 
+                                                                <button
                                                                     type="button"
                                                                     onClick={() => setFormData(prev => ({ ...prev, aadharBack: null }))}
                                                                     className="p-2 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl text-red-600 hover:bg-white hover:scale-110 transition-all border border-red-100"
@@ -1466,7 +1465,7 @@ export default function ProviderRegisterPage() {
                                             {formData.panCard ? (
                                                 <div className="border-2 border-violet-100 rounded-2xl p-2 bg-violet-50/30 overflow-hidden relative group">
                                                     <div className="absolute top-3 right-3 z-20 flex gap-2">
-                                                        <button 
+                                                        <button
                                                             type="button"
                                                             onClick={() => startCamera("panCard")}
                                                             className="p-2 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl text-violet-600 hover:bg-white hover:scale-110 transition-all border border-violet-100"
@@ -1474,7 +1473,7 @@ export default function ProviderRegisterPage() {
                                                         >
                                                             <RotateCcw className="h-4 w-4" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             type="button"
                                                             onClick={() => setFormData(prev => ({ ...prev, panCard: null }))}
                                                             className="p-2 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl text-red-600 hover:bg-white hover:scale-110 transition-all border border-red-100"
@@ -1539,8 +1538,8 @@ export default function ProviderRegisterPage() {
                                     <details className="group relative">
                                         <summary className="h-12 w-full border border-gray-100 bg-gray-50 rounded-xl flex items-center justify-between px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                                             <span className="font-bold text-sm text-gray-700">
-                                                {formData.primaryCategory.length > 0 
-                                                    ? `${formData.primaryCategory.length} Categories Selected` 
+                                                {formData.primaryCategory.length > 0
+                                                    ? `${formData.primaryCategory.length} Categories Selected`
                                                     : "Select Primary Categories"}
                                             </span>
                                             <ChevronDown className="h-4 w-4 text-gray-400 group-open:rotate-180 transition-transform" />
@@ -1576,8 +1575,8 @@ export default function ProviderRegisterPage() {
                                     <details className="group relative">
                                         <summary className="h-12 w-full border border-gray-100 bg-gray-50 rounded-xl flex items-center justify-between px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                                             <span className="font-bold text-sm text-gray-700">
-                                                {formData.specializations.length > 0 
-                                                    ? `${formData.specializations.length} Sub Categories Selected` 
+                                                {formData.specializations.length > 0
+                                                    ? `${formData.specializations.length} Sub Categories Selected`
                                                     : "Select Sub Categories"}
                                             </span>
                                             <ChevronDown className="h-4 w-4 text-gray-400 group-open:rotate-180 transition-transform" />
@@ -1601,9 +1600,9 @@ export default function ProviderRegisterPage() {
                                                 </div>
                                             )) : (
                                                 <p className="text-xs font-semibold text-gray-400 p-2 text-center">
-                                                    {catalogLoading 
-                                                        ? "Loading sub categories..." 
-                                                        : formData.primaryCategory.length > 0 
+                                                    {catalogLoading
+                                                        ? "Loading sub categories..."
+                                                        : formData.primaryCategory.length > 0
                                                             ? "No sub categories available for selected primary categories"
                                                             : "Please select primary categories first to see sub categories"}
                                                 </p>
@@ -1617,8 +1616,8 @@ export default function ProviderRegisterPage() {
                                     <details className="group relative">
                                         <summary className="h-12 w-full border border-gray-100 bg-gray-50 rounded-xl flex items-center justify-between px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                                             <span className="font-bold text-sm text-gray-700">
-                                                {formData.services.length > 0 
-                                                    ? `${formData.services.length} Services Selected` 
+                                                {formData.services.length > 0
+                                                    ? `${formData.services.length} Services Selected`
                                                     : "Select Services"}
                                             </span>
                                             <ChevronDown className="h-4 w-4 text-gray-400 group-open:rotate-180 transition-transform" />
@@ -1642,8 +1641,8 @@ export default function ProviderRegisterPage() {
                                                 </div>
                                             )) : (
                                                 <p className="text-xs font-semibold text-gray-400 p-2 text-center">
-                                                    {catalogLoading 
-                                                        ? "Loading services..." 
+                                                    {catalogLoading
+                                                        ? "Loading services..."
                                                         : formData.primaryCategory.length > 0 || formData.specializations.length > 0
                                                             ? "No services available for selected categories"
                                                             : "Please select categories first to see services"}
@@ -1666,7 +1665,7 @@ export default function ProviderRegisterPage() {
                                                         <span className="px-2 truncate">{c.name}</span>
                                                     </div>
                                                 )}
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={() => {
                                                         setFormData(prev => ({
@@ -1857,30 +1856,30 @@ export default function ProviderRegisterPage() {
 
                                     <div className="space-y-3 pt-2">
                                         <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                                            <Checkbox 
-                                                id="c1" 
+                                            <Checkbox
+                                                id="c1"
                                                 checked={formData.agreedCommission}
-                                                onCheckedChange={(c) => setFormData({ ...formData, agreedCommission: c })} 
+                                                onCheckedChange={(c) => setFormData({ ...formData, agreedCommission: c })}
                                             />
                                             <label htmlFor="c1" className="text-xs font-bold text-gray-700 leading-snug cursor-pointer">
                                                 I accept the 85/15 Payout Commission Policy.
                                             </label>
                                         </div>
                                         <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                                            <Checkbox 
-                                                id="c2" 
+                                            <Checkbox
+                                                id="c2"
                                                 checked={formData.agreedGuidelines}
-                                                onCheckedChange={(c) => setFormData({ ...formData, agreedGuidelines: c })} 
+                                                onCheckedChange={(c) => setFormData({ ...formData, agreedGuidelines: c })}
                                             />
                                             <label htmlFor="c2" className="text-xs font-bold text-gray-700 leading-snug cursor-pointer">
                                                 I agree to follow the Safety & Hygiene Guidelines on every visit.
                                             </label>
                                         </div>
                                         <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-                                            <Checkbox 
-                                                id="c3" 
+                                            <Checkbox
+                                                id="c3"
                                                 checked={formData.agreedBackgroundCheck}
-                                                onCheckedChange={(c) => setFormData({ ...formData, agreedBackgroundCheck: c })} 
+                                                onCheckedChange={(c) => setFormData({ ...formData, agreedBackgroundCheck: c })}
                                             />
                                             <label htmlFor="c3" className="text-xs font-bold text-gray-700 leading-snug cursor-pointer">
                                                 I understand that my profile will be subject to a Background Check.
@@ -1914,20 +1913,19 @@ export default function ProviderRegisterPage() {
                             )}
                             <Button
                                 onClick={nextStep}
-                                className={`flex-[2] h-14 rounded-2xl font-black text-lg shadow-xl transition-all border-none ${
-                                    currentStep === 5 && (
-                                        !formData.agreedCommission || 
-                                        !formData.agreedGuidelines || 
-                                        !formData.agreedBackgroundCheck
-                                    )
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none hover:bg-gray-300'
-                                        : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200'
-                                }`}
+                                className={`flex-[2] h-14 rounded-2xl font-black text-lg shadow-xl transition-all border-none ${currentStep === 5 && (
+                                    !formData.agreedCommission ||
+                                    !formData.agreedGuidelines ||
+                                    !formData.agreedBackgroundCheck
+                                )
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none hover:bg-gray-300'
+                                    : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200'
+                                    }`}
                                 disabled={
-                                    isLoading || 
+                                    isLoading ||
                                     (currentStep === 5 && (
-                                        !formData.agreedCommission || 
-                                        !formData.agreedGuidelines || 
+                                        !formData.agreedCommission ||
+                                        !formData.agreedGuidelines ||
                                         !formData.agreedBackgroundCheck
                                     ))
                                 }
@@ -1951,12 +1949,12 @@ export default function ProviderRegisterPage() {
                                 <div className="absolute inset-0 bg-black/70" onClick={stopCamera} />
                                 <div className="relative bg-white rounded-2xl p-4 w-full max-w-sm z-10">
                                     <div className="rounded-xl overflow-hidden bg-black">
-                                        <video 
-                                            ref={videoRef} 
-                                            className="w-full h-80 object-cover" 
-                                            autoPlay 
-                                            muted 
-                                            playsInline 
+                                        <video
+                                            ref={videoRef}
+                                            className="w-full h-80 object-cover"
+                                            autoPlay
+                                            muted
+                                            playsInline
                                             controls={false}
                                             disablePictureInPicture
                                         />
