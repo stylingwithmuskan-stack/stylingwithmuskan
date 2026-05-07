@@ -366,13 +366,12 @@ const ProviderBookingDetailPage = () => {
                 return {
                     label: hasBefore ? "Collect Service Payment" : "Upload Before Photos",
                     icon: IndianRupee,
-                    action: async () => {
+                    action: () => {
                         if (!hasBefore) {
                             if (isFlutterWebView()) {
-                                const file = await openFlutterCamera();
-                                if (file) {
-                                    await addBeforeImages(bookingId, [file]);
-                                }
+                                openFlutterCamera().then(file => {
+                                    if (file) addBeforeImages(bookingId, [file]);
+                                });
                             } else {
                                 toast.error("Please upload at least one 'Before Service' photo first.");
                                 // Scroll to images section
@@ -391,13 +390,12 @@ const ProviderBookingDetailPage = () => {
                 return {
                     label: hasAfter ? "Finalize & Complete" : "Upload After Photos",
                     icon: CheckCircle2,
-                    action: async () => {
+                    action: () => {
                         if (!hasAfter) {
                             if (isFlutterWebView()) {
-                                const file = await openFlutterCamera();
-                                if (file) {
-                                    await addAfterImages(bookingId, [file]);
-                                }
+                                openFlutterCamera().then(file => {
+                                    if (file) addAfterImages(bookingId, [file]);
+                                });
                             } else {
                                 toast.error("Please upload at least one 'After Service' photo first.");
                                 document.getElementById("verification-section")?.scrollIntoView({ behavior: 'smooth' });
@@ -782,13 +780,12 @@ const ProviderBookingDetailPage = () => {
                                                     {booking.status !== "completed" && (
                                                         <label 
                                                             className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
-                                                            onClick={async (e) => {
+                                                            onClick={(e) => {
                                                                 if (isFlutterWebView()) {
                                                                     e.preventDefault();
-                                                                    const file = await openFlutterCamera();
-                                                                    if (file) {
-                                                                        phase.addFn(booking._id || id, [file]);
-                                                                    }
+                                                                    openFlutterCamera().then(file => {
+                                                                        if (file) phase.addFn(bookingId, [file]);
+                                                                    });
                                                                 }
                                                             }}
                                                         >
@@ -800,7 +797,7 @@ const ProviderBookingDetailPage = () => {
                                                                 className="hidden"
                                                                 onChange={e => {
                                                                     const files = Array.from(e.target.files || []);
-                                                                    if (files.length) phase.addFn(booking._id || id, files);
+                                                                    if (files.length) phase.addFn(bookingId, files);
                                                                 }} 
                                                             />
                                                             <phase.icon className="w-4 h-4 text-gray-400" />
@@ -813,13 +810,12 @@ const ProviderBookingDetailPage = () => {
                                                 booking.status !== "completed" ? (
                                                     <label 
                                                         className="flex flex-col items-center justify-center h-full min-h-[100px] cursor-pointer hover:bg-purple-50 transition-all rounded-xl"
-                                                        onClick={async (e) => {
+                                                        onClick={(e) => {
                                                             if (isFlutterWebView()) {
                                                                 e.preventDefault();
-                                                                const file = await openFlutterCamera();
-                                                                if (file) {
-                                                                    phase.addFn(booking._id || id, [file]);
-                                                                }
+                                                                openFlutterCamera().then(file => {
+                                                                    if (file) phase.addFn(bookingId, [file]);
+                                                                });
                                                             }
                                                         }}
                                                     >
@@ -831,7 +827,7 @@ const ProviderBookingDetailPage = () => {
                                                             className="hidden"
                                                             onChange={e => {
                                                                 const files = Array.from(e.target.files || []);
-                                                                if (files.length) phase.addFn(booking._id || id, files);
+                                                                if (files.length) phase.addFn(bookingId, files);
                                                             }} 
                                                         />
                                                         <phase.icon className="w-6 h-6 text-gray-400 mb-2" />
