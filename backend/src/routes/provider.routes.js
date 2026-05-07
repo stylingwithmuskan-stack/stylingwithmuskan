@@ -1236,26 +1236,45 @@ router.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const phone = req.body.phone;
+    if (!phone) return res.status(400).json({ error: "Phone number required" });
+
     const folder = `providers/${phone}/docs`;
     const files = req.files || {};
     const updates = {};
-    if (files.profilePhoto?.[0]) {
-      const up = await uploadBuffer(files.profilePhoto[0].buffer, folder);
-      updates.profilePhoto = up.secure_url;
-    }
     const docs = {};
-    if (files.aadharFront?.[0]) {
-      const up = await uploadBuffer(files.aadharFront[0].buffer, folder);
-      docs.aadharFront = up.secure_url;
-    }
-    if (files.aadharBack?.[0]) {
-      const up = await uploadBuffer(files.aadharBack[0].buffer, folder);
-      docs.aadharBack = up.secure_url;
-    }
-    if (files.panCard?.[0]) {
-      const up = await uploadBuffer(files.panCard[0].buffer, folder);
-      docs.panCard = up.secure_url;
-    }
+
+    // Helper to upload either Buffer (from multer) or Base64 string
+    const smartUpload = async (fileKey, bodyKey) => {
+      // 1. Check if Multer caught a file
+      if (files[fileKey]?.[0]) {
+        const up = await uploadBuffer(files[fileKey][0].buffer, folder);
+        return up.secure_url;
+      }
+      // 2. Fallback: Check if it's a Base64 string in the body
+      const base64 = req.body[bodyKey || fileKey];
+      if (typeof base64 === "string" && base64.startsWith("data:")) {
+        const buffer = Buffer.from(base64.split(",")[1], "base64");
+        const up = await uploadBuffer(buffer, folder);
+        return up.secure_url;
+      }
+      return null;
+    };
+
+    // Profile Photo
+    const profileUrl = await smartUpload("profilePhoto");
+    if (profileUrl) updates.profilePhoto = profileUrl;
+
+    // Documents
+    const aadharFrontUrl = await smartUpload("aadharFront");
+    if (aadharFrontUrl) docs.aadharFront = aadharFrontUrl;
+
+    const aadharBackUrl = await smartUpload("aadharBack");
+    if (aadharBackUrl) docs.aadharBack = aadharBackUrl;
+
+    const panCardUrl = await smartUpload("panCard");
+    if (panCardUrl) docs.panCard = panCardUrl;
+
+    // Certifications (Multer only for simplicity, or add base64 loop if needed)
     if (files.certifications?.length) {
       const certUrls = [];
       for (const f of files.certifications) {
@@ -1264,12 +1283,14 @@ router.post(
       }
       docs.certifications = certUrls;
     }
+
     const finalUpdates = { ...updates };
     if (Object.keys(docs).length > 0) {
       Object.entries(docs).forEach(([k, v]) => {
         finalUpdates[`documents.${k}`] = v;
       });
     }
+
     const acc = await ProviderAccount.findOneAndUpdate({ phone }, { $set: finalUpdates }, { new: true, upsert: true });
     res.json({ provider: await filterProviderActiveZones(acc.toObject()) });
   }
