@@ -633,31 +633,68 @@ const ProviderBookingDetailPage = () => {
                 )}
 
                 {/* Status Progression */}
-                <div className="bg-white border text-center border-gray-100 rounded-[20px] p-5 shadow-sm shadow-purple-50 text-center">
-                    <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-6">Job Progression</h3>
-                    <div className="flex items-center justify-between relative px-2">
-                        <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-[3px] bg-gray-100 z-0 rounded-full" />
-                        <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-[3px] bg-purple-500 z-0 rounded-full transition-all duration-500" style={{ width: `${Math.max(0, currentIdx) * 20}%` }} />
+                <div className="bg-white border border-gray-100 rounded-[24px] p-6 shadow-sm shadow-purple-50">
+                    <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-8 text-center sm:text-left">Job Progression</h3>
+                    
+                    {/* Horizontal Stepper (Desktop) */}
+                    <div className="hidden sm:block">
+                        <div className="flex items-center justify-between relative px-2">
+                            <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-[3px] bg-gray-100 z-0 rounded-full" />
+                            <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-[3px] bg-purple-500 z-0 rounded-full transition-all duration-500" style={{ width: `${Math.max(0, currentIdx) * (100/6)}%` }} />
+
+                            {statusSteps.map((step, i) => {
+                                const done = i <= currentIdx;
+                                const active = i === currentIdx;
+                                return (
+                                    <div key={step.key} className="relative z-10 flex flex-col items-center">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-[3px] transition-all bg-white ${done ? "border-purple-600 text-purple-600 shadow-md shadow-purple-200" : "border-gray-200 text-gray-300"} ${active ? "ring-4 ring-purple-100 scale-110" : ""}`}>
+                                            <step.icon className={`w-4 h-4 ${done ? 'text-purple-600' : 'text-gray-300'}`} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="flex justify-between relative px-2 mt-4">
+                            {statusSteps.map((step, i) => {
+                                const done = i <= currentIdx;
+                                return (
+                                    <span key={step.key} className={`text-[10px] font-black uppercase tracking-tight ${done ? "text-purple-700" : "text-gray-400"}`}>
+                                        {step.label}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Vertical Stepper (Mobile) */}
+                    <div className="sm:hidden relative pl-4 space-y-6">
+                        {/* Vertical Progress Line */}
+                        <div className="absolute left-8 top-2 bottom-2 w-1 bg-gray-50 rounded-full" />
+                        <div 
+                            className="absolute left-8 top-2 w-1 bg-purple-500 rounded-full transition-all duration-700" 
+                            style={{ height: `${(currentIdx / 6) * 100}%` }} 
+                        />
 
                         {statusSteps.map((step, i) => {
                             const done = i <= currentIdx;
                             const active = i === currentIdx;
                             return (
-                                <div key={step.key} className="relative z-10 flex flex-col items-center">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-[3px] transition-all bg-white ${done ? "border-purple-600 text-purple-600 shadow-md shadow-purple-200" : "border-gray-200 text-gray-300"} ${active ? "ring-4 ring-purple-100 scale-110" : ""}`}>
-                                        <step.icon className={`w-3.5 h-3.5 ${done ? 'text-purple-600' : 'text-gray-300'}`} />
+                                <div key={step.key} className="flex items-center gap-6 relative">
+                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center border-[3px] bg-white z-10 transition-all ${done ? "border-purple-600 text-purple-600 shadow-lg shadow-purple-100" : "border-gray-100 text-gray-300"} ${active ? "ring-4 ring-purple-100 scale-110" : ""}`}>
+                                        <step.icon className={`w-4 h-4 ${done ? 'text-purple-600' : 'text-gray-300'}`} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className={`text-[11px] font-black uppercase tracking-widest ${done ? "text-purple-700" : "text-gray-400"}`}>
+                                            {step.label}
+                                        </span>
+                                        {active && (
+                                            <span className="text-[9px] font-black text-purple-500 uppercase tracking-tighter mt-0.5 flex items-center gap-1">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                                                Current Status
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                    <div className="flex justify-between relative px-2 mt-2">
-                        {statusSteps.map((step, i) => {
-                            const done = i <= currentIdx;
-                            return (
-                                <span key={step.key} className={`text-[8px] sm:text-[9px] font-bold uppercase tracking-tighter ${done ? "text-purple-700" : "text-gray-400"}`}>
-                                    {step.label}
-                                </span>
                             );
                         })}
                     </div>
@@ -757,31 +794,45 @@ const ProviderBookingDetailPage = () => {
                         {/* Provider Verification Section */}
                         <div className="bg-white border border-gray-100 rounded-[20px] p-5 shadow-sm shadow-purple-50">
                             <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2"><Shield className="w-3.5 h-3.5 text-amber-500" /> Provider Verification</h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                        {[
-                                            { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, show: true, capture: "environment", isMultiple: true },
-                                            { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, show: booking.status !== "in_progress", capture: "environment", isMultiple: true },
-                                            { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, show: true, capture: "environment", isMultiple: true },
-                                            { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, show: booking.status !== "in_progress", capture: "user", isMultiple: false }
-                                        ].filter(p => p.show).map(phase => (
-                                    <div key={phase.key} className="space-y-3">
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">{phase.label} Photo</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {[
+                                    { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, show: true, capture: "environment", isMultiple: true },
+                                    { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, show: booking.status !== "in_progress", capture: "environment", isMultiple: true },
+                                    { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, show: true, capture: "environment", isMultiple: true },
+                                    { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, show: booking.status !== "in_progress", capture: "user", isMultiple: false }
+                                ].filter(p => p.show).map(phase => (
+                                    <div key={phase.key} className="space-y-2">
+                                        <div className="flex items-center justify-between px-1">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{phase.label} Photo</p>
+                                            {phase.data.length > 0 && booking.status !== "completed" && (
+                                                <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">{phase.data.length} Uploaded</span>
+                                            )}
+                                        </div>
                                         
-                                        {/* Upload area with photos inside */}
-                                        <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 p-3 min-h-[120px]">
-                                            {/* Show photos if available */}
+                                        <div className="bg-gray-50/50 rounded-2xl border border-gray-100 p-3 min-h-[140px] flex flex-col justify-center">
                                             {phase.data.length > 0 ? (
-                                                <div className="flex gap-2 flex-wrap">
+                                                <div className="flex gap-2.5 flex-wrap justify-center sm:justify-start">
                                                     {phase.data.map((img, i) => (
-                                                        <div key={i} className="w-20 h-20 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm">
+                                                        <div key={i} className="relative w-24 h-24 rounded-xl bg-gray-100 overflow-hidden border border-gray-200 shadow-sm group">
                                                             <img src={img} className="w-full h-full object-cover" alt="" />
+                                                            {booking.status !== "completed" && (
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        // Logic to remove image if needed, but keeping UI clean for now
+                                                                        toast.info("Image deletion is restricted for security");
+                                                                    }}
+                                                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     ))}
                                                     
                                                     {/* Add more button */}
                                                     {booking.status !== "completed" && (
                                                         <label 
-                                                            className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+                                                            className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 bg-white flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all active:scale-95"
                                                             onClick={async (e) => {
                                                                 if (isFlutterWebView()) {
                                                                     e.preventDefault();
@@ -803,8 +854,10 @@ const ProviderBookingDetailPage = () => {
                                                                     if (files.length) phase.addFn(booking._id || id, files);
                                                                 }} 
                                                             />
-                                                            <phase.icon className="w-4 h-4 text-gray-400" />
-                                                            <span className="text-[8px] font-bold text-gray-400 mt-1">Add</span>
+                                                            <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center mb-1">
+                                                                <Plus className="w-4 h-4 text-gray-400" />
+                                                            </div>
+                                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Add</span>
                                                         </label>
                                                     )}
                                                 </div>
@@ -812,7 +865,7 @@ const ProviderBookingDetailPage = () => {
                                                 /* Show upload prompt if no photos OR message if completed */
                                                 booking.status !== "completed" ? (
                                                     <label 
-                                                        className="flex flex-col items-center justify-center h-full min-h-[100px] cursor-pointer hover:bg-purple-50 transition-all rounded-xl"
+                                                        className="flex flex-col items-center justify-center py-6 cursor-pointer hover:bg-white hover:shadow-sm transition-all rounded-xl group border-2 border-dashed border-transparent hover:border-purple-100"
                                                         onClick={async (e) => {
                                                             if (isFlutterWebView()) {
                                                                 e.preventDefault();
@@ -834,13 +887,17 @@ const ProviderBookingDetailPage = () => {
                                                                 if (files.length) phase.addFn(booking._id || id, files);
                                                             }} 
                                                         />
-                                                        <phase.icon className="w-6 h-6 text-gray-400 mb-2" />
-                                                        <span className="text-[9px] font-black text-gray-400 tracking-widest uppercase">Snap {phase.label}</span>
+                                                        <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                                            <phase.icon className="w-6 h-6 text-purple-600" />
+                                                        </div>
+                                                        <span className="text-[10px] font-black text-gray-400 tracking-widest uppercase">Snap {phase.label}</span>
                                                     </label>
                                                 ) : (
-                                                    <div className="flex flex-col items-center justify-center h-full min-h-[100px] text-center">
-                                                        <phase.icon className="w-6 h-6 text-gray-300 mb-2" />
-                                                        <span className="text-[9px] font-bold text-gray-400 tracking-wider">No photos uploaded</span>
+                                                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+                                                            <phase.icon className="w-5 h-5 text-gray-300" />
+                                                        </div>
+                                                        <span className="text-[9px] font-bold text-gray-400 tracking-wider uppercase">No photos uploaded</span>
                                                     </div>
                                                 )
                                             )}

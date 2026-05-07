@@ -372,13 +372,13 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                             )}
                                         </div>
                                         <div className="flex-1 text-left min-w-0">
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <h4 className="font-bold text-sm truncate">Any Professional</h4>
-                                                <span className="text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                <h4 className="font-bold text-sm leading-tight">Any Professional</h4>
+                                                <span className="whitespace-nowrap text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-500/20">
                                                     Best Availability
                                                 </span>
                                             </div>
-                                            <p className="text-[10px] text-muted-foreground font-medium">
+                                            <p className="text-[10px] text-muted-foreground font-medium leading-relaxed">
                                                 Let us assign the best available professional
                                             </p>
                                         </div>
@@ -415,9 +415,9 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                                 )}
                                             </div>
                                             <div className="flex-1 text-left min-w-0">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <h4 className="font-bold text-sm truncate">{provider.name}</h4>
-                                                    <span className="text-[8px] font-black uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">
+                                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                    <h4 className="font-bold text-sm leading-tight">{provider.name}</h4>
+                                                    <span className="whitespace-nowrap text-[8px] font-black uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">
                                                         {provider.bookingCount > 1
                                                             ? `${provider.bookingCount}x Booked`
                                                             : "Previously booked"}
@@ -472,20 +472,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
                                 <Clock className="w-3.5 h-3.5 text-primary" /> Select Time Slot
                             </h3>
-                            {isToday && nextAvailableSlot && (
-                                <div className="mb-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-center justify-between gap-3">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">Next Available Slot After Lead Time</p>
-                                        <p className="text-xs font-bold text-emerald-900 mt-0.5">{nextAvailableSlot}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setTempSlot(nextAvailableSlot)}
-                                        className="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-emerald-600 text-white shadow-sm"
-                                    >
-                                        Book Next
-                                    </button>
-                                </div>
-                            )}
+
                             {/* Service exception message — shown instead of lead-time message */}
                             {!slotsLoading && serviceBlockMessage && (
                                 <div className="mb-3 p-3 rounded-xl border border-red-200 bg-red-50/60 text-[10px] font-bold text-red-700">

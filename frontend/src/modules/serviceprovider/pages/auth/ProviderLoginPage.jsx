@@ -129,8 +129,8 @@ export default function ProviderLoginPage() {
             </div>
 
             {/* Login Card */}
-            <Card className="w-full max-w-md border-none shadow-2xl bg-white/80 backdrop-blur-md rounded-[24px] overflow-hidden">
-                <CardContent className="p-8">
+            <Card className="w-full max-w-md border-none shadow-2xl bg-white/80 backdrop-blur-md rounded-[32px] overflow-hidden">
+                <CardContent className="p-6 sm:p-10">
                     {step === 2 && (
                         <button onClick={() => setStep(1)} className="mb-6 p-2 hover:bg-gray-100 rounded-full transition-colors">
                             <ChevronLeft className="h-6 w-6 text-gray-600" />
@@ -196,7 +196,7 @@ export default function ProviderLoginPage() {
                         </div>
                     ) : (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="flex justify-center gap-2 sm:gap-3 w-full max-w-sm mx-auto overflow-x-hidden">
+                            <div className="flex justify-between gap-1.5 sm:gap-3 w-full max-w-[320px] mx-auto">
                                 {otp.map((digit, i) => (
                                     <input
                                         key={i}
@@ -208,7 +208,7 @@ export default function ProviderLoginPage() {
                                         autoFocus={i === 0}
                                         onChange={(e) => handleOtpChange(i, e.target.value)}
                                         onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                                        className="w-10 h-12 sm:w-12 sm:h-14 md:w-14 md:h-16 text-center text-xl font-bold bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-violet-600 focus:bg-white focus:ring-0 outline-none transition-all shadow-sm flex-shrink-0"
+                                        className="flex-1 aspect-square min-w-0 max-w-[48px] h-auto text-center text-lg sm:text-xl font-bold bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-violet-600 focus:bg-white focus:ring-0 outline-none transition-all shadow-sm"
                                     />
                                 ))}
                             </div>

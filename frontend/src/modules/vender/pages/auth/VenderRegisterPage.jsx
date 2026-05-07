@@ -22,6 +22,30 @@ export default function VenderRegisterPage() {
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
     const [timer, setTimer] = useState(0);
     const [canResend, setCanResend] = useState(false);
+    const [errors, setErrors] = useState({});
+
+    const validate = () => {
+        const newErrors = {};
+        if (!form.name.trim()) newErrors.name = "Full name is required";
+        else if (form.name.trim().length < 3) newErrors.name = "Name must be at least 3 characters";
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.(com|net|org|edu|gov|mil|in|uk|us|ca|au|de|jp|fr|it|ru|br|cn|nl|se|no|es|mx|za|nz|sg|hk|ae|sa|eg|pk|bd|my|th|vn|id|ph|kr|tw|tr|pl|ua|ro|cz|be|gr|pt|hu|at|ch|dk|fi|ie|il|ar|cl|co\.in|co\.uk|co\.za|ac\.in|edu\.in|gov\.in|org\.in|net\.in|info|biz|io|app|dev|tech|online|site|store|shop|xyz|pro|name|mobi|asia|tel|travel|jobs|cat|aero|coop|museum)$/i;
+        const isTypo = /@(gnail\.com|gmil\.com|gmal\.com|gmail\.con)$/i.test(form.email.trim());
+        if (!form.email.trim()) newErrors.email = "Email is required";
+        else if (!emailRegex.test(form.email) || isTypo) newErrors.email = "Please enter a valid email address";
+
+        if (!form.phone.trim()) newErrors.phone = "Phone number is required";
+        else if (!/^[6-9]\d{9}$/.test(form.phone)) newErrors.phone = "Enter a valid 10-digit phone number";
+
+        if (!form.city) newErrors.city = "Please select a city";
+
+        if (form.zones.length === 0 && !form.customZone.trim()) {
+            newErrors.zones = "Select at least one zone or enter a custom one";
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     useEffect(() => {
         let interval;
@@ -102,28 +126,8 @@ export default function VenderRegisterPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        // Basic validation
-        if (!form.name.trim()) {
-            toast.error("Please enter your name");
-            return;
-        }
-        const emailRegex = /^[^\s@]+@[^\s@]+\.(com|net|org|edu|gov|mil|in|uk|us|ca|au|de|jp|fr|it|ru|br|cn|nl|se|no|es|mx|za|nz|sg|hk|ae|sa|eg|pk|bd|my|th|vn|id|ph|kr|tw|tr|pl|ua|ro|cz|be|gr|pt|hu|at|ch|dk|fi|ie|il|ar|cl|co\.in|co\.uk|co\.za|ac\.in|edu\.in|gov\.in|org\.in|net\.in|info|biz|io|app|dev|tech|online|site|store|shop|xyz|pro|name|mobi|asia|tel|travel|jobs|cat|aero|coop|museum)$/i;
-        const isTypo = /@(gnail\.com|gmil\.com|gmal\.com|gmail\.con)$/i.test(form.email.trim());
-        if (!form.email.trim() || !emailRegex.test(form.email) || isTypo) {
-            toast.error("Please enter a valid email address (e.g., name@gmail.com)");
-            return;
-        }
-        if (!/^[6-9]\d{9}$/.test(form.phone)) {
-            toast.error("Please enter a valid 10-digit phone number");
-            return;
-        }
-        if (!form.city) {
-            toast.error("Please select a city");
-            return;
-        }
-        if (form.zones.length === 0 && !form.customZone.trim()) {
-            toast.error("Please select at least one zone");
+        if (!validate()) {
+            toast.error("Please fill all required fields correctly");
             return;
         }
 
@@ -271,22 +275,25 @@ export default function VenderRegisterPage() {
                                 <Label className="text-xs font-bold text-gray-600">Full Name</Label>
                                 <div className="relative">
                                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input placeholder="John Doe" value={form.name} onChange={e => update("name", e.target.value)} className="pl-10 h-11 rounded-xl" required />
+                                    <Input placeholder="John Doe" value={form.name} onChange={e => update("name", e.target.value)} className={`pl-10 h-11 rounded-xl ${errors.name ? 'border-red-500 bg-red-50' : ''}`} />
                                 </div>
+                                {errors.name && <p className="text-[10px] font-bold text-red-500 mt-0.5 ml-1">{errors.name}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-bold text-gray-600">Email</Label>
                                 <div className="relative">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input type="email" placeholder="vendor@swm.com" value={form.email} onChange={e => update("email", e.target.value)} className="pl-10 h-11 rounded-xl" required />
+                                    <Input type="email" placeholder="vendor@swm.com" value={form.email} onChange={e => update("email", e.target.value)} className={`pl-10 h-11 rounded-xl ${errors.email ? 'border-red-500 bg-red-50' : ''}`} />
                                 </div>
+                                {errors.email && <p className="text-[10px] font-bold text-red-500 mt-0.5 ml-1">{errors.email}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-bold text-gray-600">Phone</Label>
                                 <div className="relative">
                                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input type="tel" placeholder="9876543210" value={form.phone} onChange={e => update("phone", e.target.value)} className="pl-10 h-11 rounded-xl" required />
+                                    <Input type="tel" placeholder="9876543210" value={form.phone} onChange={e => update("phone", e.target.value)} className={`pl-10 h-11 rounded-xl ${errors.phone ? 'border-red-500 bg-red-50' : ''}`} />
                                 </div>
+                                {errors.phone && <p className="text-[10px] font-bold text-red-500 mt-0.5 ml-1">{errors.phone}</p>}
                             </div>
                             <div className="space-y-2 col-span-2">
                                 <Label className="text-xs font-bold text-gray-600">City</Label>
@@ -299,8 +306,9 @@ export default function VenderRegisterPage() {
                                         zones: [],
                                         zoneIds: [],
                                     }));
+                                    if (errors.city) setErrors(prev => ({ ...prev, city: null }));
                                 }}>
-                                    <SelectTrigger className="h-11 rounded-xl">
+                                    <SelectTrigger className={`h-11 rounded-xl ${errors.city ? 'border-red-500 bg-red-50' : ''}`}>
                                         <SelectValue placeholder="Select city" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -308,6 +316,7 @@ export default function VenderRegisterPage() {
                                         {cities.length === 0 && <SelectItem value="indore" disabled>Loading cities...</SelectItem>}
                                     </SelectContent>
                                 </Select>
+                                {errors.city && <p className="text-[10px] font-bold text-red-500 mt-0.5 ml-1">{errors.city}</p>}
                             </div>
 
                             <div className="col-span-2">
@@ -325,12 +334,13 @@ export default function VenderRegisterPage() {
                             
                             {form.city && (
                                 <div className="space-y-3 col-span-2 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
-                                    <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center justify-between mb-1">
                                         <Label className="text-xs font-black text-emerald-800 uppercase tracking-wider">Service Zones (Multiple)</Label>
                                         <Button type="button" variant="ghost" size="sm" onClick={selectAllZones} className="h-7 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100">
                                             {form.zones.length === zones.length ? "Deselect All" : "Select All Zones"}
                                         </Button>
                                     </div>
+                                    {errors.zones && <p className="text-[10px] font-bold text-red-500 mb-2 ml-1">{errors.zones}</p>}
                                     
                                     {zonesLoading ? (
                                         <p className="text-xs text-emerald-600 animate-pulse">Fetching zones...</p>
