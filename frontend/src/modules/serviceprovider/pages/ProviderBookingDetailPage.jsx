@@ -792,26 +792,16 @@ const ProviderBookingDetailPage = () => {
                     <div className="space-y-4" id="verification-section">
                         {/* Provider Verification Section */}
                         <div className="bg-white border border-gray-100 rounded-[20px] p-5 shadow-sm shadow-purple-50">
-                            <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2"><Shield className="w-3.5 h-3.5 text-amber-500" /> Provider Verification</h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                        {[
-                                            { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, removeFn: removeBeforeImage, show: true, capture: "environment", isMultiple: true },
-                                            { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, removeFn: removeAfterImage, show: booking.status !== "in_progress", capture: "environment", isMultiple: true },
-                                            { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, removeFn: removeProductImage, show: true, capture: "environment", isMultiple: true },
-                                            { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, removeFn: removeProviderImage, show: booking.status !== "in_progress", capture: "user", isMultiple: false }
-                                        ].filter(p => p.show).map(phase => (
-                                    <div key={phase.key} className="space-y-3">
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">{phase.label} Photo</p>
-                                        
-                                        {/* Upload area with photos inside */}
-                                        <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 p-3 min-h-[120px]">
-                                            {/* Show photos if available */}
+                            <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2">
+                                <Shield className="w-3.5 h-3.5 text-amber-500" /> Provider Verification
+                            </h3>
+                            
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {[
-                                    { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, show: true, capture: "environment", isMultiple: true },
-                                    { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, show: booking.status !== "in_progress", capture: "environment", isMultiple: true },
-                                    { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, show: true, capture: "environment", isMultiple: true },
-                                    { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, show: booking.status !== "in_progress", capture: "user", isMultiple: false }
+                                    { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, removeFn: removeBeforeImage, show: true, capture: "environment", isMultiple: true },
+                                    { key: "after", label: "After Service", icon: Camera, data: booking.afterImages || [], addFn: addAfterImages, removeFn: removeAfterImage, show: booking.status !== "in_progress", capture: "environment", isMultiple: true },
+                                    { key: "product", label: "Product", icon: Package, data: booking.productImages || [], addFn: addProductImages, removeFn: removeProductImage, show: true, capture: "environment", isMultiple: true },
+                                    { key: "provider", label: "Provider Live", icon: UserCircle, data: booking.providerImages || [], addFn: addProviderImages, removeFn: removeProviderImage, show: booking.status !== "in_progress", capture: "user", isMultiple: false }
                                 ].filter(p => p.show).map(phase => (
                                     <div key={phase.key} className="space-y-2">
                                         <div className="flex items-center justify-between px-1">
@@ -825,7 +815,6 @@ const ProviderBookingDetailPage = () => {
                                             {phase.data.length > 0 ? (
                                                 <div className="flex gap-2.5 flex-wrap justify-center sm:justify-start">
                                                     {phase.data.map((img, i) => (
-                                                        <div key={i} className="relative w-20 h-20 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 shadow-sm">
                                                         <div key={i} className="relative w-24 h-24 rounded-xl bg-gray-100 overflow-hidden border border-gray-200 shadow-sm group">
                                                             <img src={img} className="w-full h-full object-cover" alt="" />
                                                             {booking.status !== "completed" && (
@@ -841,25 +830,12 @@ const ProviderBookingDetailPage = () => {
                                                                     <X className="w-3.5 h-3.5" />
                                                                 </button>
                                                             )}
-                                                            {booking.status !== "completed" && (
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        // Logic to remove image if needed, but keeping UI clean for now
-                                                                        toast.info("Image deletion is restricted for security");
-                                                                    }}
-                                                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                                                                >
-                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            )}
                                                         </div>
                                                     ))}
                                                     
                                                     {/* Add more button */}
                                                     {booking.status !== "completed" && (
                                                         <label 
-                                                            className="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
-                                                            onClick={(e) => {
                                                             className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 bg-white flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all active:scale-95"
                                                             onClick={async (e) => {
                                                                 if (isFlutterWebView()) {
@@ -876,14 +852,6 @@ const ProviderBookingDetailPage = () => {
                                                                 capture={phase.capture}
                                                                 multiple={phase.isMultiple}
                                                                 className="hidden"
-                                                                onClick={(e) => {
-                                                                    if (isFlutterWebView()) {
-                                                                        e.preventDefault();
-                                                                        openFlutterCamera().then(file => {
-                                                                            if (file) phase.addFn(bookingId, [file]);
-                                                                        });
-                                                                    }
-                                                                }}
                                                                 onChange={e => {
                                                                     const files = Array.from(e.target.files || []);
                                                                     if (files.length) phase.addFn(bookingId, files);
@@ -900,8 +868,6 @@ const ProviderBookingDetailPage = () => {
                                                 /* Show upload prompt if no photos OR message if completed */
                                                 booking.status !== "completed" ? (
                                                     <label 
-                                                        className="flex flex-col items-center justify-center h-full min-h-[100px] cursor-pointer hover:bg-purple-50 transition-all rounded-xl"
-                                                        onClick={(e) => {
                                                         className="flex flex-col items-center justify-center py-6 cursor-pointer hover:bg-white hover:shadow-sm transition-all rounded-xl group border-2 border-dashed border-transparent hover:border-purple-100"
                                                         onClick={async (e) => {
                                                             if (isFlutterWebView()) {

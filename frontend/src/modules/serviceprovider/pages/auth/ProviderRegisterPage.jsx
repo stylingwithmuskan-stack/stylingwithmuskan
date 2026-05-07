@@ -161,7 +161,7 @@ export default function ProviderRegisterPage() {
         } catch (error) {
             console.error('Failed to load saved registration:', error);
         }
-    }, [cities]); // Added cities to dependency to ensure cityId mapping works
+    }, []); // Removed cities from dependency to prevent infinite loop and 429 error
 
     // Sanitize and validate formData after loading or during updates
     useEffect(() => {
@@ -1347,56 +1347,6 @@ export default function ProviderRegisterPage() {
                                             {/* Front Side */}
                                             <div className="space-y-2">
                                                 <span className="text-[10px] font-black uppercase text-gray-400 ml-1">Front Side</span>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div
-                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group relative"
-                                                    >
-                                                        {formData.aadharFront ? (
-                                                            <div 
-                                                                className="relative w-full h-full flex flex-col items-center cursor-pointer"
-                                                                onClick={() => startCamera("aadharFront")}
-                                                            >
-                                                                <div className="absolute inset-0 bg-black/10 flex items-center justify-center gap-2">
-                                                                    <button 
-                                                                        type="button"
-                                                                        onClick={(e) => { e.stopPropagation(); startCamera("aadharFront"); }}
-                                                                        className="w-8 h-8 bg-white shadow-lg rounded-lg text-violet-600 flex items-center justify-center active:scale-95"
-                                                                        title="Retake Photo"
-                                                                    >
-                                                                        <RotateCcw className="h-4 w-4" />
-                                                                    </button>
-                                                                    <button 
-                                                                        type="button"
-                                                                        onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, aadharFront: null })); }}
-                                                                        className="w-8 h-8 bg-white shadow-lg rounded-lg text-red-600 flex items-center justify-center active:scale-95"
-                                                                        title="Delete Photo"
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                    </button>
-                                                                </div>
-                                                                {formData.aadharFront.startsWith('data:image') ? (
-                                                                    <img src={formData.aadharFront} className="h-10 w-full object-cover rounded-lg mb-1" alt="Aadhar Front" />
-                                                                ) : (
-                                                                    <div className="flex flex-col items-center gap-1 text-purple-600">
-                                                                        <CheckCircle2 className="h-5 w-5" />
-                                                                        <span className="text-[10px] font-bold">Uploaded</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex flex-col items-center" onClick={() => aadharFrontRef.current.click()}>
-                                                                <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
-                                                                <span className="text-[10px] font-black uppercase text-center leading-tight">Upload</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div
-                                                        onClick={() => startCamera("aadharFront")}
-                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group"
-                                                    >
-                                                        <Camera className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
-                                                        <span className="text-[10px] font-black uppercase text-center leading-tight">Camera</span>
-                                                    </div>
                                                 <div className={formData.aadharFront ? "grid grid-cols-1" : "grid grid-cols-2 gap-3"}>
                                                     {formData.aadharFront ? (
                                                         <div className="border-2 border-violet-100 rounded-2xl p-2 bg-violet-50/30 overflow-hidden relative group">
@@ -1454,56 +1404,6 @@ export default function ProviderRegisterPage() {
                                             {/* Back Side */}
                                             <div className="space-y-2">
                                                 <span className="text-[10px] font-black uppercase text-gray-400 ml-1">Back Side</span>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div
-                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group relative"
-                                                    >
-                                                        {formData.aadharBack ? (
-                                                            <div 
-                                                                className="relative w-full h-full flex flex-col items-center cursor-pointer"
-                                                                onClick={() => startCamera("aadharBack")}
-                                                            >
-                                                                <div className="absolute inset-0 bg-black/10 flex items-center justify-center gap-2">
-                                                                    <button 
-                                                                        type="button"
-                                                                        onClick={(e) => { e.stopPropagation(); startCamera("aadharBack"); }}
-                                                                        className="w-8 h-8 bg-white shadow-lg rounded-lg text-violet-600 flex items-center justify-center active:scale-95"
-                                                                        title="Retake Photo"
-                                                                    >
-                                                                        <RotateCcw className="h-4 w-4" />
-                                                                    </button>
-                                                                    <button 
-                                                                        type="button"
-                                                                        onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, aadharBack: null })); }}
-                                                                        className="w-8 h-8 bg-white shadow-lg rounded-lg text-red-600 flex items-center justify-center active:scale-95"
-                                                                        title="Delete Photo"
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                    </button>
-                                                                </div>
-                                                                {formData.aadharBack.startsWith('data:image') ? (
-                                                                    <img src={formData.aadharBack} className="h-10 w-full object-cover rounded-lg mb-1" alt="Aadhar Back" />
-                                                                ) : (
-                                                                    <div className="flex flex-col items-center gap-1 text-purple-600">
-                                                                        <CheckCircle2 className="h-5 w-5" />
-                                                                        <span className="text-[10px] font-bold">Uploaded</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex flex-col items-center" onClick={() => aadharBackRef.current.click()}>
-                                                                <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
-                                                                <span className="text-[10px] font-black uppercase text-center leading-tight">Upload</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div
-                                                        onClick={() => startCamera("aadharBack")}
-                                                        className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[90px] group"
-                                                    >
-                                                        <Camera className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
-                                                        <span className="text-[10px] font-black uppercase text-center leading-tight">Camera</span>
-                                                    </div>
                                                 <div className={formData.aadharBack ? "grid grid-cols-1" : "grid grid-cols-2 gap-3"}>
                                                     {formData.aadharBack ? (
                                                         <div className="border-2 border-violet-100 rounded-2xl p-2 bg-violet-50/30 overflow-hidden relative group">
@@ -1562,56 +1462,6 @@ export default function ProviderRegisterPage() {
 
                                     <div className="space-y-3">
                                         <Label className="text-xs font-black uppercase text-gray-400">PAN Card</Label>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div
-                                                className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[100px] group relative"
-                                            >
-                                                {formData.panCard ? (
-                                                    <div 
-                                                        className="relative w-full h-full flex flex-col items-center cursor-pointer"
-                                                        onClick={() => startCamera("panCard")}
-                                                    >
-                                                        <div className="absolute inset-0 bg-black/10 flex items-center justify-center gap-2">
-                                                            <button 
-                                                                type="button"
-                                                                onClick={(e) => { e.stopPropagation(); startCamera("panCard"); }}
-                                                                className="w-8 h-8 bg-white shadow-lg rounded-lg text-violet-600 flex items-center justify-center active:scale-95"
-                                                                title="Retake Photo"
-                                                            >
-                                                                <RotateCcw className="h-4 w-4" />
-                                                            </button>
-                                                            <button 
-                                                                type="button"
-                                                                onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, panCard: null })); }}
-                                                                className="w-8 h-8 bg-white shadow-lg rounded-lg text-red-600 flex items-center justify-center active:scale-95"
-                                                                title="Delete Photo"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </button>
-                                                        </div>
-                                                        {formData.panCard.startsWith('data:image') ? (
-                                                            <img src={formData.panCard} className="h-12 w-full object-cover rounded-lg mb-1" alt="PAN Card" />
-                                                        ) : (
-                                                            <div className="flex flex-col items-center gap-1 text-purple-600">
-                                                                <CheckCircle2 className="h-5 w-5" />
-                                                                <span className="text-[10px] font-bold">Uploaded</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex flex-col items-center" onClick={() => panCardRef.current.click()}>
-                                                        <Upload className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
-                                                        <span className="text-[10px] font-black uppercase text-center leading-tight">Upload PDF/Image</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div
-                                                onClick={() => startCamera("panCard")}
-                                                className="border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50 text-gray-400 hover:border-violet-600 transition-all cursor-pointer overflow-hidden min-h-[100px] group"
-                                            >
-                                                <Camera className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
-                                                <span className="text-[10px] font-black uppercase text-center leading-tight">Take Photo</span>
-                                            </div>
                                         <div className={formData.panCard ? "grid grid-cols-1" : "grid grid-cols-2 gap-4"}>
                                             {formData.panCard ? (
                                                 <div className="border-2 border-violet-100 rounded-2xl p-2 bg-violet-50/30 overflow-hidden relative group">
