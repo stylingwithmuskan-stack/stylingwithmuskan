@@ -835,23 +835,25 @@ export default function ProviderRegisterPage() {
                                                     onClick={() => startCamera("profilePhoto")}
                                                 >
                                                     <img src={formData.profilePhoto} className="w-full h-full object-cover" alt="Profile" />
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                                        <div 
-                                                            className="p-2 bg-white rounded-full text-violet-600 hover:scale-110 transition-transform shadow-lg"
+                                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center gap-3">
+                                                        <button 
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); startCamera("profilePhoto"); }}
+                                                            className="p-2.5 bg-white rounded-xl text-violet-600 shadow-lg active:scale-95"
                                                             title="Retake Photo"
                                                         >
-                                                            <RotateCcw className="h-4 w-4" />
-                                                        </div>
+                                                            <RotateCcw className="h-5 w-5" />
+                                                        </button>
                                                         <button 
                                                             type="button"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setFormData(prev => ({ ...prev, profilePhoto: null }));
                                                             }}
-                                                            className="p-2 bg-white rounded-full text-red-600 hover:scale-110 transition-transform shadow-lg"
+                                                            className="p-2.5 bg-white rounded-xl text-red-600 shadow-lg active:scale-95"
                                                             title="Delete Photo"
                                                         >
-                                                            <Trash2 className="h-4 w-4" />
+                                                            <Trash2 className="h-5 w-5" />
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1354,22 +1356,22 @@ export default function ProviderRegisterPage() {
                                                                 className="relative w-full h-full flex flex-col items-center cursor-pointer"
                                                                 onClick={() => startCamera("aadharFront")}
                                                             >
-                                                                <div className="absolute top-0 right-0 z-10 flex gap-1">
+                                                                <div className="absolute inset-0 bg-black/10 flex items-center justify-center gap-2">
                                                                     <button 
                                                                         type="button"
                                                                         onClick={(e) => { e.stopPropagation(); startCamera("aadharFront"); }}
-                                                                        className="p-1.5 bg-white shadow-md rounded-lg text-violet-600 hover:scale-110 transition-transform"
+                                                                        className="w-8 h-8 bg-white shadow-lg rounded-lg text-violet-600 flex items-center justify-center active:scale-95"
                                                                         title="Retake Photo"
                                                                     >
-                                                                        <RotateCcw className="h-3 w-3" />
+                                                                        <RotateCcw className="h-4 w-4" />
                                                                     </button>
                                                                     <button 
                                                                         type="button"
                                                                         onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, aadharFront: null })); }}
-                                                                        className="p-1.5 bg-white shadow-md rounded-lg text-red-600 hover:scale-110 transition-transform"
+                                                                        className="w-8 h-8 bg-white shadow-lg rounded-lg text-red-600 flex items-center justify-center active:scale-95"
                                                                         title="Delete Photo"
                                                                     >
-                                                                        <Trash2 className="h-3 w-3" />
+                                                                        <Trash2 className="h-4 w-4" />
                                                                     </button>
                                                                 </div>
                                                                 {formData.aadharFront.startsWith('data:image') ? (
@@ -1410,22 +1412,22 @@ export default function ProviderRegisterPage() {
                                                                 className="relative w-full h-full flex flex-col items-center cursor-pointer"
                                                                 onClick={() => startCamera("aadharBack")}
                                                             >
-                                                                <div className="absolute top-0 right-0 z-10 flex gap-1">
+                                                                <div className="absolute inset-0 bg-black/10 flex items-center justify-center gap-2">
                                                                     <button 
                                                                         type="button"
                                                                         onClick={(e) => { e.stopPropagation(); startCamera("aadharBack"); }}
-                                                                        className="p-1.5 bg-white shadow-md rounded-lg text-violet-600 hover:scale-110 transition-transform"
+                                                                        className="w-8 h-8 bg-white shadow-lg rounded-lg text-violet-600 flex items-center justify-center active:scale-95"
                                                                         title="Retake Photo"
                                                                     >
-                                                                        <RotateCcw className="h-3 w-3" />
+                                                                        <RotateCcw className="h-4 w-4" />
                                                                     </button>
                                                                     <button 
                                                                         type="button"
                                                                         onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, aadharBack: null })); }}
-                                                                        className="p-1.5 bg-white shadow-md rounded-lg text-red-600 hover:scale-110 transition-transform"
+                                                                        className="w-8 h-8 bg-white shadow-lg rounded-lg text-red-600 flex items-center justify-center active:scale-95"
                                                                         title="Delete Photo"
                                                                     >
-                                                                        <Trash2 className="h-3 w-3" />
+                                                                        <Trash2 className="h-4 w-4" />
                                                                     </button>
                                                                 </div>
                                                                 {formData.aadharBack.startsWith('data:image') ? (
@@ -1467,22 +1469,22 @@ export default function ProviderRegisterPage() {
                                                         className="relative w-full h-full flex flex-col items-center cursor-pointer"
                                                         onClick={() => startCamera("panCard")}
                                                     >
-                                                        <div className="absolute top-0 right-0 z-10 flex gap-1">
+                                                        <div className="absolute inset-0 bg-black/10 flex items-center justify-center gap-2">
                                                             <button 
                                                                 type="button"
                                                                 onClick={(e) => { e.stopPropagation(); startCamera("panCard"); }}
-                                                                className="p-1.5 bg-white shadow-md rounded-lg text-violet-600 hover:scale-110 transition-transform"
+                                                                className="w-8 h-8 bg-white shadow-lg rounded-lg text-violet-600 flex items-center justify-center active:scale-95"
                                                                 title="Retake Photo"
                                                             >
-                                                                <RotateCcw className="h-3 w-3" />
+                                                                <RotateCcw className="h-4 w-4" />
                                                             </button>
                                                             <button 
                                                                 type="button"
                                                                 onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, panCard: null })); }}
-                                                                className="p-1.5 bg-white shadow-md rounded-lg text-red-600 hover:scale-110 transition-transform"
+                                                                className="w-8 h-8 bg-white shadow-lg rounded-lg text-red-600 flex items-center justify-center active:scale-95"
                                                                 title="Delete Photo"
                                                             >
-                                                                <Trash2 className="h-3 w-3" />
+                                                                <Trash2 className="h-4 w-4" />
                                                             </button>
                                                         </div>
                                                         {formData.panCard.startsWith('data:image') ? (
@@ -1946,7 +1948,15 @@ export default function ProviderRegisterPage() {
                                 <div className="absolute inset-0 bg-black/70" onClick={stopCamera} />
                                 <div className="relative bg-white rounded-2xl p-4 w-full max-w-sm z-10">
                                     <div className="rounded-xl overflow-hidden bg-black">
-                                        <video ref={videoRef} className="w-full h-80 object-cover" autoPlay muted playsInline />
+                                        <video 
+                                            ref={videoRef} 
+                                            className="w-full h-80 object-cover" 
+                                            autoPlay 
+                                            muted 
+                                            playsInline 
+                                            controls={false}
+                                            disablePictureInPicture
+                                        />
                                         <canvas ref={canvasRef} className="hidden" />
                                     </div>
                                     {!isVideoReady && !cameraError && <p className="text-sm text-gray-500 mt-2">Starting camera...</p>}

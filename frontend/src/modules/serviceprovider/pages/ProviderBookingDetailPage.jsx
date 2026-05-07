@@ -809,6 +809,14 @@ const ProviderBookingDetailPage = () => {
                                                                 capture={phase.capture}
                                                                 multiple={phase.isMultiple}
                                                                 className="hidden"
+                                                                onClick={(e) => {
+                                                                    if (isFlutterWebView()) {
+                                                                        e.preventDefault();
+                                                                        openFlutterCamera().then(file => {
+                                                                            if (file) phase.addFn(bookingId, [file]);
+                                                                        });
+                                                                    }
+                                                                }}
                                                                 onChange={e => {
                                                                     const files = Array.from(e.target.files || []);
                                                                     if (files.length) phase.addFn(bookingId, files);
