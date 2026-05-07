@@ -13,6 +13,7 @@ export function configureCloudinary() {
     api_secret: CLOUDINARY_API_SECRET,
     secure: true,
   });
+  console.log(`[Cloudinary] ✅ Configured for cloud: ${CLOUDINARY_CLOUD_NAME}`);
 }
 
 export function uploadBuffer(buffer, folder, options = {}) {
