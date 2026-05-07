@@ -123,6 +123,8 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   // Buffer: Use providerBufferMinutes from settings or bufferMinutes from officeSettings (fallback 30)
   const bufferMin = Math.max(Number(settings?.bufferMinutes ?? settings?.providerBufferMinutes ?? 30), 0);
   const busyStatuses = new Set([
+    "incoming",
+    "assigned",
     "accepted",
     "travelling",
     "arrived",
@@ -132,7 +134,8 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     "payment_pending",
     "advance_paid",
     "confirmed",
-    "documentation"
+    "documentation",
+    "scheduled"
   ]);
   const busyIntervals = [];
   const TEN_MINUTES_MS = 10 * 60 * 1000;
@@ -212,11 +215,13 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
         : null;
       for (const interval of busyIntervals) {
         if (requestedDurationMinutes > 0 && windowEnd) {
-          if (slotStart < interval.end && windowEnd > interval.start) {
+          // Changed to inclusive (<= and >=) to ensure a gap between services as requested
+          if (slotStart <= interval.end && windowEnd >= interval.start) {
             ok = false;
             break;
           }
-        } else if (slotStart >= interval.start && slotStart < interval.end) {
+        } else if (slotStart >= interval.start && slotStart <= interval.end) {
+          // Changed to inclusive (<=) to ensure a gap
           ok = false;
           break;
         }

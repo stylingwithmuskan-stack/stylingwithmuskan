@@ -155,9 +155,9 @@ export async function listProviders(req, res) {
   }
 
   // Fetch counts for all tabs in parallel
-  const [items, filteredTotal, totalAll, activeCount, pendingCount, blockedCount] = await Promise.all([
+  let [items, filteredTotal, totalAll, activeCount, pendingCount, blockedCount] = await Promise.all([
     ProviderAccount.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean(),
@@ -174,7 +174,7 @@ export async function listProviders(req, res) {
   if (activeTab !== "all" && page > 1 && (items.length === 0 || (page - 1) * limit >= filteredTotal)) {
     effectivePage = 1;
     items = await ProviderAccount.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(limit)
       .lean();
   }
