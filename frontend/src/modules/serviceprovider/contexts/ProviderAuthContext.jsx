@@ -145,8 +145,8 @@ export const ProviderAuthProvider = ({ children }) => {
             const appendIf = (key, val) => {
                 if (val instanceof File) form.append(key, val, val.name || `${key}.png`);
                 else if (typeof val === "string" && val.startsWith("data:")) {
-                    const blob = toBlob(val);
-                    if (blob) form.append(key, blob, `${key}.png`);
+                    // Send as string directly for backend smartUpload fallback
+                    form.append(key, val);
                 }
             };
             appendIf("profilePhoto", payload.profilePhoto);

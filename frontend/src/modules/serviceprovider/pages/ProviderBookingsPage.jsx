@@ -59,7 +59,7 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
     const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
     const isCallRestricted = timeStatus.status === "block" && ["accepted", "vendor_assigned", "vendor_reassigned", "payment_pending"].includes(booking?.status);
 
-    const isPendingActivation = (booking.status === "vendor_assigned" || booking.status === "vendor_reassigned") && 
+    const isPendingActivation = (booking.status === "vendor_assigned" || booking.status === "vendor_reassigned" || (booking.status === "accepted" && booking.isMandatory)) && 
                                booking.commissionAmount > 0 && !booking.commissionChargedAt;
     const walletBalance = provider?.credits || 0;
     const canAfford = walletBalance >= booking.commissionAmount;
