@@ -75,20 +75,44 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     // Fallback: match against Content Providers list from useUserModuleData()
     const assignedProvider = useMemo(() => {
         if (!localBooking) return null;
+        
+        // 1. Priority: Slot Provider (Enriched by backend)
         const slotProvider = localBooking.slot?.provider;
-        const pId = localBooking.assignedProvider || slotProvider?.id;
-        // Find from Content Providers list as secondary source
+        
+        // 2. Identify the Provider ID
+        const pId = localBooking.assignedProvider || slotProvider?.id || localBooking.slot?.providerId;
+        
+        // 3. Fallback: Global providers list
         const contentProvider = providers?.find(p => p.id === pId || p._id === pId);
-        // Merge: prefer slot.provider (real ProviderAccount data) over content provider
+        
+        // Helper to get non-empty photo
+        const getPhoto = () => {
+            if (slotProvider?.profilePhoto) return slotProvider.profilePhoto;
+            if (slotProvider?.image) return slotProvider.image;
+            if (contentProvider?.image) return contentProvider.image;
+            if (contentProvider?.profilePhoto) return contentProvider.profilePhoto;
+            return '';
+        };
+
+        const image = getPhoto();
+        
         if (slotProvider) {
             return {
                 ...contentProvider,
                 ...slotProvider,
-                // profilePhoto comes from backend, map to image for the UI
-                image: slotProvider.profilePhoto || contentProvider?.image || '',
+                image: image
             };
         }
-        return contentProvider || null;
+        
+        if (contentProvider) {
+            return {
+                ...contentProvider,
+                image: image,
+                name: contentProvider.name || 'Trained Pro'
+            };
+        }
+
+        return null;
     }, [providers, localBooking]);
 
     const getFormattedDate = (dateStr) => {
@@ -145,6 +169,21 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                 lng: booking.lastProviderLocation.lng 
             });
         }
+
+        // 🔥 Fresh fetch using getById to ensure we have the latest enriched data (like profilePhoto)
+        const fetchLatest = async () => {
+            try {
+                const res = await api.bookings.getById(bookingId);
+                if (res?.booking) {
+                    console.log("[BookingDetailsModal] Fresh data fetched:", res.booking);
+                    setLocalBooking(res.booking);
+                }
+            } catch (err) {
+                console.error("[BookingDetailsModal] Failed to fetch latest booking data:", err);
+            }
+        };
+        fetchLatest();
+
         let cancelled = false;
         (async () => {
             try {

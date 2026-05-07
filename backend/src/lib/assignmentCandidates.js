@@ -115,6 +115,7 @@ export async function buildAssignmentCandidates({
   const requestedSpecialties = await resolveRequestedSpecialtySets({
     categoryValues: (items || []).map((it) => String(it?.category || "")).filter(Boolean),
     serviceTypeValues: (items || []).map((it) => String(it?.serviceType || "")).filter(Boolean),
+    serviceIds: (items || []).map((it) => String(it?.id || "")).filter(Boolean),
   });
 
   let providers = await findProvidersZoneStrict(

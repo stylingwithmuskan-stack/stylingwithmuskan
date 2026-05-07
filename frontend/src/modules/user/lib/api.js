@@ -327,6 +327,7 @@ export const api = {
   // Customer bookings + enquiries
   bookings: {
     list: (page = 1, limit = 20) => request(`/bookings?page=${page}&limit=${limit}`),
+    getById: (id) => request(`/bookings/${id}`),
     quote: (payload) => request("/bookings/quote", { method: "POST", body: payload }),
     create: (payload) => request("/bookings", { method: "POST", body: payload }),
     confirmCOD: (id) => request(`/bookings/${id}/confirm-cod`, { method: "PATCH" }),
@@ -395,8 +396,8 @@ export const api = {
       createOrder: (amount) => request("/provider/wallet/create-order", { method: "POST", body: { amount } }),
       verifyPayment: (payload) => request("/provider/wallet/verify-payment", { method: "POST", body: payload }),
     },
-    uploadDocs: async (formData) => {
-      const token = getProviderToken();
+    uploadDocs: async (formData, explicitToken) => {
+      const token = explicitToken || getProviderToken();
       const res = await fetch(`${API_BASE_URL}/provider/upload-docs`, {
         method: "POST",
         headers: {

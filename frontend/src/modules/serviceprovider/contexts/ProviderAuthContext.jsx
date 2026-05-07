@@ -29,8 +29,8 @@ export const ProviderAuthProvider = ({ children }) => {
     };
     const setProviderToken = (token) => {
         try {
-            if (token) localStorage.setItem(TOKEN_KEY, token);
-            else localStorage.removeItem(TOKEN_KEY);
+            if (token) safeStorage.setItem(TOKEN_KEY, token);
+            else safeStorage.removeItem(TOKEN_KEY);
         } catch {}
     };
     useEffect(() => {
@@ -114,7 +114,9 @@ export const ProviderAuthProvider = ({ children }) => {
                 throw new Error("Registration failed - no provider data received");
             }
             
-            if (providerToken) setProviderToken(providerToken);
+            if (providerToken) {
+                setProviderToken(providerToken);
+            }
             let nextProvider = regProvider;
         const hasFiles =
             payload.profilePhoto instanceof File ||
@@ -160,7 +162,7 @@ export const ProviderAuthProvider = ({ children }) => {
                 });
             }
             try {
-                const { provider: upProvider } = await api.provider.uploadDocs(form);
+                const { provider: upProvider } = await api.provider.uploadDocs(form, providerToken);
                 nextProvider = upProvider || nextProvider;
             } catch (uploadError) {
                 console.error('[Provider] Document upload failed:', uploadError);
