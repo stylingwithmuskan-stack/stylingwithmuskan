@@ -146,11 +146,9 @@ export async function buildAssignmentCandidates({
   }).lean();
   const proPartnerIds = activeProviderSubs.map((s) => s.userId);
 
-  const snapshot =
-    subscriptionSnapshot ||
-    (customerId
-      ? await getSubscriptionSnapshot(String(customerId), "customer")
-      : { isPlusMember: false, eliteAccessEnabled: false, eliteMinRating: 0, eliteMinJobs: 0 });
+  const snapshot = customerId
+    ? await getSubscriptionSnapshot(String(customerId), "customer")
+    : { isPlusMember: false, eliteAccessEnabled: false, eliteMinRating: 0, eliteMinJobs: 0 };
 
   const eliteMinRating = Number(snapshot.eliteMinRating || 0);
   const eliteMinJobs = Number(snapshot.eliteMinJobs || 0);
