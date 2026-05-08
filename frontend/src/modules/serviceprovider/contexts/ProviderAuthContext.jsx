@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
+import { safeStorage } from "@/modules/user/lib/safeStorage";
+import { initPushNotifications, unregisterPush } from "@/services/pushNotificationService";
 
 export const ProviderAuthContext = createContext(undefined);
 
@@ -172,6 +174,7 @@ export const ProviderAuthProvider = ({ children }) => {
         
         // Only save to localStorage after successful registration
         setProvider(nextProvider);
+        if (providerToken) initPushNotifications(providerToken, "provider").catch(() => {});
         } catch (error) {
             // Clear any stale data on error
             logout();
@@ -200,7 +203,10 @@ export const ProviderAuthProvider = ({ children }) => {
             }
             
             setProvider(provider);
-            if (providerToken) setProviderToken(providerToken);
+            if (providerToken) {
+                setProviderToken(providerToken);
+                initPushNotifications(providerToken, "provider").catch(() => {});
+            }
             return { success: true, registered: provider.registrationComplete };
         } catch (error) {
             // Clear any stale data on error
@@ -210,6 +216,8 @@ export const ProviderAuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        const token = safeStorage.getItem("swm_provider_token") || "";
+        unregisterPush(token, "provider").catch(() => {});
         setProvider(null);
         setProviderToken("");
         api.provider.logout();
