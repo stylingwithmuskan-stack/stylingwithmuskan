@@ -21,14 +21,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export let pushEnabled = false;
 
 (function initFirebase() {
-  const serviceAccountPath = path.resolve(__dirname, "../config/stylingwithmuskan-635f3-firebase-adminsdk-fbsvc-1124a7e333.json").trim();
-  console.log(`[push] 🏁 initFirebase called. Path: ${serviceAccountPath}`);
+  const fileName = "stylingwithmuskan-635f3-firebase-adminsdk-fbsvc-1124a7e333.json";
+  const possiblePaths = [
+    path.resolve(__dirname, "../config", fileName),
+    path.resolve(process.cwd(), "src/config", fileName),
+    path.resolve(process.cwd(), "backend/src/config", fileName),
+    path.join("/root/stylingwithmuskan/backend/src/config", fileName)
+  ];
 
-  if (!fs.existsSync(serviceAccountPath)) {
-    console.error(`[push] ❌ CRITICAL: Service account file NOT found at: "${serviceAccountPath}"`);
+  let serviceAccountPath = null;
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      serviceAccountPath = p;
+      break;
+    }
+  }
+
+  if (!serviceAccountPath) {
+    console.error(`[push] ❌ CRITICAL: Service account file NOT found in any search paths!`);
+    console.error(`[push] Paths tried: ${JSON.stringify(possiblePaths, null, 2)}`);
     pushEnabled = false;
     return;
   }
+
+  console.log(`[push] 🏁 initFirebase found config at: ${serviceAccountPath}`);
 
   try {
     if (admin.apps.length === 0) {
@@ -38,7 +54,7 @@ export let pushEnabled = false;
         credential: admin.credential.cert(serviceAccount),
       });
       
-      console.log(`[push] ✅ Firebase Admin initialized successfully using JSON for project: ${serviceAccount.project_id}`);
+      console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${serviceAccount.project_id}`);
       pushEnabled = true;
     } else {
       pushEnabled = true;
