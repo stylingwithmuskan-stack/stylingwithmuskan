@@ -47,15 +47,23 @@ export const NotificationProvider = ({ children, role }) => {
     const user = userContext?.user;
 
     const activeRole = useMemo(() => {
+        // Priority 1: Check logged-in contexts (most reliable)
+        if (provider?._id || provider?.id) return "provider";
+        if (vendor?._id || vendor?.id) return "vendor";
+        if (admin?._id || admin?.id) return "admin";
+        if (user?._id || user?.id) return "user";
+
+        // Priority 2: Fallback to URL path for unauthenticated states (if any)
         const path = location?.pathname || "";
         if (path.startsWith("/provider")) return "provider";
         if (path.startsWith("/vender")) return "vendor";
         if (path.startsWith("/admin")) return "admin";
         return "user";
-    }, [location?.pathname]);
+    }, [location?.pathname, provider, vendor, admin, user]);
 
     const activeToken = useMemo(() => {
         try {
+            // Get tokens from localStorage directly based on detected role
             if (activeRole === "provider") return localStorage.getItem("swm_provider_token") || "";
             if (activeRole === "vendor") return localStorage.getItem("swm_vendor_token") || "";
             if (activeRole === "admin") return localStorage.getItem("swm_admin_token") || "";
