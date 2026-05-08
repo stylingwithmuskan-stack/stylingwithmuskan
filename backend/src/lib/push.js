@@ -25,20 +25,34 @@ export let pushEnabled = false;
   }
   try {
     if (admin.apps.length === 0) {
-      // Deep clean the private key: 
-      // 1. Remove quotes 
-      // 2. Handle literal \n or real newlines
-      // 3. Ensure PEM structure is intact
       let cleanKey = FIREBASE_PRIVATE_KEY.trim();
-      if (cleanKey.startsWith('"') && cleanKey.endsWith('"')) {
-        cleanKey = cleanKey.substring(1, cleanKey.length - 1);
-      }
-      cleanKey = cleanKey.replace(/\\n/g, "\n");
       
-      // If after replacing \n there are still no actual newlines, 
-      // it means the key is in a single line which PEM doesn't like
-      if (!cleanKey.includes("\n")) {
-         console.warn("[push] Private key seems to be single-line, attempting to re-format...");
+      // 1. Detect and Decode Base64 if needed
+      // (Base64 for PEM keys usually starts with 'LS0tLS0' which is '-----')
+      if (!cleanKey.includes("-----") && (cleanKey.length > 100)) {
+        try {
+          console.log("[push] Base64 detected in FIREBASE_PRIVATE_KEY, decoding...");
+          cleanKey = Buffer.from(cleanKey, 'base64').toString('utf8').trim();
+        } catch (e) {
+          console.error("[push] Failed to decode base64 key:", e.message);
+        }
+      }
+
+      // 2. Remove any wrapping quotes
+      cleanKey = cleanKey.replace(/^["']|["']$/g, "");
+      
+      // 3. Handle both literal \n and real newlines
+      cleanKey = cleanKey.replace(/\\n/g, "\n");
+
+      // 4. Robust PEM normalization
+      if (cleanKey.includes("-----BEGIN PRIVATE KEY-----")) {
+        const body = cleanKey
+          .replace("-----BEGIN PRIVATE KEY-----", "")
+          .replace("-----END PRIVATE KEY-----", "")
+          .replace(/\s+/g, ""); // Remove all whitespace/newlines from the body
+        
+        // Re-construct with proper header/footer
+        cleanKey = `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
       }
 
       admin.initializeApp({
