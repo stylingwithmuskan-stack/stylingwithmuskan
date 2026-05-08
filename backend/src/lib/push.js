@@ -20,65 +20,61 @@ export let pushEnabled = false;
 
 (function initFirebase() {
   console.log("[push] 🏁 initFirebase called. Checking credentials...");
-  console.log(`[push] Config check: ProjectID: ${!!FIREBASE_PROJECT_ID}, Email: ${!!FIREBASE_CLIENT_EMAIL}, Key: ${!!FIREBASE_PRIVATE_KEY}`);
-  if (FIREBASE_PRIVATE_KEY) {
-    console.log(`[push] Raw Key Info: Length=${FIREBASE_PRIVATE_KEY.length}, StartsWith=${FIREBASE_PRIVATE_KEY.substring(0, 15)}...`);
-  }
+  console.log(`[push] System Info: Node=${process.version}, OpenSSL=${process.versions.openssl}`);
+  
+  // 0. Clean basic fields (remove ALL quotes, backslashes and spaces)
+  const projId = (FIREBASE_PROJECT_ID || "").trim().replace(/[\\"' ]/g, "");
+  const clientEmail = (FIREBASE_CLIENT_EMAIL || "").trim().replace(/[\\"' ]/g, "");
+  let rawKey = (FIREBASE_PRIVATE_KEY || "").trim();
 
-  if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
+  console.log(`[push] Config check: ProjectID: ${!!projId}, Email: ${!!clientEmail}, Key: ${!!rawKey}`);
+  
+  if (!projId || !clientEmail || !rawKey) {
     console.warn("[push] ⚠️ Firebase credentials missing — push notifications disabled");
     return;
   }
+
   try {
     if (admin.apps.length === 0) {
-      let cleanKey = FIREBASE_PRIVATE_KEY.trim();
+      // 1. Pre-clean: Remove any wrapping quotes or backslashes
+      let cleanKey = rawKey.replace(/^[\\"' ]+|[\\"' ]+$/g, "");
       
-      // 1. Detect and Decode Base64 if needed
-      // (Base64 for PEM keys usually starts with 'LS0tLS0' which is '-----')
+      console.log(`[push] Raw Key Info: Length=${cleanKey.length}, StartsWith=${cleanKey.substring(0, 15)}...`);
+
+      // 2. Detect and Decode Base64 if needed
       if (!cleanKey.includes("-----") && (cleanKey.length > 100)) {
         try {
-          console.log("[push] Base64 detected in FIREBASE_PRIVATE_KEY, decoding...");
+          console.log("[push] Base64 detected, decoding...");
           cleanKey = Buffer.from(cleanKey, 'base64').toString('utf8').trim();
+          // Remove noise again after decoding
+          cleanKey = cleanKey.replace(/^[\\"' ]+|[\\"' ]+$/g, "");
         } catch (e) {
           console.error("[push] Failed to decode base64 key:", e.message);
         }
       }
 
-      // 2. Remove any wrapping quotes and handle escaped quotes (\")
-      cleanKey = cleanKey.trim().replace(/^["'\\]+|["'\\]+$/g, "");
-      
-      // 3. Handle both literal \n and real newlines
+      // 3. Handle literal \n and real newlines
       cleanKey = cleanKey.replace(/\\n/g, "\n");
 
-      // 4. Robust PEM normalization: 
-      // Surgically extract only the part between BEGIN and END
+      // 4. Robust PEM normalization
       const match = cleanKey.match(/-----BEGIN PRIVATE KEY-----([\s\S]*)-----END PRIVATE KEY-----/);
       
       if (match) {
-        // Remove all whitespace and existing escaped newlines
-        const body = match[1].replace(/\s+/g, "").replace(/\\n/g, "");
-        
-        // Wrap body at 64 characters (Standard PEM format)
+        const body = match[1].replace(/[^A-Za-z0-9+/=]/g, ""); // Keep ONLY base64 characters for the body
         const wrappedBody = body.match(/.{1,64}/g).join("\n");
-        cleanKey = `-----BEGIN PRIVATE KEY-----\n${wrappedBody}\n-----END PRIVATE KEY-----\n`;
+        const finalKey = `-----BEGIN PRIVATE KEY-----\n${wrappedBody}\n-----END PRIVATE KEY-----\n`;
         
         console.log(`[push] Key Fixed! Body length: ${body.length} (Wrapped in ${wrappedBody.split("\n").length} lines)`);
-        console.log(`[push] Body Start: ${body.substring(0, 20)}... End: ...${body.substring(body.length - 20)}`);
-
-        if (body.length < 500) {
-           console.error("[push] ❌ ERROR: Key body is too short. Something is wrong with the Base64 decoding.");
-           pushEnabled = false;
-           return;
-        }
+        console.log(`[push] Final Key Check: StartsWith=${finalKey.substring(0, 30).replace(/\n/g, "\\n")}`);
 
         admin.initializeApp({
           credential: admin.credential.cert({
-            projectId: FIREBASE_PROJECT_ID,
-            clientEmail: FIREBASE_CLIENT_EMAIL,
-            privateKey: cleanKey,
+            projectId: projId,
+            clientEmail: clientEmail,
+            privateKey: finalKey,
           }),
         });
-        console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${FIREBASE_PROJECT_ID}`);
+        console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${projId}`);
         pushEnabled = true;
       } else {
         console.error("[push] ❌ CRITICAL: Could not find standard PEM markers in key even after cleaning.");
