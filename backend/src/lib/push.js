@@ -44,15 +44,15 @@ export let pushEnabled = false;
       // 3. Handle both literal \n and real newlines
       cleanKey = cleanKey.replace(/\\n/g, "\n");
 
-      // 4. Robust PEM normalization
-      if (cleanKey.includes("-----BEGIN PRIVATE KEY-----")) {
-        const body = cleanKey
-          .replace("-----BEGIN PRIVATE KEY-----", "")
-          .replace("-----END PRIVATE KEY-----", "")
-          .replace(/\s+/g, ""); // Remove all whitespace/newlines from the body
-        
-        // Re-construct with proper header/footer
+      // 4. Robust PEM normalization: 
+      // Surgically extract only the part between BEGIN and END
+      const match = cleanKey.match(/-----BEGIN PRIVATE KEY-----([\s\S]*)-----END PRIVATE KEY-----/);
+      
+      if (match) {
+        const body = match[1].replace(/\s+/g, "").replace(/\\n/g, "");
         cleanKey = `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
+      } else {
+        console.warn("[push] Could not find standard PEM markers in key");
       }
 
       admin.initializeApp({
@@ -62,10 +62,11 @@ export let pushEnabled = false;
           privateKey: cleanKey,
         }),
       });
+      console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${FIREBASE_PROJECT_ID}`);
     }
     pushEnabled = true;
   } catch (err) {
-    console.error("[push] Firebase init error:", err);
+    console.error("[push] ❌ Firebase Admin initialization error:", err.message);
     pushEnabled = false;
   }
 })();
