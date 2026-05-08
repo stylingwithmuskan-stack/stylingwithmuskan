@@ -271,7 +271,8 @@ export async function sendPushForNotification(notification) {
         } else {
           totalFailed++;
           const code = res.error?.code;
-          console.error(`[push] Token ${batch[j].slice(-6)} failed with code: ${code}`);
+          const message = res.error?.message;
+          console.error(`[push] Token ${batch[j].slice(-6)} failed. Code: ${code}, Message: ${message}`);
           if (
             code === "messaging/registration-token-not-registered" ||
             code === "messaging/invalid-registration-token"
