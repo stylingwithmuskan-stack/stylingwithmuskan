@@ -1,16 +1,18 @@
 import admin from "firebase-admin";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import Notification from "../models/Notification.js";
 import PushDevice from "../models/PushDevice.js";
 import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
 import {
-  FIREBASE_PROJECT_ID,
-  FIREBASE_CLIENT_EMAIL,
-  FIREBASE_PRIVATE_KEY,
   PUSH_DEFAULT_CLICK_BASE_URL,
   PUSH_BATCH_SIZE,
   PUSH_RETRY_LIMIT,
 } from "../config.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ---------------------------------------------------------------------------
 // Firebase init (singleton)
@@ -19,68 +21,28 @@ import {
 export let pushEnabled = false;
 
 (function initFirebase() {
-  console.log("[push] 🏁 initFirebase called. Checking credentials...");
-  console.log(`[push] System Info: Node=${process.version}, OpenSSL=${process.versions.openssl}`);
+  console.log("[push] 🏁 initFirebase called using service account JSON...");
   
-  // 0. Clean basic fields (remove ALL quotes, backslashes and spaces)
-  const projId = (FIREBASE_PROJECT_ID || "").trim().replace(/[\\"' ]/g, "");
-  const clientEmail = (FIREBASE_CLIENT_EMAIL || "").trim().replace(/[\\"' ]/g, "");
-  let rawKey = (FIREBASE_PRIVATE_KEY || "").trim();
+  const serviceAccountPath = path.resolve(__dirname, "../config/stylingwithmuskan-635f3-firebase-adminsdk-fbsvc-1124a7e333.json");
 
-  console.log(`[push] Config check: ProjectID: ${!!projId}, Email: ${!!clientEmail}, Key: ${!!rawKey}`);
-  
-  if (!projId || !clientEmail || !rawKey) {
-    console.warn("[push] ⚠️ Firebase credentials missing — push notifications disabled");
+  if (!fs.existsSync(serviceAccountPath)) {
+    console.error(`[push] ❌ CRITICAL: Service account file not found at: ${serviceAccountPath}`);
+    pushEnabled = false;
     return;
   }
 
   try {
     if (admin.apps.length === 0) {
-      // 1. Pre-clean: Remove any wrapping quotes or backslashes
-      let cleanKey = rawKey.replace(/^[\\"' ]+|[\\"' ]+$/g, "");
+      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
       
-      console.log(`[push] Raw Key Info: Length=${cleanKey.length}, StartsWith=${cleanKey.substring(0, 15)}...`);
-
-      // 2. Detect and Decode Base64 if needed
-      if (!cleanKey.includes("-----") && (cleanKey.length > 100)) {
-        try {
-          console.log("[push] Base64 detected, decoding...");
-          cleanKey = Buffer.from(cleanKey, 'base64').toString('utf8').trim();
-          // Remove noise again after decoding
-          cleanKey = cleanKey.replace(/^[\\"' ]+|[\\"' ]+$/g, "");
-        } catch (e) {
-          console.error("[push] Failed to decode base64 key:", e.message);
-        }
-      }
-
-      // 3. Handle literal \n and real newlines
-      cleanKey = cleanKey.replace(/\\n/g, "\n");
-
-      // 4. Robust PEM normalization
-      const match = cleanKey.match(/-----BEGIN (?:RSA )?PRIVATE KEY-----([\s\S]*)-----END (?:RSA )?PRIVATE KEY-----/);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
       
-      if (match) {
-        const body = match[1].replace(/[^A-Za-z0-9+/=]/g, ""); // Keep ONLY base64 characters
-        // PKCS#8 often works best with 64-char wrapping in OpenSSL 3.0
-        const wrappedBody = body.match(/.{1,64}/g).join("\n");
-        const finalKey = `-----BEGIN PRIVATE KEY-----\n${wrappedBody}\n-----END PRIVATE KEY-----\n`;
-        
-        console.log(`[push] Key Fixed! Body length: ${body.length}`);
-        console.log(`[push] Credential Check: Project="${projId}", Email="${clientEmail}"`);
-
-        admin.initializeApp({
-          credential: admin.credential.cert({
-            projectId: projId,
-            clientEmail: clientEmail,
-            privateKey: finalKey,
-          }),
-        });
-        console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${projId}`);
-        pushEnabled = true;
-      } else {
-        console.error("[push] ❌ CRITICAL: Could not find standard PEM markers in key even after cleaning.");
-        pushEnabled = false;
-      }
+      console.log(`[push] ✅ Firebase Admin initialized successfully using JSON for project: ${serviceAccount.project_id}`);
+      pushEnabled = true;
+    } else {
+      pushEnabled = true;
     }
   } catch (err) {
     console.error("[push] ❌ Firebase Admin initialization error:", err.message);
@@ -167,7 +129,7 @@ async function deactivateToken(fcmToken, error) {
 }
 
 // ---------------------------------------------------------------------------
-// buildFCMPayload (Task 2.3)
+// buildFCMPayload
 // ---------------------------------------------------------------------------
 
 export function buildFCMPayload(notification) {
@@ -180,8 +142,7 @@ export function buildFCMPayload(notification) {
   return {
     notification: { 
         title, 
-        body,
-        sound: sound === "default" ? "default" : sound
+        body
     },
     android: {
       priority: "high",
@@ -228,17 +189,16 @@ export function buildFCMPayload(notification) {
       type: String(notification.type),
       role: String(notification.recipientRole),
       sound: String(sound),
-      click_action: "FLUTTER_NOTIFICATION_CLICK", // for flutter/android back-compat
+      click_action: "FLUTTER_NOTIFICATION_CLICK", 
     },
   };
 }
 
 // ---------------------------------------------------------------------------
-// sendPushForNotification (Tasks 3.1, 3.2, 4.3)
+// sendPushForNotification
 // ---------------------------------------------------------------------------
 
 export async function sendPushForNotification(notification) {
-  // Disabled guard
   if (!pushEnabled) {
     await Notification.updateOne(
       { _id: notification._id },
@@ -247,7 +207,6 @@ export async function sendPushForNotification(notification) {
     return { sent: 0, failed: 0 };
   }
 
-  // Retry limit guard
   if ((notification.delivery?.push?.failureCount ?? 0) >= PUSH_RETRY_LIMIT) {
     await Notification.updateOne(
       { _id: notification._id },
@@ -256,7 +215,6 @@ export async function sendPushForNotification(notification) {
     return { sent: 0, failed: 0 };
   }
 
-  // Provider quiet hours guard
   if (notification.recipientRole === "provider") {
     const inWindow = await isWithinProviderPushWindow();
     if (!inWindow) {
@@ -265,7 +223,6 @@ export async function sendPushForNotification(notification) {
     }
   }
 
-  // Find active, enabled devices
   const devices = await PushDevice.find({
     recipientId: notification.recipientId,
     isActive: true,
@@ -290,12 +247,12 @@ export async function sendPushForNotification(notification) {
 
   console.log(`[push] Found ${devices.length} devices for recipient ${notification.recipientId}. Sending FCM...`);
   const payload = buildFCMPayload(notification);
-  const tokens = devices.map((d) => d.fcmToken);
+  // Unique tokens only to avoid duplicates
+  const tokens = [...new Set(devices.map((d) => d.fcmToken))];
 
   let totalSent = 0;
   let totalFailed = 0;
 
-  // Batch sends
   for (let i = 0; i < tokens.length; i += PUSH_BATCH_SIZE) {
     const batch = tokens.slice(i, i + PUSH_BATCH_SIZE);
     try {
@@ -329,7 +286,6 @@ export async function sendPushForNotification(notification) {
     }
   }
 
-  // Update delivery status
   const now = new Date();
   const statusUpdate = {
     "delivery.push.status": totalSent > 0 ? "sent" : "failed",
@@ -349,7 +305,7 @@ export async function sendPushForNotification(notification) {
 }
 
 // ---------------------------------------------------------------------------
-// queuePushForNotification (Task 4.1)
+// queuePushForNotification
 // ---------------------------------------------------------------------------
 
 export async function queuePushForNotification(notification, reason = "") {
@@ -365,7 +321,7 @@ export async function queuePushForNotification(notification, reason = "") {
 }
 
 // ---------------------------------------------------------------------------
-// processQueuedPushNotifications (Task 4.2)
+// processQueuedPushNotifications
 // ---------------------------------------------------------------------------
 
 export async function processQueuedPushNotifications() {
@@ -386,7 +342,7 @@ export async function processQueuedPushNotifications() {
 }
 
 // ---------------------------------------------------------------------------
-// enforceDeviceLimit (Task 5.1)
+// enforceDeviceLimit
 // ---------------------------------------------------------------------------
 
 export async function enforceDeviceLimit(recipientId, recipientRole) {
@@ -409,7 +365,7 @@ export async function enforceDeviceLimit(recipientId, recipientRole) {
 }
 
 // ---------------------------------------------------------------------------
-// isDuplicatePush (Task 5.3)
+// isDuplicatePush
 // ---------------------------------------------------------------------------
 
 export async function isDuplicatePush(recipientId, dedupeKey, windowMs) {

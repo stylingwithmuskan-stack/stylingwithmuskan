@@ -1,7 +1,6 @@
-import { messaging, getToken, onMessage } from "../firebase.js";
+import { messaging, getToken, onMessage, VAPID_KEY } from "../firebase.js";
 import { API_BASE_URL } from "../modules/user/lib/api.js";
 
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 const DEVICE_KEY_STORAGE = "swm_push_device_key";
 const FCM_TOKEN_STORAGE = "swm_push_fcm_token";
 

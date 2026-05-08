@@ -1,40 +1,29 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
-const requiredVars = [
-  "VITE_FIREBASE_API_KEY",
-  "VITE_FIREBASE_AUTH_DOMAIN",
-  "VITE_FIREBASE_PROJECT_ID",
-  "VITE_FIREBASE_STORAGE_BUCKET",
-  "VITE_FIREBASE_MESSAGING_SENDER_ID",
-  "VITE_FIREBASE_APP_ID",
-];
-
+// Hardcoded config as requested
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyA5xnsqVwT59RgBWohNY6PatwWjJ5zFgcU",
+  authDomain: "stylingwithmuskan-635f3.firebaseapp.com",
+  projectId: "stylingwithmuskan-635f3",
+  storageBucket: "stylingwithmuskan-635f3.firebasestorage.app",
+  messagingSenderId: "1023356359588",
+  appId: "1:1023356359588:web:a761cf31880d501587a731",
+  measurementId: "G-5QK3HC3KL1"
 };
 
-const missingVars = requiredVars.filter((v) => !import.meta.env[v]);
+// VAPID Key provided by user
+export const VAPID_KEY = "BJxp3HhQ-Y76ows_QuMoZGfIYAqzPXIt-12t69zMXNYKJ5ojgEeMgCJ23KTlH1GVXQ4kTN9JXBWzFlzo2VyKmmo";
 
 let messaging = null;
 
-if (missingVars.length > 0) {
-  console.warn(
-    `[Firebase] Missing env vars: ${missingVars.join(", ")} — push notifications disabled`
-  );
-} else {
-  try {
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-    messaging = getMessaging(app);
-  } catch (err) {
-    console.error("[Firebase] Initialization failed:", err);
-    messaging = null;
-  }
+try {
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  messaging = getMessaging(app);
+  console.log("[Firebase] initialized successfully with hardcoded config");
+} catch (err) {
+  console.error("[Firebase] Initialization failed:", err);
+  messaging = null;
 }
 
 export { messaging, getToken, onMessage };
