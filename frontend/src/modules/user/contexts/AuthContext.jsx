@@ -45,7 +45,10 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setHasAddress(false);
         safeStorage.removeItem(STORAGE_KEY);
+        // Clear cart on logout
+        localStorage.removeItem("swm_cart");
     };
+
 
     // Hydration is now handled synchronously in useState initializer.
     // This effect is kept empty or removed as it's no longer needed for initial load.

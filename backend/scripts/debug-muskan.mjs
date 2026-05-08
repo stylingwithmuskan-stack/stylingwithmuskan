@@ -20,25 +20,25 @@ async function test() {
   console.log("Connecting to MongoDB...");
   await mongoose.connect(uri, { dbName });
   console.log("✅ Connected to DB:", dbName);
-  
+
   const muskan = await ProviderAccount.findOne({ name: /Muskan/i });
   if (!muskan) {
     console.log("Muskan not found");
     process.exit(0);
   }
-  
+
   console.log("\nFound Muskan Profile:");
   console.log("ID:", muskan._id);
   console.log("Phone:", muskan.phone);
   console.log("City:", muskan.city);
   console.log("Zones:", muskan.zones);
-  
+
   const settings = await resolveBookingSettings();
   const date = "2026-05-09";
-  
+
   console.log("\n--- Computing Slots for Saturday (9 May 2026) ---");
   const result = await computeAvailableSlots(muskan._id.toString(), date, settings);
-  
+
   console.log("\nSlots available for Muskan on Saturday:", result.slots.length);
   const is1130Available = result.slots.includes("11:30 AM");
   if (is1130Available) {
@@ -46,13 +46,13 @@ async function test() {
   } else {
     console.log("✅ SUCCESS: 11:30 AM is BLOCKED for Muskan.");
   }
-  
+
   // Detailed check of why it might be free
   const phoneVariants = [
     muskan.phone,
     muskan.phone.startsWith("+91") ? muskan.phone.slice(3) : `+91${muskan.phone}`
   ];
-  
+
   const bookings = await Booking.find({
     $or: [
       { assignedProvider: String(muskan._id) },
@@ -61,17 +61,17 @@ async function test() {
     ],
     status: { $nin: ["cancelled", "rejected", "missed"] }
   }).lean();
-  
+
   console.log(`\nFound ${bookings.length} active bookings for Muskan (Total)`);
-  
+
   const satBookings = bookings.filter(b => {
-      const bDate = b.slot?.date || "";
-      return bDate.includes("2026-05-09") || bDate.includes("9 May");
+    const bDate = b.slot?.date || "";
+    return bDate.includes("2026-05-09") || bDate.includes("9 May");
   });
-  
+
   console.log(`Found ${satBookings.length} bookings for Saturday specifically.`);
   satBookings.forEach(b => {
-      console.log(`- Booking ${b._id}: Time=${b.slot.time}, Status=${b.status}, ProviderField=${b.assignedProvider}`);
+    console.log(`- Booking ${b._id}: Time=${b.slot.time}, Status=${b.status}, ProviderField=${b.assignedProvider}`);
   });
 
   process.exit(0);
