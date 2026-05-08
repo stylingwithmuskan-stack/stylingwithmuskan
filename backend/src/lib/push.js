@@ -21,6 +21,9 @@ export let pushEnabled = false;
 (function initFirebase() {
   console.log("[push] 🏁 initFirebase called. Checking credentials...");
   console.log(`[push] Config check: ProjectID: ${!!FIREBASE_PROJECT_ID}, Email: ${!!FIREBASE_CLIENT_EMAIL}, Key: ${!!FIREBASE_PRIVATE_KEY}`);
+  if (FIREBASE_PRIVATE_KEY) {
+    console.log(`[push] Raw Key Info: Length=${FIREBASE_PRIVATE_KEY.length}, StartsWith=${FIREBASE_PRIVATE_KEY.substring(0, 15)}...`);
+  }
 
   if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
     console.warn("[push] ⚠️ Firebase credentials missing — push notifications disabled");
