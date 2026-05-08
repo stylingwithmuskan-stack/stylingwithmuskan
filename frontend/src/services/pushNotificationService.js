@@ -181,7 +181,8 @@ export function setupForegroundHandler(onMessageCallback) {
   onMessage(messaging, (payload) => {
     if ("Notification" in window && Notification.permission === "granted") {
       const title = payload.notification?.title || "New Notification";
-      const soundType = payload.data?.sound || "default";
+      const rawSound = payload.data?.sound || "default";
+      const soundType = rawSound === "default" ? "notification" : rawSound;
       const isUrgent = ["ringtone", "emergency"].includes(soundType);
       const options = {
         body: payload.notification?.body || "",
