@@ -127,22 +127,37 @@ export function buildFCMPayload(notification) {
   const body = String(notification.message || "").slice(0, 200);
   const link = normalizeLink(notification.link);
   const sound = notification.sound || "default";
-  const isUrgent = ["ringtone", "emergency"].includes(sound);
+  const isUrgent = ["ringtone", "emergency", "alert", "success"].includes(sound);
 
   return {
-    notification: { title, body },
+    notification: { 
+        title, 
+        body,
+        sound: sound === "default" ? "default" : sound
+    },
     android: {
+      priority: "high",
       notification: {
         sound: sound === "default" ? "default" : sound,
         channelId: "high_priority_notifications",
+        icon: "notification_icon",
+        color: "#9333ea",
+        priority: "max",
+        visibility: "public",
+        notification_priority: "PRIORITY_HIGH",
       },
     },
     apns: {
       payload: {
         aps: {
           sound: sound === "default" ? "default" : `${sound}.caf`,
+          badge: 1,
+          critical: isUrgent,
         },
       },
+      headers: {
+        "apns-priority": "10",
+      }
     },
     webpush: {
       notification: {
@@ -165,6 +180,7 @@ export function buildFCMPayload(notification) {
       type: String(notification.type),
       role: String(notification.recipientRole),
       sound: String(sound),
+      click_action: "FLUTTER_NOTIFICATION_CLICK", // for flutter/android back-compat
     },
   };
 }

@@ -173,11 +173,20 @@ const ExpressCheckout = () => {
             console.error("Meta Pixel InitiateCheckout error:", err);
         }
 
+        const finalType = typeId || activeCheckoutType;
+        const bookingData = {
+            totalAmount: displayedTotalPrice,
+            advanceAmount: advanceAmount,
+            remainingAmount: remainingAmount,
+            type: finalType,
+            bookingParam: bookingType
+        };
+
         if (!isLoggedIn) {
             // Save intended booking data for post-login redirect via Home
             sessionStorage.setItem("swm_pending_booking", JSON.stringify({
                 path: "/booking/summary",
-                state: { ...bookingData, bookingParam: bookingType }
+                state: bookingData
             }));
             navigate('/login', { state: { from: '/home' } });
             setIsCartOpen(false);
@@ -195,22 +204,9 @@ const ExpressCheckout = () => {
         }
 
         setIsCartOpen(false);
-        const finalType = typeId || activeCheckoutType;
-
-        // Pass advance info in state or use dynamic calculation in summary page too
-        const bookingData = {
-            totalAmount: displayedTotalPrice,
-            advanceAmount: advanceAmount,
-            remainingAmount: remainingAmount,
-            type: finalType
-        };
-
-        if (finalType && typeof finalType === 'string') {
-            navigate(`/booking/summary`, { state: { ...bookingData, type: finalType, bookingParam: bookingType } });
-        } else {
-            navigate(`/booking/summary`, { state: { ...bookingData, bookingParam: bookingType } });
-        }
+        navigate(`/booking/summary`, { state: bookingData });
     };
+
 
     const getFormattedDate = (dateStr) => {
         if (!dateStr) return "";
@@ -433,38 +429,41 @@ const ExpressCheckout = () => {
                             </div>
                         </div>
 
-                        {/* Final Footer */}
-                        <div className="p-4 bg-background border-t border-border shadow-2xl relative z-20">
-                            {isHighValue ? (
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between text-muted-foreground">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider">Total Service Value</span>
-                                        <span className="text-sm font-bold">₹{displayedTotalPrice.toLocaleString()}</span>
+                        {/* Final Footer - Only show if address and slot are selected */}
+                        {hasAddress && selectedSlot && (
+                            <div className="p-4 bg-background border-t border-border shadow-2xl relative z-20">
+                                {isHighValue ? (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between text-muted-foreground">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">Total Service Value</span>
+                                            <span className="text-sm font-bold">₹{displayedTotalPrice.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Advance to Pay Now</p>
+                                                <p className="text-2xl font-black text-primary">₹{advanceAmount.toLocaleString()}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">Remaining Balance</p>
+                                                <p className="text-sm font-bold text-foreground">₹{remainingAmount.toLocaleString()}</p>
+                                            </div>
+                                        </div>
                                     </div>
+                                ) : (
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Advance to Pay Now</p>
-                                            <p className="text-2xl font-black text-primary">₹{advanceAmount.toLocaleString()}</p>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Payable Amount</p>
+                                            <p className="text-2xl font-black text-primary">₹{displayedTotalPrice.toLocaleString()}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Remaining Balance</p>
-                                            <p className="text-sm font-bold text-foreground">₹{remainingAmount.toLocaleString()}</p>
+                                            <p className="text-[10px] font-bold text-green-600 uppercase">You Save</p>
+                                            <p className="text-sm font-bold text-green-700">₹{totalSavings}</p>
                                         </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Payable Amount</p>
-                                        <p className="text-2xl font-black text-primary">₹{displayedTotalPrice.toLocaleString()}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] font-bold text-green-600 uppercase">You Save</p>
-                                        <p className="text-sm font-bold text-green-700">₹{totalSavings}</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        )}
+
                     </motion.div>
                 </div>
             </AnimatePresence>

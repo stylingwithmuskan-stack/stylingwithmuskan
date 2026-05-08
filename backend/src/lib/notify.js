@@ -176,6 +176,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
       return {
         title: "Booking Confirmed",
         message: `Your booking${serviceName ? ` for ${serviceName}` : ""} has been created successfully. We'll assign the best professional shortly.`,
+        sound: "notification",
       };
     case "booking_assigned":
       if (recipientRole === "provider") {
@@ -253,7 +254,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
       return {
         title: "Payment Successful",
         message: amountText ? `Your payment of ${amountText} for ${servicePlain} was successful. Thank you!` : `Your payment for ${servicePlain} was successful. Thank you!`,
-        sound: "success",
+        sound: "notification",
       };
     case "payment_refund":
       return {
