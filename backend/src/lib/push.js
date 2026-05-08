@@ -41,8 +41,8 @@ export let pushEnabled = false;
         }
       }
 
-      // 2. Remove any wrapping quotes
-      cleanKey = cleanKey.replace(/^["']|["']$/g, "");
+      // 2. Remove any wrapping quotes and handle escaped quotes (\")
+      cleanKey = cleanKey.trim().replace(/^["'\\]+|["'\\]+$/g, "");
       
       // 3. Handle both literal \n and real newlines
       cleanKey = cleanKey.replace(/\\n/g, "\n");
@@ -54,7 +54,7 @@ export let pushEnabled = false;
       if (match) {
         const body = match[1].replace(/\s+/g, "").replace(/\\n/g, "");
         cleanKey = `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
-        console.log(`[push] Key Cleaned! Length: ${cleanKey.length}, Starts: ${cleanKey.substring(0, 30)}, Ends: ${cleanKey.substring(cleanKey.length - 30)}`);
+        console.log(`[push] Key Cleaned! Length: ${cleanKey.length}, Starts: ${cleanKey.substring(0, 30)}...`);
 
         admin.initializeApp({
           credential: admin.credential.cert({
@@ -66,7 +66,7 @@ export let pushEnabled = false;
         console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${FIREBASE_PROJECT_ID}`);
         pushEnabled = true;
       } else {
-        console.error("[push] ❌ CRITICAL: Could not find standard PEM markers in FIREBASE_PRIVATE_KEY. Push disabled.");
+        console.error("[push] ❌ CRITICAL: Could not find standard PEM markers in key even after cleaning.");
         pushEnabled = false;
       }
     }
