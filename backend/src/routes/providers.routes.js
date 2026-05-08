@@ -309,12 +309,11 @@ router.get(
     const cityIdGuess = String(req.query.cityId || addrWithZone.cityId || "").trim();
     const cityGuess = rawCity || (zoneGuess ? "" : String(addrWithZone.area || "").trim());
 
-    const allowPending = process.env.NODE_ENV !== "production";
-    const pendingStatuses = ["pending", "pending_vendor", "pending_admin"];
     const baseQ = {
-      approvalStatus: allowPending ? { $in: ["approved", ...pendingStatuses] } : "approved",
-      ...(allowPending ? {} : { registrationComplete: true }),
+      approvalStatus: "approved",
+      registrationComplete: true
     };
+
 
     let q = { ...baseQ };
     if (cityIdGuess) {
@@ -411,16 +410,11 @@ router.get(
 
     const freeProviders = [];
     for (const provider of providers) {
+      console.log(`[Slots] Checking availability for: ${provider.name} (ID: ${provider._id})`);
       const result = await computeAvailableSlots(provider._id?.toString(), date, settings, { requestedDurationMinutes: durationMinutes });
       const providerSlots = result.slots || [];
       if (providerSlots.length > 0) {
-        freeProviders.push({
-          id: provider._id?.toString(),
-          name: provider.name || "",
-          phone: provider.phone || "",
-          city: provider.city || "",
-          availableSlots: providerSlots.length
-        });
+        console.log(`[Slots] ${provider.name} is FREE for ${providerSlots.length} slots.`);
         for (const slot of providerSlots) {
           slotMap[slot] = true;
           candidateProvidersBySlot[slot].push(String(provider._id));

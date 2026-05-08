@@ -46,8 +46,9 @@ export async function invalidateProviderSlotsForNextDays(providerId, days = 30, 
 }
 
 export async function computeAvailableSlots(providerId, date, settings, opts = {}) {
-  const useCache = opts.useCache !== false;
+  const useCache = false; // Temporarily disabled for live debugging
   const requestedDurationMinutes = Math.max(Number(opts.requestedDurationMinutes || 0), 0);
+  /* 
   if (useCache) {
     try {
       const key = await cacheKey(providerId, date, settings, requestedDurationMinutes);
@@ -55,6 +56,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
       if (hit) return JSON.parse(hit);
     } catch {}
   }
+  */
 
   const dayStart = isoDateToLocalStart(date);
   const dayEnd = isoDateToLocalEnd(date);
@@ -80,15 +82,51 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
 
   const availDoc = await ProviderDayAvailability.findOne({ providerId, date }).lean();
   
-  // Explicit Blocked Provider Check (as requested)
-  // Although usually handled in routes, this adds an extra layer of safety.
+  // Explicit Blocked Provider Check and fetch phone for robust search
   const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
-  const provCheck = await ProviderAccount.findById(providerId).select("approvalStatus").lean();
-  if (provCheck && provCheck.approvalStatus === "blocked") {
+  const provDetails = await ProviderAccount.findById(providerId).select("approvalStatus phone").lean();
+  if (provDetails && provDetails.approvalStatus === "blocked") {
     const slotMap = {};
     DEFAULT_TIME_SLOTS.forEach((s) => { slotMap[s] = false; });
     return { date, slots: [], slotMap, reason: "provider_blocked" };
   }
+  console.log(`[Availability] Computing for Provider: ${providerId}, Date: ${date}, Duration: ${requestedDurationMinutes}m`);
+
+  const provPhoneRaw = String(provDetails?.phone || "").trim();
+  const provName = String(provDetails?.name || "").trim();
+  
+  // Find ALL provider IDs that share this phone number OR name (special case for Muskan testing)
+  let allRelatedProviderIds = [String(providerId)];
+  const relatedCriteria = [];
+  if (provPhoneRaw) relatedCriteria.push({ phone: provPhoneRaw });
+  if (provName.toLowerCase().includes("muskan")) relatedCriteria.push({ name: new RegExp(provName.trim(), "i") });
+
+  if (relatedCriteria.length > 0) {
+    const relatedAccounts = await ProviderAccount.find({ $or: relatedCriteria }).select("_id name phone").lean();
+    allRelatedProviderIds = [...new Set(relatedAccounts.map(a => String(a._id)))];
+    console.log(`[Availability] Related Accounts for ${provName}: ${allRelatedProviderIds.join(", ")}`);
+  }
+
+  const phoneVariants = provPhoneRaw ? [
+    provPhoneRaw,
+    provPhoneRaw.startsWith("+91") ? provPhoneRaw.slice(3) : `+91${provPhoneRaw}`
+  ] : [];
+
+  // Helper to get YYYY-MM-DD from any date string without timezone shift
+  const toYYYYMMDD = (d) => {
+    if (!d) return "";
+    try {
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return String(d).trim();
+      const year = dt.getFullYear();
+      const month = String(dt.getMonth() + 1).padStart(2, '0');
+      const day = String(dt.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch { return String(d).trim(); }
+  };
+
+  const targetDateStandard = toYYYYMMDD(date);
+  console.log(`[Availability] Target Date: ${targetDateStandard}`);
 
   // FIXED: Treat empty array as "no availability set" and default to TRUE
   const baseMap = (availDoc && availDoc.availableSlots && availDoc.availableSlots.length > 0)
@@ -104,24 +142,40 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
 
   const excludeBookingId = opts.excludeBookingId ? String(opts.excludeBookingId) : null;
 
-  // Calculate provider's actual last available minute for lenient window enforcement
-  const providerLastSlotMin = Math.max(0, ...Object.keys(baseMap).filter(k => baseMap[k]).map(k => {
-    const hm = parseSlotLabelToHM(k);
-    return hm ? (hm.hour * 60 + hm.minute) : 0;
-  })) + 30; // +30 assumed slot duration
-  if (excludeBookingId) {
-    console.log(`[Availability Debug] Excluding current booking ${excludeBookingId} from busy check`);
-  }
-  const providerBookings = await Booking.find({
-    assignedProvider: providerId,
-    "slot.date": date,
-    status: { $ne: "cancelled" },
+  // Fetch all active bookings for ANY of the related IDs or phone variants
+  const allProviderBookings = await Booking.find({
+    $or: [
+      { assignedProvider: { $in: allRelatedProviderIds } },
+      ...allRelatedProviderIds.filter(id => mongoose.isValidObjectId(id)).map(id => ({ assignedProvider: new mongoose.Types.ObjectId(id) })),
+      { assignedProvider: { $in: phoneVariants } }
+    ],
+    status: { $nin: ["cancelled", "rejected", "missed"] },
     ...(excludeBookingId && mongoose.isValidObjectId(excludeBookingId) ? { _id: { $ne: excludeBookingId } } : {}),
-  }).select("slot slotStartAt slotEndAt services status createdAt").lean();
-  const bookedSet = new Set((providerBookings || []).map((b) => String(b?.slot?.time || "")).filter(Boolean));
+  }).select("slot slotStartAt slotEndAt services status createdAt items").lean();
 
-  // Buffer: Use providerBufferMinutes from settings or bufferMinutes from officeSettings (fallback 30)
-  const bufferMin = Math.max(Number(settings?.bufferMinutes ?? settings?.providerBufferMinutes ?? 30), 0);
+  console.log(`[Availability] Found ${allProviderBookings.length} total active bookings for matched group`);
+
+  // Filter bookings that match the requested date (Timezone-safe comparison)
+  const providerBookings = allProviderBookings.filter(b => {
+    const bDateStr = String(b?.slot?.date || "").trim();
+    if (!bDateStr) return false;
+    const isMatch = toYYYYMMDD(bDateStr) === targetDateStandard;
+    if (isMatch) console.log(`[Availability] ✅ MATCHED Booking ${b._id} on ${bDateStr} at ${b?.slot?.time} (Status: ${b.status})`);
+    return isMatch;
+  });
+
+  console.log(`[Availability] ${providerBookings.length} bookings match date ${targetDateStandard}`);
+
+  
+  // Use a case-insensitive set for exact slot blocking
+  const bookedSet = new Set((providerBookings || []).map((b) => {
+    const t = String(b?.slot?.time || "").toUpperCase().trim();
+    console.log(`[Availability] Blocking exact slot: ${t}`);
+    return t;
+  }).filter(Boolean));
+  
+  // Buffer: Use 45m default as requested
+  const bufferMin = Math.max(Number(settings?.bufferMinutes ?? settings?.providerBufferMinutes ?? 45), 0);
   const busyStatuses = new Set([
     "incoming",
     "assigned",
@@ -186,7 +240,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   const slotMap = {};
   const slots = [];
   for (const s of DEFAULT_TIME_SLOTS) {
-    let ok = baseMap[s] === true && !bookedSet.has(s);
+    let ok = baseMap[s] === true && !bookedSet.has(s.toUpperCase().trim());
     const slotStart = ok ? slotLabelToLocalDateTime(date, s) : null;
     
     if (ok && isToday && slotStart) {
