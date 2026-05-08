@@ -21,12 +21,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export let pushEnabled = false;
 
 (function initFirebase() {
-  console.log("[push] 🏁 initFirebase called using service account JSON...");
-  
-  const serviceAccountPath = path.resolve(__dirname, "../config/stylingwithmuskan-635f3-firebase-adminsdk-fbsvc-1124a7e333.json");
+  const serviceAccountPath = path.resolve(__dirname, "../config/stylingwithmuskan-635f3-firebase-adminsdk-fbsvc-1124a7e333.json").trim();
+  console.log(`[push] 🏁 initFirebase called. Path: ${serviceAccountPath}`);
 
   if (!fs.existsSync(serviceAccountPath)) {
-    console.error(`[push] ❌ CRITICAL: Service account file not found at: ${serviceAccountPath}`);
+    console.error(`[push] ❌ CRITICAL: Service account file NOT found at: "${serviceAccountPath}"`);
     pushEnabled = false;
     return;
   }
