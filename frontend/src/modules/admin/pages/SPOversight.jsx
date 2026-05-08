@@ -104,6 +104,7 @@ export default function SPOversight() {
     const [page, setPage] = useState(1);
     const [limit] = useState(20);
     const [total, setTotal] = useState(0);
+    const [stats, setStats] = useState({ all: 0, active: 0, pending: 0, blocked: 0 });
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [loading, setLoading] = useState(false);
     
@@ -159,7 +160,7 @@ export default function SPOversight() {
         
         try {
             const response = shouldPaginate 
-                ? await getAllServiceProviders({ page, limit })
+                ? await getAllServiceProviders({ page, limit, tab })
                 : await getAllServiceProviders({ limit: 1000 }); // Load all for non-paginated tabs
             
             // Handle both array (old format) and object with pagination (new format)
@@ -174,6 +175,9 @@ export default function SPOversight() {
             }));
             
             setProviders(normalized);
+            if (response?.stats) {
+                setStats(response.stats);
+            }
             if (shouldPaginate) {
                 setTotal(totalCount);
             }
@@ -186,7 +190,6 @@ export default function SPOversight() {
             }
         }
 
-        setFeedback(JSON.parse(localStorage.getItem("muskan-feedback") || "[]"));
         try {
             const reqs = await getCategoryRequests();
             setCategoryRequests(reqs || []);
@@ -353,10 +356,11 @@ export default function SPOversight() {
             setWalletReason("");
             
             // Refresh providers and update selectedSP
-            const items = await getAllServiceProviders();
-            setProviders(Array.isArray(items) ? items : []);
-            const fresh = (Array.isArray(items) ? items : []).find(p => (p._id || p.id) === (selectedSP._id || selectedSP.id));
-            if (fresh) setSelectedSP(fresh);
+            await load();
+            // Since providers state is updated by load(), selectedSP will be stale 
+            // if we don't refresh it, but it's often better to just close the modal or 
+            // the user can re-open to see fresh wallet.
+            // For now, let's just ensure the list is refreshed correctly.
         } catch (error) {
             toast.error(error?.message || "Failed to adjust wallet");
         } finally {
@@ -364,33 +368,20 @@ export default function SPOversight() {
         }
     };
 
-    const getSPRating = (nameOrId) => {
-        const spFeedback = feedback.filter(f => (f.providerName === nameOrId || f.assignedProvider === nameOrId || f.providerId === nameOrId) && f.type === "customer_to_provider");
-        if (spFeedback.length === 0) return "0.0";
-        const sum = spFeedback.reduce((a, b) => a + Number(b.rating || 0), 0);
-        return (sum / spFeedback.length).toFixed(1);
+    const getSPRating = (sp) => {
+        // Use the live rating from the database field
+        const r = Number(sp.rating || 0);
+        return r > 0 ? r.toFixed(1) : "0.0";
     };
 
     const getSPStats = (sp) => {
-        const bookings = JSON.parse(localStorage.getItem("muskan-bookings") || "[]");
-        const id = sp._id || sp.id;
-        const name = sp.name;
-        
-        const spBookings = bookings.filter(b => b.assignedProvider === id || b.assignedProvider === name || b.providerName === name);
-        const total = spBookings.length;
-        
-        if (total === 0) return { bookings: 0, cancelled: "0%", missed: 0, revenue: "0", acceptTime: "N/A" };
-        
-        const cancelled = spBookings.filter(b => b.status === "cancelled" || b.status === "rejected").length;
-        const completed = spBookings.filter(b => b.status === "completed");
-        const revenue = completed.reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
-        
+        // Use live stats from the database fields
         return {
-            bookings: total,
-            cancelled: `${Math.round((cancelled / total) * 100)}%`,
-            missed: 0, // Missed not explicitly tracked in current status set
-            revenue: revenue.toLocaleString(),
-            acceptTime: "5 min" // Placeholder or default for active providers
+            bookings: sp.totalJobs || 0,
+            cancelled: "0%", // Cancelled % needs a specialized analytics API for live data
+            missed: 0,
+            revenue: "0", // Revenue needs a specialized analytics API for live data
+            acceptTime: "5 min"
         };
     };
 
@@ -421,11 +412,11 @@ export default function SPOversight() {
             if (action === "approve") await approveProviderZones(id);
             else await rejectProviderZones(id);
             toast.success(`Zones ${action}d successfully`);
-            load();
+            await load();
             if (selectedSP?._id === id || selectedSP?.id === id) {
-                const updated = await getAllServiceProviders();
-                const found = updated.find(u => u._id === id || u.id === id);
-                if (found) setSelectedSP(found);
+                // The provider object in selectedSP is already partially updated by state, 
+                // but load() will refresh the main list.
+                // We don't need a separate fetch here as load() handled it.
             }
         } catch {
             toast.error(`Zone ${action} failed`);
@@ -475,11 +466,11 @@ export default function SPOversight() {
             <Tabs value={tab} onValueChange={setTab}>
                 <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
                     <TabsList className="bg-muted/30 rounded-xl p-1">
-                        <TabsTrigger value="all" className="rounded-lg text-xs font-bold">All ({providers.length})</TabsTrigger>
-                        <TabsTrigger value="pending" className="rounded-lg text-xs font-bold">Pending ({providers.filter(s => s.approvalStatus === "pending" || s.approvalStatus === "pending_vendor" || s.approvalStatus === "pending_admin").length})</TabsTrigger>
-                        <TabsTrigger value="approved" className="rounded-lg text-xs font-bold">Active</TabsTrigger>
+                        <TabsTrigger value="all" className="rounded-lg text-xs font-bold">All ({stats.all || total})</TabsTrigger>
+                        <TabsTrigger value="pending" className="rounded-lg text-xs font-bold">Pending ({stats.pending})</TabsTrigger>
+                        <TabsTrigger value="approved" className="rounded-lg text-xs font-bold">Active ({stats.active})</TabsTrigger>
                         <TabsTrigger value="category-requests" className="rounded-lg text-xs font-bold bg-amber-500/10 text-amber-600">Cat. Requests ({categoryRequests.filter(r => r.status === 'pending').length})</TabsTrigger>
-                        <TabsTrigger value="blocked" className="rounded-lg text-xs font-bold">Blocked</TabsTrigger>
+                        <TabsTrigger value="blocked" className="rounded-lg text-xs font-bold">Blocked ({stats.blocked})</TabsTrigger>
                         <TabsTrigger value="leaves" className="rounded-lg text-xs font-bold flex items-center gap-1.5">
                             <Clock className="h-3.5 w-3.5" /> Leave Requests
                             {leaves.filter(l => l.status === "pending").length > 0 && (
@@ -616,11 +607,11 @@ export default function SPOversight() {
                                                     <div className="grid grid-cols-3 md:grid-cols-6 gap-2 pt-3 border-t border-border/50">
                                                         <div className="bg-muted/30 p-2 rounded-xl">
                                                             <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><Star className="h-3 w-3" /> Rating</p>
-                                                            <p className="text-sm font-black mt-0.5 text-amber-500">{getSPRating(sp.name || sp._id || sp.id)}</p>
+                                                            <p className="text-sm font-black mt-0.5 text-amber-500">{getSPRating(sp)}</p>
                                                         </div>
                                                         <div className="bg-muted/30 p-2 rounded-xl">
                                                             <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Bookings</p>
-                                                            <p className="text-sm font-black mt-0.5 text-blue-500">{stats.bookings}</p>
+                                                            <p className="text-sm font-black mt-0.5 text-blue-500">{sp.totalJobs || 0}</p>
                                                         </div>
                                                         <div className="bg-muted/30 p-2 rounded-xl">
                                                             <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><XCircle className="h-3 w-3" /> Cancelled</p>

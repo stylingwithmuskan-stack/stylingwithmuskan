@@ -427,13 +427,13 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
     }
   }
 
-  const statusTransitionNeedsSlotRefresh =
-    (prevStatus === "blocked" && status === "approved") ||
-    (prevStatus === "approved" && status === "blocked");
-  if (statusTransitionNeedsSlotRefresh && p?._id) {
+  // Invalidate slot cache on any status change to ensure fresh availability data
+  if (p?._id) {
     try {
       await invalidateProviderSlotsForNextDays(p._id.toString(), 30);
-    } catch {}
+    } catch (err) {
+      console.error("[Admin] Failed to invalidate slots on status change:", err);
+    }
   }
   
   try {
