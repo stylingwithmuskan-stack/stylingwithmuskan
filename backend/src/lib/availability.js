@@ -248,19 +248,11 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
       if (!opts.ignoreLeadTime && slotStart.getTime() < (now.getTime() + effectiveLeadMs)) ok = false;
     }
     
-    if (ok && windowStartMin !== null && windowEndMin !== null) {
+    if (ok && !opts.ignoreServiceWindow && windowStartMin !== null && windowEndMin !== null) {
       const hm = parseSlotLabelToHM(s);
       if (hm) {
         const slotMin = hm.hour * 60 + hm.minute;
         if (!isTimeInWindow(slotMin, windowStartMin, windowEndMin)) ok = false;
-        
-          // Dynamic Service Window: 
-          // We no longer strictly enforce the 'requiredEndMin' for assignment.
-          // If the slot is enabled by the provider and within the 'Start' and 'End' hours, it's valid.
-          // This allows for long services (like Facials) to be booked even late in the evening.
-          if (!isTimeInWindow(slotMin, windowStartMin, windowEndMin)) {
-            ok = false;
-          }
       }
     }
     if (ok && slotStart && busyIntervals.length > 0) {

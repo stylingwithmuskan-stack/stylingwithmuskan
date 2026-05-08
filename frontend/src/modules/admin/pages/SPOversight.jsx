@@ -128,11 +128,53 @@ export default function SPOversight() {
     const [walletType, setWalletType] = useState("add");
     const [walletReason, setWalletReason] = useState("");
 
+    const [isEditingZones, setIsEditingZones] = useState(false);
+    const [tempZones, setTempZones] = useState([]);
+    const [tempZoneIds, setTempZoneIds] = useState([]);
+    const [allCities, setAllCities] = useState([]);
+    const [allZones, setAllZones] = useState([]);
+    const [selectedCityId, setSelectedCityId] = useState("");
+
+    const loadGeoData = async () => {
+        try {
+            const citiesData = await api.admin.listCities();
+            setAllCities(citiesData.cities || []);
+        } catch (error) {
+            console.error("Failed to load cities:", error);
+        }
+    };
+
+    const loadZonesForCity = async (cityId) => {
+        if (!cityId) return;
+        try {
+            const zonesData = await api.admin.listZones(cityId);
+            setAllZones(zonesData.zones || []);
+        } catch (error) {
+            console.error("Failed to load zones:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (isEditingZones) {
+            loadGeoData();
+        }
+    }, [isEditingZones]);
+
+    useEffect(() => {
+        if (selectedCityId) {
+            loadZonesForCity(selectedCityId);
+        } else {
+            setAllZones([]);
+        }
+    }, [selectedCityId]);
+
     const buildPortfolioPayload = () => {
         return {
             primaryCategory: tempCategories,
             specializations: tempSpecializations,
             services: tempServices,
+            zones: tempZones,
+            serviceZoneIds: tempZoneIds
         };
     };
 
@@ -243,6 +285,12 @@ export default function SPOversight() {
         setIsEditingCategories(true);
     };
 
+    const startEditingZones = () => {
+        setTempZones(selectedSP.zones || []);
+        setTempZoneIds(selectedSP.serviceZoneIds || []);
+        setIsEditingZones(true);
+    };
+
     const handleSaveProfile = async () => {
         setIsSaving(true);
         try {
@@ -250,10 +298,13 @@ export default function SPOversight() {
             await updateProviderProfile(selectedSP._id || selectedSP.id, payload);
             toast.success("Provider profile updated successfully");
             setIsEditingCategories(false);
+            setIsEditingZones(false);
             load();
             // Update selectedSP locally
             setSelectedSP(prev => ({
                 ...prev,
+                zones: tempZones,
+                serviceZoneIds: tempZoneIds,
                 documents: {
                     ...prev.documents,
                     primaryCategory: tempCategories,
@@ -1140,6 +1191,98 @@ export default function SPOversight() {
                                         </div>
 
                                         
+                                        {/* Service Zones Section */}
+                                        <div className="bg-muted/30 rounded-xl p-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Service Zones (Manual Override)</p>
+                                                {!isEditingZones ? (
+                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full hover:bg-primary/10" onClick={startEditingZones}>
+                                                        <Edit2 className="h-3 w-3 text-primary" />
+                                                    </Button>
+                                                ) : (
+                                                    <div className="flex gap-1">
+                                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full hover:bg-green-100" onClick={handleSaveProfile} disabled={isSaving}>
+                                                            <Save className="h-3 w-3 text-green-600" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full hover:bg-red-100" onClick={() => setIsEditingZones(false)} disabled={isSaving}>
+                                                            <X className="h-3 w-3 text-red-600" />
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {isEditingZones ? (
+                                                <div className="space-y-3">
+                                                    <div className="flex flex-wrap gap-1.5 mb-3">
+                                                        {tempZones.length > 0 ? (
+                                                            tempZones.map((z, idx) => (
+                                                                <Badge key={idx} className="bg-primary/10 text-primary border-primary/20 text-[10px] font-bold group">
+                                                                    {z}
+                                                                    <X 
+                                                                        className="h-2.5 w-2.5 ml-1.5 cursor-pointer opacity-50 group-hover:opacity-100" 
+                                                                        onClick={() => {
+                                                                            const zoneToRemove = z;
+                                                                            const idToRemove = tempZoneIds[idx];
+                                                                            setTempZones(prev => prev.filter(item => item !== zoneToRemove));
+                                                                            setTempZoneIds(prev => prev.filter(item => item !== idToRemove));
+                                                                        }}
+                                                                    />
+                                                                </Badge>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-[10px] text-muted-foreground italic">No zones assigned</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <select 
+                                                            value={selectedCityId}
+                                                            onChange={(e) => setSelectedCityId(e.target.value)}
+                                                            className="h-8 bg-background border border-border rounded-lg px-2 text-[10px] outline-none font-bold"
+                                                        >
+                                                            <option value="">Select City</option>
+                                                            {allCities.map(c => (
+                                                                <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <select 
+                                                            className="h-8 bg-background border border-border rounded-lg px-2 text-[10px] outline-none font-bold"
+                                                            onChange={(e) => {
+                                                                const zid = e.target.value;
+                                                                if (!zid) return;
+                                                                const zoneObj = allZones.find(z => (z._id || z.id) === zid);
+                                                                if (zoneObj && !tempZoneIds.includes(zid)) {
+                                                                    setTempZones(prev => [...prev, zoneObj.name]);
+                                                                    setTempZoneIds(prev => [...prev, zid]);
+                                                                }
+                                                                e.target.value = "";
+                                                            }}
+                                                            disabled={!selectedCityId}
+                                                        >
+                                                            <option value="">Add Zone...</option>
+                                                            {allZones
+                                                                .filter(z => !tempZoneIds.includes(z._id || z.id))
+                                                                .map(z => (
+                                                                    <option key={z._id || z.id} value={z._id || z.id}>{z.name}</option>
+                                                                ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedSP.zones?.length > 0 ? (
+                                                        selectedSP.zones.map(z => (
+                                                            <Badge key={z} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
+                                                                {z}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-[10px] text-muted-foreground italic">No service zones assigned</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
                                         {selectedSP.documents?.certifications?.length > 0 && (
                                             <div className="bg-muted/30 rounded-xl p-3">
                                                 <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Professional Certificates</p>

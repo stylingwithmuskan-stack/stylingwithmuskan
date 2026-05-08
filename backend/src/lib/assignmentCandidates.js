@@ -102,9 +102,10 @@ export async function buildAssignmentCandidates({
   items = [],
   settings,
   customerId,
-  subscriptionSnapshot,
   requestedDurationMinutes,
   useCache = true,
+  ignoreLeadTime = false,
+  ignoreServiceWindow = false,
 } = {}) {
   const resolvedSettings = await resolveSettings(settings);
   const bookingCity = norm(address?.city);
@@ -178,6 +179,8 @@ export async function buildAssignmentCandidates({
     const avail = await computeAvailableSlots(providerId, requestedDate, resolvedSettings, {
       requestedDurationMinutes,
       useCache,
+      ignoreLeadTime,
+      ignoreServiceWindow,
     });
     return avail?.slotMap?.[requestedTime] === true;
   };

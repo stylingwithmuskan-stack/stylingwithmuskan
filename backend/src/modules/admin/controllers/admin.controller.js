@@ -324,7 +324,7 @@ export async function getAvailableProvidersForBooking(req, res) {
     const isAvailable = await canAssignProviderToBooking(
       provider._id.toString(), 
       booking,
-      { ignoreLeadTime: true }
+      { ignoreLeadTime: true, ignoreServiceWindow: true }
     );
 
     if (isAvailable) {
@@ -1675,19 +1675,24 @@ export async function rejectZoneCreationRequest(req, res) {
 export async function updateProviderProfile(req, res) {
   try {
     const { id } = req.params;
-    const { primaryCategory, specializations, services } = req.body;
-
-    // Fetch existing provider to compare services
+    
     const provider = await ProviderAccount.findById(id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
     }
 
     const oldServices = provider.documents?.services || [];
+    const oldZones = provider.serviceZoneIds || [];
+    
+    const { primaryCategory, specializations, services, serviceZoneIds, zones } = req.body;
+
     const updates = {};
     if (Array.isArray(primaryCategory)) updates["documents.primaryCategory"] = primaryCategory;
     if (Array.isArray(specializations)) updates["documents.specializations"] = specializations;
     if (Array.isArray(services)) updates["documents.services"] = services;
+    
+    if (Array.isArray(serviceZoneIds)) updates.serviceZoneIds = serviceZoneIds;
+    if (Array.isArray(zones)) updates.zones = zones;
 
     const updatedProvider = await ProviderAccount.findByIdAndUpdate(
       id,
@@ -1695,23 +1700,26 @@ export async function updateProviderProfile(req, res) {
       { new: true }
     );
 
-    // Send notification if services were removed
-    if (Array.isArray(services)) {
-      const removed = oldServices.filter(s => !services.includes(s));
-      if (removed.length > 0) {
-        try {
-          const { notify } = await import("../../../lib/notify.js");
-          await notify({
-            recipientId: id,
-            recipientRole: "provider",
-            title: "Portfolio Updated",
-            message: `Admin has updated your professional portfolio. ${removed.length} services were removed. Please check your active services limit and bookings availability.`,
-            type: "marketing_campaign",
-            meta: { removedCount: removed.length }
-          });
-        } catch (notifyErr) {
-          console.error("[Admin] Failed to send profile update notification:", notifyErr);
-        }
+    // Send notification if services or zones were changed
+    const servicesChanged = Array.isArray(services) && JSON.stringify(oldServices) !== JSON.stringify(services);
+    const zonesChanged = Array.isArray(serviceZoneIds) && JSON.stringify(oldZones) !== JSON.stringify(serviceZoneIds);
+
+    if (servicesChanged || zonesChanged) {
+      try {
+        const { notify } = await import("../../../lib/notify.js");
+        await notify({
+          recipientId: id,
+          recipientRole: "provider",
+          title: "Profile Updated",
+          message: `Admin has updated your professional profile ${zonesChanged ? "and service zones" : ""}. Please check your active services and working areas.`,
+          type: "marketing_campaign",
+          meta: { 
+            servicesUpdated: servicesChanged,
+            zonesUpdated: zonesChanged 
+          }
+        });
+      } catch (notifyErr) {
+        console.error("[Admin] Failed to send profile update notification:", notifyErr);
       }
     }
 
