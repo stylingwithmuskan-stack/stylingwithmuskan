@@ -188,6 +188,15 @@ export const NotificationProvider = ({ children, role }) => {
         // Expose to window for testing
         window.__DEBUG_PLAY_SOUND__ = playNotificationSound;
         
+        // Auto-initialize push notifications on mount if token exists
+        if (activeToken && activeRole) {
+            import("@/services/pushNotificationService").then(({ initPushNotifications }) => {
+                initPushNotifications(activeToken, activeRole).catch(err => {
+                    console.error("[NotificationContext] Push init failed on mount:", err);
+                });
+            });
+        }
+        
         if (!currentUserId || !activeToken) {
             return;
         }
