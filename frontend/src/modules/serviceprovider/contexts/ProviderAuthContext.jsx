@@ -174,7 +174,13 @@ export const ProviderAuthProvider = ({ children }) => {
         
         // Only save to localStorage after successful registration
         setProvider(nextProvider);
-        if (providerToken) initPushNotifications(providerToken, "provider").catch(() => {});
+        if (providerToken) {
+            initPushNotifications(providerToken, "provider").catch((err) => {
+                console.error("[ProviderAuth] Push registration failed after register:", err);
+                // Retry after 5s — service worker may need time
+                setTimeout(() => initPushNotifications(providerToken, "provider").catch(e => console.error("[ProviderAuth] Push retry also failed:", e)), 5000);
+            });
+        }
         } catch (error) {
             // Clear any stale data on error
             logout();
@@ -205,7 +211,11 @@ export const ProviderAuthProvider = ({ children }) => {
             setProvider(provider);
             if (providerToken) {
                 setProviderToken(providerToken);
-                initPushNotifications(providerToken, "provider").catch(() => {});
+                initPushNotifications(providerToken, "provider").catch((err) => {
+                    console.error("[ProviderAuth] Push registration failed after OTP login:", err);
+                    // Retry after 5s — service worker may need time
+                    setTimeout(() => initPushNotifications(providerToken, "provider").catch(e => console.error("[ProviderAuth] Push retry also failed:", e)), 5000);
+                });
             }
             return { success: true, registered: provider.registrationComplete };
         } catch (error) {

@@ -35,6 +35,8 @@ import { useProviderBookings } from "../contexts/ProviderBookingContext";
 import { useProviderAuth } from "../contexts/ProviderAuthContext";
 import { api } from "@/modules/user/lib/api";
 import { toast } from "sonner";
+import { initPushNotifications } from "@/services/pushNotificationService";
+import { Bug } from "lucide-react";
 
 const ProviderDashboard = () => {
     const { activeBookings, completedBookings, incomingBookings, refreshBookings } = useProviderBookings();
@@ -192,6 +194,25 @@ const ProviderDashboard = () => {
                             </SelectContent>
                         </Select>
                     </div>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-12 px-4 rounded-xl border-violet-200 text-violet-600 hover:bg-violet-50 font-bold gap-2"
+                        onClick={async () => {
+                            const tId = toast.loading("Checking Push Notifications...");
+                            try {
+                                const token = localStorage.getItem("swm_provider_token");
+                                await initPushNotifications(token, "provider");
+                                toast.success("Push Registration Successful! ✅", { id: tId });
+                            } catch (err) {
+                                toast.error(`Registration Failed: ${err.message} ❌`, { id: tId, duration: 5000 });
+                                console.error("Push Debug Error:", err);
+                            }
+                        }}
+                    >
+                        <Bug className="h-4 w-4" />
+                        <span className="hidden sm:inline">Debug Push</span>
+                    </Button>
                     <Button variant="outline" size="icon" className={`rounded-xl h-12 w-12 transition-all ${loading ? 'animate-spin border-violet-500 text-violet-600' : 'hover:border-violet-500 hover:text-violet-600'}`} onClick={handleRefresh}>
                         <RefreshCw className="h-4 w-4" />
                     </Button>

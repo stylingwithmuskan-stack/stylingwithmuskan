@@ -11,11 +11,11 @@ import { setupForegroundHandler } from "@/services/pushNotificationService";
 import { playFlutterSound, isFlutterWebView } from "@/utils/flutterBridge";
 
 const SOUND_FILES = {
-    ringtone: window.location.origin + "/sounds/ringtone.mp3",
-    notification: window.location.origin + "/sounds/massege_ting.mp3",
-    emergency: window.location.origin + "/sounds/sos_tone.mp3",
-    alert: window.location.origin + "/sounds/alert.mp3",
-    success: window.location.origin + "/sounds/massege_ting.mp3",
+    ringtone: "/sounds/ringtone.mp3",
+    notification: "/sounds/massege_ting.mp3",
+    emergency: "/sounds/sos_tone.mp3",
+    alert: "/sounds/alert.mp3",
+    success: "/sounds/massege_ting.mp3",
 };
 
 
