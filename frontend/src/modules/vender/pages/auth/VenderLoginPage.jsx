@@ -61,6 +61,12 @@ export default function VenderLoginPage() {
     };
     const handleVerify = async (e) => {
         e.preventDefault();
+
+        if (timer <= 0) {
+            setError("OTP has expired. Please resend.");
+            return;
+        }
+
         setError("");
         try {
             const code = otp.join("");
@@ -158,7 +164,7 @@ export default function VenderLoginPage() {
                                 </div>
                             </div>
                             {error && <p className="text-xs font-bold text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
-                            <Button type="submit" className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white gap-2 shadow-lg shadow-emerald-200">
+                            <Button type="submit" disabled={otp.some(d => !d) || timer <= 0} className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white gap-2 shadow-lg shadow-emerald-200">
                                 Verify & Login <ArrowRight className="h-4 w-4" />
                             </Button>
                         </form>

@@ -79,25 +79,29 @@ export default function VenderCityVendors() {
                     {filtered.map(v => (
                         <Card key={v._id || v.id || v.email} className="shadow-sm hover:shadow-md transition-all">
                             <CardContent className="p-3 md:p-5">
-                                <div className="flex flex-col gap-2">
-                                    <h3 className="text-sm md:text-base font-bold flex items-center gap-1.5 md:gap-2 text-foreground">
-                                        <Users className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary shrink-0" /> <span className="truncate">{v.name || "Vendor"}</span>
-                                        <Badge variant="outline" className="text-[8px] md:text-[9px] font-black px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200 shrink-0 ml-auto sm:ml-0">
-                                            Approved
-                                        </Badge>
-                                    </h3>
-                                    <div className="flex flex-col gap-1.5 mt-0.5 md:mt-1">
-                                        <div className="flex items-center gap-2 text-[11px] md:text-sm text-muted-foreground">
-                                            <MapPin className="h-3 w-3 md:h-4 w-4 shrink-0" />
-                                            <span className="truncate">{v.city || "-"}</span>
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center flex-wrap gap-2 mb-2">
+                                            <h3 className="text-sm md:text-base font-bold text-foreground truncate max-w-[200px]">
+                                                {v.name || "Vendor"}
+                                            </h3>
+                                            <Badge variant="outline" className="text-[8px] md:text-[9px] font-black px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200 shrink-0">
+                                                Approved
+                                            </Badge>
                                         </div>
-                                        <div className="flex items-center gap-2 text-[11px] md:text-sm text-muted-foreground">
-                                            <Phone className="h-3 w-3 md:h-4 w-4 shrink-0" />
-                                            <span>{v.phone || "-"}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-[11px] md:text-sm text-muted-foreground">
-                                            <Mail className="h-3 w-3 md:h-4 w-4 shrink-0" />
-                                            <span className="truncate">{v.email || "-"}</span>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-4 text-[10px] md:text-sm text-muted-foreground font-medium">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <MapPin className="h-3 w-3 shrink-0 text-primary" />
+                                                <span className="truncate">{v.city || "-"}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <Phone className="h-3 w-3 shrink-0 text-primary" />
+                                                <span className="truncate">{v.phone || "-"}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <Mail className="h-3 w-3 shrink-0 text-primary" />
+                                                <span className="truncate">{v.email || "-"}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

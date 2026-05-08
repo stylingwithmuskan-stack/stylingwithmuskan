@@ -167,9 +167,6 @@ const ProfilePage = () => {
               ) : (
                 <User className="w-8 h-8 text-primary-foreground" />
               )}
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border-2 border-border flex items-center justify-center shadow-sm z-10">
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-              </div>
             </div>
             <div>
               <div className="flex items-center gap-2">

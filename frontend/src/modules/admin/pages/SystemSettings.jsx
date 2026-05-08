@@ -238,8 +238,9 @@ export default function SystemSettings() {
                                 </Label>
                                 <Input 
                                     type="number" 
+                                    min="0"
                                     value={commissionSettings.minPayout} 
-                                    onChange={e => setCommissionSettings({ ...commissionSettings, minPayout: parseFloat(e.target.value) || 0 })} 
+                                    onChange={e => setCommissionSettings({ ...commissionSettings, minPayout: Math.max(0, parseFloat(e.target.value) || 0) })} 
                                     className="h-12 rounded-xl bg-muted/30 font-black text-lg"
                                 />
                                 <p className="text-[10px] text-muted-foreground font-medium">Minimum balance required for vendor/SP payout requests.</p>

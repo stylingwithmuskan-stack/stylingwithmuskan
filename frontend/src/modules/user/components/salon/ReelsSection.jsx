@@ -11,25 +11,12 @@ const ReelsSection = () => {
     const reels = useMemo(() => (spotlights || []).slice(0, 6), [spotlights]);
     const videoRefs = useRef([]);
 
-    // Force controls to always show
+    // Force muted state for autoplay compliance
     useEffect(() => {
-        const interval = setInterval(() => {
-            videoRefs.current.forEach(video => {
-                if (video) {
-                    video.setAttribute('controls', 'controls');
-                    // Trigger a mouse move event to keep controls visible
-                    const event = new MouseEvent('mousemove', {
-                        bubbles: true,
-                        cancelable: true,
-                        view: window
-                    });
-                    video.dispatchEvent(event);
-                }
-            });
-        }, 1000); // Check every second
-
-        return () => clearInterval(interval);
-    }, []);
+        videoRefs.current.forEach(video => {
+            if (video) video.muted = true;
+        });
+    }, [reels]);
 
     const handleReelClick = (index) => {
         navigate("/reels", { state: { reels, startIndex: index } });
@@ -68,24 +55,12 @@ const ReelsSection = () => {
                                 autoPlay
                                 loop
                                 playsInline
-                                controls
-                                controlsList="nodownload"
                                 muted={muted}
                                 poster={reel.poster}
                                 onClick={(e) => {
-                                    // Prevent navigation when clicking on video controls
+                                    // Prevent navigation when clicking on video area
                                     e.stopPropagation();
-                                }}
-                                onMouseMove={(e) => {
-                                    // Keep controls visible on mouse move
-                                    e.currentTarget.setAttribute('controls', 'controls');
-                                }}
-                                onMouseLeave={(e) => {
-                                    // Prevent controls from hiding when mouse leaves
-                                    e.currentTarget.setAttribute('controls', 'controls');
-                                }}
-                                style={{
-                                    '--webkit-media-controls-overlay-play-button-display': 'none'
+                                    handleReelClick(index);
                                 }}
                             >
                                 <source src={reel.video} type="video/mp4" />

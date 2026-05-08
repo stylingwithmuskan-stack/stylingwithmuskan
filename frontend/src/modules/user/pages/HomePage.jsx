@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import Header from "@/modules/user/components/salon/Header";
@@ -17,6 +18,17 @@ const HomePage = () => {
   const { gender } = useGenderTheme();
   const { isLoading } = useUserModuleData();
   const navigate = useNavigate();
+
+  // Show referral error from registration if any
+  useEffect(() => {
+    const refError = sessionStorage.getItem("swm_referral_error");
+    if (refError) {
+      toast.error(refError, {
+        duration: 5000,
+      });
+      sessionStorage.removeItem("swm_referral_error");
+    }
+  }, []);
 
   // Redirect to booking summary if there's a pending booking from before login
   useEffect(() => {

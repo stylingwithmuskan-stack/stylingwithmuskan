@@ -221,14 +221,14 @@ const VenderLayout = () => {
             <div className="flex flex-col flex-1 md:pl-[260px]">
                 {/* Top Bar */}
                 {!(location.pathname.includes("/notifications") || location.pathname.includes("/activity") || location.pathname.includes("/support")) && (
-                    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-xl px-4 md:px-8">
-                        <div className="flex items-center gap-3">
-                            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors">
+                    <header className="fixed top-0 right-0 left-0 md:left-[260px] z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-xl px-3 sm:px-4 md:px-8">
+                        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+                            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-1.5 sm:p-2 hover:bg-muted rounded-lg transition-colors flex-shrink-0">
                                 <Menu className="h-5 w-5" />
                             </button>
-                            <div className="flex items-center gap-2 md:hidden">
-                                <img src="/logo1.png" alt="SWM Logo" className="h-8 w-8 rounded-full object-cover border border-primary/20" />
-                                <span className="text-[13px] font-bold text-foreground whitespace-nowrap">SWM Vendor</span>
+                            <div className="flex items-center gap-2 md:hidden min-w-0">
+                                <img src="/logo1.png" alt="SWM Logo" className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover border border-primary/20 flex-shrink-0" />
+                                <span className="text-[12px] sm:text-[13px] font-bold text-foreground truncate">SWM Vendor</span>
                             </div>
                             <div className="hidden md:block">
                                 <h2 className="text-sm font-bold text-foreground">
@@ -239,31 +239,66 @@ const VenderLayout = () => {
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => navigate("/vender/sos")}
+                                className="relative p-2 sm:p-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-all active:scale-90"
+                                title="SOS Monitor"
+                            >
+                                <ShieldAlert className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                            </motion.button>
+
                             <div className="relative">
                                 <motion.button
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => setIsNotifOpen(!isNotifOpen)}
                                     className={cn(
-                                        "relative p-2.5 rounded-xl transition-all active:scale-90",
+                                        "relative p-2 sm:p-2.5 rounded-xl transition-all active:scale-90",
                                         isNotifOpen ? "bg-primary/10 text-primary" : "bg-muted hover:bg-primary/10 text-muted-foreground hover:text-primary"
                                     )}
                                 >
-                                    <Bell className="h-5 w-5" />
+                                    <Bell className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                                     {unreadCount > 0 && (
-                                        <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-primary text-[10px] font-bold text-white flex items-center justify-center rounded-full border-2 border-background animate-in zoom-in">
+                                        <span className="absolute top-1 sm:top-1.5 right-1 sm:right-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4 bg-primary text-[8px] sm:text-[10px] font-bold text-white flex items-center justify-center rounded-full border-2 border-background animate-in zoom-in">
                                             {unreadCount}
                                         </span>
                                     )}
                                 </motion.button>
                                 <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
                             </div>
+
+                            {/* Profile Avatar — clicks to profile page */}
+                            <motion.div
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                            >
+                                <Link
+                                    to="/vender/profile"
+                                    title="Go to Profile"
+                                    className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-xs sm:text-sm shadow-md hover:shadow-emerald-200 hover:shadow-lg transition-all ring-2 ring-transparent hover:ring-emerald-300"
+                                >
+                                    {vendor?.name ? vendor.name.trim()[0].toUpperCase() : <User className="h-4 w-4" />}
+                                </Link>
+                            </motion.div>
                         </div>
                     </header>
                 )}
 
-                <main className="flex-1 p-4 md:p-8 pb-28 md:pb-8 w-full max-w-[100vw] overflow-x-hidden">
+                <main className={cn(
+                    "flex-1 w-full max-w-[100vw] overflow-x-hidden",
+                    (location.pathname.includes("/notifications") || 
+                     location.pathname.includes("/activity") || 
+                     location.pathname.includes("/support") ||
+                     location.pathname.includes("/about-us") ||
+                     location.pathname.includes("/contact-us") ||
+                     location.pathname.includes("/privacy-policy") ||
+                     location.pathname.includes("/terms-conditions")) 
+                        ? "p-0 pb-0" 
+                        : "pt-[80px] md:pt-[96px] px-4 md:px-8 pb-28 md:pb-8"
+                )}>
                     <div className="mx-auto w-full max-w-7xl">
                         <AnimatePresence mode="wait">
                             <motion.div
@@ -281,37 +316,45 @@ const VenderLayout = () => {
             </div>
 
             {/* Mobile Bottom Nav */}
-            <nav className="fixed bottom-0 z-[70] w-full border-t border-border bg-background/95 backdrop-blur-xl px-1 pb-safe pt-1 md:hidden">
-                <div className="flex items-center justify-between gap-0.5 sm:gap-1 w-full max-w-full pb-1">
-                    {navLinks.slice(0, 5).map((link) => {
-                        const Icon = link.icon;
-                        const active = isActive(link.path);
-                        return (
-                            <Link
-                                key={link.path}
-                                to={link.path}
-                                className="flex flex-col items-center justify-center py-1 sm:py-1.5 px-0.5 flex-1 min-w-0"
-                            >
-                                <motion.div
-                                    whileTap={{ scale: 0.85 }}
-                                    className={cn(
-                                        "p-1 sm:p-1.5 rounded-xl transition-all duration-200",
-                                        active ? "bg-primary/15" : ""
-                                    )}
+            {!(location.pathname.includes("/notifications") || 
+               location.pathname.includes("/activity") || 
+               location.pathname.includes("/support") ||
+               location.pathname.includes("/about-us") ||
+               location.pathname.includes("/contact-us") ||
+               location.pathname.includes("/privacy-policy") ||
+               location.pathname.includes("/terms-conditions")) && (
+                <nav className="fixed bottom-0 z-[70] w-full border-t border-border bg-background/95 backdrop-blur-xl px-1 pb-safe pt-1 md:hidden">
+                    <div className="flex items-center justify-between gap-0.5 sm:gap-1 w-full max-w-full pb-1">
+                        {navLinks.slice(0, 5).map((link) => {
+                            const Icon = link.icon;
+                            const active = isActive(link.path);
+                            return (
+                                <Link
+                                    key={link.path}
+                                    to={link.path}
+                                    className="flex flex-col items-center justify-center py-1 sm:py-1.5 px-0.5 flex-1 min-w-0"
                                 >
-                                    <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", active ? "text-primary" : "text-muted-foreground")} />
-                                </motion.div>
-                                <span className={cn(
-                                    "text-[9px] sm:text-[10px] w-full text-center truncate font-bold mt-0.5 px-0.5",
-                                    active ? "text-primary" : "text-muted-foreground"
-                                )}>
-                                    {link.shortName || link.name}
-                                </span>
-                            </Link>
-                        );
-                    })}
-                </div>
-            </nav>
+                                    <motion.div
+                                        whileTap={{ scale: 0.85 }}
+                                        className={cn(
+                                            "p-1 sm:p-1.5 rounded-xl transition-all duration-200",
+                                            active ? "bg-primary/15" : ""
+                                        )}
+                                    >
+                                        <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", active ? "text-primary" : "text-muted-foreground")} />
+                                    </motion.div>
+                                    <span className={cn(
+                                        "text-[9px] sm:text-[10px] w-full text-center truncate font-bold mt-0.5 px-0.5",
+                                        active ? "text-primary" : "text-muted-foreground"
+                                    )}>
+                                        {link.shortName || link.name}
+                                    </span>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </nav>
+            )}
         </div>
     );
 };

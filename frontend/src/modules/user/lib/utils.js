@@ -64,3 +64,16 @@ export async function shareContent(data) {
         window.prompt("Copy this link:", copyText);
     }
 }
+
+export function getServicePlaceholder(serviceName = "", categoryName = "") {
+    const combined = `${serviceName} ${categoryName}`.toLowerCase();
+    
+    if (combined.includes("hair")) return "https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=800&auto=format&fit=crop";
+    if (combined.includes("makeup") || combined.includes("bridal") || combined.includes("groom")) return "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?q=80&w=800&auto=format&fit=crop";
+    if (combined.includes("skin") || combined.includes("facial") || combined.includes("clean") || combined.includes("detan")) return "https://images.unsplash.com/photo-1570172619996-23b241402120?q=80&w=800&auto=format&fit=crop";
+    if (combined.includes("nail") || combined.includes("pedicure") || combined.includes("manicure")) return "https://images.unsplash.com/photo-1604654894610-df490668f606?q=80&w=800&auto=format&fit=crop";
+    if (combined.includes("massage") || combined.includes("spa") || combined.includes("wax") || combined.includes("threading")) return "https://images.unsplash.com/photo-1544161515-4af6b1d46ad5?q=80&w=800&auto=format&fit=crop";
+    if (combined.includes("mehndi") || combined.includes("henna")) return "https://images.unsplash.com/photo-1590487988256-9ed24133863e?q=80&w=800&auto=format&fit=crop";
+
+    return "/placeholder.svg";
+}

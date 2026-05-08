@@ -13,6 +13,14 @@ router.post("/logout", VendorController.logout);
 router.post("/request-otp", body("phone").matches(/^\d{10}$/), VendorController.requestOtp);
 router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLength({ min: 6, max: 6 }), VendorController.verifyOtp);
 router.get("/me", requireRole("vendor"), VendorController.getMe);
+router.patch(
+  "/me",
+  requireRole("vendor"),
+  body("name").optional().isString(),
+  body("email").optional().isEmail(),
+  body("businessName").optional().isString(),
+  VendorController.updateMe
+);
 
 router.get("/providers", requireRole("vendor"), VendorController.listProviders);
 router.get("/vendors", requireRole("vendor"), VendorController.listVendors);

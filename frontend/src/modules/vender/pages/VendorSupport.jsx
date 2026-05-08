@@ -115,29 +115,44 @@ export default function VendorSupport() {
     }, {});
 
     return (
-        <div className="flex flex-col h-screen bg-slate-50 -m-4 md:m-0">
+        <div className="flex flex-col h-[100dvh] bg-slate-50 relative">
             {/* Header */}
-            <div className="bg-white p-4 pt-10 flex items-center justify-between border-b border-gray-100 shadow-sm sticky top-0 z-10">
+            <div className="bg-white/95 backdrop-blur-xl px-4 py-3 flex items-center justify-between border-b border-gray-100 shadow-sm shrink-0 sticky top-0 z-10">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                        <ChevronLeft className="h-6 w-6 text-slate-900" />
+                    <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-900 hover:bg-slate-100 active:scale-90 transition-all border border-slate-100">
+                        <ChevronLeft className="h-6 w-6" />
                     </button>
                     <div>
-                        <h1 className="text-lg font-bold text-slate-900">SWM Support</h1>
-                        <p className="text-[10px] text-green-600 font-bold">● Online</p>
+                        <h1 className="text-sm md:text-base font-black text-slate-900 uppercase tracking-tight">SWM Support</h1>
+                        <div className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                            <p className="text-[10px] text-green-600 font-black uppercase tracking-widest">Online</p>
+                        </div>
                     </div>
                 </div>
-                <Button 
-                    variant="outline" 
-                    onClick={() => window.location.href = `tel:+91${import.meta.env.VITE_SUPPORT_PHONE || "8349764176"}`}
-                    className="rounded-full border-slate-200 text-slate-700 font-bold gap-2 text-xs"
-                >
-                    <Phone className="h-3.5 w-3.5" /> Call
-                </Button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => navigate("/vender/sos")}
+                        className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-600 hover:bg-red-100 active:scale-90 transition-all border border-red-100"
+                        title="SOS Monitor"
+                    >
+                        <ShieldAlert className="h-5 w-5" />
+                    </button>
+                    <button
+                        onClick={(e) => { 
+                            e.preventDefault();
+                            const phone = import.meta.env.VITE_SUPPORT_PHONE || "8349764176";
+                            window.location.href = `tel:+91${phone}`; 
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-50 text-emerald-700 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-100 active:scale-95 transition-all border border-emerald-100"
+                    >
+                        <Phone className="h-3.5 w-3.5" /> Call
+                    </button>
+                </div>
             </div>
 
             {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center h-full gap-3">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
@@ -158,11 +173,11 @@ export default function VendorSupport() {
                 ) : (
                     Object.entries(groupedMessages).map(([dateKey, dayMessages]) => (
                         <div key={dateKey}>
-                            <div className="text-center mb-4">
-                                <span className="bg-slate-200 px-3 py-1 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                    {formatDateSeparator(dayMessages[0].createdAt)}
-                                </span>
-                            </div>
+                    <div className="flex justify-center pt-3 pb-4 sticky top-0 z-[5]">
+                        <span className="bg-white/80 backdrop-blur-md px-4 py-1.5 rounded-2xl text-[9px] font-black text-slate-500 uppercase tracking-[0.15em] shadow-sm border border-slate-100">
+                            {formatDateSeparator(dayMessages[0].createdAt)}
+                        </span>
+                    </div>
                             <div className="space-y-3">
                                 {dayMessages.map((msg) => (
                                     <div
@@ -204,22 +219,23 @@ export default function VendorSupport() {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-white border-t border-slate-100 pb-8">
-                <form onSubmit={handleSubmit} className="relative">
+            {/* Input Area */}
+            <div className="shrink-0 bg-white border-t border-slate-100 p-3 md:p-4 pb-4 md:pb-6">
+                <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto">
                     <input
                         type="text"
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        placeholder="Type your message here..."
-                        className="w-full bg-slate-100 h-12 pl-5 pr-14 rounded-2xl border-none focus:ring-2 focus:ring-purple-500 text-[14px] font-medium transition-all outline-none"
+                        placeholder="Type your message..."
+                        className="w-full bg-slate-50 h-12 md:h-14 pl-5 pr-14 rounded-2xl border border-slate-100 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-[14px] font-semibold transition-all outline-none"
                     />
                     <button
                         type="submit"
                         disabled={sending || !message.trim()}
-                        className={`absolute right-1.5 top-1.5 h-9 w-9 flex items-center justify-center rounded-xl transition-all ${
+                        className={`absolute right-1.5 top-1.5 h-9 w-9 md:h-11 md:w-11 flex items-center justify-center rounded-xl transition-all ${
                             message.trim() && !sending
-                                ? "bg-purple-600 text-white shadow-lg"
-                                : "bg-slate-200 text-slate-400"
+                                ? "bg-emerald-600 text-white shadow-lg shadow-emerald-100"
+                                : "bg-slate-100 text-slate-400"
                         }`}
                     >
                         {sending ? (

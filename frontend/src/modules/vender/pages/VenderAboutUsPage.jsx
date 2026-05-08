@@ -17,29 +17,36 @@ const VenderAboutUsPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24 pt-10">
-      <div className="px-4 max-w-2xl mx-auto">
-        <div className="flex items-center gap-4 mb-8 px-2">
-            <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50">
-                <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-                <h1 className="text-2xl font-black text-slate-900">About Us</h1>
-                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Our Story</p>
+    <div className="min-h-screen bg-[#F8FAFC]">
+      {/* Header */}
+      <div className="bg-white/95 backdrop-blur-xl px-4 py-3 flex items-center justify-between border-b border-gray-100 shadow-sm shrink-0 sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-900 hover:bg-slate-100 active:scale-90 transition-all border border-slate-100">
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+          <div>
+            <h1 className="text-sm md:text-base font-black text-slate-900 uppercase tracking-tight">About Us</h1>
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">Our Story</p>
             </div>
-        </div>
-        <div className="text-center space-y-4">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center mx-auto mb-6 shadow-xl relative overflow-hidden">
-            <Sparkles className="w-12 h-12 text-white" />
           </div>
-          <h2 className="text-3xl font-black text-foreground">Styling With Muskan</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+        </div>
+      </div>
+
+      <div className="px-4 py-6 sm:py-10 max-w-2xl mx-auto">
+        <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-12">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-xl relative overflow-hidden">
+            <Sparkles className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-foreground">Styling With Muskan</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-[280px] sm:max-w-sm mx-auto">
             Empowering city vendors to manage and scale their beauty service operations with powerful tools and insights.
           </p>
         </div>
 
-        <div className="space-y-6">
-          <h3 className="text-lg font-bold text-foreground px-2">Why Partner With Us</h3>
+        <div className="space-y-4 sm:space-y-6">
+          <h3 className="text-base sm:text-lg font-bold text-foreground px-1">Why Partner With Us</h3>
           <div className="grid gap-4">
             {values.map((value, i) => (
               <motion.div

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { 
   ClipboardList, CheckCircle, RefreshCw, Eye, X, LayoutGrid, 
@@ -34,6 +35,20 @@ export default function CustomEnquiries() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+      document.documentElement.style.overflow = "auto";
+    }
+    return () => {
+      document.body.style.overflow = "auto";
+      document.documentElement.style.overflow = "auto";
+    };
+  }, [isModalOpen]);
 
   const beginQuote = (enq) => { 
     setSelectedEnq(enq);
@@ -153,13 +168,13 @@ export default function CustomEnquiries() {
 
       {/* ═══════ DETAILS & QUOTE MODAL ═══════ */}
       <AnimatePresence>
-        {isModalOpen && selectedEnq && (
+        {isModalOpen && selectedEnq && createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl"
               onClick={() => setIsModalOpen(false)}
             />
             <motion.div
@@ -313,7 +328,8 @@ export default function CustomEnquiries() {
                 <Button variant="outline" onClick={() => setIsModalOpen(false)} className="h-11 rounded-xl font-bold">Close</Button>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
     </div>

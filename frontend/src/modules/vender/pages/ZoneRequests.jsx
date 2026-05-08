@@ -99,11 +99,17 @@ export default function ZoneRequests() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8">
-      <div className="mb-4 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">Zone Requests</h1>
-        <p className="text-xs md:text-sm text-gray-600">Manage provider zone access requests</p>
-      </div>
+    <div className="space-y-4 md:space-y-6">
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-row flex-wrap items-center justify-between gap-3">
+        <div className="flex-1 min-w-[150px]">
+          <h1 className="text-xl md:text-3xl font-black tracking-tight flex items-center gap-1.5 md:gap-2">
+            <MapPin className="h-5 w-5 md:h-7 md:w-7 text-primary" /> Zone Requests
+          </h1>
+          <p className="text-[9px] md:text-sm text-muted-foreground font-medium mt-0.5 uppercase tracking-widest">
+            Manage provider zone access requests
+          </p>
+        </div>
+      </motion.div>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-3 md:p-4 mb-4 md:mb-6">

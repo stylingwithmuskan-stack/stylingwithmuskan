@@ -9,6 +9,18 @@ const OurGallery = () => {
     const [isHovered, setIsHovered] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
 
+    // Lock background scroll when image is selected
+    useEffect(() => {
+        if (selectedImage) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "";
+        }
+        return () => {
+            document.body.style.overflow = "";
+        };
+    }, [selectedImage]);
+
     useEffect(() => {
         if (isHovered || selectedImage) return;
 

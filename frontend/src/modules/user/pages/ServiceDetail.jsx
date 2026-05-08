@@ -14,7 +14,9 @@ import { useCart } from "@/modules/user/contexts/CartContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import { api, API_BASE_URL } from "@/modules/user/lib/api";
-import { shareContent } from "@/modules/user/lib/utils";
+import { shareContent, getServicePlaceholder } from "@/modules/user/lib/utils";
+
+
 
 const ServiceDetail = () => {
   const { id } = useParams();
@@ -38,6 +40,12 @@ const ServiceDetail = () => {
   const [loadingReviews, setLoadingReviews] = useState(true);
   const stepsRef = useRef(null);
 
+  const placeholder = useMemo(() => {
+    if (!service) return "/placeholder.svg";
+    const categoryName = categories.find(c => String(c.id) === String(service.category))?.name || "";
+    return getServicePlaceholder(service.name, categoryName);
+  }, [service, categories]);
+
   const userLocation = user?.addresses?.[0] || user?.address || null;
   const isAvailable = useMemo(() => {
     // Only check location/zone availability on the detail page. 
@@ -51,30 +59,33 @@ const ServiceDetail = () => {
 
     const loadFullDetails = async () => {
       // Find current summary
-      const summary = services.find((s) => s.id === id);
-      if (summary) setService(summary);
+      const summary = services.find((s) => String(s.id) === String(id));
+      if (summary && !service) setService(summary);
 
-      // If we don't have steps or gallery, fetch full object
-      if (!summary || !summary.steps || summary.steps.length === 0) {
-        try {
-          setIsLoadingDetails(true);
-          const res = await api.content.getService(id);
-          if (res.data) {
-            setService(res.data);
-          }
-        } catch (error) {
-          console.error("Failed to fetch service details:", error);
-        } finally {
-          setIsLoadingDetails(false);
+      // Guard: Only fetch if we don't have the 'steps' property (indicating a summary object)
+      if (service && 'steps' in service) return;
+
+      try {
+        setIsLoadingDetails(true);
+        const res = await api.content.getService(id);
+        if (res.data) {
+          setService(res.data);
         }
+      } catch (error) {
+        console.error("Failed to fetch full service details:", error);
+      } finally {
+        setIsLoadingDetails(false);
       }
     };
 
     loadFullDetails();
-    
-    // Fetch real reviews and approved images
+  }, [id, service === null]);
+
+  // Fetch real reviews separately
+  useEffect(() => {
+    if (!service?.name) return;
+
     const fetchReviews = async () => {
-      if (!service?.name) return;
       try {
         setLoadingReviews(true);
         const res = await api.content.getServiceReviews(service.name);
@@ -88,7 +99,7 @@ const ServiceDetail = () => {
       }
     };
     fetchReviews();
-  }, [id, service?.name]);
+  }, [service?.name]);
 
   const { realRating, realReviews, allFeedbacks } = useMemo(() => {
     if (!service) return { realRating: 0, realReviews: 0, allFeedbacks: [] };
@@ -192,9 +203,15 @@ const ServiceDetail = () => {
       {/* Hero Image */}
       <div className="relative h-48 md:h-64 lg:h-[380px]">
         <img
-          src={service.image}
+          src={service.image || placeholder}
           alt={service.name}
           className="w-full h-full object-cover"
+          onError={(e) => { 
+            if (!e.target.dataset.triedFallback) {
+              e.target.dataset.triedFallback = 'true';
+              e.target.src = placeholder;
+            }
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
 
@@ -208,7 +225,13 @@ const ServiceDetail = () => {
           </button>
           <div className="flex gap-2">
             <button
-              onClick={() => toggleWishlist(service)}
+              onClick={() => {
+                if (!isLoggedIn) {
+                  navigate('/login');
+                } else {
+                  toggleWishlist(service);
+                }
+              }}
               className="w-10 h-10 rounded-full glass flex items-center justify-center backdrop-blur-xl"
             >
               <Heart className={`w-5 h-5 transition-all ${isFav ? "fill-red-500 text-red-500 scale-110" : "text-foreground"}`} />
@@ -319,9 +342,15 @@ const ServiceDetail = () => {
                     : "border-border"
                     }`}>
                     <img
-                      src={step.image}
+                      src={step.image || placeholder}
                       alt={step.name}
                       className="w-full h-full object-cover"
+                      onError={(e) => { 
+                        if (!e.target.dataset.triedFallback) {
+                          e.target.dataset.triedFallback = 'true';
+                          e.target.src = placeholder;
+                        }
+                      }}
                     />
                     {/* Step Number Overlay */}
                     <div className={`absolute inset-0 flex items-center justify-center transition-all ${activeStep === idx ? "bg-primary/20" : "bg-background/30"
@@ -354,9 +383,15 @@ const ServiceDetail = () => {
               >
                 <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl overflow-hidden flex-shrink-0 border border-border">
                   <img
-                    src={service.steps[activeStep].image}
-                    alt={service.steps[activeStep].name}
+                    src={service.steps[activeStep]?.image || placeholder}
+                    alt={service.steps[activeStep]?.name}
                     className="w-full h-full object-cover"
+                    onError={(e) => { 
+                      if (!e.target.dataset.triedFallback) {
+                        e.target.dataset.triedFallback = 'true';
+                        e.target.src = placeholder;
+                      }
+                    }}
                   />
                 </div>
                 <div className="flex-1">
@@ -364,10 +399,10 @@ const ServiceDetail = () => {
                     <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                       Step {activeStep + 1}
                     </span>
-                    <h4 className="font-semibold text-sm">{service.steps[activeStep].name}</h4>
+                    <h4 className="font-semibold text-sm">{service.steps[activeStep]?.name}</h4>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    {service.steps[activeStep].description}
+                    {service.steps[activeStep]?.description}
                   </p>
                 </div>
               </motion.div>
@@ -415,16 +450,46 @@ const ServiceDetail = () => {
                 <div key={idx} className="flex-shrink-0 w-[300px] space-y-3">
                   <div className="relative h-44 rounded-2xl overflow-hidden group shadow-lg border border-border bg-accent/30">
                     {item.type === 'hardcoded' ? (
-                      <img src={item.url} alt="Work" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img 
+                        src={item.url || placeholder} 
+                        alt="Work" 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        onError={(e) => { 
+                          if (!e.target.dataset.triedFallback) {
+                            e.target.dataset.triedFallback = 'true';
+                            e.target.src = placeholder;
+                          }
+                        }}
+                      />
                     ) : (
                       <div className="absolute inset-0 flex">
                         <div className={`relative ${item.after?.length > 0 ? "w-1/2" : "w-full"}`}>
-                          <img src={item.before?.[0]} alt="Before" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
+                          <img 
+                            src={item.before?.[0] || placeholder} 
+                            alt="Before" 
+                            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" 
+                            onError={(e) => { 
+                              if (!e.target.dataset.triedFallback) {
+                                e.target.dataset.triedFallback = 'true';
+                                e.target.src = placeholder;
+                              }
+                            }}
+                          />
                           <div className="absolute top-2 left-2 bg-black/60 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase backdrop-blur-md">Before</div>
                         </div>
                         {item.after?.length > 0 && (
-                          <div className="w-1/2 relative">
-                            <img src={item.after?.[0]} alt="After" className="w-full h-full object-cover" />
+                          <div className="w-1/2 relative border-l border-white/20">
+                            <img 
+                              src={item.after?.[0] || placeholder} 
+                              alt="After" 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => { 
+                                if (!e.target.dataset.triedFallback) {
+                                  e.target.dataset.triedFallback = 'true';
+                                  e.target.src = placeholder;
+                                }
+                              }}
+                            />
                             <div className="absolute top-2 right-2 bg-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase shadow-lg">After</div>
                           </div>
                         )}

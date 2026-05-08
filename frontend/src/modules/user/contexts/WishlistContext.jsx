@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 const WishlistContext = createContext(undefined);
 
@@ -11,7 +11,19 @@ export const useWishlist = () => {
 };
 
 export const WishlistProvider = ({ children }) => {
-    const [wishlistItems, setWishlistItems] = useState([]);
+    const [wishlistItems, setWishlistItems] = useState(() => {
+        try {
+            const saved = localStorage.getItem("swm_wishlist");
+            return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+            console.error("Failed to parse wishlist from localStorage", error);
+            return [];
+        }
+    });
+
+    useEffect(() => {
+        localStorage.setItem("swm_wishlist", JSON.stringify(wishlistItems));
+    }, [wishlistItems]);
 
     const addToWishlist = (service) => {
         setWishlistItems((prevItems) => {

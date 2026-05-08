@@ -28,6 +28,7 @@ export default function VenderRegisterPage() {
         const newErrors = {};
         if (!form.name.trim()) newErrors.name = "Full name is required";
         else if (form.name.trim().length < 3) newErrors.name = "Name must be at least 3 characters";
+        else if (!/^[a-zA-Z\s]+$/.test(form.name.trim())) newErrors.name = "Name must contain alphabets only (no numbers or special characters)";
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.(com|net|org|edu|gov|mil|in|uk|us|ca|au|de|jp|fr|it|ru|br|cn|nl|se|no|es|mx|za|nz|sg|hk|ae|sa|eg|pk|bd|my|th|vn|id|ph|kr|tw|tr|pl|ua|ro|cz|be|gr|pt|hu|at|ch|dk|fi|ie|il|ar|cl|co\.in|co\.uk|co\.za|ac\.in|edu\.in|gov\.in|org\.in|net\.in|info|biz|io|app|dev|tech|online|site|store|shop|xyz|pro|name|mobi|asia|tel|travel|jobs|cat|aero|coop|museum)$/i;
         const isTypo = /@(gnail\.com|gmil\.com|gmal\.com|gmail\.con)$/i.test(form.email.trim());
@@ -153,6 +154,12 @@ export default function VenderRegisterPage() {
             toast.error("Please enter a valid 6-digit OTP");
             return;
         }
+
+        // OTP expired — timer ran out
+        if (canResend) {
+            toast.error("OTP has expired. Please resend.");
+            return;
+        }
         setLoading(true);
         try {
             const finalZones = [...form.zones];
@@ -275,7 +282,23 @@ export default function VenderRegisterPage() {
                                 <Label className="text-xs font-bold text-gray-600">Full Name</Label>
                                 <div className="relative">
                                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input placeholder="John Doe" value={form.name} onChange={e => update("name", e.target.value)} className={`pl-10 h-11 rounded-xl ${errors.name ? 'border-red-500 bg-red-50' : ''}`} />
+                                    <Input
+                                        placeholder="John Doe"
+                                        value={form.name}
+                                        onKeyDown={(e) => {
+                                            // Allow: letters, spaces, backspace, delete, arrows, tab, home, end
+                                            const allowed = /^[a-zA-Z\s]$/.test(e.key);
+                                            const isControl = ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Tab", "Home", "End"].includes(e.key);
+                                            if (!allowed && !isControl) e.preventDefault();
+                                        }}
+                                        onChange={(e) => {
+                                            // Strip anything that isn't a letter or space (handles paste)
+                                            const sanitized = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                            update("name", sanitized);
+                                            if (errors.name) setErrors(prev => ({ ...prev, name: "" }));
+                                        }}
+                                        className={`pl-10 h-11 rounded-xl ${errors.name ? 'border-red-500 bg-red-50' : ''}`}
+                                    />
                                 </div>
                                 {errors.name && <p className="text-[10px] font-bold text-red-500 mt-0.5 ml-1">{errors.name}</p>}
                             </div>
@@ -291,7 +314,7 @@ export default function VenderRegisterPage() {
                                 <Label className="text-xs font-bold text-gray-600">Phone</Label>
                                 <div className="relative">
                                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input type="tel" placeholder="9876543210" value={form.phone} onChange={e => update("phone", e.target.value)} className={`pl-10 h-11 rounded-xl ${errors.phone ? 'border-red-500 bg-red-50' : ''}`} />
+                                    <Input type="tel" placeholder="9876543210" value={form.phone} maxLength={10} onChange={e => update("phone", e.target.value.replace(/\D/g, "").slice(0, 10))} className={`pl-10 h-11 rounded-xl ${errors.phone ? 'border-red-500 bg-red-50' : ''}`} />
                                 </div>
                                 {errors.phone && <p className="text-[10px] font-bold text-red-500 mt-0.5 ml-1">{errors.phone}</p>}
                             </div>
@@ -407,9 +430,9 @@ export default function VenderRegisterPage() {
                             <div className="space-y-4">
                                 <Input type="text" maxLength={6} placeholder="Enter 6-digit OTP" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ""))}
                                     className="text-center text-2xl font-black tracking-[0.5em] h-14 rounded-xl border-2 focus:border-emerald-500" />
-                                <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6}
+                                <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6 || canResend}
                                     className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white shadow-lg shadow-emerald-200">
-                                    {loading ? "Verifying..." : "Verify & Submit"}
+                                    {loading ? "Verifying..." : canResend ? "OTP Expired — Resend" : "Verify & Submit"}
                                 </Button>
                                 <div className="text-center">
                                     {canResend ? (

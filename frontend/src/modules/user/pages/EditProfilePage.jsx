@@ -152,7 +152,7 @@ const EditProfilePage = () => {
                                 type="text"
                                 placeholder="Your full name"
                                 value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value.replace(/[^a-zA-Z\s]/g, "") })}
                                 className="w-full h-12 pl-12 pr-4 rounded-xl bg-accent border-none text-base font-medium focus:ring-2 focus:ring-primary/20 transition-all font-body"
                             />
                         </div>

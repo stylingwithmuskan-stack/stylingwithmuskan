@@ -7,11 +7,14 @@ import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 
+import { cn } from "@/modules/user/lib/utils";
+
 const NotificationDropdown = ({ isOpen, onClose }) => {
     const navigate = useNavigate();
     const {
         notifications,
         unreadCount,
+        loading,
         activeRole,
         markAllAsRead,
         markAsRead,
@@ -138,8 +141,14 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                     </h3>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => fetchNotifications()} className="h-8 w-8 rounded-full">
-                        <RefreshCw className="h-4 w-4" />
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => fetchNotifications()} 
+                        disabled={loading}
+                        className={cn("h-8 w-8 rounded-full", loading && "bg-accent/10")}
+                    >
+                        <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
                         <X className="h-4 w-4" />

@@ -119,6 +119,20 @@ export default function BookingManagement() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoggedIn, page, tab, typeFilter, debouncedSearch]);
 
+    useEffect(() => {
+        if (detailModal || showSettings || assignModal || adminReviewModal || adminTeamReviewModal) {
+            document.body.style.overflow = "hidden";
+            document.documentElement.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        }
+        return () => {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        };
+    }, [detailModal, showSettings, assignModal, adminReviewModal, adminTeamReviewModal]);
+
     if (!isLoggedIn) {
         return <Navigate to="/admin/login" replace />;
     }
@@ -692,7 +706,7 @@ export default function BookingManagement() {
                 {/* ═══════ ADMIN PRICING REVIEW MODAL (Step 3) ═══════ */}
                 {adminReviewModal && createPortal(
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAdminReviewModal(null)} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={() => setAdminReviewModal(null)} />
                         <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
                             className="relative w-full max-w-lg bg-card rounded-[32px] border border-border p-5 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto scrollbar-hide">
                             <div className="flex items-center justify-between">
@@ -801,7 +815,7 @@ export default function BookingManagement() {
                 {/* ═══════ ADMIN TEAM REVIEW MODAL (Step 6) ═══════ */}
                 {adminTeamReviewModal && createPortal(
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAdminTeamReviewModal(null)} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={() => setAdminTeamReviewModal(null)} />
                         <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
                             className="relative w-full max-w-lg bg-card rounded-[32px] border border-border p-5 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto scrollbar-hide">
                             <div className="flex items-center justify-between">
@@ -882,7 +896,7 @@ export default function BookingManagement() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                            className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl"
                             onClick={() => setAssignModal(null)}
                         />
                         <motion.div
@@ -1024,7 +1038,7 @@ export default function BookingManagement() {
                 {/* Office Hours Settings Modal */}
                 {showSettings && createPortal(
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSettings(false)} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={() => setShowSettings(false)} />
                         <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             className="relative w-full max-w-xl md:w-[540px] bg-card rounded-[40px] border border-border p-8 lg:p-10 shadow-2xl flex flex-col max-h-[90vh]">
                             <div className="flex items-center justify-between mb-6">
@@ -1131,7 +1145,7 @@ export default function BookingManagement() {
                 {/* ═══════ BOOKING DETAIL MODAL ═══════ */}
                 {detailModal && createPortal(
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDetailModal(null)} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={() => setDetailModal(null)} />
                         <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
                             className="relative w-full max-w-2xl bg-card rounded-[32px] border border-border p-6 md:p-8 space-y-6 shadow-2xl max-h-[92vh] overflow-y-auto scrollbar-hide">
                             <div className="flex items-center justify-between">

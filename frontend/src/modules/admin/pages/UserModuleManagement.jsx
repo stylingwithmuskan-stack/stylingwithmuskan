@@ -5,9 +5,12 @@ import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext
 import { Button } from "@/modules/user/components/ui/button";
 import { api } from "@/modules/user/lib/api";
 import { toast } from "sonner";
+import { getServicePlaceholder } from "@/modules/user/lib/utils";
 import BookingTypesManager from "../components/BookingTypesManager";
 
-const ImageUpload = ({ label, value, onChange, className = "" }) => {
+const DEFAULT_STEP_IMAGE = "/placeholder.svg";
+
+const ImageUpload = ({ label, value, onChange, className = "", placeholder = "/placeholder.svg" }) => {
     const fileInputRef = useRef(null);
 
     const handleFileChange = (e) => {
@@ -60,7 +63,17 @@ const ImageUpload = ({ label, value, onChange, className = "" }) => {
                     className="w-16 h-16 rounded-xl bg-muted/50 border-2 border-dashed border-border flex items-center justify-center overflow-hidden cursor-pointer hover:bg-muted transition-colors"
                 >
                     {value ? (
-                        <img src={value} alt="Preview" className="w-full h-full object-cover" />
+                        <img 
+                          src={value} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => {
+                            if (!e.target.dataset.triedFallback) {
+                              e.target.dataset.triedFallback = 'true';
+                              e.target.src = placeholder;
+                            }
+                          }}
+                        />
                     ) : (
                         <Camera className="w-6 h-6 text-muted-foreground" />
                     )}
@@ -567,6 +580,21 @@ const UserModuleManagement = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
 
+    // Lock scroll when modal is open
+    useEffect(() => {
+        if (isAddModalOpen) {
+            document.body.style.overflow = "hidden";
+            document.documentElement.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        }
+        return () => {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        };
+    }, [isAddModalOpen]);
+
     // Form state
     const [formData, setFormData] = useState({});
 
@@ -952,7 +980,7 @@ const UserModuleManagement = () => {
 
             {/* Modal for Add/Edit */}
             {isAddModalOpen && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
                         className="bg-background w-full max-w-lg rounded-2xl shadow-xl border border-border overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
@@ -1064,6 +1092,7 @@ const UserModuleManagement = () => {
                                             label="Main Image"
                                             value={formData.image}
                                             onChange={(val) => setFormData({ ...formData, image: val })}
+                                            placeholder={getServicePlaceholder(formData.name, categories?.find(c => String(c.id) === String(formData.category))?.name)}
                                         />
                                     ) : (
                                         <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center gap-3">
@@ -1104,6 +1133,7 @@ const UserModuleManagement = () => {
                                         label="Icon (Image)"
                                         value={formData.icon}
                                         onChange={(val) => setFormData({ ...formData, icon: val })}
+                                        placeholder={getServicePlaceholder(formData.name)}
                                     />
                                     <div>
                                         <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Advance Payment Required (%)</label>
@@ -1199,7 +1229,15 @@ const UserModuleManagement = () => {
                                         <div className="grid grid-cols-4 gap-2">
                                             {formData.gallery?.map((img, idx) => (
                                                 <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted">
-                                                    <img src={img} alt="Gallery" className="w-full h-full object-cover" />
+                                                    <img 
+                                                        src={img} 
+                                                        alt="Gallery" 
+                                                        className="w-full h-full object-cover" 
+                                                        onError={(e) => {
+                                                            const placeholder = getServicePlaceholder(formData.name, categories?.find(c => String(c.id) === String(formData.category))?.name);
+                                                            if (e.target.src !== placeholder) e.target.src = placeholder;
+                                                        }}
+                                                    />
                                                     <button
                                                         type="button"
                                                         onClick={() => setFormData(prev => ({ ...prev, gallery: prev.gallery.filter((_, i) => i !== idx) }))}
@@ -1256,6 +1294,7 @@ const UserModuleManagement = () => {
                                                                 newSteps[idx] = { ...newSteps[idx], image: val };
                                                                 setFormData({ ...formData, steps: newSteps });
                                                             }}
+                                                            placeholder={getServicePlaceholder(formData.name, categories?.find(c => String(c.id) === String(formData.category))?.name)}
                                                         />
                                                     </div>
                                                 </div>

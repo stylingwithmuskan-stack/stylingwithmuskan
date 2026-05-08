@@ -10,7 +10,7 @@ import { useCart } from "@/modules/user/contexts/CartContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import { Button } from "@/modules/user/components/ui/button";
-import { shareContent } from "@/modules/user/lib/utils";
+import { shareContent, getServicePlaceholder } from "@/modules/user/lib/utils";
 import FilterModal from "@/modules/user/components/salon/FilterModal";
 import QuantityControl from "@/modules/user/components/ui/QuantityControl";
 
@@ -318,7 +318,15 @@ const ExplorePage = () => {
                                 className={`flex flex-col items-center gap-1.5 transition-all relative ${activeType === type.id ? "opacity-100" : "opacity-40 grayscale hover:grayscale-0 hover:opacity-80"}`}
                             >
                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all overflow-hidden border-2 ${activeType === type.id ? "border-primary shadow-lg shadow-primary/20 scale-110" : "border-border/50"}`}>
-                                    <img src={type.image} alt={type.label} className="w-full h-full object-cover" />
+                                    <img 
+                                        src={type.image || getServicePlaceholder(type.label)} 
+                                        alt={type.label} 
+                                        className="w-full h-full object-cover" 
+                                        onError={(e) => {
+                                            const placeholder = getServicePlaceholder(type.label);
+                                            if (e.target.src !== placeholder) e.target.src = placeholder;
+                                        }}
+                                    />
                                 </div>
                                 <span className={`text-[10px] font-black uppercase tracking-tight text-center leading-tight ${activeType === type.id ? "text-primary" : "text-muted-foreground"}`}>
                                     {type.label}
@@ -396,10 +404,25 @@ const ExplorePage = () => {
                                 onClick={() => navigate(`/service/${service.id}`)}
                             >
                                 <div className="w-24 h-24 rounded-2xl overflow-hidden bg-accent flex-shrink-0 relative border border-border/50">
-                                    <img src={service.image} alt={service.name} className="w-full h-full object-cover" />
+                                    <img 
+                                        src={service.image || getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name)} 
+                                        alt={service.name} 
+                                        className="w-full h-full object-cover" 
+                                        onError={(e) => {
+                                            const placeholder = getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name);
+                                            if (e.target.src !== placeholder) e.target.src = placeholder;
+                                        }}
+                                    />
                                     <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); toggleWishlist(service); }}
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                if (!isLoggedIn) {
+                                                    navigate('/login');
+                                                } else {
+                                                    toggleWishlist(service); 
+                                                }
+                                            }}
                                             className="w-7 h-7 rounded-full glass-strong border border-white/20 flex items-center justify-center shadow-lg"
                                         >
                                             <Heart className={`w-3.5 h-3.5 ${isInWishlist(service.id) ? "fill-primary text-primary" : "text-white"}`} />

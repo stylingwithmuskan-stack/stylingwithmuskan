@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, Star, TrendingUp, Clock, AlertCircle, Award, FileText, Shield, Settings, Eye, Edit2, Save, X, CalendarRange, MapPin, Wallet, Plus, Camera } from "lucide-react";
 
@@ -9,7 +10,7 @@ import { Input } from "@/modules/user/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/modules/user/components/ui/tabs";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/modules/user/components/ui/pagination";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
-import { api } from "@/modules/user/lib/api";
+import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 
 import { toast } from "sonner";
 import { cn } from "@/modules/user/lib/utils";
@@ -47,6 +48,12 @@ export default function SPOversight() {
         rejectCategoryRequest
     } = useAdminAuth();
 
+    const resolveImageUrl = (path) => {
+        if (!path) return "";
+        if (path.startsWith("http")) return path;
+        const cleanPath = path.startsWith("/") ? path : `/${path}`;
+        return `${SOCKET_BASE_URL}${cleanPath}`;
+    };
 
     const [providers, setProviders] = useState([]);
     const [leaves, setLeaves] = useState([]);
@@ -60,6 +67,8 @@ export default function SPOversight() {
     const [isEditingGrade, setIsEditingGrade] = useState(false);
     const [tempGrade, setTempGrade] = useState("");
 
+    const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
+
     useEffect(() => {
         if (selectedSP?.phone) {
             fetchSPSummary(selectedSP.phone);
@@ -68,6 +77,21 @@ export default function SPOversight() {
             setIsEditingGrade(false);
         }
     }, [selectedSP]);
+
+    // Lock scroll when modal is open
+    useEffect(() => {
+        if (selectedSP || isPerformanceModalOpen) {
+            document.body.style.overflow = "hidden";
+            document.documentElement.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        }
+        return () => {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        };
+    }, [selectedSP, isPerformanceModalOpen]);
 
     const fetchSPSummary = async (phone) => {
         setIsLoadingSummary(true);
@@ -97,8 +121,6 @@ export default function SPOversight() {
             toast.error(error.message || "Failed to update grade");
         }
     };
-
-    const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
     
     // Pagination state
     const [page, setPage] = useState(1);
@@ -343,6 +365,14 @@ export default function SPOversight() {
             toast.error("Please enter a valid amount");
             return;
         }
+        if (Number(walletAmount) < 0) {
+            toast.error("Amount cannot be less than 0");
+            return;
+        }
+        if (walletType === "deduct" && Number(walletAmount) > (selectedSP.credits || 0)) {
+            toast.error(`Insufficient balance. Maximum deductible: ₹${selectedSP.credits || 0}`);
+            return;
+        }
         setIsSaving(true);
         try {
             await adjustProviderWallet(selectedSP._id || selectedSP.id, {
@@ -512,7 +542,7 @@ export default function SPOversight() {
                                                         <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                                             {hasPhoto ? (
                                                                 <img
-                                                                    src={sp.profilePhoto}
+                                                                    src={resolveImageUrl(sp.profilePhoto)}
                                                                     alt={sp.name || "Provider"}
                                                                     className="h-full w-full object-cover"
                                                                     onError={() => {
@@ -701,7 +731,7 @@ export default function SPOversight() {
                                         <div className="flex items-center gap-4">
                                             <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center overflow-hidden">
                                                 {req.providerPhoto ? (
-                                                    <img src={req.providerPhoto} alt="" className="h-full w-full object-cover" />
+                                                    <img src={resolveImageUrl(req.providerPhoto)} alt="" className="h-full w-full object-cover" />
                                                 ) : (
                                                     <Award className="h-5 w-5 text-amber-600" />
                                                 )}
@@ -811,12 +841,18 @@ export default function SPOversight() {
             <AnimatePresence>
                 {selectedSP && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedSP(null)} />
+                        <motion.div 
+                            initial={{ opacity: 0 }} 
+                            animate={{ opacity: 1 }} 
+                            exit={{ opacity: 0 }} 
+                            className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-xl" 
+                            onClick={() => setSelectedSP(null)} 
+                        />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-40%" }}
                             animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
                             exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-40%" }}
-                            className="fixed left-1/2 top-1/2 w-[calc(100vw-2rem)] sm:w-[500px] z-50 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden max-h-[85vh] overflow-y-auto"
+                            className="fixed left-1/2 top-1/2 w-[calc(100vw-2rem)] sm:w-[500px] z-[70] bg-card rounded-2xl shadow-2xl border border-border overflow-hidden max-h-[85vh] overflow-y-auto"
                         >
                             <div className="p-6 space-y-5">
                                 {/* Header */}
@@ -824,7 +860,7 @@ export default function SPOversight() {
                                     <div className="flex items-center gap-4">
                                         {/* Profile Photo */}
                                         <img 
-                                            src={selectedSP.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedSP.name || "P")}&background=random&color=fff`}
+                                            src={selectedSP.profilePhoto ? resolveImageUrl(selectedSP.profilePhoto) : `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedSP.name || "P")}&background=random&color=fff`}
                                             alt={selectedSP.name}
                                             className="h-16 w-16 rounded-2xl object-cover border-2 border-border shadow-lg"
                                         />
@@ -1146,9 +1182,9 @@ export default function SPOversight() {
                                                 <div className="grid grid-cols-3 gap-2">
                                                     {selectedSP.documents.certifications.map((cert, idx) => (
                                                         <div key={idx} className="aspect-square rounded-lg bg-muted overflow-hidden border border-border/50 relative group">
-                                                            <img src={cert} alt={`Cert ${idx}`} className="w-full h-full object-cover" />
+                                                            <img src={resolveImageUrl(cert)} alt={`Cert ${idx}`} className="w-full h-full object-cover" />
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <Button size="sm" variant="secondary" className="h-7 text-[10px] font-bold" onClick={() => window.open(cert, '_blank')}>View Large</Button>
+                                                                <Button size="sm" variant="secondary" className="h-7 text-[10px] font-bold" onClick={() => window.open(resolveImageUrl(cert), '_blank')}>View Large</Button>
                                                             </div>
                                                         </div>
                                                     ))}
@@ -1256,19 +1292,22 @@ export default function SPOversight() {
                                                 <div className="aspect-video rounded-lg bg-muted overflow-hidden border border-border/50 relative group">
                                                     {doc.isProfile ? (
                                                         selectedSP.profilePhoto ? (
-                                                            <img src={selectedSP.profilePhoto} alt={doc.label} className="w-full h-full object-cover" />
+                                                            <img src={resolveImageUrl(selectedSP.profilePhoto)} alt={doc.label} className="w-full h-full object-cover" />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><Users className="h-6 w-6" /></div>
                                                         )
                                                     ) : (
                                                         selectedSP.documents?.[doc.key] ? (
-                                                            <img src={selectedSP.documents[doc.key]} alt={doc.label} className="w-full h-full object-cover" />
+                                                            <img src={resolveImageUrl(selectedSP.documents[doc.key])} alt={doc.label} className="w-full h-full object-cover" />
                                                         ) : (
                                                             <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><FileText className="h-6 w-6" /></div>
                                                         )
                                                     )}
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <Button size="sm" variant="secondary" className="h-7 text-[10px] font-bold" onClick={() => window.open(doc.isProfile ? selectedSP.profilePhoto : selectedSP.documents?.[doc.key], '_blank')}>View Large</Button>
+                                                        <Button size="sm" variant="secondary" className="h-7 text-[10px] font-bold" onClick={() => {
+                                                            const url = doc.isProfile ? selectedSP.profilePhoto : selectedSP.documents?.[doc.key];
+                                                            if (url) window.open(resolveImageUrl(url), '_blank');
+                                                        }}>View Large</Button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1442,8 +1481,8 @@ const PerformanceCriteriaModal = ({ isOpen, onClose }) => {
 
     if (!isOpen) return null;
 
-    return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center" onClick={onClose}>
+    return createPortal(
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex items-center justify-center" onClick={onClose}>
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -1474,6 +1513,7 @@ const PerformanceCriteriaModal = ({ isOpen, onClose }) => {
                     <Button onClick={handleSave} className="bg-primary">Save Changes</Button>
                 </div>
             </motion.div>
-        </motion.div>
+        </motion.div>,
+        document.body
     );
 };

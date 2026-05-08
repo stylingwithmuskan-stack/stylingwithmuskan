@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, LogOut, Bell, Plus, Check, X, Loader2, History, Info, FileText, ShieldCheck, Trash2 } from "lucide-react";
+import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, LogOut, Bell, Plus, Check, X, Loader2, History, Info, FileText, ShieldCheck, Trash2, Pencil, Save, Camera, ImagePlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -26,6 +26,42 @@ export default function VenderProfile() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // Profile edit state
+    const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [editForm, setEditForm] = useState({ name: "", email: "", businessName: "" });
+    const [editErrors, setEditErrors] = useState({});
+
+    // Profile photo state
+    const photoInputRef = useRef(null);
+    const PHOTO_KEY = vendor?._id ? `swm_vendor_photo_${vendor._id}` : null;
+    const [profilePhoto, setProfilePhoto] = useState(() => {
+        if (!vendor?._id) return null;
+        try { return localStorage.getItem(`swm_vendor_photo_${vendor._id}`) || null; } catch { return null; }
+    });
+
+    const handlePhotoChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
+        if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const b64 = ev.target.result;
+            setProfilePhoto(b64);
+            try { if (PHOTO_KEY) localStorage.setItem(PHOTO_KEY, b64); } catch {}
+            toast.success("Profile photo updated");
+        };
+        reader.readAsDataURL(file);
+        e.target.value = "";
+    };
+
+    const handleRemovePhoto = () => {
+        setProfilePhoto(null);
+        try { if (PHOTO_KEY) localStorage.removeItem(PHOTO_KEY); } catch {}
+        toast.success("Profile photo removed");
+    };
+
     useEffect(() => {
         window.scrollTo(0, 0);
     }, []);
@@ -48,6 +84,48 @@ export default function VenderProfile() {
     const handleLogout = () => {
         logout();
         navigate("/vender/login");
+    };
+
+    const startEditing = () => {
+        setEditForm({
+            name: vendor?.name || "",
+            email: vendor?.email || "",
+            businessName: vendor?.businessName || "",
+        });
+        setEditErrors({});
+        setIsEditing(true);
+    };
+
+    const handleSaveProfile = async () => {
+        // Validate
+        const errs = {};
+        if (!editForm.name.trim()) errs.name = "Name is required";
+        else if (editForm.name.trim().length < 3) errs.name = "Name must be at least 3 characters";
+        else if (!/^[a-zA-Z\s]+$/.test(editForm.name.trim())) errs.name = "Name must contain alphabets only";
+        if (editForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim())) errs.email = "Invalid email address";
+
+        if (Object.keys(errs).length > 0) {
+            setEditErrors(errs);
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const res = await api.vendor.updateMe({
+                name: editForm.name.trim(),
+                email: editForm.email.trim(),
+                businessName: editForm.businessName.trim(),
+            });
+            if (res?.vendor) {
+                setVendor(res.vendor);
+                toast.success("Profile updated successfully");
+                setIsEditing(false);
+            }
+        } catch (err) {
+            toast.error(err?.message || "Failed to update profile");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleDeleteAccount = async () => {
@@ -130,22 +208,61 @@ export default function VenderProfile() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                 <Card className="shadow-sm overflow-hidden border-none bg-white rounded-xl md:rounded-2xl">
                     <div className="h-16 md:h-24 bg-gradient-to-r from-emerald-500 to-teal-400 relative">
+                        {/* Avatar with photo upload */}
                         <div className="absolute -bottom-6 md:-bottom-10 left-4 md:left-6">
-                            <div className="h-14 w-14 md:h-20 md:w-20 rounded-xl md:rounded-2xl bg-card border-2 md:border-4 border-white shadow-lg flex items-center justify-center bg-white">
-                                <span className="text-xl md:text-3xl font-black text-emerald-600">{vendor?.name?.charAt(0) || "V"}</span>
+                            <div className="relative group">
+                                <div className="h-14 w-14 md:h-20 md:w-20 rounded-xl md:rounded-2xl border-2 md:border-4 border-white shadow-lg overflow-hidden bg-white flex items-center justify-center">
+                                    {profilePhoto ? (
+                                        <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="text-xl md:text-3xl font-black text-emerald-600">{vendor?.name?.charAt(0) || "V"}</span>
+                                    )}
+                                </div>
+                               
+                                <div className="absolute inset-0 rounded-xl md:rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 cursor-pointer"
+                                    onClick={() => photoInputRef.current?.click()}
+                                >
+                                    <Camera className="h-4 w-4 text-white" />
+                                </div>
                             </div>
                         </div>
+                        {/* Hidden file input */}
+                        <input
+                            ref={photoInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handlePhotoChange}
+                        />
                     </div>
                     <div className="pt-10 md:pt-14 px-4 md:px-6 pb-4 md:pb-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <div className="flex items-center gap-1.5 md:gap-2 mb-0.5 md:mb-1">
+                        <div className="flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4">
+                            <div className="text-center sm:text-left">
+                                <div className="flex flex-col sm:flex-row items-center gap-1.5 md:gap-2 mb-0.5 md:mb-1">
                                     <h2 className="text-lg md:text-xl font-black">{vendor?.name || "Vendor"}</h2>
                                     <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[8px] md:text-[9px] font-black px-1.5 py-0">
                                         <Shield className="h-2 w-2 md:h-2.5 md:w-2.5 mr-0.5 md:mr-1" /> Verified
                                     </Badge>
                                 </div>
                                 <p className="text-[10px] md:text-xs text-muted-foreground font-medium">ID: {vendor?._id?.toString().slice(-6).toUpperCase()}</p>
+                            </div>
+                            {/* Photo action buttons */}
+                            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-center">
+                                <button
+                                    onClick={() => photoInputRef.current?.click()}
+                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] font-bold text-emerald-700 border border-emerald-100 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-all"
+                                >
+                                    <ImagePlus className="h-3 w-3" />
+                                    {profilePhoto ? "Change" : "Add Photo"}
+                                </button>
+                                {profilePhoto && (
+                                    <button
+                                        onClick={handleRemovePhoto}
+                                        className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-[10px] font-bold text-red-500 border border-red-100 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-all"
+                                    >
+                                        <Trash2 className="h-3 w-3" /> Remove
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -195,29 +312,131 @@ export default function VenderProfile() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
                 <Card className="shadow-sm border-none bg-white rounded-xl md:rounded-2xl">
                     <CardHeader className="p-3 md:p-6 pb-0 md:pb-0">
-                        <CardTitle className="text-sm md:text-lg font-bold">Account Details</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-2 pt-0 md:p-6 md:pt-0 space-y-0">
-                        {fields.map((field, i) => {
-                            const Icon = field.icon;
-                            return (
-                                <motion.div
-                                    key={field.label}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 0.3 + i * 0.05 }}
-                                    className="flex items-center gap-3 md:gap-4 py-2.5 md:py-3.5 border-b border-border/30 last:border-0"
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <CardTitle className="text-sm md:text-lg font-bold">Account Details</CardTitle>
+                            {!isEditing ? (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={startEditing}
+                                    className="h-8 w-full sm:w-auto px-3 rounded-lg font-bold text-xs gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                                 >
-                                    <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl bg-muted/50 flex items-center justify-center flex-shrink-0 group-hover:bg-white transition-colors">
-                                        <Icon className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+                                    <Pencil className="h-3 w-3" /> Edit Profile
+                                </Button>
+                            ) : (
+                                <div className="flex gap-2 w-full sm:w-auto">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsEditing(false)}
+                                        disabled={isSaving}
+                                        className="flex-1 sm:flex-none h-8 px-3 rounded-lg font-bold text-xs gap-1.5 border-gray-200 text-gray-600 hover:bg-gray-50"
+                                    >
+                                        <X className="h-3 w-3" /> Cancel
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveProfile}
+                                        disabled={isSaving}
+                                        className="flex-1 sm:flex-none h-8 px-3 rounded-lg font-bold text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                                    >
+                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                                        {isSaving ? "Saving..." : "Save Changes"}
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-2 pt-3 md:p-6 md:pt-4 space-y-0">
+                        {isEditing ? (
+                            <div className="space-y-3 py-2">
+                                {/* Name */}
+                                <div className="space-y-1">
+                                    <Label className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Full Name</Label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            value={editForm.name}
+                                            onKeyDown={(e) => {
+                                                const allowed = /^[a-zA-Z\s]$/.test(e.key);
+                                                const isControl = ["Backspace","Delete","ArrowLeft","ArrowRight","Tab","Home","End"].includes(e.key);
+                                                if (!allowed && !isControl) e.preventDefault();
+                                            }}
+                                            onChange={(e) => {
+                                                const v = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                                setEditForm(prev => ({ ...prev, name: v }));
+                                                if (editErrors.name) setEditErrors(prev => ({ ...prev, name: "" }));
+                                            }}
+                                            className={`pl-9 h-10 rounded-xl text-sm font-semibold ${editErrors.name ? "border-red-500" : ""}`}
+                                        />
                                     </div>
-                                    <div className="min-w-0">
-                                        <p className="text-[8px] md:text-[9px] font-black text-muted-foreground uppercase tracking-widest">{field.label}</p>
-                                        <p className="text-xs md:text-sm font-bold mt-0.5 truncate">{field.value}</p>
+                                    {editErrors.name && <p className="text-[10px] text-red-500 font-bold ml-1">{editErrors.name}</p>}
+                                </div>
+                                {/* Email */}
+                                <div className="space-y-1">
+                                    <Label className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Email</Label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            type="email"
+                                            value={editForm.email}
+                                            onChange={(e) => {
+                                                setEditForm(prev => ({ ...prev, email: e.target.value }));
+                                                if (editErrors.email) setEditErrors(prev => ({ ...prev, email: "" }));
+                                            }}
+                                            className={`pl-9 h-10 rounded-xl text-sm font-semibold ${editErrors.email ? "border-red-500" : ""}`}
+                                        />
                                     </div>
-                                </motion.div>
-                            );
-                        })}
+                                    {editErrors.email && <p className="text-[10px] text-red-500 font-bold ml-1">{editErrors.email}</p>}
+                                </div>
+                                {/* Business Name */}
+                                <div className="space-y-1">
+                                    <Label className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Business Name</Label>
+                                    <div className="relative">
+                                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            value={editForm.businessName}
+                                            onChange={(e) => setEditForm(prev => ({ ...prev, businessName: e.target.value }))}
+                                            placeholder="Your business name (optional)"
+                                            className="pl-9 h-10 rounded-xl text-sm font-semibold"
+                                        />
+                                    </div>
+                                </div>
+                                {/* Read-only fields */}
+                                <div className="pt-2 border-t border-border/30">
+                                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Read-only</p>
+                                    <div className="flex flex-col gap-2">
+                                        {[{ label: "Phone", value: vendor?.phone, icon: Phone }, { label: "City", value: vendor?.city, icon: MapPin }, { label: "Member Since", value: vendor?.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—", icon: Calendar }].map(f => (
+                                            <div key={f.label} className="flex items-center gap-2.5 py-1.5 border-b border-border/20 last:border-0">
+                                                <div className="h-7 w-7 rounded-lg bg-muted/40 flex items-center justify-center flex-shrink-0"><f.icon className="h-3.5 w-3.5 text-muted-foreground" /></div>
+                                                <div><p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{f.label}</p><p className="text-xs font-bold text-muted-foreground">{f.value || "—"}</p></div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            fields.map((field, i) => {
+                                const Icon = field.icon;
+                                return (
+                                    <motion.div
+                                        key={field.label}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.3 + i * 0.05 }}
+                                        className="flex items-center gap-3 md:gap-4 py-2.5 md:py-3.5 border-b border-border/30 last:border-0"
+                                    >
+                                        <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl bg-muted/50 flex items-center justify-center flex-shrink-0">
+                                            <Icon className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[8px] md:text-[9px] font-black text-muted-foreground uppercase tracking-widest">{field.label}</p>
+                                            <p className="text-xs md:text-sm font-bold mt-0.5 truncate">{field.value}</p>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })
+                        )}
                     </CardContent>
                 </Card>
             </motion.div>

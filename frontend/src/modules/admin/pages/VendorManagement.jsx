@@ -66,6 +66,21 @@ export default function VendorManagement() {
     
     useEffect(() => { load(); }, [isLoggedIn, page, debouncedSearch]);
 
+    // Lock scroll when modal is open
+    useEffect(() => {
+        if (selectedVendor) {
+            document.body.style.overflow = "hidden";
+            document.documentElement.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        }
+        return () => {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        };
+    }, [selectedVendor]);
+
     const filtered = vendors.filter(v => v.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) || v.city?.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
     const handleAction = async (id, status) => {
@@ -258,7 +273,7 @@ export default function VendorManagement() {
             <AnimatePresence>
                 {selectedVendor && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedVendor(null)} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl" onClick={() => setSelectedVendor(null)} />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-40%" }}
                             animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}

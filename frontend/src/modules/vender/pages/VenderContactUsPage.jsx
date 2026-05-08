@@ -47,21 +47,23 @@ const VenderContactUsPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Minimal Header for Guest View */}
-      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 py-4 flex items-center gap-3">
-        <button 
-          onClick={() => navigate(-1)} 
-          className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-slate-100"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-lg font-bold text-slate-900">Partner with SWM</h1>
-          <p className="text-[10px] uppercase font-black text-emerald-600 tracking-wider transition-all">Vendor Inquiries</p>
+      {/* Header */}
+      <div className="bg-white/95 backdrop-blur-xl px-4 py-3 flex items-center justify-between border-b border-gray-100 shadow-sm shrink-0 sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-900 hover:bg-slate-100 active:scale-90 transition-all border border-slate-100">
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+          <div>
+            <h1 className="text-sm md:text-base font-black text-slate-900 uppercase tracking-tight">Partner with SWM</h1>
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">Vendor Inquiries</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="px-6 max-w-xl mx-auto py-10">
+      <div className="px-4 md:px-8 max-w-xl mx-auto py-8">
         <AnimatePresence mode="wait">
           {formState !== "success" ? (
             <motion.div
@@ -85,7 +87,10 @@ const VenderContactUsPage = () => {
                       type="text" 
                       name="name"
                       value={formData.name}
-                      onChange={handleChange}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                        setFormData({ ...formData, name: val });
+                      }}
                       placeholder="Enter your name"
                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm font-medium"
                     />
@@ -108,7 +113,7 @@ const VenderContactUsPage = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>
                     <div className="relative">
@@ -117,9 +122,13 @@ const VenderContactUsPage = () => {
                         required
                         type="tel" 
                         name="phone"
+                        maxLength={10}
                         value={formData.phone}
-                        onChange={handleChange}
-                        placeholder="+91..."
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "");
+                          setFormData({ ...formData, phone: val });
+                        }}
+                        placeholder="10-digit number"
                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm font-medium"
                       />
                     </div>
@@ -155,7 +164,7 @@ const VenderContactUsPage = () => {
                 </div>
 
                 <button 
-                  disabled={formState === "submitting"}
+                  disabled={formState === "submitting" || formData.phone.length !== 10}
                   type="submit"
                   className="w-full bg-slate-900 text-white rounded-2xl py-4 font-bold flex items-center justify-center gap-2 hover:bg-black active:scale-[0.98] transition-all shadow-xl shadow-slate-100 disabled:opacity-70"
                 >

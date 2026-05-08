@@ -102,7 +102,7 @@ export default function FinanceManagement() {
         }
     };
 
-    const statuses = ["All", "pending", "completed", "on_hold"];
+    const statuses = ["All", "pending", "completed"];
 
     const statusConfig = {
         completed: { label: "Paid", icon: CheckCircle, color: "bg-green-100 text-green-700 border-green-200" },
@@ -148,10 +148,11 @@ export default function FinanceManagement() {
                                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     <Input 
                                         type="number" 
+                                        min="0"
                                         value={settings.minPayout === 0 ? "" : settings.minPayout} 
                                         onChange={e => {
                                             const val = e.target.value;
-                                            setSettings(prev => ({ ...prev, minPayout: val === "" ? 0 : parseInt(val) || 0 }));
+                                            setSettings(prev => ({ ...prev, minPayout: val === "" ? 0 : Math.max(0, parseInt(val) || 0) }));
                                         }} 
                                         className="pl-9 h-11 rounded-xl bg-muted/30 border-border/50" 
                                     />
@@ -173,34 +174,34 @@ export default function FinanceManagement() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-100">
-                                <p className="text-[10px] font-black text-purple-600 uppercase tracking-widest mb-1">Provider (SWM Pro)</p>
+                            <div className="p-3 rounded-xl bg-purple-100/10 border border-purple-200/20">
+                                <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-1">PROVIDER (SWM PRO)</p>
                                 <div className="flex justify-between items-end">
-                                    <span className="text-xs font-bold text-muted-foreground">Pro Commission</span>
-                                    <span className="text-lg font-black text-purple-700">{subSettings?.providerDefaultCommissionRate === 15 ? 5 : subSettings?.providerDefaultCommissionRate || 5}%</span>
+                                    <span className="text-xs font-bold text-white/70">Pro Commission</span>
+                                    <span className="text-lg font-black text-purple-400">{subSettings?.providerDefaultCommissionRate === 15 ? 5 : subSettings?.providerDefaultCommissionRate || 5}%</span>
                                 </div>
-                                <p className="text-[9px] text-muted-foreground mt-1 font-medium">Applied to SWM Pro Partner members</p>
+                                <p className="text-[9px] text-white/50 mt-1 font-medium italic">Applied to SWM Pro Partner members</p>
                             </div>
 
-                            <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100">
-                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Customer (SWM Plus)</p>
+                            <div className="p-3 rounded-xl bg-blue-100/10 border border-blue-200/20">
+                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">CUSTOMER (SWM PLUS)</p>
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-xs font-bold text-muted-foreground">Quarterly Discount</span>
-                                        <span className="text-sm font-black text-blue-700">{subSettings?.userQuarterlyDiscountDefault || 10}%</span>
+                                        <span className="text-xs font-bold text-white/70">Quarterly Discount</span>
+                                        <span className="text-sm font-black text-blue-400">{subSettings?.userQuarterlyDiscountDefault || 10}%</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-xs font-bold text-muted-foreground">Annual Discount</span>
-                                        <span className="text-sm font-black text-blue-700">{subSettings?.userAnnualDiscountDefault || 15}%</span>
+                                        <span className="text-xs font-bold text-white/70">Annual Discount</span>
+                                        <span className="text-sm font-black text-blue-400">{subSettings?.userAnnualDiscountDefault || 15}%</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100">
-                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Vendor Commission</p>
+                            <div className="p-3 rounded-xl bg-emerald-100/10 border border-emerald-200/20">
+                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">VENDOR COMMISSION</p>
                                 <div className="flex justify-between items-end">
-                                    <span className="text-xs font-bold text-muted-foreground">Performance Rate</span>
-                                    <span className="text-lg font-black text-emerald-700">{subSettings?.vendorPerformanceCommissionValue || 2}%</span>
+                                    <span className="text-xs font-bold text-white/70">Performance Rate</span>
+                                    <span className="text-lg font-black text-emerald-400">{subSettings?.vendorPerformanceCommissionValue || 2}%</span>
                                 </div>
                             </div>
                         </CardContent>

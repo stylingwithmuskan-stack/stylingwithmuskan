@@ -93,49 +93,48 @@ export default function VenderFeedback() {
 
             {/* Stats Grid */}
             {stats && (
-                <motion.div variants={container} initial="hidden" animate="show" className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                <motion.div variants={container} initial="hidden" animate="show" className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                     <motion.div variants={item}>
-                        <Card className="border-none shadow-sm bg-gradient-to-br from-white to-purple-50/50 ring-1 ring-purple-100/50 translate-z-0">
-                            <CardContent className="p-6">
-                                <div className="flex flex-col gap-2">
-                                    <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center">
-                                        <TrendingUp className="h-5 w-5 text-purple-600" />
+                        <Card className="border-none shadow-sm bg-gradient-to-br from-white to-purple-50/50 ring-1 ring-purple-100/50">
+                            <CardContent className="p-4 sm:p-6">
+                                <div className="flex flex-col gap-1 sm:gap-2">
+                                    <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                                        <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
                                     </div>
-                                    <h3 className="text-2xl font-black">{stats.avgRating}</h3>
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Avg Rating</p>
+                                    <h3 className="text-xl sm:text-2xl font-black">{stats.avgRating}</h3>
+                                    <p className="text-[8px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest truncate">Avg Rating</p>
                                 </div>
                             </CardContent>
                         </Card>
                     </motion.div>
                     <motion.div variants={item}>
                         <Card className="border-none shadow-sm bg-gradient-to-br from-white to-emerald-50/50 ring-1 ring-emerald-100/50">
-                            <CardContent className="p-6">
-                                <div className="flex flex-col gap-2">
-                                    <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                                        <Users className="h-5 w-5 text-emerald-600" />
+                            <CardContent className="p-4 sm:p-6">
+                                <div className="flex flex-col gap-1 sm:gap-2">
+                                    <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                        <Users className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
                                     </div>
-                                    <h3 className="text-2xl font-black">{stats.customerReviews}</h3>
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Total Reviews</p>
+                                    <h3 className="text-xl sm:text-2xl font-black">{stats.customerReviews}</h3>
+                                    <p className="text-[8px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest truncate">Total Reviews</p>
                                 </div>
                             </CardContent>
                         </Card>
                     </motion.div>
                     <motion.div variants={item} className="col-span-2">
-                        <Card className="border-none shadow-sm bg-gradient-to-br from-white to-amber-50/50 ring-1 ring-amber-100/50">
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-2">
-                                            <Sparkles className="h-4 w-4 text-amber-500" />
-                                            <h3 className="text-sm font-bold">Popular Compliments</h3>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                            {stats.topTags.map(([tag, count]) => (
-                                                <Badge key={tag} className="bg-white border-amber-200 text-amber-700 text-[10px] font-bold">
-                                                    {tag} ({count})
-                                                </Badge>
-                                            ))}
-                                        </div>
+                        <Card className="border-none shadow-sm bg-gradient-to-br from-white to-amber-50/50 ring-1 ring-amber-100/50 h-full">
+                            <CardContent className="p-4 sm:p-6">
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
+                                        <h3 className="text-xs sm:text-sm font-bold uppercase tracking-tight">Popular Compliments</h3>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                        {stats.topTags.map(([tag, count]) => (
+                                            <Badge key={tag} className="bg-white border-amber-200 text-amber-700 text-[8px] sm:text-[10px] font-bold px-1.5 py-0">
+                                                {tag} ({count})
+                                            </Badge>
+                                        ))}
+                                        {stats.topTags.length === 0 && <p className="text-[10px] italic text-muted-foreground">No tags yet</p>}
                                     </div>
                                 </div>
                             </CardContent>
@@ -150,14 +149,14 @@ export default function VenderFeedback() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search feedback..."
-                        className="pl-9 rounded-xl h-12 bg-white ring-1 ring-border focus-visible:ring-primary shadow-sm text-sm"
+                        className="pl-9 rounded-xl h-11 sm:h-12 bg-white ring-1 ring-border focus-visible:ring-primary shadow-sm text-[13px] sm:text-sm"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 w-full md:w-auto">
+                <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
                     <select
-                        className="h-12 w-full md:w-auto px-3 rounded-xl bg-white border border-border text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                        className="h-11 sm:h-12 w-full md:w-auto px-2 sm:px-3 rounded-xl bg-white border border-border text-[10px] sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
                         value={ratingFilter}
                         onChange={(e) => setRatingFilter(e.target.value)}
                     >
@@ -167,7 +166,7 @@ export default function VenderFeedback() {
                         <option value="negative">Negative (1-2★)</option>
                     </select>
                     <select
-                        className="h-12 w-full md:w-auto px-3 rounded-xl bg-white border border-border text-xs sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                        className="h-11 sm:h-12 w-full md:w-auto px-2 sm:px-3 rounded-xl bg-white border border-border text-[10px] sm:text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
                         value={typeFilter}
                         onChange={(e) => setTypeFilter(e.target.value)}
                     >
@@ -181,70 +180,74 @@ export default function VenderFeedback() {
             {/* List */}
             <Tabs defaultValue="list" className="w-full">
                 <TabsContent value="list" className="mt-0">
-                    <div className="grid gap-4">
+                    <div className="grid gap-3">
                         {filteredFeedback.length > 0 ? (
                             filteredFeedback.map((fb, idx) => (
                                 <motion.div
                                     key={fb.id}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: idx * 0.05 }}
                                 >
-                                    <Card className="hover:shadow-md transition-all border-none bg-white ring-1 ring-border/50 overflow-hidden group">
-                                        <div className={`h-1 w-full ${fb.rating >= 4 ? 'bg-emerald-500' : fb.rating === 3 ? 'bg-amber-500' : 'bg-red-500'}`} />
-                                        <CardContent className="p-5 md:p-6">
-                                            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <div className="flex items-center gap-0.5">
-                                                            {[1, 2, 3, 4, 5].map(s => (
-                                                                <Star key={s} className={`h-4 w-4 ${s <= fb.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
-                                                            ))}
+                                    <Card className="hover:shadow-md transition-all border-none bg-white ring-1 ring-border/50 overflow-hidden group rounded-2xl">
+                                        <div className={`h-1.5 w-full ${fb.rating >= 4 ? 'bg-emerald-500' : fb.rating === 3 ? 'bg-amber-500' : 'bg-red-500'}`} />
+                                        <CardContent className="p-4 sm:p-6">
+                                            <div className="flex flex-col gap-4">
+                                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center flex-wrap gap-2 mb-2">
+                                                            <div className="flex items-center gap-0.5">
+                                                                {[1, 2, 3, 4, 5].map(s => (
+                                                                    <Star key={s} className={`h-3.5 w-3.5 ${s <= fb.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+                                                                ))}
+                                                            </div>
+                                                            <Badge variant="outline" className={`text-[8px] font-black uppercase tracking-widest h-4 px-1.5 ${fb.type === 'customer_to_provider' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                                                                {fb.type?.replace(/_/g, ' ')}
+                                                            </Badge>
                                                         </div>
-                                                        <Badge variant="outline" className={`text-[9px] font-black uppercase tracking-widest ${fb.type === 'customer_to_provider' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
-                                                            {fb.type?.replace('_', ' ')}
-                                                        </Badge>
-                                                    </div>
 
-                                                    <div className="flex flex-wrap items-center gap-y-1 gap-x-4 mb-3">
-                                                        <p className="text-sm font-bold text-foreground">
+                                                        <h4 className="text-[13px] sm:text-base font-bold text-foreground leading-snug">
                                                             {fb.type === 'customer_to_provider' ? (
                                                                 <>
-                                                                    <span className="text-primary">{fb.customerName}</span> reviewed <span className="text-primary">{fb.providerName}</span>
+                                                                    <span className="text-primary">{fb.customerName}</span> <span className="text-muted-foreground font-medium">reviewed</span> <span className="text-primary">{fb.providerName}</span>
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <span className="text-primary">{fb.providerName}</span> rated <span className="text-primary">{fb.customerName}</span>
+                                                                    <span className="text-primary">{fb.providerName}</span> <span className="text-muted-foreground font-medium">rated</span> <span className="text-primary">{fb.customerName}</span>
                                                                 </>
                                                             )}
-                                                        </p>
-                                                        <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                                                        </h4>
+                                                        
+                                                        <div className="flex items-center gap-1.5 mt-1 text-[10px] sm:text-xs font-bold text-muted-foreground/60 uppercase">
                                                             <BarChart3 className="h-3 w-3" /> {fb.serviceName}
-                                                        </span>
+                                                        </div>
                                                     </div>
 
-                                                    <p className="text-sm text-foreground/80 leading-relaxed font-medium bg-muted/30 p-4 rounded-xl border border-border/40 mb-3">
-                                                        {fb.comment || <span className="italic opacity-50">No comment provided</span>}
-                                                    </p>
-
-                                                    {fb.tags?.length > 0 && (
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {fb.tags.map(tag => (
-                                                                <Badge key={tag} className="bg-primary/5 hover:bg-primary/10 text-primary border-none font-bold text-[10px] px-2.5 py-0.5">
-                                                                    {tag}
-                                                                </Badge>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                    <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 sm:text-right">
+                                                        <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-tighter">ID: {fb.bookingId?.slice(-8)}</p>
+                                                        <p className="text-[9px] font-bold text-muted-foreground/60">{new Date(fb.createdAt).toLocaleDateString()}</p>
+                                                    </div>
                                                 </div>
 
-                                                <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 mt-2 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-border/40">
-                                                    <div className="flex flex-col sm:items-end gap-0.5">
-                                                        <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">BK ID: {fb.bookingId}</p>
-                                                        <p className="text-[10px] font-bold text-muted-foreground">{new Date(fb.createdAt).toLocaleDateString()} {new Date(fb.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                <div className="bg-muted/30 p-3 sm:p-4 rounded-xl border border-border/40">
+                                                    <p className="text-[13px] sm:text-sm text-foreground/80 leading-relaxed font-medium">
+                                                        {fb.comment || <span className="italic opacity-50">No comment provided</span>}
+                                                    </p>
+                                                </div>
+
+                                                {fb.tags?.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {fb.tags.map(tag => (
+                                                            <Badge key={tag} className="bg-primary/5 text-primary border-none font-bold text-[9px] sm:text-[10px] px-2 py-0.5">
+                                                                {tag}
+                                                            </Badge>
+                                                        ))}
                                                     </div>
-                                                    <Button variant="ghost" size="sm" className="h-8 rounded-lg text-primary hover:bg-primary/5 font-bold text-xs gap-1.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity sm:mt-4">
-                                                        View Booking <ArrowUpRight className="h-3.5 w-3.5" />
+                                                )}
+
+                                                <div className="flex justify-end pt-2 border-t border-border/40 mt-1">
+                                                    <Button variant="ghost" size="sm" className="h-8 rounded-xl text-primary hover:bg-primary/5 font-bold text-xs gap-1.5">
+                                                        Details <ArrowUpRight className="h-3.5 w-3.5" />
                                                     </Button>
                                                 </div>
                                             </div>

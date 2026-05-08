@@ -27,19 +27,29 @@ export async function listPlans(_req, res) {
 }
 
 export async function createPlan(req, res) {
-  await ensureSubscriptionDefaults();
-  const plan = await SubscriptionPlan.create(req.body || {});
-  res.status(201).json({ plan });
+  try {
+    await ensureSubscriptionDefaults();
+    const plan = await SubscriptionPlan.create(req.body || {});
+    res.status(201).json({ plan });
+  } catch (error) {
+    console.error("[AdminSubscription] Create Plan Error:", error);
+    res.status(400).json({ error: error.message || "Failed to create plan" });
+  }
 }
 
 export async function updatePlan(req, res) {
-  const plan = await SubscriptionPlan.findOneAndUpdate(
-    { planId: req.params.planId },
-    req.body || {},
-    { new: true, runValidators: true }
-  ).lean();
-  if (!plan) return res.status(404).json({ error: "Plan not found" });
-  res.json({ plan });
+  try {
+    const plan = await SubscriptionPlan.findOneAndUpdate(
+      { planId: req.params.planId },
+      req.body || {},
+      { new: true, runValidators: true }
+    ).lean();
+    if (!plan) return res.status(404).json({ error: "Plan not found" });
+    res.json({ plan });
+  } catch (error) {
+    console.error("[AdminSubscription] Update Plan Error:", error);
+    res.status(400).json({ error: error.message || "Failed to update plan" });
+  }
 }
 
 export async function deletePlan(req, res) {

@@ -262,6 +262,40 @@ export async function getMe(req, res) {
   res.json({ vendor: { ...v, subscription } });
 }
 
+export async function updateMe(req, res) {
+  try {
+    const vendorId = req.auth?.sub;
+    const { name, email, businessName } = req.body;
+
+    const updates = {};
+    if (name !== undefined) {
+      const trimmed = String(name || "").trim();
+      if (!trimmed) return res.status(400).json({ error: "Name cannot be empty" });
+      if (trimmed.length < 3) return res.status(400).json({ error: "Name must be at least 3 characters" });
+      if (!/^[a-zA-Z\s]+$/.test(trimmed)) return res.status(400).json({ error: "Name must contain alphabets only" });
+      updates.name = trimmed;
+    }
+    if (email !== undefined) {
+      const trimmed = String(email || "").trim();
+      if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        return res.status(400).json({ error: "Invalid email address" });
+      }
+      if (trimmed) updates.email = trimmed;
+    }
+    if (businessName !== undefined) updates.businessName = String(businessName || "").trim();
+
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: "No valid fields to update" });
+
+    const updated = await Vendor.findByIdAndUpdate(vendorId, updates, { new: true }).lean();
+    if (!updated) return res.status(404).json({ error: "Vendor not found" });
+    const subscription = await getSubscriptionSnapshot(updated._id?.toString() || updated.email, "vendor");
+    res.json({ vendor: { ...updated, subscription } });
+  } catch (err) {
+    console.error("[Vendor] updateMe error:", err);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+}
+
 export async function deleteAccount(req, res) {
   try {
     const vendorId = req.auth.sub;

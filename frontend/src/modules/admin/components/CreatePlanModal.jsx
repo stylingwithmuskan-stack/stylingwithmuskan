@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ArrowRight, ArrowLeft, Save, Users, Briefcase, Building2 } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
@@ -6,6 +7,7 @@ import { Input } from "@/modules/user/components/ui/input";
 import { Label } from "@/modules/user/components/ui/label";
 import { Switch } from "@/modules/user/components/ui/switch";
 import { useAdminAuth } from "@/modules/admin/contexts/AdminAuthContext";
+import { toast } from "sonner";
 
 const USER_TYPES = [
   {
@@ -73,6 +75,38 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
   const [allCategories, setAllCategories] = useState([]);
   const [filteredCategories, setFilteredCategories] = useState([]);
   const [loadingContent, setLoadingContent] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // Block invalid numeric keys: -, e, E, +, decimal point
+  const blockInvalidNumericKeys = (e) => {
+    if (["-", "e", "E", "+", "."].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  // Sanitize numeric input: only allow whole-number digits
+  const handleNumericChange = (field, value) => {
+    const sanitized = value.replace(/[^0-9]/g, "");
+    updateField(field, sanitized);
+    if (sanitized !== "") {
+      setFieldErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
+  // Lock scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+      document.documentElement.style.overflow = "auto";
+    }
+    return () => {
+      document.body.style.overflow = "auto";
+      document.documentElement.style.overflow = "auto";
+    };
+  }, [isOpen]);
 
   // Fetch parents and categories
   useEffect(() => {
@@ -192,9 +226,48 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
+    // ── Field-level validation ──
+    const errors = {};
+
+    if (!formData.name.trim()) errors.name = "Plan name is required";
+    if (!formData.planId.trim()) errors.planId = "Plan ID is required";
+
+    if (formData.price === "" || formData.price === null) {
+      errors.price = "Price is required";
+    } else if (Number(formData.price) < 0) {
+      errors.price = "Price cannot be less than 0";
+    }
+
+    if (formData.durationDays === "" || formData.durationDays === null) {
+      errors.durationDays = "Duration is required";
+    } else if (Number(formData.durationDays) <= 0) {
+      errors.durationDays = "Duration must be at least 1 day";
+    }
+
+    if (selectedType === "customer") {
+      if (formData.discountPercentage !== "" && Number(formData.discountPercentage) > 100) {
+        errors.discountPercentage = "Discount cannot exceed 100%";
+      }
+    }
+
+    if (selectedType === "provider") {
+      if (formData.providerCommissionRate !== "" && Number(formData.providerCommissionRate) > 100) {
+        errors.providerCommissionRate = "Commission cannot exceed 100%";
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      // Show first error as toast
+      toast.error(Object.values(errors)[0]);
+      return;
+    }
+
+    setFieldErrors({});
+
     const meta = {};
-    
+
     if (selectedType === "customer") {
       meta.discountPercentage = Number(formData.discountPercentage) || 0;
       meta.minCartValueForDiscount = Number(formData.minCartValueForDiscount) || 0;
@@ -244,8 +317,8 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -375,25 +448,29 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs font-bold">Price (₹) *</Label>
+                      <Label className={`text-xs font-bold ${fieldErrors.price ? "text-red-500" : ""}`}>Price (₹) *</Label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={formData.price}
-                        onChange={(e) => updateField("price", e.target.value)}
+                        onKeyDown={blockInvalidNumericKeys}
+                        onChange={(e) => handleNumericChange("price", e.target.value)}
                         placeholder="Enter price (e.g., 499)"
-                        required
-                        className="rounded-xl"
+                        className={`rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${fieldErrors.price ? "border-red-500 focus:ring-red-500" : ""}`}
                       />
+                      {fieldErrors.price && <p className="text-xs text-red-500 font-semibold mt-0.5">{fieldErrors.price}</p>}
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs font-bold">Duration (days) *</Label>
+                      <Label className={`text-xs font-bold ${fieldErrors.durationDays ? "text-red-500" : ""}`}>Duration (days) *</Label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={formData.durationDays}
-                        onChange={(e) => updateField("durationDays", e.target.value)}
-                        required
-                        className="rounded-xl"
+                        onKeyDown={blockInvalidNumericKeys}
+                        onChange={(e) => handleNumericChange("durationDays", e.target.value)}
+                        className={`rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${fieldErrors.durationDays ? "border-red-500 focus:ring-red-500" : ""}`}
                       />
+                      {fieldErrors.durationDays && <p className="text-xs text-red-500 font-semibold mt-0.5">{fieldErrors.durationDays}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-bold">Tagline</Label>
@@ -453,23 +530,28 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
                     <h4 className="text-sm font-black uppercase tracking-wider text-muted-foreground mb-3">Customer Benefits</h4>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-xs font-bold">Discount %</Label>
+                        <Label className={`text-xs font-bold ${fieldErrors.discountPercentage ? "text-red-500" : ""}`}>Discount %</Label>
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={formData.discountPercentage}
-                          onChange={(e) => updateField("discountPercentage", e.target.value)}
+                          onKeyDown={blockInvalidNumericKeys}
+                          onChange={(e) => handleNumericChange("discountPercentage", e.target.value)}
                           placeholder="e.g., 10"
-                          className="rounded-xl"
+                          className={`rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${fieldErrors.discountPercentage ? "border-red-500" : ""}`}
                         />
+                        {fieldErrors.discountPercentage && <p className="text-xs text-red-500 font-semibold mt-0.5">{fieldErrors.discountPercentage}</p>}
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-bold">Min Cart (₹)</Label>
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={formData.minCartValueForDiscount}
-                          onChange={(e) => updateField("minCartValueForDiscount", e.target.value)}
+                          onKeyDown={blockInvalidNumericKeys}
+                          onChange={(e) => handleNumericChange("minCartValueForDiscount", e.target.value)}
                           placeholder="e.g., 500"
-                          className="rounded-xl"
+                          className="rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                       <div className="space-y-2">
@@ -522,23 +604,28 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
                     <h4 className="text-sm font-black uppercase tracking-wider text-muted-foreground mb-3">Provider Benefits</h4>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-xs font-bold">Commission %</Label>
+                        <Label className={`text-xs font-bold ${fieldErrors.providerCommissionRate ? "text-red-500" : ""}`}>Commission %</Label>
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={formData.providerCommissionRate}
-                          onChange={(e) => updateField("providerCommissionRate", e.target.value)}
+                          onKeyDown={blockInvalidNumericKeys}
+                          onChange={(e) => handleNumericChange("providerCommissionRate", e.target.value)}
                           placeholder="e.g., 15"
-                          className="rounded-xl"
+                          className={`rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${fieldErrors.providerCommissionRate ? "border-red-500" : ""}`}
                         />
+                        {fieldErrors.providerCommissionRate && <p className="text-xs text-red-500 font-semibold mt-0.5">{fieldErrors.providerCommissionRate}</p>}
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-bold">Lead Window (minutes)</Label>
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={formData.leadPriorityWindowMinutes}
-                          onChange={(e) => updateField("leadPriorityWindowMinutes", e.target.value)}
+                          onKeyDown={blockInvalidNumericKeys}
+                          onChange={(e) => handleNumericChange("leadPriorityWindowMinutes", e.target.value)}
                           placeholder="e.g., 30"
-                          className="rounded-xl"
+                          className="rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                       <div className="space-y-3 md:col-span-2">
@@ -575,11 +662,13 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
                       <div className="space-y-2">
                         <Label className="text-xs font-bold">Marketing Credits (₹)</Label>
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={formData.marketingCreditsMonthly}
-                          onChange={(e) => updateField("marketingCreditsMonthly", e.target.value)}
+                          onKeyDown={blockInvalidNumericKeys}
+                          onChange={(e) => handleNumericChange("marketingCreditsMonthly", e.target.value)}
                           placeholder="e.g., 5000"
-                          className="rounded-xl"
+                          className="rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                       <div className="space-y-2">
@@ -596,11 +685,13 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
                       <div className="space-y-2">
                         <Label className="text-xs font-bold">Commission Value</Label>
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={formData.vendorPerformanceCommissionValue}
-                          onChange={(e) => updateField("vendorPerformanceCommissionValue", e.target.value)}
+                          onKeyDown={blockInvalidNumericKeys}
+                          onChange={(e) => handleNumericChange("vendorPerformanceCommissionValue", e.target.value)}
                           placeholder="e.g., 20"
-                          className="rounded-xl"
+                          className="rounded-xl [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                       <div className="space-y-3 md:col-span-2">
@@ -666,6 +757,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, editMode = 
           )}
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }

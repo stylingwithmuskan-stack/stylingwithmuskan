@@ -19,6 +19,7 @@ const UserRegisterPage = () => {
     const [phone, setPhone] = useState("");
     const [name, setName] = useState("");
     const [referralCode, setReferralCode] = useState("");
+    const [profileError, setProfileError] = useState("");
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(60); // 1 minute
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
@@ -65,6 +66,10 @@ const UserRegisterPage = () => {
     };
 
     const handleVerifyInternal = async (code) => {
+        if (timer <= 0) {
+            toast.error("OTP has expired. Please resend.");
+            return;
+        }
         try {
             const res = await loginWithOtp({ phone, otp: code, intent: "register" });
             const isNewUser = !!res?.user?.isNew;
@@ -124,13 +129,36 @@ const UserRegisterPage = () => {
 
     const handleProfileSubmit = async (e) => {
         e.preventDefault();
+        setProfileError("");
+        const nameVal = name.trim();
+        const referralVal = referralCode.trim();
+
         try {
-            await updateProfile({ name: name.trim(), referralCode: referralCode.trim() });
-            console.log("[UserRegister] profile update success", { phone });
+            // Attempt with referral code
+            await updateProfile({ name: nameVal, referralCode: referralVal });
+            console.log("[UserRegister] profile update success with referral", { phone });
             navigate("/home");
         } catch (err) {
             console.error("[UserRegister] profile update error", err);
-            toast.error(err.message || "Failed to complete profile");
+            const msg = err.message || "";
+            
+            // If it's a referral error, we should still let them in but without the bonus
+            if (msg.toLowerCase().includes("referral")) {
+                try {
+                    // Try again WITHOUT referral code so they aren't blocked
+                    await updateProfile({ name: nameVal });
+                    console.log("[UserRegister] profile update success (referral failed, but name saved)", { phone });
+                    sessionStorage.setItem("swm_referral_error", "Invalid referral code. Profile created without bonus.");
+                    navigate("/home");
+                    return;
+                } catch (retryErr) {
+                    setProfileError(retryErr.message || "Failed to complete profile");
+                    toast.error(retryErr.message || "Failed to complete profile");
+                }
+            } else {
+                setProfileError(msg || "Failed to complete profile");
+                toast.error(msg || "Failed to complete profile");
+            }
         }
     };
 
@@ -231,7 +259,7 @@ const UserRegisterPage = () => {
                                     </p>
                                 </div>
 
-                                 <div className="flex justify-center gap-2 sm:gap-3 w-full max-w-sm mx-auto">
+                                 <div className="flex justify-center gap-2 sm:gap-3 w-full max-sm mx-auto">
                                     {otp.map((digit, idx) => (
                                         <input
                                             key={idx}
@@ -280,19 +308,28 @@ const UserRegisterPage = () => {
                                             required
                                             placeholder="e.g. Muskan Sharma"
                                             value={name}
-                                            onChange={(e) => setName(e.target.value)}
+                                            onChange={(e) => {
+                                                setName(e.target.value.replace(/[^a-zA-Z\s]/g, ""));
+                                                setProfileError("");
+                                            }}
                                             className="w-full h-14 px-6 rounded-2xl bg-accent/30 border-none text-base focus:ring-2 focus:ring-primary/20 transition-all font-bold"
                                         />
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 relative">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Referral Code (Optional)</label>
                                         <input
                                             type="text"
                                             placeholder="e.g. SAVE100"
                                             value={referralCode}
-                                            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                                            className="w-full h-14 px-6 rounded-2xl bg-accent/30 border-none text-base focus:ring-2 focus:ring-primary/20 transition-all font-bold tracking-widest"
+                                            onChange={(e) => {
+                                                setReferralCode(e.target.value.toUpperCase());
+                                                setProfileError("");
+                                            }}
+                                            className={`w-full h-14 px-6 rounded-2xl bg-accent/30 border-2 text-base focus:ring-2 transition-all font-bold tracking-widest ${profileError.toLowerCase().includes('referral') ? 'border-red-500/50 focus:ring-red-500/20' : 'border-transparent focus:ring-primary/20'}`}
                                         />
+                                        {profileError && profileError.toLowerCase().includes('referral') && (
+                                            <p className="text-[10px] text-red-500 font-bold ml-4 mt-1 uppercase tracking-tight">{profileError}</p>
+                                        )}
                                     </div>
 
                                     <Button disabled={!name.trim()} className="w-full h-16 rounded-[24px] text-base font-black tracking-widest uppercase bg-black text-white hover:bg-black/90 shadow-xl shadow-black/10 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">

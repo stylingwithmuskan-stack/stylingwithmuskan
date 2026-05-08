@@ -17,17 +17,24 @@ const VenderActivityPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24 pt-10">
-      <div className="px-4 max-w-2xl mx-auto space-y-4">
-        <div className="flex items-center gap-4 mb-8 px-2">
-            <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50">
-               <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-                <h1 className="text-2xl font-black text-slate-900">Activity</h1>
-                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Recent logs</p>
+    <div className="min-h-screen bg-[#F8FAFC]">
+      {/* Header */}
+      <div className="bg-white/95 backdrop-blur-xl px-4 py-3 flex items-center justify-between border-b border-gray-100 shadow-sm shrink-0 sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-900 hover:bg-slate-100 active:scale-90 transition-all border border-slate-100">
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+          <div>
+            <h1 className="text-sm md:text-base font-black text-slate-900 uppercase tracking-tight">Activity</h1>
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">Recent logs</p>
             </div>
+          </div>
         </div>
+      </div>
+
+      <div className="px-4 py-6 sm:py-8 max-w-2xl mx-auto space-y-3 sm:space-y-4">
         {activities.map((activity, i) => (
           <motion.div
             key={activity.id}

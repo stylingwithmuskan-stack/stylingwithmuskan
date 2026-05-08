@@ -62,33 +62,51 @@ export default function VenderSOSMonitor() {
                         <motion.div key={alert.id || alert._id || `alert-${index}`} variants={item}>
                             <Card className="shadow-sm border-red-200 bg-red-50/30">
                                 <CardContent className="p-4 md:p-5">
-                                    <div className="flex flex-col md:flex-row md:items-center gap-4">
-                                        <div className="h-12 w-12 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
-                                            <AlertTriangle className="h-6 w-6 text-red-600" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <Badge className="bg-red-100 text-red-700 border-red-200 text-[8px] font-black uppercase">{alert.type === "provider" ? "SERVICE PROVIDER" : "CUSTOMER"}</Badge>
-                                                <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[8px] font-black uppercase">{alert.alarmType || "Security Threat"}</Badge>
-                                                <span className="text-[10px] text-muted-foreground font-medium">#{alert.id}</span>
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex items-start gap-4">
+                                            <div className="h-12 w-12 rounded-2xl bg-red-100 flex items-center justify-center flex-shrink-0 shadow-sm border border-red-200/50">
+                                                <AlertTriangle className="h-6 w-6 text-red-600" />
                                             </div>
-                                            <h3 className="text-sm font-bold">{alert.userName || "Unknown User"}</h3>
-                                            <div className="flex flex-wrap gap-3 mt-1.5 text-[11px] text-muted-foreground font-medium">
-                                                <span className="flex items-center gap-1 text-red-500 font-bold"><Bell className="h-3 w-3" /> Notified: Admin, Family & Vendor</span>
-                                                <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {alert.phone || "N/A"}</span>
-                                                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {alert.location || "Location shared"}</span>
-                                                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {alert.time || "Just now"}</span>
-                                                {(alert._id || alert.id) && <span className="text-[9px] opacity-50">ID: {alert._id || alert.id}</span>}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                                    <Badge className="bg-red-600 text-white border-none text-[8px] font-black uppercase tracking-wider px-2 h-5">
+                                                        {alert.type === "provider" ? "SERVICE PROVIDER" : "CUSTOMER"}
+                                                    </Badge>
+                                                    <Badge variant="outline" className="bg-white text-orange-600 border-orange-200 text-[8px] font-black uppercase tracking-wider h-5 px-2">
+                                                        {alert.alarmType || "Emergency"}
+                                                    </Badge>
+                                                </div>
+                                                <h3 className="text-base font-black text-slate-900 truncate">{alert.userName || "Unknown User"}</h3>
+                                                <p className="text-[10px] text-red-500 font-bold flex items-center gap-1 mt-0.5 animate-pulse">
+                                                    <Bell className="h-3 w-3" /> Notified: Admin, Family & Vendor
+                                                </p>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{alert.time || "Just now"}</p>
+                                                <p className="text-[9px] text-muted-foreground font-medium opacity-50 mt-1">#{alert.id?.toString().slice(-6)}</p>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                                            <Button className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold gap-2">
-                                                <Map className="h-4 w-4" /> Live Tracking
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-3 border-y border-red-200/30">
+                                            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-600">
+                                                <Phone className="h-3.5 w-3.5 text-slate-400" /> {alert.phone || "N/A"}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-600">
+                                                <MapPin className="h-3.5 w-3.5 text-slate-400" /> 
+                                                {typeof alert.location === 'object' && alert.location !== null 
+                                                    ? `${alert.location.lat.toFixed(4)}, ${alert.location.lng.toFixed(4)}` 
+                                                    : (alert.location || "Location shared")}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                            <Button className="h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold gap-2 text-xs shadow-lg shadow-indigo-100">
+                                                <Map className="h-4 w-4" /> Track
                                             </Button>
-                                            <Button className="h-10 bg-red-600 hover:bg-red-700 rounded-xl font-bold gap-2">
-                                                <Phone className="h-4 w-4" /> Call Now
+                                            <Button className="h-11 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold gap-2 text-xs shadow-lg shadow-red-100">
+                                                <Phone className="h-4 w-4" /> Call
                                             </Button>
-                                            <Button variant="outline" className="h-10 rounded-xl font-bold gap-2 bg-white hover:bg-green-50 hover:text-green-600 hover:border-green-200" onClick={() => handleResolve(alert._id || alert.id)} disabled={!alert._id && !alert.id}>
+                                            <Button variant="outline" className="h-11 col-span-2 sm:col-span-1 rounded-2xl font-bold gap-2 text-xs bg-white border-slate-200 text-slate-700 hover:bg-green-50 hover:text-green-600 hover:border-green-200" onClick={() => handleResolve(alert._id || alert.id)} disabled={!alert._id && !alert.id}>
                                                 <CheckCircle className="h-4 w-4" /> Resolve
                                             </Button>
                                         </div>

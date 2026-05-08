@@ -4,12 +4,15 @@ import { ArrowLeft, Trash2, ShoppingBag, Heart, ShoppingCart } from "lucide-reac
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import { useCart } from "@/modules/user/contexts/CartContext";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
+import { getServicePlaceholder } from "@/modules/user/lib/utils";
+import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 
 const WishlistPage = () => {
     const navigate = useNavigate();
     const { gender } = useGenderTheme();
     const { wishlistItems, removeFromWishlist, clearWishlist } = useWishlist();
     const { addToCart } = useCart();
+    const { categories } = useUserModuleData();
 
     return (
         <div className="min-h-screen bg-background pb-20">
@@ -43,7 +46,15 @@ const WishlistPage = () => {
                                     className="glass-strong rounded-2xl p-3 border border-border/50 flex gap-4 relative group"
                                 >
                                     <div className="w-24 h-24 rounded-xl overflow-hidden bg-accent flex-shrink-0">
-                                        <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                        <img 
+                                            src={item.image || getServicePlaceholder(item.name, categories.find(c => String(c.id) === String(item.category))?.name)} 
+                                            alt={item.name} 
+                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                            onError={(e) => {
+                                                const placeholder = getServicePlaceholder(item.name, categories.find(c => String(c.id) === String(item.category))?.name);
+                                                if (e.target.src !== placeholder) e.target.src = placeholder;
+                                            }}
+                                        />
                                     </div>
 
                                     <div className="flex-1 min-w-0 flex flex-col justify-between py-1">

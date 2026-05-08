@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
     Plus, Search, Edit2, Trash2, X, Play, Clock, 
@@ -56,6 +57,20 @@ export default function TrainingManagement() {
         fetchVideos();
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
+
+    useEffect(() => {
+        if (isModalOpen) {
+            document.body.style.overflow = "hidden";
+            document.documentElement.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        }
+        return () => {
+            document.body.style.overflow = "auto";
+            document.documentElement.style.overflow = "auto";
+        };
+    }, [isModalOpen]);
 
     const handleOpenModal = (video = null) => {
         if (video) {
@@ -211,9 +226,9 @@ export default function TrainingManagement() {
 
             {/* Modal */}
             <AnimatePresence>
-                {isModalOpen && (
+                {isModalOpen && createPortal(
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-10">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" />
                         <motion.div 
                             initial={{ scale: 0.9, opacity: 0, y: 20 }} 
                             animate={{ scale: 1, opacity: 1, y: 0 }} 
@@ -387,7 +402,8 @@ export default function TrainingManagement() {
                                 </Button>
                             </form>
                         </motion.div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
             </AnimatePresence>
         </div>

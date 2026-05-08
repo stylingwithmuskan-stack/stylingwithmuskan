@@ -8,6 +8,7 @@ import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { Button } from "@/modules/user/components/ui/button";
 import { Heart } from "lucide-react";
+import { getServicePlaceholder } from "@/modules/user/lib/utils";
 
 const PopularServices = () => {
   const { gender } = useGenderTheme();
@@ -15,7 +16,7 @@ const PopularServices = () => {
   const { isLoggedIn, user } = useAuth();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const navigate = useNavigate();
-  const { popularServices, checkAvailability } = useUserModuleData();
+  const { popularServices, checkAvailability, categories } = useUserModuleData();
 
   const userCity = user?.addresses?.[0]?.city || user?.address?.city || null;
   const filtered = popularServices.filter((s) => s.gender === gender && checkAvailability(s, userCity));
@@ -54,11 +55,15 @@ const PopularServices = () => {
           >
             <div className="relative h-32 overflow-hidden cursor-pointer">
               <img
-                src={service.image}
+                src={service.image || getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name)}
                 alt={service.name}
                 onClick={() => navigate(`/service/${service.id}`)}
                 className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
                 loading="lazy"
+                onError={(e) => {
+                  const placeholder = getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name);
+                  if (e.target.src !== placeholder) e.target.src = placeholder;
+                }}
               />
               <button
                 onClick={(e) => {

@@ -64,6 +64,11 @@ export default function ProviderLoginPage() {
     };
 
     const handleVerifyOtp = async () => {
+        if (timer <= 0) {
+            setError("OTP has expired. Please resend.");
+            toast.error("OTP has expired. Please resend.");
+            return;
+        }
         setIsLoading(true);
         try {
             setError("");
@@ -187,7 +192,11 @@ export default function ProviderLoginPage() {
                                 <div className="text-center pt-4">
                                     <p className="text-gray-500 text-sm font-medium">
                                         New here?{" "}
-                                        <Link to="/provider/register" className="text-violet-600 font-black hover:underline">
+                                        <Link 
+                                            to="/provider/register" 
+                                            onClick={() => localStorage.removeItem('swm-provider-registration')}
+                                            className="text-violet-600 font-black hover:underline"
+                                        >
                                             Register as Partner
                                         </Link>
                                     </p>
@@ -218,7 +227,7 @@ export default function ProviderLoginPage() {
                                 <Button
                                     className="w-full h-14 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-lg shadow-lg shadow-violet-200"
                                     onClick={handleVerifyOtp}
-                                    disabled={otp.some(d => !d) || isLoading}
+                                    disabled={otp.some(d => !d) || isLoading || timer <= 0}
                                 >
                                     {isLoading ? <Loader2 className="animate-spin" /> : "Verify & Login"}
                                 </Button>

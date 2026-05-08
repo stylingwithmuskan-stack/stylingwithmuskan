@@ -8,6 +8,7 @@ import { useAuth } from "@/modules/user/contexts/AuthContext";
 const AboutUsPage = () => {
   const navigate = useNavigate();
   const { gender } = useGenderTheme();
+  const { isLoggedIn } = useAuth();
 
   useEffect(() => {
     window.scrollTo(0, 0);

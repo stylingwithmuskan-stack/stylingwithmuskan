@@ -5,6 +5,7 @@ import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useCart } from "@/modules/user/contexts/CartContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
+import { getServicePlaceholder } from "@/modules/user/lib/utils";
 import CustomizeBookingForm from "./CustomizeBookingForm";
 
 const CategoryGrid = () => {
@@ -84,9 +85,13 @@ const CategoryGrid = () => {
             >
               <div className="absolute inset-0 z-0">
                 <img
-                  src={type.image}
+                  src={type.image || getServicePlaceholder(type.label)}
                   alt={type.label}
                   className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-500 bg-accent"
+                  onError={(e) => {
+                    const placeholder = getServicePlaceholder(type.label);
+                    if (e.target.src !== placeholder) e.target.src = placeholder;
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
               </div>

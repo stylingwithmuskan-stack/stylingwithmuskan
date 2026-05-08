@@ -13,6 +13,7 @@ const AddressesPage = () => {
     const { user, deleteAddress } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editAddress, setEditAddress] = useState(null);
+    const [openMenuId, setOpenMenuId] = useState(null);
 
     const savedAddresses = (user?.addresses || []).map(a => ({
         id: a._id || a.id,
@@ -37,7 +38,7 @@ const AddressesPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background pb-8">
+        <div className="min-h-screen bg-background pb-8" onClick={() => setOpenMenuId(null)}>
             {/* Header */}
             <div className="sticky top-0 z-30 glass-strong border-b border-border px-4 py-3 flex items-center gap-3">
                 <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
@@ -65,9 +66,62 @@ const AddressesPage = () => {
                                     <div className="flex-1">
                                         <div className="flex items-center justify-between">
                                             <h3 className="font-bold text-sm uppercase tracking-wider">{addr.type}</h3>
-                                    <button className="w-8 h-8 rounded-full hover:bg-black/5 flex items-center justify-center">
-                                                <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                                            </button>
+                                            <div className="relative">
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenMenuId(openMenuId === addr.id ? null : addr.id);
+                                                    }}
+                                                    className="w-8 h-8 rounded-full hover:bg-black/5 flex items-center justify-center transition-colors"
+                                                >
+                                                    <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                                                </button>
+                                                
+                                                <AnimatePresence>
+                                                    {openMenuId === addr.id && (
+                                                        <motion.div 
+                                                            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                            className="absolute right-0 top-10 w-32 bg-white rounded-xl shadow-xl border border-border z-20 py-1 overflow-hidden"
+                                                        >
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditAddress({ 
+                                                                        _id: addr.id, 
+                                                                        type: addr.type, 
+                                                                        houseNo: addr.houseNo, 
+                                                                        area: addr.area, 
+                                                                        landmark: addr.landmark,
+                                                                        city: addr.city,
+                                                                        cityId: addr.cityId,
+                                                                        zone: addr.zone,
+                                                                        zoneId: addr.zoneId,
+                                                                        lat: addr.lat,
+                                                                        lng: addr.lng
+                                                                    }); 
+                                                                    setIsModalOpen(true);
+                                                                    setOpenMenuId(null);
+                                                                }}
+                                                                className="w-full px-3 py-2 text-xs font-bold flex items-center gap-2 hover:bg-primary/10 text-foreground transition-colors"
+                                                            >
+                                                                <Edit2 className="w-3.5 h-3.5 text-primary" /> Edit
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    deleteAddress(addr.id);
+                                                                    setOpenMenuId(null);
+                                                                }}
+                                                                className="w-full px-3 py-2 text-xs font-bold flex items-center gap-2 hover:bg-destructive/10 text-destructive transition-colors"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" /> Remove
+                                                            </button>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
                                         </div>
                                         <p className="text-sm font-semibold mt-1">{addr.houseNo}</p>
                                         <p className="text-xs text-muted-foreground mt-0.5">{addr.area}</p>
@@ -77,36 +131,6 @@ const AddressesPage = () => {
                                             </p>
                                         )}
                                     </div>
-                                </div>
-
-                                {/* Quick Actions */}
-                                <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
-                                    <button
-                                        onClick={() => { 
-                                            setEditAddress({ 
-                                                _id: addr.id, 
-                                                type: addr.type, 
-                                                houseNo: addr.houseNo, 
-                                                area: addr.area, 
-                                                landmark: addr.landmark,
-                                                city: addr.city,
-                                                cityId: addr.cityId,
-                                                zone: addr.zone,
-                                                zoneId: addr.zoneId,
-                                                lat: addr.lat,
-                                                lng: addr.lng
-                                            }); 
-                                            setIsModalOpen(true); 
-                                        }}
-                                        className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
-                                        <Edit2 className="w-3.5 h-3.5" /> Edit
-                                    </button>
-                                    <div className="w-px h-4 bg-border self-center" />
-                                    <button
-                                        onClick={() => deleteAddress(addr.id)}
-                                        className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold text-destructive hover:opacity-80 transition-opacity">
-                                        <Trash2 className="w-3.5 h-3.5" /> Remove
-                                    </button>
                                 </div>
                             </motion.div>
                         );

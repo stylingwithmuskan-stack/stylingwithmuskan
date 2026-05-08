@@ -155,12 +155,12 @@ export default function SPManagement() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4 w-full">
-                        <TabsList className="bg-muted/50 rounded-xl p-1 flex flex-nowrap h-auto justify-start max-w-full overflow-x-auto hide-scrollbar shrink-0 w-full md:w-auto">
-                            <TabsTrigger value="all" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1">All ({providers.length})</TabsTrigger>
-                            <TabsTrigger value="pending" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1">Pending ({providers.filter(s => s.approvalStatus === "pending" || s.approvalStatus === "pending_vendor").length})</TabsTrigger>
-                            <TabsTrigger value="approved" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1">Approved ({providers.filter(s => s.approvalStatus === "approved").length})</TabsTrigger>
-                            <TabsTrigger value="blocked" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1">Blocked</TabsTrigger>
-                            <TabsTrigger value="rankings" className="rounded-lg text-[10px] md:text-xs font-bold whitespace-nowrap px-2 py-1 bg-purple-100 text-purple-700">Rankings</TabsTrigger>
+                        <TabsList className="bg-muted/50 rounded-xl p-1 flex flex-row h-auto justify-start max-w-full overflow-x-auto scrollbar-hide shrink-0 w-full md:w-auto overflow-y-hidden whitespace-nowrap">
+                            <TabsTrigger value="all" className="rounded-lg text-[10px] md:text-xs font-bold px-3 py-1.5 flex-shrink-0">All ({providers.length})</TabsTrigger>
+                            <TabsTrigger value="pending" className="rounded-lg text-[10px] md:text-xs font-bold px-3 py-1.5 flex-shrink-0">Pending ({providers.filter(s => s.approvalStatus === "pending" || s.approvalStatus === "pending_vendor").length})</TabsTrigger>
+                            <TabsTrigger value="approved" className="rounded-lg text-[10px] md:text-xs font-bold px-3 py-1.5 flex-shrink-0">Approved ({providers.filter(s => s.approvalStatus === "approved").length})</TabsTrigger>
+                            <TabsTrigger value="blocked" className="rounded-lg text-[10px] md:text-xs font-bold px-3 py-1.5 flex-shrink-0">Blocked</TabsTrigger>
+                            <TabsTrigger value="rankings" className="rounded-lg text-[10px] md:text-xs font-bold px-3 py-1.5 flex-shrink-0 bg-purple-100 text-purple-700">Rankings</TabsTrigger>
                         </TabsList>
                         <div className="relative flex-1 w-full md:max-w-sm shrink-0">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -196,90 +196,93 @@ export default function SPManagement() {
 
                                     return (
                                         <motion.div key={sp._id || sp.id || sp.phone} variants={item}>
-                                            <Card className={`shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group ${isUnderperforming ? 'border-red-500' : ''}`} onClick={() => setSelectedSP(sp)}>
-                                                <CardContent className="p-3 md:p-5 flex flex-col sm:flex-row gap-3 md:gap-4 sm:items-center w-full">
-                                                    <div className="flex flex-row items-center gap-3 w-full sm:flex-1 min-w-0">
-                                                        {/* Avatar */}
-                                                        <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
-                                                            <span className="text-base md:text-lg font-black text-primary">{sp.name?.charAt(0) || "?"}</span>
-                                                        </div>
-                                                        {/* Info */}
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
-                                                                <h3 className="text-sm md:text-base font-bold truncate max-w-[120px]">{sp.name || "Unknown"}</h3>
-                                                                <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 ${stConfig.color} border shrink-0`}>
-                                                                    {stConfig.label}
-                                                                </Badge>
+                                            <Card className={`shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group ${isUnderperforming ? 'border-red-500' : 'border-border/40'}`} onClick={() => setSelectedSP(sp)}>
+                                                <CardContent className="p-3 md:p-5">
+                                                    <div className="flex flex-col gap-3">
+                                                        <div className="flex items-start gap-3">
+                                                            {/* Avatar */}
+                                                            <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
+                                                                <span className="text-base md:text-lg font-black text-primary">{sp.name?.charAt(0) || "?"}</span>
                                                             </div>
-                                                            <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground font-medium">
-                                                                <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{sp.phone}</span>
-                                                                <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500 fill-amber-500" />{getSPRating(sp) || "N/A"}</span>
-                                                                <span className="flex items-center gap-1 hidden sm:flex"><CheckCircle className="h-3 w-3 text-primary" />{getSPJobs(sp)} Jobs</span>
-                                                            </div>
-                                                            <div className="flex flex-wrap gap-1.5 mt-2">
-                                                                {(sp.zones || []).map(z => (
-                                                                    <Badge key={z} variant="secondary" className="text-[9px] font-bold bg-muted/50 text-muted-foreground border-none">
-                                                                        {z}
+                                                            {/* Info */}
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center flex-wrap gap-2 mb-1">
+                                                                    <h3 className="text-sm md:text-base font-bold truncate max-w-[150px]">{sp.name || "Unknown"}</h3>
+                                                                    <Badge variant="outline" className={`text-[8px] font-black px-1.5 py-0 h-4 ${stConfig.color} border shrink-0`}>
+                                                                        {stConfig.label}
                                                                     </Badge>
-                                                                ))}
+                                                                </div>
+                                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-muted-foreground font-medium">
+                                                                    <span className="flex items-center gap-1 shrink-0"><Phone className="h-3 w-3" />{sp.phone}</span>
+                                                                    <span className="flex items-center gap-1 shrink-0"><Star className="h-3 w-3 text-amber-500 fill-amber-500" />{getSPRating(sp) || "N/A"}</span>
+                                                                    <span className="flex items-center gap-1 shrink-0"><CheckCircle className="h-3 w-3 text-primary" />{getSPJobs(sp)} Jobs</span>
+                                                                </div>
                                                             </div>
-                                                            {sp.pendingZones?.length > 0 && (
-                                                                <div className="mt-3 p-3 bg-amber-50/50 rounded-xl border border-amber-100/50 flex items-center justify-between">
-                                                                    <div className="flex-1">
-                                                                        <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Hub Access Request</p>
-                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                            {sp.pendingZones.map(z => (
-                                                                                <Badge key={z} className="bg-white text-amber-600 border-amber-200 text-[9px] font-bold">
-                                                                                    + {z}
-                                                                                </Badge>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="flex gap-1 ml-4">
-                                                                        <Button size="sm" className="h-6 text-[9px] font-black bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleZoneAction(sp._id || sp.id, "approve"); }}>Approve</Button>
-                                                                        <Button size="sm" variant="ghost" className="h-6 text-[9px] font-black text-amber-700 hover:bg-amber-100 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleZoneAction(sp._id || sp.id, "reject"); }}>Reject</Button>
+                                                        </div>
+
+                                                        {/* Zones */}
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {(sp.zones || []).map(z => (
+                                                                <Badge key={z} variant="secondary" className="text-[8px] md:text-[9px] font-bold bg-muted/50 text-muted-foreground border-none px-1.5 h-4">
+                                                                    {z}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* Pending Zone Actions */}
+                                                        {sp.pendingZones?.length > 0 && (
+                                                            <div className="p-2 sm:p-3 bg-amber-50/50 rounded-xl border border-amber-100/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                                                <div className="flex-1">
+                                                                    <p className="text-[8px] font-black text-amber-600 uppercase tracking-widest mb-1">Access Request</p>
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {sp.pendingZones.map(z => (
+                                                                            <Badge key={z} className="bg-white text-amber-600 border-amber-200 text-[8px] font-bold h-4 px-1">
+                                                                                + {z}
+                                                                            </Badge>
+                                                                        ))}
                                                                     </div>
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    {/* Actions */}
-                                                    <div className="flex flex-row flex-wrap items-center gap-2 mt-1 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-emerald-50 shrink-0 w-full sm:w-auto justify-end sm:justify-start">
-                                                            {(sp.approvalStatus === "pending" || sp.approvalStatus === "pending_vendor") && (
-                                                                <>
-                                                                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                                                        <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[11px] font-bold gap-1" onClick={(e) => { e.stopPropagation(); handleAction(sp._id || sp.id, "approved"); }}>
+                                                                <div className="flex gap-2">
+                                                                    <Button size="sm" className="flex-1 sm:flex-none h-7 text-[9px] font-black bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleZoneAction(sp._id || sp.id, "approve"); }}>Approve</Button>
+                                                                    <Button size="sm" variant="ghost" className="flex-1 sm:flex-none h-7 text-[9px] font-black text-amber-700 hover:bg-amber-100 rounded-lg px-2" onClick={(e) => { e.stopPropagation(); handleZoneAction(sp._id || sp.id, "reject"); }}>Reject</Button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Bottom Actions */}
+                                                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/10">
+                                                            <div className="flex items-center gap-2">
+                                                                {(sp.approvalStatus === "pending" || sp.approvalStatus === "pending_vendor") && (
+                                                                    <>
+                                                                        <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[10px] font-bold gap-1 px-3" onClick={(e) => { e.stopPropagation(); handleAction(sp._id || sp.id, "approved"); }}>
                                                                             <CheckCircle className="h-3.5 w-3.5" /> Approve
                                                                         </Button>
-                                                                    </motion.div>
-                                                                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                                                        <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-[11px] font-bold gap-1" onClick={(e) => { e.stopPropagation(); handleAction(sp._id || sp.id, "rejected"); }}>
+                                                                        <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold gap-1 px-3" onClick={(e) => { e.stopPropagation(); handleAction(sp._id || sp.id, "rejected"); }}>
                                                                             <XCircle className="h-3.5 w-3.5" /> Reject
                                                                         </Button>
-                                                                    </motion.div>
-                                                                </>
-                                                            )}
-                                                            {sp.approvalStatus === "pending_admin" && (
-                                                                <Badge variant="outline" className="text-[9px] font-bold bg-blue-50 text-blue-600 border-blue-200">
-                                                                    Awaiting Admin
-                                                                </Badge>
-                                                            )}
-                                                            {sp.approvalStatus === "approved" && (
-                                                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                                                    <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-[11px] font-bold gap-1" onClick={(e) => { e.stopPropagation(); handleAction(sp._id || sp.id, "blocked"); }}>
+                                                                    </>
+                                                                )}
+                                                                {sp.approvalStatus === "pending_admin" && (
+                                                                    <Badge variant="outline" className="text-[9px] font-bold bg-blue-50 text-blue-600 border-blue-200">
+                                                                        Awaiting Admin
+                                                                    </Badge>
+                                                                )}
+                                                                {sp.approvalStatus === "approved" && (
+                                                                    <Button size="sm" variant="outline" className="h-8 border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold gap-1 px-3" onClick={(e) => { e.stopPropagation(); handleAction(sp._id || sp.id, "blocked"); }}>
                                                                         <Ban className="h-3.5 w-3.5" /> Block
                                                                     </Button>
-                                                                </motion.div>
-                                                            )}
-                                                            {(sp.approvalStatus === "blocked" || sp.approvalStatus === "rejected") && (
-                                                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                                                    <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-white rounded-lg text-[11px] font-bold gap-1" onClick={(e) => { e.stopPropagation(); handleAction(sp._id || sp.id, "approved"); }}>
+                                                                )}
+                                                                {(sp.approvalStatus === "blocked" || sp.approvalStatus === "rejected") && (
+                                                                    <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-white rounded-lg text-[10px] font-bold gap-1 px-3" onClick={(e) => { e.stopPropagation(); handleAction(sp._id || sp.id, "approved"); }}>
                                                                         <UserCheck className="h-3.5 w-3.5" /> Unblock
                                                                     </Button>
-                                                                </motion.div>
-                                                            )}
-                                                            <ChevronRight className="h-4 w-4 text-muted-foreground/40 hidden md:block" />
+                                                                )}
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-[10px] font-bold text-primary group-hover:translate-x-1 transition-transform">
+                                                                Details <ChevronRight className="h-3 w-3" />
+                                                            </div>
                                                         </div>
+                                                    </div>
                                                 </CardContent>
                                             </Card>
                                         </motion.div>
@@ -352,199 +355,161 @@ export default function SPManagement() {
                             className="fixed left-1/2 top-1/2 w-[calc(100vw-2rem)] sm:w-[500px] z-50 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden max-h-[85vh] overflow-y-auto"
                         >
                             <div className="p-6 space-y-5">
-                                {/* Header */}
-                                <div className="flex items-center gap-4">
-                                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-green-500 flex items-center justify-center text-white text-2xl font-black">
+                                <div className="flex items-center gap-4 border-b border-border/50 pb-6">
+                                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-[24px] bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-2xl sm:text-3xl font-black shadow-lg shadow-primary/20">
                                         {selectedSP.name?.charAt(0) || "?"}
                                     </div>
-                                    <div>
-                                        <h2 className="text-lg font-black">{selectedSP.name || "Unknown"}</h2>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <Badge variant="outline" className={`text-[9px] font-black ${(statusConfig[selectedSP.approvalStatus] || statusConfig.pending).color}`}>
+                                    <div className="min-w-0">
+                                        <h2 className="text-xl sm:text-2xl font-black text-foreground truncate">{selectedSP.name || "Unknown"}</h2>
+                                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                            <Badge variant="outline" className={`text-[10px] font-black uppercase tracking-widest h-5 px-2 ${(statusConfig[selectedSP.approvalStatus] || statusConfig.pending).color}`}>
                                                 {(statusConfig[selectedSP.approvalStatus] || statusConfig.pending).label}
                                             </Badge>
-                                            <span className="text-[10px] text-muted-foreground font-medium">ID: {(selectedSP._id || selectedSP.id || "").toString().slice(-6).toUpperCase()}</span>
+                                            <span className="text-[10px] text-muted-foreground font-bold bg-muted/50 px-2 py-0.5 rounded-md">ID: {(selectedSP._id || selectedSP.id || "").toString().slice(-6).toUpperCase()}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Contact */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-muted/50 rounded-xl p-3">
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Phone</p>
-                                        <p className="text-sm font-bold mt-1">{selectedSP.phone}</p>
+                                {/* Quick Stats */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    <div className="bg-muted/40 rounded-2xl p-3 border border-border/10">
+                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Rating</p>
+                                        <div className="flex items-center gap-1 mt-1">
+                                            <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                                            <span className="text-sm font-black">{getSPRating(selectedSP) || "N/A"}</span>
+                                        </div>
                                     </div>
-                                    <div className="bg-muted/50 rounded-xl p-3">
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Email</p>
-                                        <p className="text-sm font-bold mt-1">{selectedSP.email || "N/A"}</p>
+                                    <div className="bg-muted/40 rounded-2xl p-3 border border-border/10">
+                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Total Jobs</p>
+                                        <div className="flex items-center gap-1 mt-1">
+                                            <CheckCircle className="h-3.5 w-3.5 text-primary" />
+                                            <span className="text-sm font-black">{getSPJobs(selectedSP)}</span>
+                                        </div>
                                     </div>
-                                    <div className="bg-muted/50 rounded-xl p-3">
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Experience</p>
-                                        <p className="text-sm font-bold mt-1">{selectedSP.experience || "N/A"}</p>
-                                    </div>
-                                    <div className="bg-muted/50 rounded-xl p-3">
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Hub Location</p>
-                                        <p className="text-sm font-bold mt-1">{selectedSP.city || "N/A"} {selectedSP.zone ? `(${selectedSP.zone})` : ""}</p>
-                                    </div>
-                                    <div className="bg-muted/50 rounded-xl p-3">
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Joined</p>
-                                        <p className="text-sm font-bold mt-1">{selectedSP.createdAt ? new Date(selectedSP.createdAt).toLocaleDateString() : "N/A"}</p>
-                                    </div>
-                                    <div className="bg-muted/50 rounded-xl p-3 col-span-2">
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Full Address</p>
-                                        <p className="text-sm font-bold mt-1">{selectedSP.address || "N/A"}</p>
+                                    <div className="bg-muted/40 rounded-2xl p-3 border border-border/10 col-span-2 sm:col-span-1">
+                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Hub</p>
+                                        <p className="text-sm font-black mt-1 truncate">{selectedSP.city || "N/A"}</p>
                                     </div>
                                 </div>
 
-                                {/* Professional Details */}
-                                <div>
-                                    <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">Professional Details</h3>
-                                    <div className="space-y-4">
-                                        <div className="space-y-3">
-                                            <div className="bg-muted/30 rounded-xl p-3">
-                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Primary Category</p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {(selectedSP.documents?.primaryCategory || selectedSP.primaryCategory)?.length > 0 ? (
-                                                        (selectedSP.documents?.primaryCategory || selectedSP.primaryCategory).map(cat => (
-                                                            <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-none">
-                                                                {cat}
-                                                            </Badge>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground italic">No primary categories</span>
-                                                    )}
-                                                </div>
+                                {/* Contact & Info */}
+                                <div className="space-y-3">
+                                    <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Contact Information</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="flex items-center gap-3 p-3 bg-card border border-border/50 rounded-2xl">
+                                            <div className="h-8 w-8 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
+                                                <Phone className="h-4 w-4 text-primary" />
                                             </div>
-                                            <div className="bg-muted/30 rounded-xl p-3">
-                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Sub Category</p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {(selectedSP.documents?.specializations || selectedSP.specializations || selectedSP.subCategory)?.length > 0 ? (
-                                                        (selectedSP.documents?.specializations || selectedSP.specializations || selectedSP.subCategory).map(spec => (
-                                                            <Badge key={spec} variant="outline" className="text-[10px] font-bold border-primary/30 text-primary/70">
-                                                                {spec}
-                                                            </Badge>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground italic">No sub categories</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="bg-muted/30 rounded-xl p-3">
-                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Services</p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {(selectedSP.documents?.services || selectedSP.services)?.length > 0 ? (
-                                                        (selectedSP.documents?.services || selectedSP.services).map(svc => (
-                                                            <Badge key={svc} variant="outline" className="text-[10px] font-bold bg-green-50 text-green-700 border-green-200">
-                                                                {svc}
-                                                            </Badge>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground italic">No services</span>
-                                                    )}
-                                                </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase">Phone</p>
+                                                <p className="text-sm font-bold truncate">{selectedSP.phone}</p>
                                             </div>
                                         </div>
-                                        
-                                        {(selectedSP.documents?.certifications || selectedSP.certifications)?.length > 0 && (
-                                            <div className="bg-muted/30 rounded-xl p-3">
-                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Professional Certificates</p>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    {(selectedSP.documents?.certifications || selectedSP.certifications).map((cert, idx) => (
-                                                        <div key={idx} className="aspect-square rounded-lg bg-muted overflow-hidden border border-border/50 relative group">
-                                                            <img src={cert.data || cert} alt={`Cert ${idx}`} className="w-full h-full object-cover" />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <Button size="sm" variant="secondary" className="h-6 w-6 p-0 rounded-full" onClick={() => window.open(cert.data || cert, '_blank')}>
-                                                                    <Eye className="h-3 w-3" />
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                        <div className="flex items-center gap-3 p-3 bg-card border border-border/50 rounded-2xl">
+                                            <div className="h-8 w-8 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
+                                                <Mail className="h-4 w-4 text-primary" />
                                             </div>
-                                        )}
+                                            <div className="min-w-0">
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase">Email</p>
+                                                <p className="text-sm font-bold truncate">{selectedSP.email || "N/A"}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-3 bg-card border border-border/50 rounded-2xl">
+                                        <div className="flex items-start gap-3">
+                                            <div className="h-8 w-8 rounded-xl bg-primary/5 flex items-center justify-center shrink-0 mt-0.5">
+                                                <MapPin className="h-4 w-4 text-primary" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[9px] font-bold text-muted-foreground uppercase">Full Address</p>
+                                                <p className="text-sm font-bold leading-tight mt-0.5">{selectedSP.address || "N/A"}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Documents */}
-                                <div>
-                                    <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">Documents Verification</h3>
-                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                {/* Professional Skills */}
+                                <div className="space-y-3">
+                                    <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Professional Skills</h3>
+                                    <div className="space-y-2">
+                                        <div className="bg-muted/20 rounded-2xl p-4 border border-border/10">
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Categories & Services</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {(selectedSP.documents?.primaryCategory || selectedSP.primaryCategory)?.map(cat => (
+                                                    <Badge key={cat} className="bg-primary/10 text-primary border-none text-[10px] font-bold px-2.5">
+                                                        {cat}
+                                                    </Badge>
+                                                ))}
+                                                {(selectedSP.documents?.specializations || selectedSP.specializations || selectedSP.subCategory)?.map(spec => (
+                                                    <Badge key={spec} variant="outline" className="border-primary/20 text-primary/70 text-[10px] font-bold px-2.5">
+                                                        {spec}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Verification Documents */}
+                                <div className="space-y-3">
+                                    <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Verification Documents</h3>
+                                    <div className="grid grid-cols-2 gap-3">
                                         {[
                                             { label: "Aadhar Front", key: "aadharFront" },
                                             { label: "Aadhar Back", key: "aadharBack" },
                                             { label: "PAN Card", key: "panCard" },
                                             { label: "Profile Photo", key: "profilePhoto", isProfile: true },
                                         ].map(doc => (
-                                            <div key={doc.key} className="space-y-1">
-                                                <p className="text-[10px] font-bold text-muted-foreground">{doc.label}</p>
-                                                <div className="aspect-video rounded-lg bg-muted overflow-hidden border border-border/50 relative group">
+                                            <div key={doc.key} className="space-y-1.5">
+                                                <p className="text-[10px] font-bold text-muted-foreground ml-1">{doc.label}</p>
+                                                <div className="aspect-[4/3] rounded-2xl bg-muted overflow-hidden border border-border/50 relative group cursor-pointer" onClick={() => window.open(doc.isProfile ? selectedSP.profilePhoto : (selectedSP.documents?.[doc.key] || selectedSP[doc.key]), '_blank')}>
                                                     {doc.isProfile ? (
                                                         selectedSP.profilePhoto ? (
                                                             <img src={selectedSP.profilePhoto} alt={doc.label} className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><Users className="h-6 w-6" /></div>
+                                                            <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><Users className="h-8 w-8" /></div>
                                                         )
                                                     ) : (
                                                         (selectedSP.documents?.[doc.key] || selectedSP[doc.key]) ? (
                                                             <img src={selectedSP.documents?.[doc.key] || selectedSP[doc.key]} alt={doc.label} className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><FileText className="h-6 w-6" /></div>
+                                                            <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><FileText className="h-8 w-8" /></div>
                                                         )
                                                     )}
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <Button size="sm" variant="secondary" className="h-7 text-[10px] font-bold" onClick={() => window.open(doc.isProfile ? selectedSP.profilePhoto : (selectedSP.documents?.[doc.key] || selectedSP[doc.key]), '_blank')}>View Large</Button>
+                                                        <Eye className="h-6 w-6 text-white" />
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="space-y-2">
-                                        {[
-                                            { label: "Bank Name", key: "bankName" },
-                                            { label: "Account No", key: "accountNumber" },
-                                            { label: "IFSC Code", key: "ifscCode" },
-                                            { label: "UPI ID", key: "upiId" },
-                                        ].map(doc => (
-                                            <div key={doc.key} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-                                                <span className="text-[12px] font-semibold flex items-center gap-2">
-                                                    <Shield className="h-3.5 w-3.5 text-muted-foreground" /> {doc.label}
-                                                </span>
-                                                <span className="text-[12px] font-bold">
-                                                    {selectedSP.documents?.[doc.key] || selectedSP[doc.key] || "N/A"}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
                                 </div>
 
-                                {/* Actions */}
-                                <div className="flex gap-2 pt-2">
-                                    {(selectedSP.approvalStatus === "pending" || selectedSP.approvalStatus === "pending_vendor") && (
-                                        <>
-                                            <Button className="flex-1 h-11 bg-green-600 hover:bg-green-700 rounded-xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "approved")}>
-                                                <CheckCircle className="h-4 w-4" /> Approve & Forward
+                                {/* Footer Actions */}
+                                <div className="flex flex-col gap-2 pt-4 border-t border-border/50">
+                                    <div className="flex gap-2">
+                                        {(selectedSP.approvalStatus === "pending" || selectedSP.approvalStatus === "pending_vendor") && (
+                                            <>
+                                                <Button className="flex-1 h-12 bg-green-600 hover:bg-green-700 rounded-2xl font-bold gap-2 text-white" onClick={() => handleAction(selectedSP._id || selectedSP.id, "approved")}>
+                                                    <CheckCircle className="h-4 w-4" /> Approve
+                                                </Button>
+                                                <Button variant="outline" className="flex-1 h-12 border-red-200 text-red-600 hover:bg-red-50 rounded-2xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "rejected")}>
+                                                    <XCircle className="h-4 w-4" /> Reject
+                                                </Button>
+                                            </>
+                                        )}
+                                        {selectedSP.approvalStatus === "approved" && (
+                                            <Button variant="outline" className="flex-1 h-12 border-red-200 text-red-600 hover:bg-red-50 rounded-2xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "blocked")}>
+                                                <Ban className="h-4 w-4" /> Block SP
                                             </Button>
-                                            <Button variant="outline" className="flex-1 h-11 border-red-200 text-red-600 hover:bg-red-50 rounded-xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "rejected")}>
-                                                <XCircle className="h-4 w-4" /> Reject
+                                        )}
+                                        {(selectedSP.approvalStatus === "blocked" || selectedSP.approvalStatus === "rejected") && (
+                                            <Button className="flex-1 h-12 bg-primary hover:bg-primary/90 rounded-2xl font-bold gap-2 text-white" onClick={() => handleAction(selectedSP._id || selectedSP.id, "approved")}>
+                                                <UserCheck className="h-4 w-4" /> Re-approve
                                             </Button>
-                                        </>
-                                    )}
-                                    {selectedSP.approvalStatus === "pending_admin" && (
-                                        <div className="flex-1 bg-blue-50 text-blue-600 p-3 rounded-xl text-center text-xs font-bold border border-blue-100">
-                                            Awaiting Final Approval from Admin
-                                        </div>
-                                    )}
-                                    {selectedSP.approvalStatus === "approved" && (
-                                        <Button variant="outline" className="flex-1 h-11 border-red-200 text-red-600 hover:bg-red-50 rounded-xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "blocked")}>
-                                            <Ban className="h-4 w-4" /> Block SP
-                                        </Button>
-                                    )}
-                                    {(selectedSP.approvalStatus === "blocked" || selectedSP.approvalStatus === "rejected") && (
-                                        <Button className="flex-1 h-11 bg-primary hover:bg-primary/90 rounded-xl font-bold gap-2" onClick={() => handleAction(selectedSP._id || selectedSP.id, "approved")}>
-                                            <UserCheck className="h-4 w-4" /> Re-approve (Vendor)
-                                        </Button>
-                                    )}
-                                    <Button variant="outline" className="flex-1 h-11 rounded-xl font-bold" onClick={() => setSelectedSP(null)}>Close</Button>
+                                        )}
+                                    </div>
+                                    <Button variant="ghost" className="w-full h-11 rounded-2xl font-bold text-muted-foreground" onClick={() => setSelectedSP(null)}>Close</Button>
                                 </div>
                             </div>
                         </motion.div>

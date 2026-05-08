@@ -118,38 +118,55 @@ async function request(path, options = {}) {
   const vendorToken = getVendorToken();
 
   const { isProviderPath, isAdminPath, isVendorPath, isNotificationPath } = classifyApiPath(path);
+  const isContentPath = typeof path === "string" && path.startsWith("/content/");
 
-  let authToken = token;
+  let authToken = "";
   let role = "user";
 
+  // 1. Determine Role and Token
   if (isAdminPath) {
     role = "admin";
-    if (path === "/admin/login") authToken = "";
-    else authToken = adminToken;
+    authToken = path === "/admin/login" ? "" : adminToken;
   }
   else if (isVendorPath) {
     role = "vendor";
-    if (path === "/vendor/login" || path === "/vender/login") authToken = "";
-    else authToken = vendorToken;
+    authToken = (path === "/vendor/login" || path === "/vender/login") ? "" : vendorToken;
   }
   else if (isProviderPath) {
     role = "provider";
-    if (path === "/provider/verify-otp" || path === "/provider/login" || path === "/provider/register") authToken = "";
-    else authToken = providerToken;
+    authToken = (path === "/provider/verify-otp" || path === "/provider/login" || path === "/provider/register") ? "" : providerToken;
   }
-  else if (isNotificationPath) {
-    authToken = providerToken || vendorToken || adminToken || token;
+  else if (isNotificationPath || isContentPath) {
+    // These paths are shared across roles. We determine the role based on which token is available.
+    // Priority: Customer > Provider > Vendor > Admin
+    if (token) {
+      role = "user";
+      authToken = token;
+    } else if (providerToken) {
+      role = "provider";
+      authToken = providerToken;
+    } else if (vendorToken) {
+      role = "vendor";
+      authToken = vendorToken;
+    } else if (adminToken) {
+      role = "admin";
+      authToken = adminToken;
+    } else {
+      role = "user";
+      authToken = "";
+    }
+  } else {
+    // Default to customer
+    role = "user";
+    authToken = token;
   }
 
-  // Debug: Log token status for authenticated endpoints
-  if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/content/")) {
-    console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path}`);
-    console.warn(`[API] Token status:`, { 
-      userToken: token ? '✓' : '✗', 
-      providerToken: providerToken ? '✓' : '✗',
-      adminToken: adminToken ? '✓' : '✗',
-      vendorToken: vendorToken ? '✓' : '✗'
-    });
+  // Debug: Log token status for authenticated endpoints in dev
+  if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/login") && !path.includes("/register")) {
+    const isPublicContent = isContentPath && !options.method || options.method === 'GET';
+    if (!isPublicContent) {
+      console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path} (Role: ${role})`);
+    }
   }
 
   const isFormData = options.body instanceof FormData;
@@ -487,6 +504,7 @@ export const api = {
     verifyOtp: (phone, otp) => request("/vendor/verify-otp", { method: "POST", body: { phone, otp } }),
     logout: () => request("/vendor/logout", { method: "POST" }),
     me: () => request("/vendor/me"),
+    updateMe: (body) => request("/vendor/me", { method: "PATCH", body }),
     providers: (params = {}) => {
       const q = new URLSearchParams(params).toString();
       return request(`/vendor/providers${q ? `?${q}` : ""}`);

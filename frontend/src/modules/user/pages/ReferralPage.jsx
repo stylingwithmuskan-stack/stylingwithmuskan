@@ -21,6 +21,10 @@ const ReferralPage = () => {
     const getAmt = settings.referrerBonus;
 
     useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+
+    useEffect(() => {
         let cancelled = false;
         api.referralInfo().then(({ settings, stats }) => {
             if (cancelled) return;
@@ -85,16 +89,14 @@ const ReferralPage = () => {
 
                     <Button
                         onClick={() => {
-                            const shareRow = `Hey! Use my referral code ${referralCode} to get ₹${giveAmt} off on your first booking at stylingwithmuskan. Download now!`;
-                            shareContent({
-                                title: "Refer & Earn - stylingwithmuskan",
-                                text: shareRow,
-                                url: window.location.origin
-                            });
+                            const playStoreUrl = "https://play.google.com/store/apps/details?id=com.glowrep.app";
+                            const message = `Hey! Use my referral code *${referralCode}* to get ₹${giveAmt} off on your first booking at *Styling With Muskan*. 💇‍♀️💅\n\nDownload the app now: ${playStoreUrl}`;
+                            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+                            window.open(whatsappUrl, '_blank');
                         }}
-                        className="w-full h-14 rounded-2xl mt-6 text-base font-bold shadow-lg shadow-primary/20 gap-2"
+                        className="w-full h-14 rounded-2xl mt-6 text-base font-bold shadow-lg shadow-primary/20 gap-2 bg-[#25D366] hover:bg-[#20ba5a] text-white"
                     >
-                        <Share2 className="w-5 h-5" /> SHARE WITH FRIENDS
+                        <Share2 className="w-5 h-5" /> SHARE ON WHATSAPP
                     </Button>
                 </motion.div>
 

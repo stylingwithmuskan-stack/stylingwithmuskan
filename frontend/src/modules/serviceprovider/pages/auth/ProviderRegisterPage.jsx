@@ -794,7 +794,15 @@ export default function ProviderRegisterPage() {
                         <ChevronLeft className="h-6 w-6 text-gray-600" />
                     </button>
                     <span className="font-black text-gray-900">Partner Registration</span>
-                    <button onClick={() => navigate("/provider/login")} className="text-sm font-bold text-violet-400">Cancel</button>
+                    <button 
+                        onClick={() => {
+                            localStorage.removeItem(STORAGE_KEY);
+                            navigate("/provider/login");
+                        }} 
+                        className="text-sm font-bold text-violet-400"
+                    >
+                        Cancel
+                    </button>
                 </div>
                 <div className="max-w-4xl mx-auto px-4 pb-4">
                     <div className="flex justify-between items-center mb-2">
@@ -1346,7 +1354,7 @@ export default function ProviderRegisterPage() {
                                             {/* Front Side */}
                                             <div className="space-y-2">
                                                 <span className="text-[10px] font-black uppercase text-gray-400 ml-1">Front Side</span>
-                                                <div className={formData.aadharFront ? "grid grid-cols-1" : "grid grid-cols-2 gap-3"}>
+                                                <div className={formData.aadharFront ? "grid grid-cols-1" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
                                                     {formData.aadharFront ? (
                                                         <div className="border-2 border-violet-100 rounded-2xl p-2 bg-violet-50/30 overflow-hidden relative group">
                                                             <div className="absolute top-3 right-3 z-20 flex gap-2">
@@ -1403,7 +1411,7 @@ export default function ProviderRegisterPage() {
                                             {/* Back Side */}
                                             <div className="space-y-2">
                                                 <span className="text-[10px] font-black uppercase text-gray-400 ml-1">Back Side</span>
-                                                <div className={formData.aadharBack ? "grid grid-cols-1" : "grid grid-cols-2 gap-3"}>
+                                                <div className={formData.aadharBack ? "grid grid-cols-1" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
                                                     {formData.aadharBack ? (
                                                         <div className="border-2 border-violet-100 rounded-2xl p-2 bg-violet-50/30 overflow-hidden relative group">
                                                             <div className="absolute top-3 right-3 z-20 flex gap-2">
@@ -1461,7 +1469,7 @@ export default function ProviderRegisterPage() {
 
                                     <div className="space-y-3">
                                         <Label className="text-xs font-black uppercase text-gray-400">PAN Card</Label>
-                                        <div className={formData.panCard ? "grid grid-cols-1" : "grid grid-cols-2 gap-4"}>
+                                        <div className={formData.panCard ? "grid grid-cols-1" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
                                             {formData.panCard ? (
                                                 <div className="border-2 border-violet-100 rounded-2xl p-2 bg-violet-50/30 overflow-hidden relative group">
                                                     <div className="absolute top-3 right-3 z-20 flex gap-2">
@@ -1545,6 +1553,21 @@ export default function ProviderRegisterPage() {
                                             <ChevronDown className="h-4 w-4 text-gray-400 group-open:rotate-180 transition-transform" />
                                         </summary>
                                         <div className="absolute z-10 top-14 left-0 w-full bg-white border border-gray-100 shadow-2xl rounded-xl p-2 max-h-60 overflow-y-auto">
+                                            {serviceTypeOptions.length > 0 && (
+                                                <div 
+                                                    onClick={() => {
+                                                        const allLabels = serviceTypeOptions.map(c => c.label);
+                                                        const isAllSelected = formData.primaryCategory.length === allLabels.length;
+                                                        setFormData({ ...formData, primaryCategory: isAllSelected ? [] : allLabels });
+                                                    }}
+                                                    className="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-gray-100 mb-2 hover:border-purple-200 hover:bg-purple-50 transition-all cursor-pointer"
+                                                >
+                                                    <div className={`h-5 w-5 rounded flex items-center justify-center shrink-0 ${formData.primaryCategory.length === serviceTypeOptions.length ? 'bg-purple-600 text-white' : 'bg-gray-100'}`}>
+                                                        {formData.primaryCategory.length === serviceTypeOptions.length && <Check className="h-3 w-3" />}
+                                                    </div>
+                                                    <span className="text-xs font-black uppercase text-purple-600">Select All Categories</span>
+                                                </div>
+                                            )}
                                             {serviceTypeOptions.length > 0 ? serviceTypeOptions.map(cat => (
                                                 <div
                                                     key={cat.id || cat.label}
@@ -1582,6 +1605,21 @@ export default function ProviderRegisterPage() {
                                             <ChevronDown className="h-4 w-4 text-gray-400 group-open:rotate-180 transition-transform" />
                                         </summary>
                                         <div className="absolute z-10 top-14 left-0 w-full bg-white border border-gray-100 shadow-2xl rounded-xl p-2 max-h-60 overflow-y-auto">
+                                            {filteredCategories.length > 0 && (
+                                                <div 
+                                                    onClick={() => {
+                                                        const allNames = filteredCategories.map(c => c.name);
+                                                        const isAllSelected = formData.specializations.length === allNames.length;
+                                                        setFormData({ ...formData, specializations: isAllSelected ? [] : allNames });
+                                                    }}
+                                                    className="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-gray-100 mb-2 hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer"
+                                                >
+                                                    <div className={`h-5 w-5 rounded flex items-center justify-center shrink-0 ${formData.specializations.length === filteredCategories.length ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
+                                                        {formData.specializations.length === filteredCategories.length && <Check className="h-3 w-3" />}
+                                                    </div>
+                                                    <span className="text-xs font-black uppercase text-blue-600">Select All Sub Categories</span>
+                                                </div>
+                                            )}
                                             {filteredCategories.length > 0 ? filteredCategories.map(spec => (
                                                 <div
                                                     key={spec.id || spec.name}
@@ -1596,7 +1634,7 @@ export default function ProviderRegisterPage() {
                                                     <div className={`h-5 w-5 rounded flex items-center justify-center shrink-0 ${formData.specializations.includes(spec.name) ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
                                                         {formData.specializations.includes(spec.name) && <Check className="h-3 w-3" />}
                                                     </div>
-                                                    <span className="text-[10px] font-black truncate uppercase">{spec.name}</span>
+                                                    <span className="text-xs font-black truncate uppercase">{spec.name}</span>
                                                 </div>
                                             )) : (
                                                 <p className="text-xs font-semibold text-gray-400 p-2 text-center">
@@ -1623,6 +1661,21 @@ export default function ProviderRegisterPage() {
                                             <ChevronDown className="h-4 w-4 text-gray-400 group-open:rotate-180 transition-transform" />
                                         </summary>
                                         <div className="absolute z-10 top-14 left-0 w-full bg-white border border-gray-100 shadow-2xl rounded-xl p-2 max-h-60 overflow-y-auto">
+                                            {serviceOptions.length > 0 && (
+                                                <div 
+                                                    onClick={() => {
+                                                        const allNames = serviceOptions.map(s => s.name);
+                                                        const isAllSelected = formData.services.length === allNames.length;
+                                                        setFormData({ ...formData, services: isAllSelected ? [] : allNames });
+                                                    }}
+                                                    className="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-gray-100 mb-2 hover:border-emerald-200 hover:bg-emerald-50 transition-all cursor-pointer"
+                                                >
+                                                    <div className={`h-5 w-5 rounded flex items-center justify-center shrink-0 ${formData.services.length === serviceOptions.length ? 'bg-emerald-600 text-white' : 'bg-gray-100'}`}>
+                                                        {formData.services.length === serviceOptions.length && <Check className="h-3 w-3" />}
+                                                    </div>
+                                                    <span className="text-xs font-black uppercase text-emerald-600">Select All Services</span>
+                                                </div>
+                                            )}
                                             {serviceOptions.length > 0 ? serviceOptions.map(svc => (
                                                 <div
                                                     key={svc.id || svc.name}
@@ -1637,7 +1690,7 @@ export default function ProviderRegisterPage() {
                                                     <div className={`h-5 w-5 rounded flex items-center justify-center shrink-0 ${formData.services.includes(svc.name) ? 'bg-emerald-600 text-white' : 'bg-gray-100'}`}>
                                                         {formData.services.includes(svc.name) && <Check className="h-3 w-3" />}
                                                     </div>
-                                                    <span className="text-[10px] font-black truncate uppercase">{svc.name}</span>
+                                                    <span className="text-xs font-black truncate uppercase">{svc.name}</span>
                                                 </div>
                                             )) : (
                                                 <p className="text-xs font-semibold text-gray-400 p-2 text-center">
@@ -1654,7 +1707,7 @@ export default function ProviderRegisterPage() {
 
                                 <div className="space-y-4">
                                     <Label className="text-xs font-black uppercase text-gray-400">Upload Certifications</Label>
-                                    <div className="grid grid-cols-3 gap-3">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                         {formData.certifications.map((c, idx) => (
                                             <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border bg-white group/cert">
                                                 {c.type?.includes("image") ? (
@@ -1948,15 +2001,20 @@ export default function ProviderRegisterPage() {
                             <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
                                 <div className="absolute inset-0 bg-black/70" onClick={stopCamera} />
                                 <div className="relative bg-white rounded-2xl p-4 w-full max-w-sm z-10">
-                                    <div className="rounded-xl overflow-hidden bg-black">
+                                    <div className="rounded-xl overflow-hidden bg-black relative">
+                                        <style>{`
+                                            video::-webkit-media-controls { display: none !important; }
+                                            video::-webkit-media-controls-enclosure { display: none !important; }
+                                            video::-webkit-media-controls-panel { display: none !important; }
+                                        `}</style>
                                         <video
                                             ref={videoRef}
-                                            className="w-full h-80 object-cover"
+                                            className="w-full h-80 object-cover pointer-events-none"
                                             autoPlay
                                             muted
                                             playsInline
-                                            controls={false}
                                             disablePictureInPicture
+                                            disableRemotePlayback
                                         />
                                         <canvas ref={canvasRef} className="hidden" />
                                     </div>

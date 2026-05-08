@@ -1,17 +1,19 @@
 import React, { useState } from "react";
 import { useNotifications } from "@/modules/user/contexts/NotificationContext";
-import { Bell, Trash2, CheckCircle2, Clock, X, AlertTriangle, Info, ArrowLeft, Calendar, Square, CheckSquare, MoreVertical } from "lucide-react";
+import { Bell, Trash2, CheckCircle2, Clock, X, AlertTriangle, Info, ArrowLeft, Calendar, Square, CheckSquare, MoreVertical, RefreshCw } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { ScrollArea } from "@/modules/user/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/modules/user/lib/utils";
 
 const NotificationsPage = () => {
     const {
         notifications,
         unreadCount,
+        loading,
         activeRole,
         markAllAsRead,
         markAsRead,
@@ -145,58 +147,72 @@ const NotificationsPage = () => {
     const sortedNotifications = [...notifications].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return (
-        <div className="min-h-screen bg-white">
-            <main className="max-w-3xl mx-auto p-4 md:p-6 pb-24 pt-10">
-                {/* Inline Header */}
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-8 px-1 sm:px-2">
-                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                        <button 
-                            onClick={() => navigate(-1)} 
-                            className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
+        <div className="min-h-screen bg-white md:bg-slate-50/30">
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-100 shadow-sm safe-top">
+                <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="w-10 h-10 shrink-0 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-90 transition-all border border-slate-200/50"
                         >
-                            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <ArrowLeft className="w-5 h-5" />
                         </button>
-                        <div className="min-w-0">
-                            <h1 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tight truncate">Notifications</h1>
-                            <p className="text-[9px] sm:text-[10px] font-black text-emerald-600 uppercase tracking-widest truncate">
-                                {unreadCount} New alerts
-                            </p>
+                        <div className="min-w-0 flex-1">
+                            <h1 className="text-base sm:text-xl font-black text-slate-900 uppercase tracking-tight truncate leading-tight">Inbox</h1>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="h-1.2 w-1.2 sm:h-1.5 sm:w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                                <p className="text-[9px] sm:text-[10px] font-bold text-emerald-600 uppercase tracking-widest truncate">{unreadCount} New alerts</p>
+                            </div>
                         </div>
                     </div>
-                    
                     <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                        {notifications.length > 0 && !isSelectMode && (
-                            <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => setIsSelectMode(true)}
-                                className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600"
-                            >
-                                Select
-                            </Button>
-                        )}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={fetchNotifications}
+                            disabled={loading}
+                            className={cn(
+                                "w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-all border border-slate-200/50",
+                                loading && "bg-slate-100"
+                            )}
+                            title="Refresh Inbox"
+                        >
+                            <RefreshCw className={cn("w-4 h-4 sm:w-5 sm:h-5", loading && "animate-spin text-primary")} />
+                        </Button>
                         {unreadCount > 0 && !isSelectMode && (
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={markAllAsRead}
-                                className="text-[10px] font-black uppercase tracking-widest border-emerald-100 hover:bg-emerald-50 text-emerald-700 bg-white shadow-sm h-8"
+                                className="text-[9px] sm:text-[10px] h-9 font-black uppercase tracking-widest border-emerald-100 hover:bg-emerald-50 text-emerald-700 bg-white shadow-sm px-2 sm:px-4 rounded-xl flex items-center"
                             >
-                                Read All
+                                <span className="hidden xs:inline">Read All</span>
+                                <CheckCircle2 className="w-4 h-4 xs:hidden" />
                             </Button>
                         )}
-                        {isSelectMode && (
-                            <Button 
-                                variant="ghost" 
+                        {notifications.length > 0 && (
+                            <Button
+                                variant={isSelectMode ? "destructive" : "ghost"}
                                 size="sm"
-                                onClick={() => { setIsSelectMode(false); setSelectedIds([]); }}
-                                className="text-[10px] font-black uppercase tracking-widest text-emerald-600"
+                                onClick={() => {
+                                    if (isSelectMode) {
+                                        setIsSelectMode(false);
+                                        setSelectedIds([]);
+                                    } else {
+                                        setIsSelectMode(true);
+                                    }
+                                }}
+                                className={`text-[9px] sm:text-[10px] h-9 font-black uppercase tracking-widest px-2 sm:px-3 rounded-xl transition-all ${!isSelectMode ? 'text-slate-500 hover:bg-slate-100' : 'bg-red-50 text-red-600 hover:bg-red-100 border-none shadow-none'}`}
                             >
-                                Cancel
+                                {isSelectMode ? 'Done' : 'Edit'}
                             </Button>
                         )}
                     </div>
                 </div>
+            </div>
+
+            <main className="max-w-3xl mx-auto px-4 md:px-6 pb-24 pt-4">
 
             {/* Selection Toolbar */}
             <AnimatePresence>
@@ -205,42 +221,43 @@ const NotificationsPage = () => {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="bg-accent/50 border-b border-border px-4 py-3 flex items-center justify-between sticky top-[73px] z-20 backdrop-blur-sm"
+                        className="bg-primary/[0.03] border-b border-primary/10 px-4 py-2.5 flex items-center justify-between sticky top-[65px] sm:top-[73px] z-20 backdrop-blur-md overflow-x-auto hide-scrollbar gap-4"
                     >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                             <button 
                                 onClick={toggleSelectAll}
-                                className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
+                                className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-black uppercase tracking-tight text-slate-700"
                             >
                                 {selectedIds.length === notifications.length ? (
                                     <CheckSquare className="w-4 h-4 text-primary" />
                                 ) : (
                                     <Square className="w-4 h-4" />
                                 )}
-                                {selectedIds.length === notifications.length ? "Deselect All" : "Select All"}
+                                <span className="whitespace-nowrap">{selectedIds.length === notifications.length ? "None" : "All"}</span>
                             </button>
-                            <span className="text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded-full">
-                                {selectedIds.length} Selected
+                            <div className="h-4 w-px bg-slate-200" />
+                            <span className="text-[9px] sm:text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded-full whitespace-nowrap">
+                                {selectedIds.length} <span className="hidden xs:inline">Selected</span>
                             </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                             {selectedIds.length > 0 && (
                                 <Button 
                                     variant="destructive" 
                                     size="sm"
                                     onClick={handleDeleteSelected}
-                                    className="h-8 text-[10px] font-black uppercase tracking-widest gap-2"
+                                    className="h-8 px-2 sm:px-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest gap-1.5 sm:gap-2 rounded-lg"
                                 >
-                                    <Trash2 className="w-3.5 h-3.5" /> Delete Selected
+                                    <Trash2 className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Delete</span>
                                 </Button>
                             )}
                             <Button 
                                 variant="ghost" 
                                 size="sm"
                                 onClick={handleDeleteAll}
-                                className="h-8 text-[10px] font-black uppercase tracking-widest text-destructive hover:bg-destructive/10"
+                                className="h-8 px-2 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 rounded-lg"
                             >
-                                Clear All
+                                <span className="whitespace-nowrap">Clear All</span>
                             </Button>
                         </div>
                     </motion.div>
@@ -317,7 +334,7 @@ const NotificationsPage = () => {
                                         <div className="absolute left-0 top-6 bottom-6 w-1 bg-primary rounded-r-full" />
                                     )}
                                     
-                                    <div className="flex gap-5">
+                                    <div className="flex gap-3 sm:gap-5">
                                         {isSelectMode ? (
                                             <div className="mt-1 flex-shrink-0">
                                                 {selectedIds.includes(n._id) ? (
@@ -327,14 +344,14 @@ const NotificationsPage = () => {
                                                 )}
                                             </div>
                                         ) : (
-                                            <div className="mt-1 w-12 h-12 rounded-2xl bg-background border border-border/50 flex items-center justify-center flex-shrink-0 shadow-sm transition-transform group-hover:scale-110">
+                                            <div className="mt-1 w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-background border border-border/50 flex items-center justify-center flex-shrink-0 shadow-sm transition-transform group-hover:scale-110">
                                                 {getIcon(n.type)}
                                             </div>
                                         )}
                                         
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-start justify-between gap-4 mb-1">
-                                                <h3 className="text-base font-black leading-tight text-foreground truncate group-hover:text-primary transition-colors">
+                                            <div className="flex items-start justify-between gap-2 sm:gap-4 mb-1">
+                                                <h3 className="text-sm sm:text-base font-black leading-tight text-slate-900 truncate group-hover:text-primary transition-colors">
                                                     {n.title}
                                                 </h3>
                                                 {!isSelectMode && (
@@ -342,23 +359,23 @@ const NotificationsPage = () => {
                                                         variant="ghost" 
                                                         size="icon" 
                                                         onClick={(e) => { e.stopPropagation(); deleteNotification(n._id); }}
-                                                        className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                        className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 )}
                                             </div>
                                             
-                                            <p className="text-sm text-muted-foreground leading-relaxed mb-4 line-clamp-2">
+                                            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-3 sm:mb-4 line-clamp-2">
                                                 {n.message}
                                             </p>
                                             
-                                            <div className="flex items-center gap-4 text-[11px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
-                                                <div className="flex items-center gap-1.5">
+                                            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
+                                                <div className="flex items-center gap-1">
                                                     <Clock className="w-3 h-3" />
                                                     {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                                                 </div>
-                                                <div className="flex items-center gap-1.5">
+                                                <div className="flex items-center gap-1">
                                                     <Calendar className="w-3 h-3" />
                                                     {format(new Date(n.createdAt), 'dd MMM, hh:mm a')}
                                                 </div>
@@ -371,8 +388,8 @@ const NotificationsPage = () => {
                     </div>
                 )}
             </div>
-        </main>
-    </div>
+            </main>
+        </div>
     );
 };
 

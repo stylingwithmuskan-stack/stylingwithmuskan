@@ -494,38 +494,59 @@ export default function SubscriptionPortal({
             <CardDescription>Add local support, finance, or operations teammates for your city panel.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-4 gap-3">
-              <Input placeholder="Name" value={subAccountForm.name} onChange={(e) => setSubAccountForm((prev) => ({ ...prev, name: e.target.value }))} />
-              <Input placeholder="Email" value={subAccountForm.email} onChange={(e) => setSubAccountForm((prev) => ({ ...prev, email: e.target.value }))} />
-              <Input placeholder="Phone" value={subAccountForm.phone} onChange={(e) => setSubAccountForm((prev) => ({ ...prev, phone: e.target.value }))} />
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                value={subAccountForm.role}
-                onChange={(e) => setSubAccountForm((prev) => ({ ...prev, role: e.target.value }))}
-              >
-                <option value="operations">Operations</option>
-                <option value="support">Support</option>
-                <option value="finance">Finance</option>
-              </select>
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Input placeholder="Name" value={subAccountForm.name} onChange={(e) => setSubAccountForm((prev) => ({ ...prev, name: e.target.value }))} className="rounded-xl h-11" />
+                <Input placeholder="Email" value={subAccountForm.email} onChange={(e) => setSubAccountForm((prev) => ({ ...prev, email: e.target.value }))} className="rounded-xl h-11" />
+                <Input placeholder="Phone" value={subAccountForm.phone} onChange={(e) => setSubAccountForm((prev) => ({ ...prev, phone: e.target.value }))} className="rounded-xl h-11" />
+                <select
+                  className="h-11 rounded-xl border border-input bg-background px-3 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
+                  value={subAccountForm.role}
+                  onChange={(e) => setSubAccountForm((prev) => ({ ...prev, role: e.target.value }))}
+                >
+                  <option value="operations">Operations</option>
+                  <option value="support">Support</option>
+                  <option value="finance">Finance</option>
+                </select>
+              </div>
+              <Button onClick={handleCreateSubAccount} className="w-full sm:w-auto rounded-xl font-bold h-11 bg-primary text-white">
+                <Plus className="h-4 w-4 mr-2" /> Add Sub-Account
+              </Button>
             </div>
-            <Button onClick={handleCreateSubAccount} className="rounded-xl font-bold">
-              <Plus className="h-4 w-4 mr-2" /> Add Sub-Account
-            </Button>
-            <div className="space-y-3">
+            
+            <div className="space-y-3 mt-6">
+              <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Team Members</h4>
               {subAccounts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No sub-accounts added yet.</p>
+                <div className="text-center py-10 bg-muted/20 rounded-2xl border border-dashed">
+                  <p className="text-sm text-muted-foreground font-medium italic">No sub-accounts added yet.</p>
+                </div>
               ) : (
-                subAccounts.map((sub) => (
-                  <div key={sub._id} className="rounded-2xl border border-border/50 p-4 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-bold">{sub.name}</p>
-                      <p className="text-xs text-muted-foreground">{sub.role} • {sub.email || sub.phone || "No contact added"}</p>
+                <div className="grid gap-3">
+                  {subAccounts.map((sub) => (
+                    <div key={sub._id} className="rounded-2xl border border-border/50 bg-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-primary/30 transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                          <Users className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm truncate">{sub.name}</p>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                            <Badge variant="outline" className="text-[9px] font-black uppercase h-4 px-1.5 bg-primary/5 text-primary border-primary/20">{sub.role}</Badge>
+                            <p className="text-[10px] text-muted-foreground font-medium truncate">{sub.email || sub.phone || "No contact"}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleDeleteSubAccount(sub._id)} 
+                        className="rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50 h-10 sm:h-9"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Remove
+                      </Button>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleDeleteSubAccount(sub._id)} className="rounded-lg">
-                      <Trash2 className="h-4 w-4 mr-2" /> Remove
-                    </Button>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           </CardContent>

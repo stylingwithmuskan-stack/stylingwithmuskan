@@ -42,10 +42,33 @@ export default function SubscriptionManagement() {
     load();
   }, []);
 
+  // Lock scroll when modal is open
+  useEffect(() => {
+    if (showCreateModal || showEditModal) {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+      document.documentElement.style.overflow = "auto";
+    }
+    return () => {
+      document.body.style.overflow = "auto";
+      document.documentElement.style.overflow = "auto";
+    };
+  }, [showCreateModal, showEditModal]);
+
   const handleCreatePlan = async (planData) => {
+    // Check for duplicate name
+    const nameExists = plans.some(p => p.name.toLowerCase() === planData.name.toLowerCase());
+    if (nameExists) {
+      toast.error("plan with same name already exists");
+      return;
+    }
+
     try {
       await createSubscriptionPlan(planData);
       toast.success("Plan created successfully!");
+      setShowCreateModal(false); // Close modal on success
       await load();
     } catch (error) {
       toast.error(error?.message || "Failed to create plan");
@@ -70,6 +93,16 @@ export default function SubscriptionManagement() {
   };
 
   const handleUpdatePlan = async (planData) => {
+    // Check for duplicate name (excluding itself)
+    const nameExists = plans.some(p => 
+      p.name.toLowerCase() === planData.name.toLowerCase() && 
+      p.planId !== selectedPlan.planId
+    );
+    if (nameExists) {
+      toast.error("plan with same name already exists");
+      return;
+    }
+
     try {
       await updateSubscriptionPlan(selectedPlan.planId, planData);
       toast.success("Plan updated successfully!");

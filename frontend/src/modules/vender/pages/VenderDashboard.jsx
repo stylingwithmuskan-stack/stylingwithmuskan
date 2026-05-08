@@ -137,16 +137,16 @@ export default function VenderDashboard() {
         <div className="space-y-8 pb-20">
             {/* Header */}
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-emerald-50">
-                <div className="flex flex-row flex-wrap items-center gap-2 md:gap-4 w-full md:w-auto">
-                    <h1 className="text-xl md:text-3xl font-black tracking-tight">Dashboard</h1>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md py-0.5 px-2 text-[10px] md:text-xs h-6 flex items-center">
-                            <MapPin className="h-3 w-3 mr-1 shrink-0" /> <span className="truncate max-w-[100px]">{vendor?.city || "Your City"}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 w-full md:w-auto">
+                    <h1 className="text-xl md:text-3xl font-black tracking-tight shrink-0">Dashboard</h1>
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md py-0.5 px-2 text-[10px] md:text-xs h-6 flex items-center shrink-0">
+                            <MapPin className="h-3 w-3 mr-1 shrink-0" /> {vendor?.city || "Your City"}
                         </Badge>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 min-w-0">
                             {(vendor?.zones || []).map(z => (
-                                <Badge key={z} variant="outline" className="text-emerald-600 border-emerald-200 bg-white rounded-md truncate max-w-[100px] text-[10px] md:text-xs h-6 flex items-center">
-                                    {z}
+                                <Badge key={z} variant="outline" className="text-emerald-600 border-emerald-200 bg-white rounded-md text-[10px] md:text-xs h-6 flex items-center shrink-0 max-w-[120px]">
+                                    <span className="truncate">{z}</span>
                                 </Badge>
                             ))}
                         </div>
@@ -183,17 +183,18 @@ export default function VenderDashboard() {
                         <motion.div key={stat.title} variants={item}>
                             <Link to={stat.link}>
                                 <Card className={`border-none shadow-sm hover:shadow-md transition-all duration-300 bg-gradient-to-br ${colors.gradient} cursor-pointer group`}>
-                                    <CardContent className="p-3 md:p-6">
-                                        <div className="flex flex-col gap-2 md:gap-3">
+                                    <CardContent className="p-3 md:p-6">                                        <div className="flex flex-col gap-1.5 md:gap-3">
                                             <div className={`h-8 w-8 md:h-10 md:w-10 shrink-0 rounded-lg md:rounded-xl ${colors.bg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
                                                 <Icon className={`h-4 w-4 md:h-5 md:w-5 ${colors.text}`} />
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <div className="text-lg md:text-2xl font-black tracking-tight">{stat.value}</div>
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 mt-0.5 md:mt-1 w-full">
-                                                    <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-widest break-words">{stat.title}</p>
+                                                <div className="text-base md:text-2xl font-black tracking-tight truncate">
+                                                    {stat.value}
+                                                </div>
+                                                <div className="flex flex-col gap-0.5 mt-0.5 md:mt-1 w-full">
+                                                    <p className="text-[8px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-widest truncate">{stat.title}</p>
                                                     {stat.badge && (
-                                                        <Badge variant="outline" className="text-[8px] md:text-[9px] font-black px-1 py-0 h-auto border-primary/30 text-primary self-start sm:self-auto max-w-full text-center">
+                                                        <Badge variant="outline" className="text-[7px] md:text-[9px] font-black px-1 py-0 h-auto border-primary/30 text-primary self-start max-w-full text-center truncate">
                                                             {stat.badge}
                                                         </Badge>
                                                     )}
