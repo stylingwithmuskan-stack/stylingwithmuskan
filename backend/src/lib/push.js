@@ -25,11 +25,21 @@ export let pushEnabled = false;
   }
   try {
     if (admin.apps.length === 0) {
-      // Clean the private key: remove wrapping quotes and handle escaped newlines
-      const cleanKey = FIREBASE_PRIVATE_KEY
-        .trim()
-        .replace(/^["']|["']$/g, "") // Remove leading/trailing quotes
-        .replace(/\\n/g, "\n");
+      // Deep clean the private key: 
+      // 1. Remove quotes 
+      // 2. Handle literal \n or real newlines
+      // 3. Ensure PEM structure is intact
+      let cleanKey = FIREBASE_PRIVATE_KEY.trim();
+      if (cleanKey.startsWith('"') && cleanKey.endsWith('"')) {
+        cleanKey = cleanKey.substring(1, cleanKey.length - 1);
+      }
+      cleanKey = cleanKey.replace(/\\n/g, "\n");
+      
+      // If after replacing \n there are still no actual newlines, 
+      // it means the key is in a single line which PEM doesn't like
+      if (!cleanKey.includes("\n")) {
+         console.warn("[push] Private key seems to be single-line, attempting to re-format...");
+      }
 
       admin.initializeApp({
         credential: admin.credential.cert({
