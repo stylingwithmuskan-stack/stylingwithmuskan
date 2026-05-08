@@ -72,7 +72,7 @@ export default function VenderStatusPage() {
             badge: "Rejected",
             badgeClass: "bg-red-100 text-red-700",
             buttonText: "Contact Support",
-            onButtonClick: () => { }
+            onButtonClick: () => navigate("/vender/contact-us")
         },
         blocked: {
             icon: AlertTriangle,
@@ -82,7 +82,7 @@ export default function VenderStatusPage() {
             badge: "Blocked",
             badgeClass: "bg-amber-100 text-amber-900",
             buttonText: "Contact Support",
-            onButtonClick: () => { }
+            onButtonClick: () => navigate("/vender/contact-us")
         }
     };
 

@@ -37,6 +37,18 @@ const VenderLayout = () => {
         return () => document.documentElement.classList.remove("theme-vendor");
     }, []);
 
+    // Prevent body scroll when mobile sidebar is open
+    useEffect(() => {
+        if (sidebarOpen) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "unset";
+        }
+        return () => {
+            document.body.style.overflow = "unset";
+        };
+    }, [sidebarOpen]);
+
     if (!hydrated) {
         return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading…</div>;
     }

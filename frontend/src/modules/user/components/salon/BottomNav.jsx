@@ -23,6 +23,7 @@ const BottomNav = () => {
     "/admin", 
     "/provider", 
     "/vender", 
+    "/vendor", 
     "/select-gender", 
     "/login", 
     "/register", 
