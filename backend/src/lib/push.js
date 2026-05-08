@@ -51,20 +51,21 @@ export let pushEnabled = false;
       if (match) {
         const body = match[1].replace(/\s+/g, "").replace(/\\n/g, "");
         cleanKey = `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
-      } else {
-        console.warn("[push] Could not find standard PEM markers in key");
-      }
 
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: FIREBASE_PROJECT_ID,
-          clientEmail: FIREBASE_CLIENT_EMAIL,
-          privateKey: cleanKey,
-        }),
-      });
-      console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${FIREBASE_PROJECT_ID}`);
+        admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: FIREBASE_PROJECT_ID,
+            clientEmail: FIREBASE_CLIENT_EMAIL,
+            privateKey: cleanKey,
+          }),
+        });
+        console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${FIREBASE_PROJECT_ID}`);
+        pushEnabled = true;
+      } else {
+        console.error("[push] ❌ CRITICAL: Could not find standard PEM markers in FIREBASE_PRIVATE_KEY. Push disabled.");
+        pushEnabled = false;
+      }
     }
-    pushEnabled = true;
   } catch (err) {
     console.error("[push] ❌ Firebase Admin initialization error:", err.message);
     pushEnabled = false;
