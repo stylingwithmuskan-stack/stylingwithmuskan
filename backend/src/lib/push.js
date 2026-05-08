@@ -54,7 +54,15 @@ export let pushEnabled = false;
       if (match) {
         const body = match[1].replace(/\s+/g, "").replace(/\\n/g, "");
         cleanKey = `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
-        console.log(`[push] Key Cleaned! Length: ${cleanKey.length}, Starts: ${cleanKey.substring(0, 30)}...`);
+        
+        console.log(`[push] Key Fixed! Body length: ${body.length}`);
+        console.log(`[push] Body Start: ${body.substring(0, 20)}... End: ...${body.substring(body.length - 20)}`);
+
+        if (body.length < 500) {
+           console.error("[push] ❌ ERROR: Key body is too short. Something is wrong with the Base64 decoding.");
+           pushEnabled = false;
+           return;
+        }
 
         admin.initializeApp({
           credential: admin.credential.cert({
