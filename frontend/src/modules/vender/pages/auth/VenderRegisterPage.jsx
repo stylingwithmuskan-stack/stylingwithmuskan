@@ -377,7 +377,7 @@ export default function VenderRegisterPage() {
                             Already registered? <Link to="/vender/login" className="text-emerald-600 font-bold hover:underline">Login here</Link>
                         </p>
                         <div className="flex items-center justify-center gap-4 text-[10px] text-gray-400 font-bold uppercase tracking-wider pt-2">
-                            <Link to="/vendor/contact-us" className="hover:text-emerald-600 transition-colors">Contact Support</Link>
+                            <Link to="/vender/contact-us" className="hover:text-emerald-600 transition-colors">Contact Support</Link>
                             <span className="h-1 w-1 rounded-full bg-gray-300"></span>
                             <Link to="/vender/about-us" className="hover:text-emerald-600 transition-colors">About Us</Link>
                         </div>
