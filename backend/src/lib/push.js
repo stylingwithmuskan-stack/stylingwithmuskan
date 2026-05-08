@@ -55,10 +55,14 @@ export let pushEnabled = false;
       const match = cleanKey.match(/-----BEGIN PRIVATE KEY-----([\s\S]*)-----END PRIVATE KEY-----/);
       
       if (match) {
+        // Remove all whitespace and existing escaped newlines
         const body = match[1].replace(/\s+/g, "").replace(/\\n/g, "");
-        cleanKey = `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
         
-        console.log(`[push] Key Fixed! Body length: ${body.length}`);
+        // Wrap body at 64 characters (Standard PEM format)
+        const wrappedBody = body.match(/.{1,64}/g).join("\n");
+        cleanKey = `-----BEGIN PRIVATE KEY-----\n${wrappedBody}\n-----END PRIVATE KEY-----\n`;
+        
+        console.log(`[push] Key Fixed! Body length: ${body.length} (Wrapped in ${wrappedBody.split("\n").length} lines)`);
         console.log(`[push] Body Start: ${body.substring(0, 20)}... End: ...${body.substring(body.length - 20)}`);
 
         if (body.length < 500) {
