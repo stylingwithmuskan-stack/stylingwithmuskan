@@ -19,8 +19,11 @@ import {
 export let pushEnabled = false;
 
 (function initFirebase() {
+  console.log("[push] 🏁 initFirebase called. Checking credentials...");
+  console.log(`[push] Config check: ProjectID: ${!!FIREBASE_PROJECT_ID}, Email: ${!!FIREBASE_CLIENT_EMAIL}, Key: ${!!FIREBASE_PRIVATE_KEY}`);
+
   if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
-    console.warn("[push] Firebase credentials missing — push notifications disabled");
+    console.warn("[push] ⚠️ Firebase credentials missing — push notifications disabled");
     return;
   }
   try {
@@ -51,6 +54,7 @@ export let pushEnabled = false;
       if (match) {
         const body = match[1].replace(/\s+/g, "").replace(/\\n/g, "");
         cleanKey = `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
+        console.log(`[push] Key Cleaned! Length: ${cleanKey.length}, Starts: ${cleanKey.substring(0, 30)}, Ends: ${cleanKey.substring(cleanKey.length - 30)}`);
 
         admin.initializeApp({
           credential: admin.credential.cert({
