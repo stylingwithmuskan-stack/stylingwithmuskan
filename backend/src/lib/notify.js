@@ -478,12 +478,18 @@ export async function notify({
   // ✅ FIX: Emit socket event BEFORE push delivery to make it 'Instant' on UI
   if (emit) {
     try {
+      console.log(`[Notify] Emitting socket notification to ${recipientId} (${recipientRole}), Type: ${type}`);
       const io = getIO();
-      // Global notification list refresh
-      io?.of("/bookings").emit("new_notification", {
-        recipientId: String(recipientId),
-        notification,
-      });
+      if (!io) {
+        console.warn("[Notify] Socket IO instance not found!");
+      } else {
+        // Global notification list refresh
+        io.of("/bookings").emit("new_notification", {
+          recipientId: String(recipientId),
+          notification,
+        });
+        console.log(`[Notify] Socket emission successful to /bookings`);
+      }
 
       // Targeted room update for real-time status tracking in modals
       if (safeMeta.bookingId) {
