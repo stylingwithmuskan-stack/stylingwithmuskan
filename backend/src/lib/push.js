@@ -57,15 +57,16 @@ export let pushEnabled = false;
       cleanKey = cleanKey.replace(/\\n/g, "\n");
 
       // 4. Robust PEM normalization
-      const match = cleanKey.match(/-----BEGIN PRIVATE KEY-----([\s\S]*)-----END PRIVATE KEY-----/);
+      const match = cleanKey.match(/-----BEGIN (?:RSA )?PRIVATE KEY-----([\s\S]*)-----END (?:RSA )?PRIVATE KEY-----/);
       
       if (match) {
-        const body = match[1].replace(/[^A-Za-z0-9+/=]/g, ""); // Keep ONLY base64 characters for the body
+        const body = match[1].replace(/[^A-Za-z0-9+/=]/g, ""); // Keep ONLY base64 characters
+        // PKCS#8 often works best with 64-char wrapping in OpenSSL 3.0
         const wrappedBody = body.match(/.{1,64}/g).join("\n");
         const finalKey = `-----BEGIN PRIVATE KEY-----\n${wrappedBody}\n-----END PRIVATE KEY-----\n`;
         
-        console.log(`[push] Key Fixed! Body length: ${body.length} (Wrapped in ${wrappedBody.split("\n").length} lines)`);
-        console.log(`[push] Final Key Check: StartsWith=${finalKey.substring(0, 30).replace(/\n/g, "\\n")}`);
+        console.log(`[push] Key Fixed! Body length: ${body.length}`);
+        console.log(`[push] Credential Check: Project="${projId}", Email="${clientEmail}"`);
 
         admin.initializeApp({
           credential: admin.credential.cert({
