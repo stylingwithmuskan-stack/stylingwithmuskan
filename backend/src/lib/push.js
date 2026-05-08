@@ -25,11 +25,17 @@ export let pushEnabled = false;
   }
   try {
     if (admin.apps.length === 0) {
+      // Clean the private key: remove wrapping quotes and handle escaped newlines
+      const cleanKey = FIREBASE_PRIVATE_KEY
+        .trim()
+        .replace(/^["']|["']$/g, "") // Remove leading/trailing quotes
+        .replace(/\\n/g, "\n");
+
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: FIREBASE_PROJECT_ID,
           clientEmail: FIREBASE_CLIENT_EMAIL,
-          privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+          privateKey: cleanKey,
         }),
       });
     }
