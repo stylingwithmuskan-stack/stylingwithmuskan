@@ -141,16 +141,18 @@ async function request(path, options = {}) {
     authToken = providerToken || vendorToken || adminToken || token;
   }
 
+  // SILENCE UNNECESSARY CALLS: If it's a session check (/me) but we have no token, don't even fetch.
+  const isSessionCheck = path === "/auth/me" || path === "/provider/me" || path.startsWith("/provider/me/") || path === "/vendor/me";
+  if (isSessionCheck && !authToken) {
+      if (import.meta?.env?.DEV) console.log(`[API] Skipping session check for ${role} (no token)`);
+      return { user: null, provider: null, vendor: null, skipped: true };
+  }
+
   // Debug: Log token status for authenticated endpoints
   if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/content/")) {
     console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path}`);
-    console.warn(`[API] Token status:`, { 
-      userToken: token ? '✓' : '✗', 
-      providerToken: providerToken ? '✓' : '✗',
-      adminToken: adminToken ? '✓' : '✗',
-      vendorToken: vendorToken ? '✓' : '✗'
-    });
   }
+
 
   const isFormData = options.body instanceof FormData;
 
