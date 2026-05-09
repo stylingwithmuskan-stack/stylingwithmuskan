@@ -61,6 +61,7 @@ async function isProviderEligibleForBooking(providerId, booking, opts = {}) {
     useCache: false,
     excludeBookingId: booking._id ? String(booking._id) : null,
     ignoreLeadTime: opts.ignoreLeadTime === true,
+    ignoreServiceWindow: opts.ignoreServiceWindow === true,
   });
   const res = avail?.slotMap?.[time] === true;
   if (!res) {

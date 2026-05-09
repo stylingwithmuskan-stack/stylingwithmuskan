@@ -134,7 +134,8 @@ async function request(path, options = {}) {
   }
   else if (isProviderPath) {
     role = "provider";
-    authToken = (path === "/provider/verify-otp" || path === "/provider/login" || path === "/provider/register") ? "" : providerToken;
+    if (path === "/provider/verify-otp" || path === "/provider/login" || path === "/provider/register") authToken = "";
+    else authToken = providerToken;
   }
   else if (isNotificationPath || isContentPath) {
     // These paths are shared across roles. We determine the role based on which token is available.
@@ -161,13 +162,24 @@ async function request(path, options = {}) {
     authToken = token;
   }
 
-  // Debug: Log token status for authenticated endpoints in dev
-  if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/login") && !path.includes("/register")) {
-    const isPublicContent = isContentPath && !options.method || options.method === 'GET';
-    if (!isPublicContent) {
-      console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path} (Role: ${role})`);
-    }
+  // SILENCE UNNECESSARY CALLS: If it's a session check (/me) but we have no token, don't even fetch.
+  const isSessionCheck = path === "/auth/me" || path === "/provider/me" || path.startsWith("/provider/me/") || path === "/vendor/me";
+  if (isSessionCheck && !authToken) {
+    if (import.meta?.env?.DEV) console.log(`[API] Skipping session check for ${role} (no token)`);
+    return { user: null, provider: null, vendor: null, skipped: true };
   }
+
+  // Debug: Log token status for authenticated endpoints
+  if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/content/")) {
+    console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path}`);
+    console.warn(`[API] Token status:`, { 
+      userToken: token ? '✓' : '✗', 
+      providerToken: providerToken ? '✓' : '✗',
+      adminToken: adminToken ? '✓' : '✗',
+      vendorToken: vendorToken ? '✓' : '✗'
+    });
+  }
+
 
   const isFormData = options.body instanceof FormData;
 

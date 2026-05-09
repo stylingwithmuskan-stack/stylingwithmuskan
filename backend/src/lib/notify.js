@@ -176,6 +176,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
       return {
         title: "Booking Confirmed",
         message: `Your booking${serviceName ? ` for ${serviceName}` : ""} has been created successfully. We'll assign the best professional shortly.`,
+        sound: "notification",
       };
     case "booking_assigned":
       if (recipientRole === "provider") {
@@ -253,7 +254,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
       return {
         title: "Payment Successful",
         message: amountText ? `Your payment of ${amountText} for ${servicePlain} was successful. Thank you!` : `Your payment for ${servicePlain} was successful. Thank you!`,
-        sound: "success",
+        sound: "notification",
       };
     case "payment_refund":
       return {
@@ -477,12 +478,18 @@ export async function notify({
   // ✅ FIX: Emit socket event BEFORE push delivery to make it 'Instant' on UI
   if (emit) {
     try {
+      console.log(`[Notify] Emitting socket notification to ${recipientId} (${recipientRole}), Type: ${type}`);
       const io = getIO();
-      // Global notification list refresh
-      io?.of("/bookings").emit("new_notification", {
-        recipientId: String(recipientId),
-        notification,
-      });
+      if (!io) {
+        console.warn("[Notify] Socket IO instance not found!");
+      } else {
+        // Global notification list refresh
+        io.of("/bookings").emit("new_notification", {
+          recipientId: String(recipientId),
+          notification,
+        });
+        console.log(`[Notify] Socket emission successful to /bookings`);
+      }
 
       // Targeted room update for real-time status tracking in modals
       if (safeMeta.bookingId) {

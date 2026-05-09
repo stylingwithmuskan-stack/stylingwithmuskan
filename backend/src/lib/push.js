@@ -25,11 +25,17 @@ export let pushEnabled = false;
   }
   try {
     if (admin.apps.length === 0) {
+      // Clean the private key: remove wrapping quotes and handle escaped newlines
+      const cleanKey = FIREBASE_PRIVATE_KEY
+        .trim()
+        .replace(/^["']|["']$/g, "") // Remove leading/trailing quotes
+        .replace(/\\n/g, "\n");
+
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: FIREBASE_PROJECT_ID,
           clientEmail: FIREBASE_CLIENT_EMAIL,
-          privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+          privateKey: cleanKey,
         }),
       });
     }
@@ -127,22 +133,37 @@ export function buildFCMPayload(notification) {
   const body = String(notification.message || "").slice(0, 200);
   const link = normalizeLink(notification.link);
   const sound = notification.sound || "default";
-  const isUrgent = ["ringtone", "emergency"].includes(sound);
+  const isUrgent = ["ringtone", "emergency", "alert", "success"].includes(sound);
 
   return {
-    notification: { title, body },
+    notification: { 
+        title, 
+        body,
+        sound: sound === "default" ? "default" : sound
+    },
     android: {
+      priority: "high",
       notification: {
         sound: sound === "default" ? "default" : sound,
         channelId: "high_priority_notifications",
+        icon: "notification_icon",
+        color: "#9333ea",
+        priority: "max",
+        visibility: "public",
+        notification_priority: "PRIORITY_HIGH",
       },
     },
     apns: {
       payload: {
         aps: {
           sound: sound === "default" ? "default" : `${sound}.caf`,
+          badge: 1,
+          critical: isUrgent,
         },
       },
+      headers: {
+        "apns-priority": "10",
+      }
     },
     webpush: {
       notification: {
@@ -165,6 +186,7 @@ export function buildFCMPayload(notification) {
       type: String(notification.type),
       role: String(notification.recipientRole),
       sound: String(sound),
+      click_action: "FLUTTER_NOTIFICATION_CLICK", // for flutter/android back-compat
     },
   };
 }
@@ -209,12 +231,14 @@ export async function sendPushForNotification(notification) {
   }).lean();
 
   if (!devices.length) {
+    console.warn(`[push] No active push devices found for recipient: ${notification.recipientId}`);
     await Notification.updateOne(
       { _id: notification._id },
       {
         $set: {
           "delivery.push.status": "failed",
           "delivery.push.lastAttemptAt": new Date(),
+          "delivery.push.lastError": "No active devices",
         },
         $inc: { "delivery.push.failureCount": 1 },
       }
@@ -222,6 +246,7 @@ export async function sendPushForNotification(notification) {
     return { sent: 0, failed: 0 };
   }
 
+  console.log(`[push] Found ${devices.length} devices for recipient ${notification.recipientId}. Sending FCM...`);
   const payload = buildFCMPayload(notification);
   const tokens = devices.map((d) => d.fcmToken);
 
@@ -237,6 +262,8 @@ export async function sendPushForNotification(notification) {
         tokens: batch,
       });
 
+      console.log(`[push] FCM Batch response: success=${response.successCount}, failure=${response.failureCount}`);
+      
       for (let j = 0; j < response.responses.length; j++) {
         const res = response.responses[j];
         if (res.success) {
@@ -244,6 +271,7 @@ export async function sendPushForNotification(notification) {
         } else {
           totalFailed++;
           const code = res.error?.code;
+          console.error(`[push] Token ${batch[j].slice(-6)} failed with code: ${code}`);
           if (
             code === "messaging/registration-token-not-registered" ||
             code === "messaging/invalid-registration-token"

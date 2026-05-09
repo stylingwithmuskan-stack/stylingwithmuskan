@@ -67,29 +67,41 @@ async function filterProviderActiveZones(acc) {
     const { Zone, City } = await import("../models/CityZone.js");
     let activeZones = [];
     
-    // Try by cityId first (if it's a valid ObjectId)
-    if (acc.cityId && /^[0-9a-fA-F]{24}$/.test(acc.cityId)) {
-      activeZones = await Zone.find({ city: acc.cityId, status: "active" }).select("name").lean();
-    }
+    // Check if provider has specific manually assigned zones
+    const manualZoneIds = (acc.serviceZoneIds || acc.zoneIds || []).filter(id => /^[0-9a-fA-F]{24}$/.test(id));
     
-    // Fallback: If no zones found or cityId is invalid, search by city name
-    if (activeZones.length === 0) {
-      const cityName = acc.city || (acc.cityId && !/^[0-9a-fA-F]{24}$/.test(acc.cityId) ? acc.cityId : "");
-      if (cityName) {
-        const cityDoc = await City.findOne({ name: new RegExp(`^${String(cityName).trim()}$`, "i") }).lean();
-        if (cityDoc) {
-          activeZones = await Zone.find({ city: cityDoc._id, status: "active" }).select("name").lean();
+    if (manualZoneIds.length > 0) {
+      // If manual zones exist, only show those that are still 'active'
+      activeZones = await Zone.find({ 
+        _id: { $in: manualZoneIds }, 
+        status: "active" 
+      }).select("name").lean();
+    } else {
+      // Fallback to city-wide active zones if no specific zones assigned
+      if (acc.cityId && /^[0-9a-fA-F]{24}$/.test(acc.cityId)) {
+        activeZones = await Zone.find({ city: acc.cityId, status: "active" }).select("name").lean();
+      }
+      
+      if (activeZones.length === 0) {
+        const cityName = acc.city || (acc.cityId && !/^[0-9a-fA-F]{24}$/.test(acc.cityId) ? acc.cityId : "");
+        if (cityName) {
+          const cityDoc = await City.findOne({ name: new RegExp(`^${String(cityName).trim()}$`, "i") }).lean();
+          if (cityDoc) {
+            activeZones = await Zone.find({ city: cityDoc._id, status: "active" }).select("name").lean();
+          }
         }
       }
     }
     
-    // User requirement: Provider dashboard should exactly match Admin's active zones for the city
     if (activeZones.length > 0) {
       acc.zones = activeZones.map((z) => z.name);
       acc.zoneIds = activeZones.map((z) => z._id.toString());
+      // Ensure serviceZoneIds is also synced for the app
+      acc.serviceZoneIds = activeZones.map((z) => z._id.toString());
     } else if (acc.city || acc.cityId) {
       acc.zones = [];
       if (acc.zoneIds) acc.zoneIds = [];
+      if (acc.serviceZoneIds) acc.serviceZoneIds = [];
     }
   } catch (err) {
     console.error("[SyncZones] Failed:", err);

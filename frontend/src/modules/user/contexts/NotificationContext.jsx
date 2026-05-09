@@ -47,19 +47,27 @@ export const NotificationProvider = ({ children, role }) => {
     const user = userContext?.user;
 
     const activeRole = useMemo(() => {
+        // Priority 1: Check logged-in contexts (most reliable)
+        if (provider?._id || provider?.id) return "provider";
+        if (vendor?._id || vendor?.id) return "vendor";
+        if (admin?._id || admin?.id) return "admin";
+        if (user?._id || user?.id) return "user";
+
+        // Priority 2: Fallback to URL path for unauthenticated states (if any)
         const path = location?.pathname || "";
         if (path.startsWith("/provider")) return "provider";
         if (path.startsWith("/vender")) return "vendor";
         if (path.startsWith("/admin")) return "admin";
         return "user";
-    }, [location?.pathname]);
+    }, [location?.pathname, provider, vendor, admin, user]);
 
     const activeToken = useMemo(() => {
         try {
-            if (activeRole === "provider") return localStorage.getItem("swm_provider_token") || "";
-            if (activeRole === "vendor") return localStorage.getItem("swm_vendor_token") || "";
-            if (activeRole === "admin") return localStorage.getItem("swm_admin_token") || "";
-            return localStorage.getItem("swm_token") || "";
+            // Get tokens from safeStorage directly based on detected role
+            if (activeRole === "provider") return safeStorage.getItem("swm_provider_token") || "";
+            if (activeRole === "vendor") return safeStorage.getItem("swm_vendor_token") || "";
+            if (activeRole === "admin") return safeStorage.getItem("swm_admin_token") || "";
+            return safeStorage.getItem("swm_token") || "";
         } catch {
             return "";
         }
@@ -180,6 +188,15 @@ export const NotificationProvider = ({ children, role }) => {
         // Expose to window for testing
         window.__DEBUG_PLAY_SOUND__ = playNotificationSound;
         
+        // Auto-initialize push notifications on mount if token exists
+        if (activeToken && activeRole) {
+            import("@/services/pushNotificationService").then(({ initPushNotifications }) => {
+                initPushNotifications(activeToken, activeRole).catch(err => {
+                    console.error("[NotificationContext] Push init failed on mount:", err);
+                });
+            });
+        }
+        
         if (!currentUserId || !activeToken) {
             return;
         }
@@ -190,17 +207,23 @@ export const NotificationProvider = ({ children, role }) => {
         });
 
         socket.on("new_notification", (payload) => {
+            console.log("[NotificationContext] Received new_notification:", payload);
             const targetId = String(payload.recipientId);
             const myId = String(currentUserId);
             const targetRole = payload?.notification?.recipientRole || payload?.recipientRole;
 
+            console.log(`[NotificationContext] ID Check: Target=${targetId}, MyId=${myId}, Roles: TargetRole=${targetRole}, ActiveRole=${activeRole}`);
+
             if (targetId === myId && (!targetRole || targetRole === activeRole)) {
+                console.log("[NotificationContext] Match found! Updating UI and playing sound.");
                 setNotifications((prev) => insertUniqueNotification(prev, payload.notification));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));
 
                 if (payload.notification?.sound) {
                     playNotificationSound(payload.notification.sound);
                 }
+            } else {
+                console.log("[NotificationContext] Notification ignored (ID or Role mismatch)");
             }
         });
 

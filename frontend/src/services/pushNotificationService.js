@@ -125,14 +125,7 @@ export async function initPushNotifications(authToken, role = "user") {
       return;
     }
 
-    // Skip if token hasn't changed
-    const previousToken = localStorage.getItem(FCM_TOKEN_STORAGE);
-    if (previousToken === fcmToken) {
-      console.log("[Push] Token unchanged, skipping re-registration");
-      return;
-    }
-
-    // Save to backend
+    // Save to backend - Always register to ensure server state is in sync
     await saveTokenToBackend(fcmToken, authToken);
   } catch (err) {
     console.error("[Push] initPushNotifications unexpected error:", err);

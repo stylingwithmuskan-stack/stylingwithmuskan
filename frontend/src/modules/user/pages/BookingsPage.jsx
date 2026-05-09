@@ -95,7 +95,8 @@ const BookingsPage = () => {
             if (status === "rejected") return { ...enq, statusLabel: "Rejected", displayPhase: "rejected" };
             if (status === "quote_expired") return { ...enq, statusLabel: "Quote Expired", displayPhase: "expired" };
             return { ...enq, statusLabel: "Under Review", displayPhase: "pending" };
-        });
+        })
+        .filter(enq => !["service_confirmed", "service_completed"].includes((enq.status || "").toLowerCase()));
 
     useEffect(() => {
         const checkAutoFeedback = () => {
@@ -283,7 +284,7 @@ const BookingsPage = () => {
 
                         {/* Bookings List */}
                         <div className="space-y-4">
-                            {bookings
+                            {Array.from(new Map(bookings.map(b => [b._id || b.id, b])).values())
                                 .filter(b => {
                                     const s = (b.status || "").toLowerCase();
                                     const isCustom = b.bookingType === "customized" || b.eventType;

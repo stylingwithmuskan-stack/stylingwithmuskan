@@ -532,7 +532,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
     if (!provider) return res.status(404).json({ error: "Provider not found" });
 
     // 1. Check availability
-    const allowed = await canAssignProviderToBooking(providerId, existing.toObject(), { ignoreLeadTime: true });
+    const allowed = await canAssignProviderToBooking(providerId, existing.toObject(), { ignoreLeadTime: true, ignoreServiceWindow: true });
     if (!allowed) {
       return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
     }

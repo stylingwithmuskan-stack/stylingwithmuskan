@@ -806,49 +806,52 @@ const BookingSummary = () => {
         </p>
       </div>
 
-      {/* Bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 glass-strong border-t border-border p-5 z-40">
-        <div className="max-w-2xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center justify-between sm:justify-start gap-4">
-            <div className="flex flex-row items-baseline gap-2">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase whitespace-nowrap">Total</p>
-              <p className="text-2xl font-black text-primary leading-none">₹{finalTotal.toLocaleString()}</p>
-            </div>
-            {displayTotalSavings + discount + plusDiscount > 0 && (
-               <div className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-lg whitespace-nowrap">
-                 SAVED ₹{(displayTotalSavings + discount + plusDiscount).toLocaleString()}
-               </div>
-            )}
-          </div>
-
-          <div className="flex flex-row gap-2 flex-1 sm:justify-end">
-            {advanceAmount === 0 && !customAdvanceData?.enquiryId && (
-              <Button
-                onClick={handlePayAfterService}
-                disabled={isProcessing}
-                variant="outline"
-                className="flex-1 h-11 sm:h-14 rounded-xl sm:rounded-2xl border-2 border-primary/20 hover:border-primary/40 text-primary font-bold bg-white/50 backdrop-blur-sm text-[9px] xs:text-[10px] sm:text-sm whitespace-nowrap px-2"
-              >
-                {isProcessing ? "..." : "PAY AFTER SERVICE"}
-              </Button>
-            )}
-            <Button 
-              onClick={() => handlePay(false)} 
-              disabled={isProcessing}
-              className={`${(advanceAmount === 0) ? 'flex-1' : 'w-full sm:flex-1'} h-11 sm:h-14 rounded-xl sm:rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] sm:text-base font-bold shadow-xl shadow-primary/20 gap-1 sm:gap-2 group border-none px-3`}
-            >
-              <span className="truncate">
-                {isProcessing ? "..." : (advanceAmount > 0 ? `PAY ₹${advanceAmount.toLocaleString()}` : "PAY NOW")}
-              </span>
-              {!isProcessing && (
-                <div className="hidden xs:flex w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-white/20 items-center justify-center group-hover:translate-x-1 transition-transform shrink-0">
-                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+      {/* Bottom CTA - Only show if address and slot are selected */}
+      {Array.isArray(user?.addresses) && user.addresses.length > 0 && selectedSlot?.date && selectedSlot?.time && (
+        <div className="fixed bottom-0 left-0 right-0 glass-strong border-t border-border p-5 z-40">
+          <div className="max-w-2xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center justify-between sm:justify-start gap-4">
+              <div className="flex flex-row items-baseline gap-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase whitespace-nowrap">Total</p>
+                <p className="text-2xl font-black text-primary leading-none">₹{finalTotal.toLocaleString()}</p>
+              </div>
+              {displayTotalSavings + discount + plusDiscount > 0 && (
+                <div className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-lg whitespace-nowrap">
+                  SAVED ₹{(displayTotalSavings + discount + plusDiscount).toLocaleString()}
                 </div>
               )}
-            </Button>
+            </div>
+
+            <div className="flex flex-row gap-2 flex-1 sm:justify-end">
+              {advanceAmount === 0 && !customAdvanceData?.enquiryId && (
+                <Button
+                  onClick={handlePayAfterService}
+                  disabled={isProcessing}
+                  variant="outline"
+                  className="flex-1 h-11 sm:h-14 rounded-xl sm:rounded-2xl border-2 border-primary/20 hover:border-primary/40 text-primary font-bold bg-white/50 backdrop-blur-sm text-[9px] xs:text-[10px] sm:text-sm whitespace-nowrap px-2"
+                >
+                  {isProcessing ? "..." : "PAY AFTER SERVICE"}
+                </Button>
+              )}
+              <Button 
+                onClick={() => handlePay(false)} 
+                disabled={isProcessing}
+                className={`${(advanceAmount === 0) ? 'flex-1' : 'w-full sm:flex-1'} h-11 sm:h-14 rounded-xl sm:rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] sm:text-base font-bold shadow-xl shadow-primary/20 gap-1 sm:gap-2 group border-none px-3`}
+              >
+                <span className="truncate">
+                  {isProcessing ? "..." : (advanceAmount > 0 ? `PAY ₹${advanceAmount.toLocaleString()}` : "PAY NOW")}
+                </span>
+                {!isProcessing && (
+                  <div className="hidden xs:flex w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-white/20 items-center justify-center group-hover:translate-x-1 transition-transform shrink-0">
+                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+                  </div>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
 
       {/* Provider Busy Modal */}
       <AlertDialog open={isBusyModalOpen} onOpenChange={setIsBusyModalOpen}>
