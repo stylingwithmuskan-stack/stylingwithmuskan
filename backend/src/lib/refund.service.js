@@ -36,9 +36,10 @@ export function calculateRefundPolicy(booking, cancelledBy, subscription = null)
   let providerCompensation = 0;
   let providerPenalty = 0;
   
-  // Provider cancellation - full refund to user
+  // Provider cancellation - full refund to user, penalty for provider
   if (cancelledBy === "provider") {
     refundPercentage = 100;
+    // Penalty is 20% of total amount
     providerPenalty = Math.round((booking.totalAmount || 0) * 0.2);
     return {
       refundPercentage,
@@ -64,11 +65,8 @@ export function calculateRefundPolicy(booking, cancelledBy, subscription = null)
   // Customer cancellation - based on status and timing
   if (cancelledBy === "customer") {
     // Status-based adjustments
-    if (status === "travelling") {
-      refundPercentage = 25;
-      providerCompensation = Math.round((booking.totalAmount || 0) * 0.3);
-    } else if (status === "accepted") {
-      // Base refund reduced by 50% after acceptance
+    if (status === "travelling" || status === "accepted" || status === "arrived") {
+      // Base refund reduced after acceptance
       if (hoursUntilBooking > 48) refundPercentage = 50;
       else if (hoursUntilBooking > 24) refundPercentage = 45;
       else if (hoursUntilBooking > 12) refundPercentage = 37.5;
@@ -76,7 +74,8 @@ export function calculateRefundPolicy(booking, cancelledBy, subscription = null)
       else if (hoursUntilBooking > 2) refundPercentage = 12.5;
       else refundPercentage = 0;
       
-      providerCompensation = Math.round((booking.totalAmount || 0) * 0.1);
+      // Fixed 20% compensation for provider as requested
+      providerCompensation = Math.round((booking.totalAmount || 0) * 0.2);
     } else {
       // Pending/incoming status - standard policy
       if (hoursUntilBooking > 48) refundPercentage = 100;

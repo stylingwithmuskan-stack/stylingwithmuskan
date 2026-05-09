@@ -1147,6 +1147,33 @@ export async function cancel(req, res) {
     }
   }
 
+  // Credit provider compensation if applicable
+  if (refundPolicy.providerCompensation > 0 && booking.assignedProvider) {
+    try {
+      const ProviderAccount = (await import("../../../models/ProviderAccount.js")).default;
+      const ProviderWalletTxn = (await import("../../../models/ProviderWalletTxn.js")).default;
+      const provider = await ProviderAccount.findById(booking.assignedProvider);
+      
+      if (provider) {
+        provider.credits = (provider.credits || 0) + refundPolicy.providerCompensation;
+        await provider.save();
+
+        await ProviderWalletTxn.create({
+          providerId: provider._id.toString(),
+          bookingId: booking._id.toString(),
+          type: "compensation",
+          amount: refundPolicy.providerCompensation,
+          balanceAfter: provider.credits,
+          meta: { reason: "customer_cancellation", title: "Cancellation Compensation" },
+        });
+
+        console.log(`[Cancel] Credited provider ${provider._id} with ₹${refundPolicy.providerCompensation} compensation`);
+      }
+    } catch (err) {
+      console.error(`[Cancel] Failed to credit provider compensation:`, err);
+    }
+  }
+
   await booking.save();
 
   await BookingLog.create({

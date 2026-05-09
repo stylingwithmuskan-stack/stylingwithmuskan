@@ -12,7 +12,7 @@ function logDevSchedulerFlow(message, payload = {}) {
   if (process.env.NODE_ENV === "production") return;
   try {
     console.log(`[SchedulerFlow] ${message}`, payload);
-  } catch {}
+  } catch { }
 }
 
 export async function runAssignmentSchedulerOnce(now = new Date()) {
@@ -27,180 +27,180 @@ export async function runAssignmentSchedulerOnce(now = new Date()) {
       $or: [{ assignedProvider: "" }, { assignedProvider: null }],
     }).limit(50);
 
-      for (const b of unassigned) {
-        const slotStart = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
-        const diffMs = slotStart ? slotStart.getTime() - now.getTime() : null;
+    for (const b of unassigned) {
+      const slotStart = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
+      const diffMs = slotStart ? slotStart.getTime() - now.getTime() : null;
 
-        // Re-discovery: rebuild candidates and assign if possible
-        const requestedDurationMinutes = (b.services || []).reduce((sum, it) => {
-          const per = parseDurationToMinutes(it?.duration, 60);
-          const qty = Number(it?.quantity || 1);
-          return sum + (per * (Number.isFinite(qty) ? qty : 1));
-        }, 0);
+      // Re-discovery: rebuild candidates and assign if possible
+      const requestedDurationMinutes = (b.services || []).reduce((sum, it) => {
+        const per = parseDurationToMinutes(it?.duration, 60);
+        const qty = Number(it?.quantity || 1);
+        return sum + (per * (Number.isFinite(qty) ? qty : 1));
+      }, 0);
 
-        const { candidateProviders } = await buildAssignmentCandidates({
-          address: b.address,
-          slot: b.slot,
-          items: b.services || [],
-          customerId: b.customerId,
-          requestedDurationMinutes,
-          useCache: false,
-        });
-        
-        // Fetch provider names for logging
-        const candidateNames = [];
-        const rejectedNames = [];
-        
-        try {
-          if (candidateProviders.length > 0) {
-            const candidateDocs = await ProviderAccount.find({
-              _id: { $in: candidateProviders }
-            }).select('name').lean();
-            candidateNames.push(...candidateDocs.map(p => p.name || 'Unknown'));
-          }
-          
-          if (b.rejectedProviders && b.rejectedProviders.length > 0) {
-            const rejectedDocs = await ProviderAccount.find({
-              _id: { $in: b.rejectedProviders }
-            }).select('name').lean();
-            rejectedNames.push(...rejectedDocs.map(p => p.name || 'Unknown'));
-          }
-        } catch (e) {
-          console.error('[Scheduler] Error fetching provider names:', e.message);
-        }
-        
-        logDevSchedulerFlow("Scheduler rebuilt candidates for unassigned pending booking", {
-          bookingId: b._id?.toString?.() || "",
-          slotDate: b.slot?.date || "",
-          slotTime: b.slot?.time || "",
-          city: b.address?.city || "",
-          zone: b.address?.zone || b.address?.area || "",
-          candidateProviders: candidateNames.length > 0 ? candidateNames : candidateProviders,
-          rejectedProviders: rejectedNames.length > 0 ? rejectedNames : (b.rejectedProviders || []),
-        });
+      const { candidateProviders } = await buildAssignmentCandidates({
+        address: b.address,
+        slot: b.slot,
+        items: b.services || [],
+        customerId: b.customerId,
+        requestedDurationMinutes,
+        useCache: false,
+      });
 
+      // Fetch provider names for logging
+      const candidateNames = [];
+      const rejectedNames = [];
+
+      try {
         if (candidateProviders.length > 0) {
-          // eslint-disable-next-line no-await-in-loop
-          const picked = await pickNextProviderForBooking(
-            { candidateProviders, rejectedProviders: b.rejectedProviders || [], slot: b.slot, _id: b._id },
-            0
-          );
-          if (picked?.providerId) {
-            b.candidateProviders = candidateProviders;
-            b.assignedProvider = picked.providerId;
-            b.assignmentIndex = picked.index;
-            b.lastAssignedAt = now;
-            b.expiresAt = computeExpiresAt(now);
-            await b.save();
-            try {
-              if (b?.slot?.date) await invalidateProviderSlots(picked.providerId, b.slot.date);
-            } catch {}
-
-            try {
-              const io = getIO();
-              io?.of("/bookings").emit("assignment:changed", {
-                id: b._id.toString(),
-                fromProvider: "",
-                toProvider: picked.providerId,
-                reason: "auto_assign",
-              });
-              io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
-            } catch {}
-
-            try {
-              await notify({
-                recipientId: picked.providerId,
-                recipientRole: "provider",
-                type: "booking_assigned",
-                meta: { bookingId: b._id.toString() },
-                respectProviderQuietHours: true,
-              });
-
-              // User notification for auto-assignment is removed as per request 
-              // "jab me assign karu tabh hi real time notification ana chiaye"
-            } catch {}
-            
-            // Fetch provider name for logging
-            let assignedProviderName = picked.providerId;
-            try {
-              const provDoc = await ProviderAccount.findById(picked.providerId).select('name').lean();
-              if (provDoc) assignedProviderName = provDoc.name;
-            } catch {}
-            
-            logDevSchedulerFlow("Scheduler auto-assigned previously unassigned booking", {
-              bookingId: b._id?.toString?.() || "",
-              assignedProvider: assignedProviderName,
-              assignmentIndex: picked.index,
-              expiresAt: b.expiresAt || null,
-              candidateProviders: candidateNames.length > 0 ? candidateNames : candidateProviders,
-            });
-            continue;
-          }
+          const candidateDocs = await ProviderAccount.find({
+            _id: { $in: candidateProviders }
+          }).select('name').lean();
+          candidateNames.push(...candidateDocs.map(p => p.name || 'Unknown'));
         }
 
-        // Timed escalation: only within 2 hours of slot time
-        if (diffMs !== null && diffMs > 0 && diffMs <= 2 * 60 * 60 * 1000) {
-          const city = b.address?.city || "";
-          let vendor = null;
-          if (city) {
-            vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}`, "i") }, status: "approved" }).lean();
-          }
+        if (b.rejectedProviders && b.rejectedProviders.length > 0) {
+          const rejectedDocs = await ProviderAccount.find({
+            _id: { $in: b.rejectedProviders }
+          }).select('name').lean();
+          rejectedNames.push(...rejectedDocs.map(p => p.name || 'Unknown'));
+        }
+      } catch (e) {
+        console.error('[Scheduler] Error fetching provider names:', e.message);
+      }
 
-          if (vendor) {
-            console.log(`[Scheduler] Unassigned Booking ${b._id} escalated to vendor in ${city}.`);
-            b.vendorEscalated = true;
-            b.vendorEscalatedAt = now;
-            b.adminEscalated = false;
-            await b.save();
+      logDevSchedulerFlow("Scheduler rebuilt candidates for unassigned pending booking", {
+        bookingId: b._id?.toString?.() || "",
+        slotDate: b.slot?.date || "",
+        slotTime: b.slot?.time || "",
+        city: b.address?.city || "",
+        zone: b.address?.zone || b.address?.area || "",
+        candidateProviders: candidateNames.length > 0 ? candidateNames : candidateProviders,
+        rejectedProviders: rejectedNames.length > 0 ? rejectedNames : (b.rejectedProviders || []),
+      });
 
-            try {
-              await notify({
-                recipientId: vendor._id?.toString(),
-                recipientRole: "vendor",
-                type: "booking_escalated",
-                meta: { bookingId: b._id.toString(), city, reason: "manual assignment needed" },
-              });
-              await notify({
-                recipientId: "ADMIN001",
-                recipientRole: "admin",
-                type: "booking_escalated",
-                meta: { bookingId: b._id.toString(), city, vendorId: vendor._id?.toString(), reason: "escalated to vendor" },
-              });
-            } catch {}
-            logDevSchedulerFlow("Scheduler escalated unassigned booking to vendor", {
-              bookingId: b._id?.toString?.() || "",
-              city,
-              vendorId: vendor._id?.toString?.() || "",
-              reason: "manual assignment needed",
-            });
-          } else {
-            console.log(`[Scheduler] Unassigned Booking ${b._id} has no vendor for ${city}. Escalating to admin.`);
-            b.adminEscalated = true;
-            b.vendorEscalated = false;
-            await b.save();
-
-            try {
-              await notify({
-                recipientId: "ADMIN001",
-                recipientRole: "admin",
-                type: "booking_escalated",
-                meta: { bookingId: b._id.toString(), city, reason: "no vendor found" },
-              });
-            } catch {}
-            logDevSchedulerFlow("Scheduler escalated unassigned booking to admin because no vendor was found", {
-              bookingId: b._id?.toString?.() || "",
-              city,
-              reason: "no vendor found",
-            });
-          }
+      if (candidateProviders.length > 0) {
+        // eslint-disable-next-line no-await-in-loop
+        const picked = await pickNextProviderForBooking(
+          { candidateProviders, rejectedProviders: b.rejectedProviders || [], slot: b.slot, _id: b._id },
+          0
+        );
+        if (picked?.providerId) {
+          b.candidateProviders = candidateProviders;
+          b.assignedProvider = picked.providerId;
+          b.assignmentIndex = picked.index;
+          b.lastAssignedAt = now;
+          b.expiresAt = computeExpiresAt(now);
+          await b.save();
+          try {
+            if (b?.slot?.date) await invalidateProviderSlots(picked.providerId, b.slot.date);
+          } catch { }
 
           try {
             const io = getIO();
+            io?.of("/bookings").emit("assignment:changed", {
+              id: b._id.toString(),
+              fromProvider: "",
+              toProvider: picked.providerId,
+              reason: "auto_assign",
+            });
             io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
-          } catch {}
+          } catch { }
+
+          try {
+            await notify({
+              recipientId: picked.providerId,
+              recipientRole: "provider",
+              type: "booking_assigned",
+              meta: { bookingId: b._id.toString() },
+              respectProviderQuietHours: true,
+            });
+
+            // User notification for auto-assignment is removed as per request 
+            // "jab me assign karu tabh hi real time notification ana chiaye"
+          } catch { }
+
+          // Fetch provider name for logging
+          let assignedProviderName = picked.providerId;
+          try {
+            const provDoc = await ProviderAccount.findById(picked.providerId).select('name').lean();
+            if (provDoc) assignedProviderName = provDoc.name;
+          } catch { }
+
+          logDevSchedulerFlow("Scheduler auto-assigned previously unassigned booking", {
+            bookingId: b._id?.toString?.() || "",
+            assignedProvider: assignedProviderName,
+            assignmentIndex: picked.index,
+            expiresAt: b.expiresAt || null,
+            candidateProviders: candidateNames.length > 0 ? candidateNames : candidateProviders,
+          });
+          continue;
         }
       }
-    } catch {}
+
+      // Timed escalation: only within 2 hours of slot time
+      if (diffMs !== null && diffMs > 0 && diffMs <= 2 * 60 * 60 * 1000) {
+        const city = b.address?.city || "";
+        let vendor = null;
+        if (city) {
+          vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}`, "i") }, status: "approved" }).lean();
+        }
+
+        if (vendor) {
+          console.log(`[Scheduler] Unassigned Booking ${b._id} escalated to vendor in ${city}.`);
+          b.vendorEscalated = true;
+          b.vendorEscalatedAt = now;
+          b.adminEscalated = false;
+          await b.save();
+
+          try {
+            await notify({
+              recipientId: vendor._id?.toString(),
+              recipientRole: "vendor",
+              type: "booking_escalated",
+              meta: { bookingId: b._id.toString(), city, reason: "manual assignment needed" },
+            });
+            await notify({
+              recipientId: "ADMIN001",
+              recipientRole: "admin",
+              type: "booking_escalated",
+              meta: { bookingId: b._id.toString(), city, vendorId: vendor._id?.toString(), reason: "escalated to vendor" },
+            });
+          } catch { }
+          logDevSchedulerFlow("Scheduler escalated unassigned booking to vendor", {
+            bookingId: b._id?.toString?.() || "",
+            city,
+            vendorId: vendor._id?.toString?.() || "",
+            reason: "manual assignment needed",
+          });
+        } else {
+          console.log(`[Scheduler] Unassigned Booking ${b._id} has no vendor for ${city}. Escalating to admin.`);
+          b.adminEscalated = true;
+          b.vendorEscalated = false;
+          await b.save();
+
+          try {
+            await notify({
+              recipientId: "ADMIN001",
+              recipientRole: "admin",
+              type: "booking_escalated",
+              meta: { bookingId: b._id.toString(), city, reason: "no vendor found" },
+            });
+          } catch { }
+          logDevSchedulerFlow("Scheduler escalated unassigned booking to admin because no vendor was found", {
+            bookingId: b._id?.toString?.() || "",
+            city,
+            reason: "no vendor found",
+          });
+        }
+
+        try {
+          const io = getIO();
+          io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
+        } catch { }
+      }
+    }
+  } catch { }
 
   const q = {
     status: "pending",
@@ -229,52 +229,52 @@ export async function runAssignmentSchedulerOnce(now = new Date()) {
         const fromProviderId = fromProvider;
         const toProviderId = picked.providerId;
 
-          // Developer Log: Re-assignment (Random/Auto)
-          let toProvName = "Unknown";
-          try {
-            const pDoc = await ProviderAccount.findById(toProviderId).select("name").lean();
-            if (pDoc) toProvName = pDoc.name;
-          } catch (e) {}
-          console.log(`[Scheduler] Re-assignment: Booking ${b._id} re-assigned to ${toProvName} (ID: ${toProviderId}) because ${fromProviderId} timed out.`);
+        // Developer Log: Re-assignment (Random/Auto)
+        let toProvName = "Unknown";
+        try {
+          const pDoc = await ProviderAccount.findById(toProviderId).select("name").lean();
+          if (pDoc) toProvName = pDoc.name;
+        } catch (e) { }
+        console.log(`[Scheduler] Re-assignment: Booking ${b._id} re-assigned to ${toProvName} (ID: ${toProviderId}) because ${fromProviderId} timed out.`);
 
-          b.assignedProvider = picked.providerId;
-          b.assignmentIndex = picked.index;
-          b.lastAssignedAt = now;
-          b.expiresAt = computeExpiresAt(now);
-          b.adminEscalated = false;
-          b.vendorEscalated = false;
-          await b.save();
-          try {
-            if (b?.slot?.date) {
-              const ids = Array.from(new Set([fromProvider, picked.providerId].filter(Boolean)));
-              for (const id of ids) {
-                // eslint-disable-next-line no-await-in-loop
-                await invalidateProviderSlots(id, b.slot.date);
-              }
+        b.assignedProvider = picked.providerId;
+        b.assignmentIndex = picked.index;
+        b.lastAssignedAt = now;
+        b.expiresAt = computeExpiresAt(now);
+        b.adminEscalated = false;
+        b.vendorEscalated = false;
+        await b.save();
+        try {
+          if (b?.slot?.date) {
+            const ids = Array.from(new Set([fromProvider, picked.providerId].filter(Boolean)));
+            for (const id of ids) {
+              // eslint-disable-next-line no-await-in-loop
+              await invalidateProviderSlots(id, b.slot.date);
             }
-          } catch {}
-          try {
-            const io = getIO();
-            io?.of("/bookings").emit("assignment:changed", { id: b._id.toString(), fromProvider, toProvider: picked.providerId, reason: "timeout" });
-            io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
-          } catch {}
-          try {
-            await notify({
-              recipientId: picked.providerId,
-              recipientRole: "provider",
-              type: "booking_reassigned",
-              meta: { bookingId: b._id.toString(), reason: "timeout" },
-              respectProviderQuietHours: true,
-            });
-          } catch {}
-          logDevSchedulerFlow("Scheduler reassigned timed-out booking to next provider", {
-            bookingId: b._id?.toString?.() || "",
-            fromProvider,
-            toProvider: picked.providerId,
-            newAssignmentIndex: picked.index,
-            expiresAt: b.expiresAt || null,
-            rejectedProviders: b.rejectedProviders || [],
+          }
+        } catch { }
+        try {
+          const io = getIO();
+          io?.of("/bookings").emit("assignment:changed", { id: b._id.toString(), fromProvider, toProvider: picked.providerId, reason: "timeout" });
+          io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: "pending" });
+        } catch { }
+        try {
+          await notify({
+            recipientId: picked.providerId,
+            recipientRole: "provider",
+            type: "booking_reassigned",
+            meta: { bookingId: b._id.toString(), reason: "timeout" },
+            respectProviderQuietHours: true,
           });
+        } catch { }
+        logDevSchedulerFlow("Scheduler reassigned timed-out booking to next provider", {
+          bookingId: b._id?.toString?.() || "",
+          fromProvider,
+          toProvider: picked.providerId,
+          newAssignmentIndex: picked.index,
+          expiresAt: b.expiresAt || null,
+          rejectedProviders: b.rejectedProviders || [],
+        });
       } else {
         const outcome = await handleExhaustedAssignmentChain({
           booking: b,
@@ -284,7 +284,7 @@ export async function runAssignmentSchedulerOnce(now = new Date()) {
         });
         try {
           if (b?.slot?.date && fromProvider) await invalidateProviderSlots(fromProvider, b.slot.date);
-        } catch {}
+        } catch { }
         if (outcome.kind === "auto_cancel") {
           logDevSchedulerFlow("Scheduler auto-cancelled booking after candidate chain ended", {
             bookingId: b._id?.toString?.() || "",
@@ -305,7 +305,7 @@ export async function runAssignmentSchedulerOnce(now = new Date()) {
         }
       }
     }
-  } catch {}
+  } catch { }
 
   // 3) Global Expiry Guard: Auto-cancel escalated bookings that remain unassigned within 1 hour of slot
   try {
@@ -346,6 +346,6 @@ export async function runAssignmentSchedulerOnce(now = new Date()) {
 
 export function startAssignmentScheduler() {
   setInterval(() => {
-    runAssignmentSchedulerOnce().catch(() => {});
+    runAssignmentSchedulerOnce().catch(() => { });
   }, 60 * 1000);
 }
