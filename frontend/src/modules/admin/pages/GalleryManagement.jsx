@@ -28,7 +28,7 @@ export default function GalleryManagement() {
     const imageInputRef = useRef(null);
 
     const sortedItems = useMemo(
-        () => [...items].sort((a, b) => Number(b.priority || 0) - Number(a.priority || 0)),
+        () => [...items].sort((a, b) => Number(a.priority || 0) - Number(b.priority || 0)),
         [items]
     );
 
@@ -55,7 +55,8 @@ export default function GalleryManagement() {
 
     const openCreate = () => {
         setEditingId("");
-        setForm({ ...initialForm, id: `${Date.now()}` });
+        const maxPriority = items.length > 0 ? Math.max(...items.map(i => Number(i.priority || 0))) : 0;
+        setForm({ ...initialForm, id: `${Date.now()}`, priority: maxPriority + 1 });
         setShowForm(true);
     };
 

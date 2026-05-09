@@ -526,12 +526,13 @@ export default function MarketingControl() {
                                     </div>
                                 </div>
 
-                                <div className="flex flex-wrap gap-2">
-                                    <Button type="submit" disabled={broadcasting} className="rounded-xl font-bold gap-2">
-                                        <Send className="h-4 w-4" /> {broadcasting ? "Sending..." : "Send Broadcast"}
-                                    </Button>
-                                    <Button type="button" variant="outline" disabled={testingPush} className="rounded-xl font-bold gap-2" onClick={handlePushTest}>
-                                        <TestTube2 className="h-4 w-4" /> {testingPush ? "Sending..." : "Send Test Push"}
+                                <div className="flex flex-wrap gap-2 pt-2">
+                                    <Button 
+                                        type="submit" 
+                                        disabled={broadcasting} 
+                                        className="rounded-xl font-bold gap-2 bg-primary hover:bg-primary/90 w-full px-8 h-12 text-base"
+                                    >
+                                        <Send className="h-5 w-5" /> {broadcasting ? "Sending..." : "Send Notification"}
                                     </Button>
                                 </div>
                             </form>

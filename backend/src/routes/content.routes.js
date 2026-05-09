@@ -114,7 +114,7 @@ router.get("/init", injectUser, async (req, res) => {
           if (b.endAt && new Date(b.endAt).getTime() < now.getTime()) return false;
           return true;
         });
-        active.sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+        active.sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
         const grouped = active.reduce((acc, b) => {
           const g = String(b.gender || "women").toLowerCase();
           acc[g] = acc[g] || [];
@@ -141,19 +141,19 @@ router.get("/init", injectUser, async (req, res) => {
             if (s.endAt && new Date(s.endAt).getTime() < now.getTime()) return false;
             return true;
           })
-          .sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+          .sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
       }),
 
       // Gallery
       cached("content:gallery", async () => {
         const items = await GalleryItem.find({ isActive: true }).lean();
-        return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+        return (items || []).sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
       }),
 
       // Testimonials
       cached("content:testimonials", async () => {
         const items = await Testimonial.find({ isActive: true }).lean();
-        return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+        return (items || []).sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
       })
     ]);
 
@@ -361,7 +361,7 @@ router.get("/banners", async (req, res) => {
         if (b.endAt && new Date(b.endAt).getTime() < now.getTime()) return false;
         return true;
       });
-      active.sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+      active.sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
       const grouped = active.reduce((acc, b) => {
         const g = String(b.gender || "women").toLowerCase();
         acc[g] = acc[g] || [];
@@ -404,7 +404,7 @@ router.get("/spotlights", injectUser, async (req, res) => {
           if (s.endAt && new Date(s.endAt).getTime() < now.getTime()) return false;
           return true;
         })
-        .sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+        .sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
     });
 
     // Add isLikedByUser flag if user is logged in
@@ -466,7 +466,7 @@ router.get("/gallery", async (_req, res) => {
   try {
     data = await cached("content:gallery", async () => {
       const items = await GalleryItem.find({ isActive: true }).lean();
-      return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+      return (items || []).sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
     });
   } catch {
     data = [];
@@ -479,7 +479,7 @@ router.get("/testimonials", async (_req, res) => {
   try {
     data = await cached("content:testimonials", async () => {
       const items = await Testimonial.find({ isActive: true }).lean();
-      return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+      return (items || []).sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
     });
   } catch {
     data = [];

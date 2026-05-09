@@ -218,8 +218,13 @@ export async function verifyRegistrationOtp(req, res) {
     res.status(201).json({ 
       success: true, 
       message: "Registration submitted for admin approval",
-      vendor: v,
-      vendorToken: token
+      data: {
+        token: token,
+        vendor: {
+          ...v.toObject(),
+          id: v._id.toString()
+        }
+      }
     });
   } catch (err) {
     console.error('[Vendor Registration] ERROR:', err.message, err.stack);
@@ -252,7 +257,18 @@ export async function login(req, res) {
     secure: isProd,
     maxAge: 30 * 24 * 3600 * 1000,
   });
-  res.json({ vendor: { ...v, subscription }, vendorToken: token });
+  res.json({
+    success: true,
+    message: "Login successful",
+    data: {
+      token: token,
+      vendor: {
+        ...v,
+        id: v._id.toString(),
+        subscription
+      }
+    }
+  });
 }
 
 export async function getMe(req, res) {
@@ -394,7 +410,19 @@ export async function verifyOtp(req, res) {
     secure: isProd,
     maxAge: 30 * 24 * 3600 * 1000,
   });
-  res.json({ vendor: { ...v, subscription }, vendorToken: token });
+  
+  res.json({
+    success: true,
+    message: "Login successful",
+    data: {
+      token: token,
+      vendor: {
+        ...v,
+        id: v._id.toString(),
+        subscription
+      }
+    }
+  });
 }
 
 export async function listProviders(req, res) {

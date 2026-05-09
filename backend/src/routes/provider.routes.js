@@ -225,15 +225,25 @@ router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLeng
     });
   } catch { }
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
+  
+  const providerData = await filterProviderActiveZones({
+    ...acc.toObject(),
+    subscription,
+    isPro: subscription.isPro,
+    proExpiry: subscription.currentPeriodEnd,
+    proPlan: subscription.planId,
+  });
+
   res.json({
-    provider: await filterProviderActiveZones({
-      ...acc.toObject(),
-      subscription,
-      isPro: subscription.isPro,
-      proExpiry: subscription.currentPeriodEnd,
-      proPlan: subscription.planId,
-    }),
-    providerToken: token,
+    success: true,
+    message: "Login successful",
+    data: {
+      token: token,
+      provider: {
+        ...providerData,
+        id: acc._id.toString()
+      }
+    }
   });
 });
 
@@ -746,15 +756,25 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
   const token = issueRoleToken("provider", acc._id.toString());
   const subscription = await getSubscriptionSnapshot(acc._id.toString(), "provider");
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
+
+  const providerData = await filterProviderActiveZones({
+    ...acc.toObject(),
+    subscription,
+    isPro: subscription.isPro,
+    proExpiry: subscription.currentPeriodEnd,
+    proPlan: subscription.planId,
+  });
+
   res.json({
-    provider: await filterProviderActiveZones({
-      ...acc.toObject(),
-      subscription,
-      isPro: subscription.isPro,
-      proExpiry: subscription.currentPeriodEnd,
-      proPlan: subscription.planId,
-    }),
-    providerToken: token,
+    success: true,
+    message: "Registration successful",
+    data: {
+      token: token,
+      provider: {
+        ...providerData,
+        id: acc._id.toString()
+      }
+    }
   });
 });
 

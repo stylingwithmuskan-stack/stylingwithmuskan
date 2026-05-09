@@ -31,7 +31,7 @@ export default function ReelsManagement() {
     const videoInputRef = useRef(null);
 
     const sortedReels = useMemo(
-        () => [...reels].sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0))),
+        () => [...reels].sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0))),
         [reels]
     );
 
@@ -58,7 +58,8 @@ export default function ReelsManagement() {
 
     const openCreate = () => {
         setEditingId("");
-        setForm({ ...initialForm, id: `${Date.now()}` });
+        const maxPriority = reels.length > 0 ? Math.max(...reels.map(r => Number(r.priority || 0))) : 0;
+        setForm({ ...initialForm, id: `${Date.now()}`, priority: maxPriority + 1 });
         setShowForm(true);
     };
 

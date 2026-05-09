@@ -252,6 +252,7 @@ const BookingSummary = () => {
     }
     
     setIsProcessing(true);
+    console.log("[BookingSummary] Starting handlePay. Payload items count:", displayItems.length);
     try {
       const items = displayItems.filter(Boolean).map(it => ({ name: it?.name || "", price: it?.price || 0, quantity: it?.quantity || 1, duration: it?.duration, category: it?.category, serviceType: it?.serviceType, image: it?.image || "" }));
       const address = {
@@ -272,7 +273,11 @@ const BookingSummary = () => {
         preferredProviderId: selectedSlot?.provider?.id || selectedSlot?.provider?._id || undefined,
         allowAutoFallback
       };
+      
+      console.log("[BookingSummary] Calling api.bookings.create with payload:", payload);
       const { booking, totals, advanceAmount: serverAdvance, order: initialOrder } = await api.bookings.create(payload);
+      console.log("[BookingSummary] api.bookings.create SUCCESS. Booking ID:", booking?.id || booking?._id);
+      
       const bookingId = booking?.id || booking?._id;
       
       // Direct Razorpay Integration

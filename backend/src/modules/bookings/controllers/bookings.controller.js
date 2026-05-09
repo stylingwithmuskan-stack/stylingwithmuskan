@@ -1,4 +1,6 @@
 import { validationResult } from "express-validator";
+import fs from "fs";
+import path from "path";
 import Booking from "../../../models/Booking.js";
 import mongoose from "mongoose";
 import Coupon from "../../../models/Coupon.js";
@@ -152,9 +154,42 @@ async function attachProviderToBookings(bookings = []) {
 export async function list(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const q = { customerId: req.user._id.toString() };
-  const total = await Booking.countDocuments(q);
-  const items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+  const customerId = req.user._id.toString();
+  const q = { 
+    $or: [
+      { customerId: customerId },
+      { customerId: new mongoose.Types.ObjectId(customerId) }
+    ]
+  };
+  
+  let total = await Booking.countDocuments(q);
+  let items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+
+  // FALLBACK: If no bookings found by ID, try finding by phone number to handle ID mismatches
+  if (items.length === 0 && req.user.phone) {
+    const phoneQ = { customerPhone: req.user.phone };
+    const phoneItems = await Booking.find(phoneQ).sort({ createdAt: -1 }).limit(limit).lean();
+    if (phoneItems.length > 0) {
+      console.log(`[BookingList] Fallback to phone search found ${phoneItems.length} bookings for ${req.user.phone}`);
+      items = phoneItems;
+      total = await Booking.countDocuments(phoneQ);
+    }
+  }
+  
+  // DEBUG LOG TO FILE
+  try {
+    const allUserBookings = await Booking.find({ customerPhone: req.user.phone }).select('_id customerId status').lean();
+    const logPath = path.join(process.cwd(), "booking_debug.log");
+    const logMsg = `[${new Date().toISOString()}] DEBUG LIST:
+      ReqUser: ${req.user._id} (${typeof req.user._id})
+      SearchQuery: ${JSON.stringify(q)}
+      ResultCount: ${items.length}
+      PhoneMatchCount: ${allUserBookings.length}
+      PhoneMatchDetails: ${JSON.stringify(allUserBookings)}\n`;
+    fs.appendFileSync(logPath, logMsg);
+  } catch (err) {
+    console.error("[BookingDebugError]", err);
+  }
   
   let bookings = (items || []).map((b) => ({
     ...b,
@@ -574,11 +609,21 @@ export async function create(req, res) {
     candidateProviders: booking.candidateProviders || [],
     status: booking.status || "",
   });
+
+  // EXTREME PERSISTENCE LOG
   try {
-    if (assignedProvider && booking?.slot?.date) {
-      await invalidateProviderSlots(assignedProvider, booking.slot.date);
-    }
-  } catch {}
+    const check = await Booking.findById(booking._id);
+    const fs = await import("fs");
+    const path = await import("path");
+    const logPath = path.join(process.cwd(), "booking_creation.log");
+    const logMsg = `[${new Date().toISOString()}] CREATED:
+      ID: ${booking._id}
+      User: ${booking.customerId}
+      Phone: ${booking.customerPhone}
+      Status: ${booking.status}
+      InDB: ${!!check}\n`;
+    fs.appendFileSync(logPath, logMsg);
+  } catch (err) {}
   let order = null;
   if (advanceAmount > 0 && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
     try {
