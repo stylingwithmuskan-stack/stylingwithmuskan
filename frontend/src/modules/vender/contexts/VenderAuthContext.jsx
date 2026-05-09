@@ -53,7 +53,7 @@ export const VenderAuthProvider = ({ children }) => {
             const { vendor, vendorToken } = await api.vendor.login(email, password);
             
             // Only save if we got valid vendor data back
-            if (vendor && vendor._id) {
+            if (vendor && (vendor._id || vendor.id)) {
                 if (vendorToken) {
                     try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
                 }
@@ -81,7 +81,7 @@ export const VenderAuthProvider = ({ children }) => {
             const { vendor, vendorToken } = await api.vendor.verifyOtp(phone, otp);
             
             // Only save if we got valid vendor data back
-            if (vendor && vendor._id) {
+            if (vendor && (vendor._id || vendor.id)) {
                 if (vendorToken) {
                     try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
                 }
@@ -106,7 +106,7 @@ export const VenderAuthProvider = ({ children }) => {
             const { vendor, vendorToken } = await api.vendor.register(data);
             
             // Only save if we got valid vendor data back
-            if (vendor && vendor._id) {
+            if (vendor && (vendor._id || vendor.id)) {
                 if (vendorToken) {
                     try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
                 }
