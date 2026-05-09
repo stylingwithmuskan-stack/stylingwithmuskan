@@ -177,7 +177,7 @@ const UserRegisterPage = () => {
                 <motion.h1
                     initial={{ y: 10, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    className="text-3xl font-black font-display tracking-tight text-foreground lowercase"
+                    className="text-2xl sm:text-3xl font-black font-display tracking-tight text-foreground lowercase"
                 >
                     stylingwithmuskan
                 </motion.h1>
@@ -212,9 +212,9 @@ const UserRegisterPage = () => {
                     <AnimatePresence mode="wait">
                         {step === 1 ? (
                             <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                                <div className="mb-8">
+                                <div className="mb-8 text-center">
                                     <h2 className="text-2xl font-black text-foreground">Sign Up</h2>
-                                    <p className="text-sm text-muted-foreground mt-2 font-medium">Join us for a premium salon experience at your doorstep.</p>
+                                    <p className="text-sm text-muted-foreground mt-2 font-medium px-2">Join us for a premium salon experience at your doorstep.</p>
                                 </div>
 
                                 <form onSubmit={handlePhoneSubmit} className="space-y-6">
@@ -233,14 +233,14 @@ const UserRegisterPage = () => {
                                         />
                                     </div>
 
-                                    <Button disabled={phone.length !== 10} className="w-full h-16 rounded-[24px] text-base font-black tracking-widest uppercase bg-black text-white hover:bg-black/90 shadow-xl shadow-black/10 transition-all hover:scale-[1.02] active:scale-95">
+                                    <Button disabled={phone.length !== 10} className="w-full h-14 sm:h-16 rounded-[24px] text-base font-black tracking-widest uppercase bg-black text-white hover:bg-black/90 shadow-xl shadow-black/10 transition-all hover:scale-[1.02] active:scale-95">
                                         Receive OTP <ChevronRight className="ml-2 w-5 h-5" />
                                     </Button>
 
-                                    <p className="text-[11px] text-muted-foreground text-center leading-relaxed font-medium px-4">
+                                    <p className="text-xs text-muted-foreground text-center leading-relaxed font-medium px-4">
                                         By signing up, you agree to our <span className="text-primary font-bold cursor-pointer hover:underline" onClick={() => navigate("/terms-conditions")}>Terms of Service</span> and <span className="text-primary font-bold cursor-pointer hover:underline" onClick={() => navigate("/privacy-policy")}>Privacy Policy</span>.
                                     </p>
-                                    <p className="text-[11px] text-muted-foreground text-center leading-relaxed font-medium px-4 mt-2">
+                                    <p className="text-xs text-muted-foreground text-center leading-relaxed font-medium px-4 mt-2">
                                         Already have an account?{" "}
                                         <button type="button" onClick={() => navigate("/login")} className="text-primary font-bold hover:underline">
                                             Login
@@ -259,7 +259,7 @@ const UserRegisterPage = () => {
                                     </p>
                                 </div>
 
-                                 <div className="flex justify-center gap-2 sm:gap-3 w-full max-sm mx-auto">
+                                 <div className="flex justify-center gap-2 sm:gap-3 w-full max-w-xs mx-auto">
                                     {otp.map((digit, idx) => (
                                         <input
                                             key={idx}
@@ -289,14 +289,16 @@ const UserRegisterPage = () => {
                             </motion.div>
                         ) : (
                             <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                                <div className="mb-8 pt-4">
-                                    <div className="flex items-center gap-2 mb-2 -ml-2">
-                                        <button onClick={() => setStep(2)} className="w-10 h-10 rounded-full hover:bg-black/5 flex items-center justify-center transition-colors">
-                                            <ArrowLeft className="w-6 h-6" />
-                                        </button>
-                                        <h2 className="text-2xl font-black text-foreground">Personalize Profile</h2>
+                                <div className="mb-8 pt-4 text-center">
+                                    <div className="flex flex-col items-center gap-4 mb-4">
+                                        <div className="flex items-center justify-center w-full relative">
+                                            <button onClick={() => setStep(2)} className="absolute left-0 w-10 h-10 rounded-full hover:bg-black/5 flex items-center justify-center transition-colors">
+                                                <ArrowLeft className="w-6 h-6" />
+                                            </button>
+                                            <h2 className="text-2xl font-black text-foreground">Personalize Profile</h2>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground font-medium px-4">Help us know you better for a tailored experience.</p>
                                     </div>
-                                    <p className="text-sm text-muted-foreground mt-0 ml-10 font-medium">Help us know you better for a tailored experience.</p>
                                 </div>
 
                                 <form onSubmit={handleProfileSubmit} className="space-y-6">
@@ -332,7 +334,7 @@ const UserRegisterPage = () => {
                                         )}
                                     </div>
 
-                                    <Button disabled={!name.trim()} className="w-full h-16 rounded-[24px] text-base font-black tracking-widest uppercase bg-black text-white hover:bg-black/90 shadow-xl shadow-black/10 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+                                    <Button disabled={!name.trim()} className="w-full h-14 sm:h-16 rounded-[24px] text-base font-black tracking-widest uppercase bg-black text-white hover:bg-black/90 shadow-xl shadow-black/10 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
                                         Complete Account <CheckCircle2 className="w-5 h-5" />
                                     </Button>
                                 </form>

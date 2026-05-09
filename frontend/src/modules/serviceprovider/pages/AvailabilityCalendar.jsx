@@ -38,6 +38,53 @@ const timeSlots = [
     "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM", "09:00 PM", "09:30 PM", "10:00 PM", "10:30 PM"
 ];
 
+const CustomTimePicker = ({ value, onChange }) => {
+    // value is HH:MM (24h format)
+    const [h24, m] = (value || "09:00").split(":");
+    let h12 = parseInt(h24, 10);
+    const period = h12 >= 12 ? "PM" : "AM";
+    if (h12 > 12) h12 -= 12;
+    if (h12 === 0) h12 = 12;
+
+    const update = (newH12, newM, newP) => {
+        let h = parseInt(newH12, 10);
+        if (newP === "PM" && h !== 12) h += 12;
+        if (newP === "AM" && h === 12) h = 0;
+        onChange(`${String(h).padStart(2, "0")}:${newM}`);
+    };
+
+    return (
+        <div className="flex gap-2">
+            <select 
+                value={h12} 
+                onChange={e => update(e.target.value, m, period)}
+                className="flex-1 h-14 px-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-inner appearance-none cursor-pointer"
+            >
+                {Array.from({length: 12}, (_, i) => i + 1).map(h => (
+                    <option key={h} value={h}>{String(h).padStart(2, '0')}</option>
+                ))}
+            </select>
+            <select 
+                value={m} 
+                onChange={e => update(h12, e.target.value, period)}
+                className="flex-1 h-14 px-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-inner appearance-none cursor-pointer"
+            >
+                {Array.from({length: 60}, (_, i) => i).map(min => (
+                    <option key={min} value={String(min).padStart(2, '0')}>{String(min).padStart(2, '0')}</option>
+                ))}
+            </select>
+            <select 
+                value={period} 
+                onChange={e => update(h12, m, e.target.value)}
+                className="w-20 h-14 px-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-inner appearance-none cursor-pointer"
+            >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+            </select>
+        </div>
+    );
+};
+
 export default function AvailabilityCalendar() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -51,9 +98,9 @@ export default function AvailabilityCalendar() {
     // Leave states
     const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [leaveStartDate, setLeaveStartDate] = useState("");
-    const [leaveStartTime, setLeaveStartTime] = useState("");
+    const [leaveStartTime, setLeaveStartTime] = useState("09:00");
     const [leaveEndDate, setLeaveEndDate] = useState("");
-    const [leaveEndTime, setLeaveEndTime] = useState("");
+    const [leaveEndTime, setLeaveEndTime] = useState("17:00");
     const [leaveReason, setLeaveReason] = useState("");
     const [leaves, setLeaves] = useState([]);
     const { isLoggedIn, logout } = useProviderAuth();
@@ -325,16 +372,24 @@ export default function AvailabilityCalendar() {
 
     return (
         <div className="bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-50 via-background to-background min-h-screen pb-32 overflow-y-auto -m-4 md:m-0">
-            <div className="max-w-4xl mx-auto p-4 space-y-6">
+            <div className="max-w-6xl mx-auto px-2 sm:px-6 space-y-6">
 
                 {/* Header - Beautician Style */}
-                <div className="pt-4 flex justify-between items-end">
-                    <div className="space-y-1">
-                        <h1 className="text-2xl font-black text-slate-900 tracking-tighter">Schedule & Availability</h1>
-                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Configure your service hours</p>
+                <div className="flex items-center justify-between gap-2 sm:gap-4 mb-8 pt-8 min-w-0 pr-2 sm:pr-0">
+                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                        <button 
+                            onClick={() => navigate(-1)} 
+                            className="p-2 rounded-full bg-white/80 hover:bg-white shadow-sm border border-slate-100 transition-colors shrink-0"
+                        >
+                            <ChevronLeft className="w-5 h-5 text-slate-600" />
+                        </button>
+                        <div className="space-y-0.5 min-w-0 flex-1">
+                            <h1 className="text-[14px] sm:text-lg md:text-xl font-black text-slate-900 tracking-tighter whitespace-nowrap">Schedule & Availability</h1>
+                            <p className="text-[8px] sm:text-[10px] text-slate-400 font-black uppercase tracking-widest truncate">Configure your service hours</p>
+                        </div>
                     </div>
-                    <Button onClick={() => setShowLeaveModal(true)} variant="outline" className="h-10 px-6 rounded-2xl border-slate-200 text-xs font-black gap-2 hover:bg-slate-900 hover:text-white transition-all shadow-sm">
-                        <Plane className="w-4 h-4" /> REQUEST LEAVE
+                    <Button onClick={() => setShowLeaveModal(true)} variant="outline" className="h-9 px-3 sm:px-6 rounded-2xl border-slate-200 text-[11px] sm:text-xs font-black gap-1.5 hover:bg-slate-900 hover:text-white transition-all shadow-sm shrink-0">
+                        <Plane className="w-3.5 h-3.5" /> <span className="hidden sm:inline">REQUEST LEAVE</span><span className="sm:hidden">LEAVE</span>
                     </Button>
                 </div>
 
@@ -527,7 +582,7 @@ export default function AvailabilityCalendar() {
                                     <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
                                         <Info className="w-4 h-4 text-purple-400" />
                                     </div>
-                                    <p className="text-[10px] text-slate-300 font-bold leading-relaxed uppercase tracking-widest">
+                                    <p className="text-[9px] text-slate-300 font-bold leading-relaxed uppercase tracking-tighter">
                                         Available hours help you rank higher in search results.
                                     </p>
                                 </div>
@@ -555,7 +610,7 @@ export default function AvailabilityCalendar() {
                                 <h3 className="font-black text-2xl text-slate-900 tracking-tighter">Request Time Off</h3>
                             </div>
 
-                            <div className="space-y-5 flex-1 overflow-y-auto custom-scrollbar pr-1">
+                            <div className="space-y-5 flex-1 overflow-y-auto custom-scrollbar px-1">
                                 <div className="space-y-3">
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
@@ -574,13 +629,9 @@ export default function AvailabilityCalendar() {
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
                                             Start Time <span className="text-red-500">*</span>
                                         </label>
-                                        <input
-                                            type="time"
+                                        <CustomTimePicker
                                             value={leaveStartTime}
-                                            onChange={e => setLeaveStartTime(e.target.value)}
-                                            required
-                                            aria-required="true"
-                                            className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-inner"
+                                            onChange={setLeaveStartTime}
                                         />
                                     </div>
                                 </div>
@@ -603,13 +654,9 @@ export default function AvailabilityCalendar() {
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">
                                             End Time <span className="text-red-500">*</span>
                                         </label>
-                                        <input
-                                            type="time"
+                                        <CustomTimePicker
                                             value={leaveEndTime}
-                                            onChange={e => setLeaveEndTime(e.target.value)}
-                                            required
-                                            aria-required="true"
-                                            className="w-full h-14 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none shadow-inner focus:ring-2 focus:ring-purple-500 transition-all"
+                                            onChange={setLeaveEndTime}
                                         />
                                     </div>
                                 </div>
@@ -651,9 +698,8 @@ export default function AvailabilityCalendar() {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
-                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar { display: none; width: 0; }
+                .custom-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}} />
         </div>
     );

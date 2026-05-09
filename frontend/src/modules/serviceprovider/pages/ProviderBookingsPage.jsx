@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Clock, MapPin, ChevronRight, Check, X, Zap, Calendar, Timer, Phone } from "lucide-react";
+import { Clock, MapPin, ChevronRight, Check, X, Zap, Calendar, Timer, Phone, ChevronLeft } from "lucide-react";
 import { useProviderBookings } from "@/modules/serviceprovider/contexts/ProviderBookingContext";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { Button } from "@/modules/user/components/ui/button";
@@ -230,7 +230,13 @@ const ProviderBookingsPage = () => {
     return (
         <div className="flex flex-col gap-4 pt-2 md:pt-0 w-full max-w-4xl mx-auto h-full">
             <div className="flex items-center gap-4 px-2 md:px-0">
-                <h1 className="text-2xl font-black tracking-tight text-gray-900">Bookings</h1>
+                <button 
+                    onClick={() => navigate(-1)} 
+                    className="p-2 rounded-full bg-white shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors"
+                >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                </button>
+                <h1 className="text-xl font-black tracking-tight text-gray-900">Bookings</h1>
             </div>
 
             {/* Horizontal scrollable tabs container */}

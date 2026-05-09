@@ -10,10 +10,10 @@ import {
     Save,
     BellRing,
     Send,
-    TestTube2,
     Package,
     Upload,
     X,
+    Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
@@ -31,6 +31,7 @@ export default function MarketingControl() {
     const {
         getBanners,
         addBanner,
+        updateBanner,
         deleteBanner,
         pushBroadcast,
         getPushBroadcastHistory,
@@ -45,6 +46,7 @@ export default function MarketingControl() {
     const [roleOptions, setRoleOptions] = useState(["user", "provider", "vendor"]);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ title: "", imageUrl: "", serviceName: "", linkTo: "", startDate: "", endDate: "", priority: 1 });
+    const [editingBanner, setEditingBanner] = useState(null);
     const [selectedImageFile, setSelectedImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
 
@@ -61,7 +63,11 @@ export default function MarketingControl() {
     const [broadcastHistory, setBroadcastHistory] = useState([]);
     const [subscriptionPlans, setSubscriptionPlans] = useState([]);
     const [broadcasting, setBroadcasting] = useState(false);
-    const [testingPush, setTestingPush] = useState(false);
+
+    const takenPriorities = useMemo(() => 
+        banners.filter(b => b.id !== editingBanner?.id).map(b => Number(b.priority)),
+        [banners, editingBanner]
+    );
 
     // Safety check for services and categories
     const safeServices = services || [];
@@ -102,21 +108,51 @@ export default function MarketingControl() {
         loadPushMeta();
     }, []);
 
+    const getFirstAvailablePriority = () => {
+        const taken = banners.map(b => Number(b.priority));
+        for (let i = 1; i <= 10; i++) {
+            if (!taken.includes(i)) return i;
+        }
+        return 1;
+    };
+
     const handleAdd = async (e) => {
         e.preventDefault();
         
         // If image file is selected, use the preview (base64) as imageUrl
-        // In production, you would upload to cloudinary/S3 and get URL
         if (selectedImageFile && imagePreview) {
-            form.imageUrl = imagePreview; // Use base64 preview for now
+            form.imageUrl = imagePreview; 
         }
 
-        await addBanner(form);
-        setForm({ title: "", imageUrl: "", serviceName: "", linkTo: "", startDate: "", endDate: "", priority: 1 });
+        if (editingBanner) {
+            await updateBanner(editingBanner.id, editingBanner.gender || "women", form);
+        } else {
+            await addBanner(form);
+        }
+
+        setForm({ title: "", imageUrl: "", serviceName: "", linkTo: "", startDate: "", endDate: "", priority: getFirstAvailablePriority() });
         setSelectedImageFile(null);
         setImagePreview(null);
+        setEditingBanner(null);
         setShowForm(false);
         loadBanners();
+    };
+
+    const handleEdit = (banner) => {
+        setEditingBanner(banner);
+        setForm({
+            title: banner.title || "",
+            imageUrl: banner.imageUrl || "",
+            serviceName: banner.serviceName || "",
+            linkTo: banner.linkTo || "",
+            startDate: banner.startDate || "",
+            endDate: banner.endDate || "",
+            priority: banner.priority || 1,
+        });
+        setImagePreview(banner.imageUrl || null);
+        setShowForm(true);
+        // Scroll to form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleImageSelect = (e) => {
@@ -225,20 +261,7 @@ export default function MarketingControl() {
         }
     };
 
-    const handlePushTest = async () => {
-        setTestingPush(true);
-        try {
-            await sendPushTest({
-                title: broadcastForm.title || "SWM Push Test",
-                message: broadcastForm.message || "This is a test push from admin.",
-                link: broadcastForm.link || "/admin/notifications",
-                icon: broadcastForm.icon || undefined,
-            });
-            await loadPushMeta();
-        } finally {
-            setTestingPush(false);
-        }
-    };
+
 
     return (
         <div className="space-y-6">
@@ -249,8 +272,21 @@ export default function MarketingControl() {
                     </h1>
                     <p className="text-sm text-muted-foreground font-medium mt-1">Manage banners and send admin push broadcasts without changing existing panel flows.</p>
                 </div>
-                <Button onClick={() => setShowForm(!showForm)} className="gap-2 rounded-xl font-bold">
-                    <Plus className="h-4 w-4" /> Add Banner
+                <Button onClick={() => {
+                    if (showForm && editingBanner) {
+                        setEditingBanner(null);
+                        setForm({ title: "", imageUrl: "", serviceName: "", linkTo: "", startDate: "", endDate: "", priority: getFirstAvailablePriority() });
+                        setImagePreview(null);
+                        setSelectedImageFile(null);
+                    } else {
+                        if (!showForm) {
+                            setForm(prev => ({ ...prev, priority: getFirstAvailablePriority() }));
+                        }
+                        setShowForm(!showForm);
+                    }
+                }} className="gap-2 rounded-xl font-bold">
+                    {showForm && editingBanner ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                    {showForm && editingBanner ? "Cancel Edit" : "Add Banner"}
                 </Button>
             </motion.div>
 
@@ -259,7 +295,7 @@ export default function MarketingControl() {
                     {showForm && (
                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
                             <Card className="border-border/50 shadow-none">
-                                <CardHeader><CardTitle className="text-base font-bold">New Banner</CardTitle></CardHeader>
+                                <CardHeader><CardTitle className="text-base font-bold">{editingBanner ? "Edit Banner" : "New Banner"}</CardTitle></CardHeader>
                                 <CardContent>
                                     <form onSubmit={handleAdd} className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
@@ -327,7 +363,7 @@ export default function MarketingControl() {
                                             <select
                                                 value={form.serviceName}
                                                 onChange={(e) => handleServiceChange(e.target.value)}
-                                                className="w-full rounded-xl h-10 bg-muted/30 border border-input px-3 text-sm font-medium"
+                                                className="w-full rounded-xl h-10 bg-white border border-slate-200 px-3 text-sm font-bold text-slate-700 shadow-sm focus:border-primary outline-none transition-all cursor-pointer"
                                             >
                                                 <option value="">-- Select Service --</option>
                                                 {safeServices.map((s) => (
@@ -349,7 +385,7 @@ export default function MarketingControl() {
                                             <select
                                                 value={form.linkTo}
                                                 onChange={(e) => updateBannerForm('linkTo', e.target.value)}
-                                                className="w-full rounded-xl h-10 bg-muted/30 border border-input px-3 text-sm font-medium"
+                                                className="w-full rounded-xl h-10 bg-white border border-slate-200 px-3 text-sm font-bold text-slate-700 shadow-sm focus:border-primary outline-none transition-all cursor-pointer disabled:bg-slate-50 disabled:text-slate-400"
                                                 disabled={!form.serviceName}
                                             >
                                                 <option value="">-- Select Category --</option>
@@ -367,16 +403,29 @@ export default function MarketingControl() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-bold">Priority (1-10)</Label>
-                                            <Input type="number" min={1} max={10} value={form.priority} onChange={(e) => updateBannerForm("priority", parseInt(e.target.value || "1", 10))} className="rounded-xl h-10 bg-muted/30" />
+                                            <Label className="text-xs font-bold">Priority (Position)</Label>
+                                            <select
+                                                value={form.priority}
+                                                onChange={(e) => updateBannerForm("priority", parseInt(e.target.value, 10))}
+                                                className="w-full rounded-xl h-10 bg-white border border-slate-200 px-3 text-sm font-bold text-slate-700 shadow-sm focus:border-primary outline-none transition-all cursor-pointer"
+                                            >
+                                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => {
+                                                    const isTaken = takenPriorities.includes(p);
+                                                    return (
+                                                        <option key={p} value={p} disabled={isTaken} className={isTaken ? "text-muted-foreground bg-muted/20" : ""}>
+                                                            Priority {p} {isTaken ? "(Already Taken)" : ""}
+                                                        </option>
+                                                    );
+                                                })}
+                                            </select>
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold">Start Date</Label>
-                                            <Input type="date" value={form.startDate} onChange={(e) => updateBannerForm("startDate", e.target.value)} className="rounded-xl h-10 bg-muted/30" />
+                                            <Input type="date" min={new Date().toISOString().split('T')[0]} max="2999-12-31" value={form.startDate} onChange={(e) => updateBannerForm("startDate", e.target.value)} onClick={(e) => e.target.showPicker && e.target.showPicker()} className="rounded-xl h-10 bg-muted/30 [&::-webkit-calendar-picker-indicator]:hidden" />
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold">End Date</Label>
-                                            <Input type="date" value={form.endDate} onChange={(e) => updateBannerForm("endDate", e.target.value)} className="rounded-xl h-10 bg-muted/30" />
+                                            <Input type="date" min={form.startDate || new Date().toISOString().split('T')[0]} max="2999-12-31" value={form.endDate} onChange={(e) => updateBannerForm("endDate", e.target.value)} onClick={(e) => e.target.showPicker && e.target.showPicker()} className="rounded-xl h-10 bg-muted/30 [&::-webkit-calendar-picker-indicator]:hidden" />
                                         </div>
                                         <div className="md:col-span-2 flex gap-2">
                                             <Button type="submit" disabled={!selectedImageFile && !form.imageUrl} className="rounded-xl font-bold gap-2">
@@ -384,6 +433,8 @@ export default function MarketingControl() {
                                             </Button>
                                             <Button type="button" variant="outline" className="rounded-xl font-bold" onClick={() => {
                                                 setShowForm(false);
+                                                setEditingBanner(null);
+                                                setForm({ title: "", imageUrl: "", serviceName: "", linkTo: "", startDate: "", endDate: "", priority: 1 });
                                                 setSelectedImageFile(null);
                                                 setImagePreview(null);
                                             }}>Cancel</Button>
@@ -423,14 +474,24 @@ export default function MarketingControl() {
                                                     <div className="flex flex-wrap gap-2 mt-2 text-[10px] text-muted-foreground font-medium">
                                                         {b.startDate && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{b.startDate} to {b.endDate || "Open"}</span>}
                                                         {b.linkTo && <span className="flex items-center gap-1"><LinkIcon className="h-3 w-3" />{b.linkTo}</span>}
-                                                        <Badge variant="outline" className="text-[8px] font-black px-1.5 h-4 bg-primary/15 text-primary border-primary/30">
+                                                        <Badge 
+                                                            variant="outline" 
+                                                            className="text-[8px] font-black px-1.5 h-4 bg-primary/15 text-primary border-primary/30 cursor-pointer hover:bg-primary/25 transition-colors"
+                                                            onClick={() => handleEdit(b)}
+                                                            title="Click to edit priority"
+                                                        >
                                                             <ArrowUpDown className="h-2.5 w-2.5 mr-0.5" />P{b.priority}
                                                         </Badge>
                                                     </div>
                                                 </div>
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold border-red-500/30 text-red-400 rounded-lg px-2 flex-shrink-0" onClick={() => handleDelete(b.id)}>
-                                                    <Trash2 className="h-3 w-3" />
-                                                </Button>
+                                                <div className="flex flex-col gap-2 flex-shrink-0">
+                                                    <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-lg border-indigo-500/30 text-indigo-500 hover:bg-indigo-50" onClick={() => handleEdit(b)}>
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-lg border-red-500/30 text-red-500 hover:bg-red-50" onClick={() => handleDelete(b.id)}>
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -529,9 +590,6 @@ export default function MarketingControl() {
                                 <div className="flex flex-wrap gap-2">
                                     <Button type="submit" disabled={broadcasting} className="rounded-xl font-bold gap-2">
                                         <Send className="h-4 w-4" /> {broadcasting ? "Sending..." : "Send Broadcast"}
-                                    </Button>
-                                    <Button type="button" variant="outline" disabled={testingPush} className="rounded-xl font-bold gap-2" onClick={handlePushTest}>
-                                        <TestTube2 className="h-4 w-4" /> {testingPush ? "Sending..." : "Send Test Push"}
                                     </Button>
                                 </div>
                             </form>

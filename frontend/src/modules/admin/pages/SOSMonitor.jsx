@@ -13,6 +13,43 @@ export default function SOSMonitor() {
     const { isLoggedIn, getSOSAlerts, resolveSOSAlert } = useAdminAuth();
     const [alerts, setAlerts] = useState([]);
 
+    const AddressDisplay = ({ location, city }) => {
+        const [address, setAddress] = useState("Resolving address...");
+        const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+
+        useEffect(() => {
+            if (!location?.lat || !location?.lng) {
+                setAddress(city || "No location data");
+                return;
+            }
+
+            const resolve = async () => {
+                try {
+                    const response = await fetch(
+                        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${location.lat},${location.lng}&key=${key}`
+                    );
+                    const data = await response.json();
+                    if (data.status === "OK" && data.results?.[0]) {
+                        setAddress(data.results[0].formatted_address);
+                    } else {
+                        setAddress(city || `${location.lat}, ${location.lng}`);
+                    }
+                } catch (error) {
+                    setAddress(city || "Address error");
+                }
+            };
+
+            resolve();
+        }, [location?.lat, location?.lng, city, key]);
+
+        return (
+            <span className="flex items-start gap-1">
+                <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                <span className="line-clamp-2">{address}</span>
+            </span>
+        );
+    };
+
     const load = async () => {
         if (!isLoggedIn) return;
         try {
@@ -58,7 +95,7 @@ export default function SOSMonitor() {
                                         <p className="text-sm font-bold">{a.userName || "Unknown Source"}</p>
                                         <div className="flex flex-wrap gap-3 mt-1 text-[10px] text-muted-foreground font-medium">
                                             <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{a.userPhone || a.phone || "N/A"}</span>
-                                            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{a.city || "Location Shared"}</span>
+                                            <AddressDisplay location={a.location} city={a.city} />
                                             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{a.createdAt ? new Date(a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Now"}</span>
                                         </div>
                                     </div>

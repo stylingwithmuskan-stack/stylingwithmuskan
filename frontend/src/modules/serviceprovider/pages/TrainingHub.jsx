@@ -140,12 +140,12 @@ export default function TrainingHub() {
         <div className="flex flex-col bg-slate-50 min-h-screen -m-4 md:m-0 pb-20">
             {/* Premium Header */}
             <div className="bg-white px-6 py-8 border-b border-slate-200">
-                <div className="flex items-center gap-4 mb-6">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors border border-slate-100">
+                <div className="flex items-start gap-4 mb-6">
+                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors border border-slate-100 mt-1">
                         <ChevronLeft className="h-5 w-5 text-slate-600" />
                     </button>
                     <div>
-                        <h2 className="text-2xl font-black font-display tracking-tight text-slate-900 flex items-center gap-2">
+                        <h2 className="text-xl font-black font-display tracking-tight text-slate-900 flex items-center gap-2">
                             <GraduationCap className="h-6 w-6 text-purple-600" /> Learning Portal
                         </h2>
                         <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-0.5">Professional Certification Hub</p>

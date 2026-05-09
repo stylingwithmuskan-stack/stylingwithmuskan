@@ -57,6 +57,10 @@ const ProviderBookingDetailPage = () => {
     const [showChat, setShowChat] = useState(false);
     const lastSentRef = useRef(0);
 
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+
     const handleUpdateStatus = async (next) => {
         // Check if starting too early (only for travelling status)
         if (next === "travelling" && booking?.slot?.date && booking?.slot?.time) {
@@ -429,7 +433,7 @@ const ProviderBookingDetailPage = () => {
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
-                            className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6 text-center border border-gray-100"
+                            className="relative w-[calc(100vw-2rem)] max-w-sm bg-white rounded-[32px] p-6 sm:p-8 shadow-2xl space-y-6 text-center border border-gray-100"
                         >
                             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto">
                                 <AlertTriangle className="w-10 h-10 text-red-600" />
@@ -476,7 +480,7 @@ const ProviderBookingDetailPage = () => {
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
-                            className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl space-y-6 text-center border border-gray-100"
+                            className="relative w-[calc(100vw-2rem)] max-w-sm bg-white rounded-[32px] p-6 sm:p-8 shadow-2xl space-y-6 text-center border border-gray-100"
                         >
                             <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
                                 <AlertTriangle className="w-10 h-10 text-amber-600" />
@@ -917,16 +921,16 @@ const ProviderBookingDetailPage = () => {
                 {showOTP && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowOTP(false)} className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" />
-                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-sm bg-white border border-gray-100 rounded-[24px] p-6 shadow-2xl z-10">
+                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-[calc(100vw-2rem)] max-w-sm bg-white border border-gray-100 rounded-[24px] p-5 sm:p-6 shadow-2xl z-10">
                             <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
                                 <Shield className="w-6 h-6 text-purple-600" />
                             </div>
                             <h3 className="font-black text-xl text-center mb-1 text-gray-900">Customer OTP</h3>
                             <p className="text-[11px] text-gray-500 text-center mb-6 uppercase tracking-widest font-bold">Ask customer for the 6-digit code</p>
-                            <div className="flex justify-center gap-2 mb-6">
+                            <div className="flex justify-center gap-1.5 sm:gap-2 mb-6">
                                 {otpInput.map((d, i) => (
-                                    <input key={i} id={`potp-${i}`} type="text" maxLength={1} value={d} onChange={e => handleOtpChange(i, e.target.value)}
-                                        className={`w-12 h-14 text-center text-2xl font-black bg-gray-50 border-2 rounded-2xl ${otpError ? "border-red-500 text-red-600 animate-shake bg-red-50" : "border-gray-200 text-gray-900"} focus:border-purple-500 focus:bg-white transition-all outline-none`} />
+                                    <input key={i} id={`potp-${i}`} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={1} value={d} onChange={e => handleOtpChange(i, e.target.value)}
+                                        className={`w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-black bg-gray-50 border-2 rounded-xl sm:rounded-2xl ${otpError ? "border-red-500 text-red-600 animate-shake bg-red-50" : "border-gray-200 text-gray-900"} focus:border-purple-500 focus:bg-white transition-all outline-none`} />
                                 ))}
                             </div>
                             {otpError && <p className="text-red-600 text-[11px] font-bold text-center mb-4 uppercase tracking-widest">Invalid OTP Code</p>}
@@ -941,7 +945,7 @@ const ProviderBookingDetailPage = () => {
                 {showComplete && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowComplete(false)} className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" />
-                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-sm bg-white border border-gray-100 rounded-[24px] p-6 shadow-2xl z-10">
+                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-[calc(100vw-2rem)] max-w-sm bg-white border border-gray-100 rounded-[24px] p-5 sm:p-6 shadow-2xl z-10">
                             <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
                                 <CheckCircle2 className="w-6 h-6 text-green-600" />
                             </div>

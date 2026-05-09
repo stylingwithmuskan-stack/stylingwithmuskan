@@ -119,10 +119,10 @@ async function attachProviderToBookings(bookings = []) {
   const phoneIds = raw.filter((v) => /^\d{10}$/.test(v));
 
   const provsById = idIds.length
-    ? await ProviderAccount.find({ _id: { $in: idIds } }).select("name phone rating profilePhoto experience city").lean()
+    ? await ProviderAccount.find({ _id: { $in: idIds } }).select("name phone rating profilePhoto experience city totalJobs tag zones").lean()
     : [];
   const provsByPhone = phoneIds.length
-    ? await ProviderAccount.find({ phone: { $in: phoneIds } }).select("name phone rating profilePhoto experience city").lean()
+    ? await ProviderAccount.find({ phone: { $in: phoneIds } }).select("name phone rating profilePhoto experience city totalJobs tag zones").lean()
     : [];
 
   const byKey = new Map();
@@ -130,23 +130,51 @@ async function attachProviderToBookings(bookings = []) {
     byKey.set(p._id.toString(), p);
     if (p.phone) byKey.set(String(p.phone), p);
   }
+
+  // Compute actual completed jobs count from Booking collection for each provider
+  const providerIds = Array.from(new Set(
+    [...(provsById || []), ...(provsByPhone || [])].map(p => p._id.toString())
+  ));
+  const completedJobsMap = new Map();
+  if (providerIds.length > 0) {
+    try {
+      const jobCounts = await Booking.aggregate([
+        { $match: { assignedProvider: { $in: providerIds }, status: "completed" } },
+        { $group: { _id: "$assignedProvider", count: { $sum: 1 } } }
+      ]);
+      for (const j of jobCounts) {
+        completedJobsMap.set(String(j._id), j.count);
+      }
+    } catch (err) {
+      // Fallback: use totalJobs from ProviderAccount if aggregation fails
+      console.error("[attachProviderToBookings] completedJobs aggregation failed:", err.message);
+    }
+  }
+
   return (bookings || []).map((b) => {
     const p = byKey.get(String(b.assignedProvider || ""));
     if (!p) return b;
+    const pid = p._id.toString();
+    const actualCompletedJobs = completedJobsMap.get(pid) || p.totalJobs || 0;
     const slot = {
       ...(b.slot || {}),
       provider: {
-        id: p._id.toString(),
+        id: pid,
         name: p.name || "",
+        phone: p.phone || "",
         rating: p.rating || 0,
         profilePhoto: p.profilePhoto || "",
         experience: p.experience || "",
         city: p.city || "",
+        totalJobs: actualCompletedJobs,
+        tag: p.tag || "",
+        zones: p.zones || [],
       },
     };
     return { ...b, slot };
   });
 }
+
 
 export async function list(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);

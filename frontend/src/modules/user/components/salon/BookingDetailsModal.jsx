@@ -446,6 +446,14 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                                 <div className="text-[10px] font-bold text-muted-foreground">
                                                     {assignedProvider?.city || 'Professional'}
                                                 </div>
+                                                {(assignedProvider?.totalJobs > 0 || assignedProvider?.completedJobs > 0) && (
+                                                    <>
+                                                        <div className="text-[10px] font-bold text-muted-foreground">•</div>
+                                                        <div className="text-[10px] font-bold text-muted-foreground">
+                                                            {assignedProvider.totalJobs || assignedProvider.completedJobs} Jobs
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

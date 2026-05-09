@@ -13,6 +13,43 @@ export default function VenderSOSMonitor() {
     const { getSOSAlerts, resolveSOSAlert, hydrated, isLoggedIn } = useVenderAuth();
     const [alerts, setAlerts] = useState([]);
 
+    const AddressDisplay = ({ location }) => {
+        const [address, setAddress] = useState("Resolving address...");
+        const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+
+        useEffect(() => {
+            if (!location?.lat || !location?.lng) {
+                setAddress("No location data");
+                return;
+            }
+
+            const resolve = async () => {
+                try {
+                    const response = await fetch(
+                        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${location.lat},${location.lng}&key=${key}`
+                    );
+                    const data = await response.json();
+                    if (data.status === "OK" && data.results?.[0]) {
+                        setAddress(data.results[0].formatted_address);
+                    } else {
+                        setAddress(`${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`);
+                    }
+                } catch (error) {
+                    setAddress("Address error");
+                }
+            };
+
+            resolve();
+        }, [location?.lat, location?.lng, key]);
+
+        return (
+            <div className="flex items-start gap-2 text-[11px] font-bold text-slate-600">
+                <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" /> 
+                <span className="line-clamp-2">{address}</span>
+            </div>
+        );
+    };
+
     const load = async () => {
         try {
             if (!hydrated || !isLoggedIn) return;
@@ -91,12 +128,7 @@ export default function VenderSOSMonitor() {
                                             <div className="flex items-center gap-2 text-[11px] font-bold text-slate-600">
                                                 <Phone className="h-3.5 w-3.5 text-slate-400" /> {alert.phone || "N/A"}
                                             </div>
-                                            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-600">
-                                                <MapPin className="h-3.5 w-3.5 text-slate-400" /> 
-                                                {typeof alert.location === 'object' && alert.location !== null 
-                                                    ? `${alert.location.lat.toFixed(4)}, ${alert.location.lng.toFixed(4)}` 
-                                                    : (alert.location || "Location shared")}
-                                            </div>
+                                            <AddressDisplay location={alert.location} />
                                         </div>
 
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

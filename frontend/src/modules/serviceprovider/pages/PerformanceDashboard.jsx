@@ -102,25 +102,25 @@ export default function PerformanceDashboard() {
 
     return (
         <div className="flex flex-1 w-full flex-col gap-6 pt-4 md:pt-0">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
                 <button
                     onClick={() => navigate(-1)}
-                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors mt-0.5"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Performance & Compliance</h1>
+                    <h1 className="text-base sm:text-lg md:text-xl font-bold tracking-tight">Performance & Compliance</h1>
                     <p className="text-muted-foreground">Track your metrics and ensure adherence to UC standards.</p>
                 </div>
             </div>
 
             {isPaused && (
-                <div className="rounded-lg border bg-destructive/10 text-destructive border-destructive p-4 flex gap-4 items-start shadow-sm">
-                    <PauseCircle className="h-5 w-5 mt-0.5" />
+                <div className="rounded-2xl border bg-destructive/10 text-destructive border-destructive/20 p-3 sm:p-4 flex gap-3 sm:gap-4 items-start shadow-sm">
+                    <PauseCircle className="h-5 w-5 mt-0.5 shrink-0" />
                     <div className="flex-1">
-                        <h3 className="font-semibold tracking-tight">Jobs Paused</h3>
-                        <p className="text-sm mt-1 whitespace-pre-wrap">
+                        <h3 className="font-bold tracking-tight text-sm sm:text-base">Jobs Paused</h3>
+                        <p className="text-xs sm:text-sm mt-1 whitespace-pre-wrap leading-relaxed">
                             Your profile is currently paused from receiving new leads because your rating has fallen below {performanceCriteria?.minRatingThreshold || 4.5}. You must complete a refresher training module to reactivate your dashboard.
                         </p>
                     </div>
@@ -128,16 +128,16 @@ export default function PerformanceDashboard() {
             )}
 
             {metrics.cancellations > (performanceCriteria?.maxCancellationsThreshold || 5) && (
-                <div className="rounded-lg border bg-white p-4 flex flex-col items-center justify-between shadow-sm sm:flex-row gap-4 border-gray-100">
-                    <div className="flex flex-col gap-1">
-                        <h3 className="text-sm font-bold text-[#b94a2a] uppercase flex items-center gap-1">
+                <div className="rounded-2xl border bg-white p-3 sm:p-4 flex flex-col items-center justify-between shadow-sm sm:flex-row gap-4 border-gray-100">
+                    <div className="flex flex-col gap-1 w-full sm:w-auto">
+                        <h3 className="text-xs sm:text-sm font-bold text-[#b94a2a] uppercase flex items-center gap-1">
                             <XCircle className="h-4 w-4" /> HIGH CANCELLATIONS
                         </h3>
-                        <p className="text-sm text-gray-700">
+                        <p className="text-xs sm:text-sm text-gray-700">
                             Your cancellations have exceeded the limit of {performanceCriteria?.maxCancellationsThreshold || 5}. Please complete training.
                         </p>
                     </div>
-                    <Button className="bg-[#5944d1] hover:bg-[#4331a6] text-white w-full sm:w-auto h-10 px-6 rounded-lg text-sm font-medium" onClick={() => navigate("/provider/training")}>
+                    <Button className="bg-[#5944d1] hover:bg-[#4331a6] text-white w-full sm:w-auto h-11 px-6 rounded-xl text-xs font-bold uppercase tracking-widest" onClick={() => navigate("/provider/training")}>
                         Start Training
                     </Button>
                 </div>
@@ -145,49 +145,50 @@ export default function PerformanceDashboard() {
 
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
                 {/* Rating - Hero Metric with Interactive Circular Progress */}
-                <div className="col-span-2 lg:col-span-3 flex flex-col items-center justify-center py-10">
-                    <div className="relative flex items-center justify-center w-56 h-56">
+                <div className="col-span-2 lg:col-span-3 flex flex-col items-center justify-center py-8 sm:py-10">
+                    <div className="relative flex items-center justify-center w-48 h-48 sm:w-56 sm:h-56">
                         {/* SVG Circular Progress Bar */}
-                        <svg className="w-56 h-56 transform -rotate-90">
+                        <svg className="w-48 h-48 sm:w-56 sm:h-56 transform -rotate-90">
                             {/* Background Track */}
                             <circle
-                                cx="112"
-                                cy="112"
-                                r="100"
+                                cx="96"
+                                cy="96"
+                                r="85"
                                 fill="none"
                                 stroke="#f3f4f6"
-                                strokeWidth="10"
+                                strokeWidth="8"
+                                className="sm:cx-[112] sm:cy-[112] sm:r-[100] sm:stroke-width-[10]"
                             />
                             {/* Color-coded Progress Stroke */}
                             <circle
-                                cx="112"
-                                cy="112"
-                                r="100"
+                                cx="96"
+                                cy="96"
+                                r="85"
                                 fill="none"
                                 stroke={metrics.rating >= (performanceCriteria?.minRatingThreshold || 4.5) ? "#22c55e" : "#ef4444"}
-                                strokeWidth="14"
-                                strokeDasharray="628.3"
-                                strokeDashoffset={628.3 - (628.3 * metrics.rating) / 5}
+                                strokeWidth="12"
+                                strokeDasharray="534"
+                                strokeDashoffset={534 - (534 * metrics.rating) / 5}
                                 strokeLinecap="round"
-                                className="transition-all duration-1000 ease-in-out drop-shadow-sm"
+                                className="transition-all duration-1000 ease-in-out drop-shadow-sm sm:cx-[112] sm:cy-[112] sm:r-[100] sm:stroke-width-[14] sm:stroke-dasharray-[628.3] sm:stroke-dashoffset-[calc(628.3-(628.3*metrics.rating)/5)]"
                             />
                         </svg>
 
-                        <div className="absolute inset-0 flex flex-col items-center justify-center translate-y-[-4px]">
-                            <h2 className="text-5xl font-extrabold tracking-tight text-slate-900">{metrics.rating.toFixed(2)}</h2>
-                            <div className="flex items-center justify-center gap-1 text-sm font-bold mt-1 text-slate-500">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center translate-y-[-2px] sm:translate-y-[-4px]">
+                            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">{metrics.rating.toFixed(2)}</h2>
+                            <div className="flex items-center justify-center gap-1 text-[10px] sm:text-sm font-bold mt-1 text-slate-500">
                                 Rating <span className="text-slate-400 font-bold">&gt;</span>
                             </div>
                         </div>
 
                         {/* Floating Status Badge mimicking image */}
-                        <div className="absolute -bottom-5 bg-[#334155] backdrop-blur-md text-white rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl border border-white/10">
-                            <AwardIcon className="h-5 w-5 text-slate-300" />
+                        <div className="absolute -bottom-5 bg-[#334155] backdrop-blur-md text-white rounded-full px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-3 sm:gap-6 shadow-2xl border border-white/10 scale-90 sm:scale-100">
+                            <AwardIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-300" />
                             <div className="flex flex-col items-center">
-                                <Star className={`h-5 w-5 fill-white ${metrics.rating >= (performanceCriteria?.minRatingThreshold || 4.5) ? "text-green-400" : "text-red-400"}`} />
-                                <span className="text-[10px] uppercase font-black mt-0.5 tracking-wider">Min: {performanceCriteria?.minRatingThreshold || 4.5}</span>
+                                <Star className={`h-4 w-4 sm:h-5 sm:w-5 fill-white ${metrics.rating >= (performanceCriteria?.minRatingThreshold || 4.5) ? "text-green-400" : "text-red-400"}`} />
+                                <span className="text-[8px] sm:text-[10px] uppercase font-black mt-0.5 tracking-wider text-center">Min: {performanceCriteria?.minRatingThreshold || 4.5}</span>
                             </div>
-                            <MoreVerticalIcon className="h-5 w-5 text-slate-300" />
+                            <MoreVerticalIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-300" />
                         </div>
                     </div>
                 </div>
@@ -260,7 +261,7 @@ export default function PerformanceDashboard() {
                                         <div className="p-1.5 bg-purple-100 rounded-lg">
                                             <TrendingUp className="h-4 w-4 text-purple-600" />
                                         </div>
-                                        <CardTitle className="text-lg font-black tracking-tight text-slate-900">Weekly Performance Trend</CardTitle>
+                                        <CardTitle className="text-base font-black tracking-tight text-slate-900">Weekly Performance Trend</CardTitle>
                                     </div>
                                     <CardDescription className="text-xs font-medium text-slate-500">Live efficiency & satisfaction tracking</CardDescription>
                                 </div>
@@ -275,7 +276,7 @@ export default function PerformanceDashboard() {
                         </CardHeader>
                         <CardContent className="p-0 sm:p-6 overflow-hidden">
                             {/* Interactive Performance Graph */}
-                            <div className="h-[280px] w-full mt-6 bg-white relative px-2 sm:px-0">
+                            <div className="h-[220px] sm:h-[280px] w-full mt-6 bg-white relative px-2 sm:px-0">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart
                                         data={metrics.weeklyTrend}
@@ -340,30 +341,30 @@ export default function PerformanceDashboard() {
                                 </ResponsiveContainer>
                             </div>
 
-                            <div className="mt-8 px-6 pb-6 grid grid-cols-2 gap-4">
+                            <div className="mt-6 sm:mt-8 px-4 sm:px-6 pb-6 grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4">
                                 <motion.div
                                     whileHover={{ y: -5 }}
-                                    className="bg-emerald-50/50 p-5 rounded-[24px] border border-emerald-100 relative overflow-hidden group"
+                                    className="bg-emerald-50/50 p-4 sm:p-5 rounded-[24px] border border-emerald-100 relative overflow-hidden group"
                                 >
                                     <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                                        <Clock className="h-10 w-10 text-emerald-600" />
+                                        <Clock className="h-8 w-8 sm:h-10 sm:w-10 text-emerald-600" />
                                     </div>
-                                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest leading-none mb-3">Avg Response Time</p>
-                                    <p className="text-2xl font-black text-emerald-900">12 Mins</p>
-                                    <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-600 font-black bg-emerald-100/50 w-fit px-2 py-0.5 rounded-full">
+                                    <p className="text-[9px] sm:text-[10px] text-emerald-600 font-black uppercase tracking-widest leading-none mb-3">Avg Response Time</p>
+                                    <p className="text-xl sm:text-2xl font-black text-emerald-900">12 Mins</p>
+                                    <div className="mt-2 flex items-center gap-1.5 text-[9px] sm:text-[10px] text-emerald-600 font-black bg-emerald-100/50 w-fit px-2 py-0.5 rounded-full">
                                         <TrendingDown className="h-3 w-3" /> 4 mins faster
                                     </div>
                                 </motion.div>
                                 <motion.div
                                     whileHover={{ y: -5 }}
-                                    className="bg-purple-50/50 p-5 rounded-[24px] border border-purple-100 relative overflow-hidden group"
+                                    className="bg-purple-50/50 p-4 sm:p-5 rounded-[24px] border border-purple-100 relative overflow-hidden group"
                                 >
                                     <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                                        <Briefcase className="h-10 w-10 text-purple-600" />
+                                        <Briefcase className="h-8 w-8 sm:h-10 sm:w-10 text-purple-600" />
                                     </div>
-                                    <p className="text-[10px] text-purple-600 font-black uppercase tracking-widest leading-none mb-3">Job Conversion</p>
-                                    <p className="text-2xl font-black text-purple-900">92%</p>
-                                    <div className="mt-2 flex items-center gap-1.5 text-[10px] text-purple-600 font-black bg-purple-100/50 w-fit px-2 py-0.5 rounded-full">
+                                    <p className="text-[9px] sm:text-[10px] text-purple-600 font-black uppercase tracking-widest leading-none mb-3">Job Conversion</p>
+                                    <p className="text-xl sm:text-2xl font-black text-purple-900">92%</p>
+                                    <div className="mt-2 flex items-center gap-1.5 text-[9px] sm:text-[10px] text-purple-600 font-black bg-purple-100/50 w-fit px-2 py-0.5 rounded-full">
                                         <TrendingUp className="h-3 w-3" /> 5% Increase
                                     </div>
                                 </motion.div>

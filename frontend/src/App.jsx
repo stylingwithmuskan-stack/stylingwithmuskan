@@ -17,6 +17,14 @@ import { NotificationProvider } from "@/modules/user/contexts/NotificationContex
 import LoginModal from "@/modules/user/components/salon/LoginModal";
 import ProtectedRoute from "@/modules/user/components/ProtectedRoute";
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
+
 // User Pages
 import SplashScreen from "@/modules/user/pages/SplashScreen";
 import GenderSelect from "@/modules/user/pages/GenderSelect";
@@ -213,6 +221,7 @@ const App = () => {
       <TooltipProvider>
         <BrowserRouter>
           <MetaPixelTracker />
+          <ScrollToTop />
           <AuthProvider>
             <UserModuleDataProvider>
               <GenderThemeProvider>

@@ -196,6 +196,34 @@ export const AdminAuthProvider = ({ children }) => {
         };
         await api.admin.addBanner(payload);
     };
+    const updateBanner = async (id, gender, banner) => {
+        const toStartAt = (dateStr) => {
+            if (!dateStr) return null;
+            const d = new Date(dateStr);
+            return isNaN(d.getTime()) ? null : d.toISOString();
+        };
+        const toEndAt = (dateStr) => {
+            if (!dateStr) return null;
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return null;
+            d.setHours(23, 59, 59, 999);
+            return d.toISOString();
+        };
+        const payload = {
+            id: id,
+            gender: gender || "women",
+            title: banner.title,
+            subtitle: "Exclusive deals for you",
+            gradient: "from-indigo-600/50 to-purple-600/50",
+            image: banner.imageUrl || "",
+            cta: "Book Now",
+            linkTo: banner.linkTo || "",
+            priority: Number(banner.priority || 1),
+            startAt: toStartAt(banner.startDate),
+            endAt: toEndAt(banner.endDate),
+        };
+        await api.admin.updateBanner(id, gender || "women", payload);
+    };
     const deleteBanner = async (id) => {
         // Try removing from both genders to be safe
         try { await api.admin.deleteBanner(id, "women"); } catch {}
@@ -278,7 +306,7 @@ export const AdminAuthProvider = ({ children }) => {
             getEnquiries, priceQuoteEnquiry, finalApproveEnquiry,
             getAllBookings, getUserBookings, approveBookingImages, assignSPToBooking, getAvailableProvidersForBooking, assignTeamToBooking,
             getCoupons, addCoupon, updateCoupon, deleteCoupon,
-            getBanners, addBanner, deleteBanner,
+            getBanners, addBanner, updateBanner, deleteBanner,
             getReferralSettings, updateReferralSettings,
             getSOSAlerts, resolveSOSAlert,
             getCommissionSettings, updateCommissionSettings,

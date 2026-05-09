@@ -9,11 +9,17 @@ const QuantityControl = ({
   className = "" 
 }) => {
   const sizeClasses = {
+    xs: {
+      button: "w-[22px] h-[22px]",
+      icon: "w-2.5 h-2.5",
+      text: "text-[10px]",
+      gap: "gap-0.5"
+    },
     sm: {
-      button: "w-[26px] h-[26px]",
+      button: "w-6 h-6",
       icon: "w-3 h-3",
-      text: "text-[12px]",
-      gap: "gap-1"
+      text: "text-[11px]",
+      gap: "gap-1.5"
     },
     md: {
       button: "w-8 h-8",
@@ -46,14 +52,13 @@ const QuantityControl = ({
       {/* Minus Button */}
       <button
         onClick={handleDecrement}
-        className={`${styles.button} rounded-lg border-2 border-primary/20 bg-white text-primary 
-                   hover:bg-primary hover:text-white hover:border-primary
-                   transition-all duration-200 active:scale-95 
-                   flex items-center justify-center shadow-sm
+        className={`${styles.button} rounded-full bg-primary text-white 
+                   hover:bg-primary/90 transition-all duration-200 active:scale-95 
+                   flex items-center justify-center shadow-md
                    disabled:opacity-50 disabled:cursor-not-allowed`}
         aria-label="Decrease quantity"
       >
-        <Minus className={styles.icon} strokeWidth={2.5} />
+        <Minus className={styles.icon} strokeWidth={3} />
       </button>
 
       {/* Quantity Display with Animation */}
@@ -62,7 +67,7 @@ const QuantityControl = ({
         initial={{ scale: 1.3, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className={`w-6 text-center ${styles.text} font-black text-primary`}
+        className={`w-5 text-center ${styles.text} font-black text-primary`}
       >
         {quantity}
       </motion.div>
@@ -70,14 +75,13 @@ const QuantityControl = ({
       {/* Plus Button */}
       <button
         onClick={handleIncrement}
-        className={`${styles.button} rounded-lg border-2 border-primary 
-                   bg-primary text-white hover:bg-primary/90 
-                   transition-all duration-200 active:scale-95 
-                   flex items-center justify-center shadow-sm
+        className={`${styles.button} rounded-full bg-primary text-white 
+                   hover:bg-primary/90 transition-all duration-200 active:scale-95 
+                   flex items-center justify-center shadow-md
                    disabled:opacity-50 disabled:cursor-not-allowed`}
         aria-label="Increase quantity"
       >
-        <Plus className={styles.icon} strokeWidth={2.5} />
+        <Plus className={styles.icon} strokeWidth={3} />
       </button>
     </div>
   );

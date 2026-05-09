@@ -60,19 +60,41 @@ const ExplorePage = () => {
     }, [categoryId]);
 
     useEffect(() => {
-        if (typeParam) setActiveType(typeParam);
-        if (bookingParam) {
+        // Only force sync from query params if they actually exist in the URL
+        // This prevents fighting with the Smart Sync logic when landing via category IDs
+        const hasType = searchParams.has('type');
+        const hasBooking = searchParams.has('booking');
+
+        if (hasType && typeParam) setActiveType(typeParam);
+        if (hasBooking && bookingParam) {
             setActiveBooking(bookingParam);
             setBookingType(bookingParam);
         }
-    }, [typeParam, bookingParam, setBookingType]);
+    }, [location.search, setBookingType]);
+
+    // 🔥 Smart Sync: If we land with a categoryId, auto-detect its parent Type and Booking mode
+    useEffect(() => {
+        if (categoryId && categories.length > 0) {
+            const cat = categories.find(c => String(c.id) === String(categoryId));
+            if (cat) {
+                if (cat.serviceType && cat.serviceType !== activeType) {
+                    setActiveType(cat.serviceType);
+                }
+                if (cat.bookingType && cat.bookingType !== activeBooking) {
+                    setActiveBooking(cat.bookingType);
+                    setBookingType(cat.bookingType);
+                }
+                setActiveCategory(cat.id);
+            }
+        }
+    }, [categoryId, categories, activeType, activeBooking, setBookingType]);
 
     useEffect(() => {
         if (contextBookingType && contextBookingType !== activeBooking) {
             setActiveBooking(contextBookingType);
-            navigate(`/explore/${activeCategory}?type=${activeType}&booking=${contextBookingType}`, { replace: true });
+            // No auto-navigate to append query params
         }
-    }, [contextBookingType, activeBooking, activeCategory, activeType, navigate]);
+    }, [contextBookingType, activeBooking]);
 
     // Optimize: Load category services on change
     useEffect(() => {
@@ -131,14 +153,14 @@ const ExplorePage = () => {
     // If activeCategory is not in the filtered list (e.g. after type change), reset it
     useEffect(() => {
         if (filteredCategories.length > 0) {
-            const isCurrentValid = filteredCategories.some(c => c.id === activeCategory);
+            const isCurrentValid = filteredCategories.some(c => String(c.id) === String(activeCategory));
             if (!isCurrentValid) {
                 const firstCat = filteredCategories[0];
                 setActiveCategory(firstCat.id);
-                navigate(`/explore/${firstCat.id}?type=${activeType}&booking=${activeBooking}`, { replace: true });
+                navigate(`/explore/${firstCat.id}`, { replace: true });
             }
         }
-    }, [filteredCategories, activeCategory, activeType, activeBooking, navigate]);
+    }, [filteredCategories, activeCategory, navigate]);
 
     const filteredServices = useMemo(() => {
         const source = searchQuery.trim().length >= 2 ? searchResults : services;
@@ -154,7 +176,7 @@ const ExplorePage = () => {
             const matchesCategoryName = category?.name.toLowerCase().includes(query);
             
             const matchesSearch = matchesName || matchesDescription || matchesCategoryName;
-            const matchesCategory = searchQuery.length > 0 ? true : s.category === activeCategory;
+            const matchesCategory = searchQuery.length > 0 ? true : String(s.category) === String(activeCategory);
             const isAvailable = checkAvailability(s, userLocation);
 
             // Store match type for sorting: 0=Name, 1=Category, 2=Description
@@ -217,13 +239,13 @@ const ExplorePage = () => {
         if (targetCat) {
             setActiveBooking(targetBooking);
             setActiveCategory(targetCat.id);
-            navigate(`/explore/${targetCat.id}?type=${typeId}&booking=${targetBooking}`, { replace: true });
+            navigate(`/explore/${targetCat.id}`, { replace: true });
         }
     };
 
     const handleCategoryChange = (catId) => {
         setActiveCategory(catId);
-        navigate(`/explore/${catId}?type=${activeType}&booking=${activeBooking}`, { replace: true });
+        navigate(`/explore/${catId}`, { replace: true });
     };
     return (
         <div className="min-h-screen bg-background flex flex-col h-screen overflow-hidden">
@@ -272,21 +294,33 @@ const ExplorePage = () => {
             </header>
 
             <div className="relative flex flex-1 overflow-hidden">
-                {/* Vertical Sidebar Button (Mobile View) */}
-                <div className="lg:hidden absolute left-0 top-1/2 -translate-y-1/2 z-[45]">
+                <div className={`lg:hidden fixed top-1/2 -translate-y-1/2 z-[51] transition-all duration-300 ease-in-out ${isMobileSidebarOpen ? 'left-[90px]' : 'left-0'}`}>
                     <button
                         onClick={() => setIsMobileSidebarOpen(prev => !prev)}
-                        className="w-8 h-12 bg-primary rounded-r-2xl flex items-center justify-center text-white shadow-lg border border-l-0 border-white/20 animate-in slide-in-from-left duration-300"
+                        className="w-8 h-12 bg-primary rounded-r-2xl flex items-center justify-center text-white shadow-lg border border-l-0 border-white/20"
                     >
                         {isMobileSidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
                     </button>
                 </div>
 
+                {/* Mobile Backdrop Overlay */}
+                <AnimatePresence>
+                    {isMobileSidebarOpen && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsMobileSidebarOpen(false)}
+                            className="lg:hidden fixed inset-0 bg-black/20 backdrop-blur-sm z-[45]"
+                        />
+                    )}
+                </AnimatePresence>
+
                 {/* Vertical Sidebar (Hover Expandable on Desktop, Toggleable on Mobile) */}
                 <aside
                     onMouseEnter={() => !isMobileSidebarOpen && setIsSidebarHovered(true)}
                     onMouseLeave={() => !isMobileSidebarOpen && setIsSidebarHovered(false)}
-                    className={`absolute left-0 top-0 bottom-0 z-40 bg-background/95 backdrop-blur-xl border-r border-border flex flex-col items-center py-6 gap-6 transition-all duration-300 ease-in-out shadow-2xl w-[90px] 
+                    className={`fixed lg:absolute left-0 top-0 bottom-0 z-50 bg-background/95 backdrop-blur-xl border-r border-border flex flex-col items-center py-6 gap-6 transition-all duration-300 ease-in-out shadow-2xl w-[90px] 
                         ${isMobileSidebarOpen
                             ? 'translate-x-0'
                             : (isSidebarHovered ? 'translate-x-0' : '-translate-x-full lg:-translate-x-[75px]')
@@ -339,8 +373,8 @@ const ExplorePage = () => {
                 {/* Main Content Area */}
                 <main
                     className={`flex-1 flex flex-col overflow-hidden bg-accent/10 transition-all duration-300 
-                        ${isSidebarHovered || isMobileSidebarOpen ? 'pl-[90px]' : 'pl-[15px] lg:pl-[15px]'}`}
-                    onClick={() => setIsMobileSidebarOpen(false)}
+                        ${(isSidebarHovered && !isMobileSidebarOpen) ? 'pl-[90px]' : 'pl-0'}`}
+                    onClick={() => isMobileSidebarOpen && setIsMobileSidebarOpen(false)}
                 >
                     {/* Category Tabs (Sub-Subcategories) */}
                     <div className="px-4 py-4 flex gap-2 overflow-x-auto hide-scrollbar flex-shrink-0">
@@ -349,7 +383,7 @@ const ExplorePage = () => {
                                 key={cat.id}
                                 onClick={() => {
                                     setActiveCategory(cat.id);
-                                    navigate(`/explore/${cat.id}?type=${activeType}`, { replace: true });
+                                    navigate(`/explore/${cat.id}`, { replace: true });
                                 }}
                                 className={`px-5 py-2.5 rounded-2xl text-[11px] font-bold whitespace-nowrap transition-all border-2 ${activeCategory === cat.id
                                     ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
@@ -456,11 +490,11 @@ const ExplorePage = () => {
                                         <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{service.description}</p>
                                     </div>
 
-                                    <div className="flex items-center justify-between gap-1 mt-auto pt-2">
-                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                    <div className="flex items-center justify-between gap-2 mt-auto pt-2 border-t border-border/10">
+                                        <div className="flex items-baseline gap-1.5 flex-shrink-0">
                                             <span className="text-base font-black text-primary">₹{service.price}</span>
                                             {service.originalPrice && (
-                                                <span className="text-[10px] text-muted-foreground line-through opacity-60 font-bold">₹{service.originalPrice}</span>
+                                                <span className="text-[10px] text-muted-foreground line-through opacity-50 font-medium">₹{service.originalPrice}</span>
                                             )}
                                         </div>
                                         {(() => {
@@ -478,7 +512,7 @@ const ExplorePage = () => {
                                                                 setIsFloatingSummaryOpen(true);
                                                             }
                                                         }}
-                                                        className="h-8 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm bg-white text-primary border-2 border-primary/20 hover:bg-primary hover:text-white flex-shrink-0"
+                                                        className="h-7 px-4 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm bg-white text-primary border border-primary/20 hover:bg-primary hover:text-white flex-shrink-0 active:scale-95"
                                                     >
                                                         Add
                                                     </Button>

@@ -953,6 +953,7 @@ export default function ProviderRegisterPage() {
                                     <div className="flex gap-2">
                                         <Input
                                             type="text"
+                                            inputMode="numeric"
                                             placeholder="Enter 6-digit OTP"
                                             className="h-12 flex-1 rounded-xl bg-gray-50 border-gray-100 font-bold text-center tracking-widest"
                                             value={otp}

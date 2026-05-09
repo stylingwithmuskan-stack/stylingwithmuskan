@@ -154,7 +154,7 @@ export default function SystemSettings() {
                                 {statusSettings.statuses.map((status, index) => (
                                     <div key={index} className="p-4 md:p-6 hover:bg-muted/10 transition-colors">
                                         <div className="grid gap-4 md:grid-cols-12 items-end">
-                                            <div className="md:col-span-3 space-y-1.5">
+                                            <div className="md:col-span-2 space-y-1.5">
                                                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Key (Internal)</Label>
                                                 <Input 
                                                     value={status.key} 
@@ -181,15 +181,22 @@ export default function SystemSettings() {
                                                     placeholder="bg-blue-500/15 text-blue-600"
                                                 />
                                             </div>
-                                            <div className="md:col-span-2 flex items-center gap-2">
-                                                <div className={`h-10 flex-1 rounded-xl flex items-center justify-center text-[10px] font-black uppercase tracking-widest ${status.color}`}>
-                                                    Preview
+                                            <div className="md:col-span-3 flex items-center gap-2">
+                                                <div 
+                                                    className={cn(
+                                                        "h-10 flex-1 rounded-xl flex items-center justify-center text-[10px] font-black uppercase tracking-widest px-6 transition-all shadow-sm border border-black/5", 
+                                                        status.color
+                                                    )}
+                                                    title="Live visual preview of the status label"
+                                                >
+                                                    {status.label || "Preview"}
                                                 </div>
                                                 <Button 
-                                                    variant="ghost" 
+                                                    variant="outline" 
                                                     size="icon" 
-                                                    className="h-10 w-10 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl"
+                                                    className="h-10 w-10 border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 rounded-xl flex-shrink-0"
                                                     onClick={() => removeStatus(index)}
+                                                    title="Remove status"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
@@ -339,13 +346,13 @@ export default function SystemSettings() {
                                     <button 
                                         onClick={() => setSystemSettings({ ...systemSettings, menSectionEnabled: !systemSettings.menSectionEnabled })}
                                         className={cn(
-                                            "w-12 h-6 rounded-full transition-all relative p-1",
+                                            "w-11 h-6 rounded-full transition-all relative p-1 shrink-0",
                                             systemSettings.menSectionEnabled ? "bg-primary" : "bg-muted-foreground/30"
                                         )}
                                     >
                                         <div className={cn(
                                             "w-4 h-4 bg-white rounded-full transition-all shadow-sm",
-                                            systemSettings.menSectionEnabled ? "translate-x-6" : "translate-x-0"
+                                            systemSettings.menSectionEnabled ? "translate-x-5" : "translate-x-0"
                                         )} />
                                     </button>
                                 </div>

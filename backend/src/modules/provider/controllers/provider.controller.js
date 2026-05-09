@@ -157,6 +157,13 @@ export async function updateBookingStatus(req, res) {
 
   // SWM Pro Partner commission logic
   if (next === "completed") {
+    // Increment provider's totalJobs counter
+    try {
+      await ProviderAccount.findByIdAndUpdate(pId, { $inc: { totalJobs: 1 } });
+    } catch (incErr) {
+      console.error("[Provider] Failed to increment totalJobs:", incErr.message);
+    }
+
     const commissionRate = await getProviderCommissionRate(pId);
     let commission = 0;
     const totalPaidByCustomer = Number(b.totalAmount || 0);

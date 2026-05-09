@@ -143,19 +143,32 @@ const BookingsPage = () => {
 
     const handleProviderClick = (booking) => {
         let foundProvider = providers?.find(p => p.id === booking.assignedProvider || p.phone === booking.assignedProvider);
+        
         if (!foundProvider && booking.slot?.provider) {
+            const p = booking.slot.provider;
             foundProvider = {
-                name: booking.slot.provider.name,
-                image: null,
-                experience: '2+ Years',
-                specialties: [booking.serviceType || booking.categoryName || 'General']
+                ...p,
+                image: p.profilePhoto || null,
+                phone: p.phone || '',
+                experience: p.experience || '',
+                rating: p.rating || 0,
+                completedJobs: p.totalJobs || 0,
+                city: p.city || '',
+                zones: p.zones || [],
+                tag: p.tag || '',
+                specialties: [booking.serviceType || booking.categoryName || booking.services?.[0]?.category || 'General']
             };
         } else if (!foundProvider && booking.teamMembers?.length > 0) {
-            foundProvider = booking.teamMembers[0];
+            foundProvider = {
+                ...booking.teamMembers[0],
+                specialties: [booking.serviceType || booking.categoryName || booking.services?.[0]?.category || 'General']
+            };
         } else if (!foundProvider) {
             foundProvider = {
                 name: 'Trained Pro',
-                experience: '3+ Years',
+                experience: '',
+                rating: 0,
+                completedJobs: 0,
                 specialties: [booking.serviceType || 'General']
             };
         }

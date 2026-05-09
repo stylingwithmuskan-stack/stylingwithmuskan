@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { api } from "@/modules/user/lib/api";
 import { isContentAvailable } from "@/modules/user/lib/contentAvailability";
 import {
@@ -113,7 +113,7 @@ export const UserModuleDataProvider = ({ children }) => {
     const [pendingCategories, setPendingCategories] = useState(new Set());
     const activeRequests = useRef(new Map());
 
-    const loadCategoryServices = async (categoryId) => {
+    const loadCategoryServices = useCallback(async (categoryId) => {
         if (!categoryId || loadedCategories.has(categoryId)) return;
 
         // If a request is already in flight, return that promise
@@ -148,9 +148,9 @@ export const UserModuleDataProvider = ({ children }) => {
 
         activeRequests.current.set(categoryId, requestPromise);
         return requestPromise;
-    };
+    }, [loadedCategories]);
 
-    const searchServices = async (query) => {
+    const searchServices = useCallback(async (query) => {
         if (!query || query.length < 2) return [];
         try {
             const res = await api.content.search({ q: query });
@@ -159,7 +159,7 @@ export const UserModuleDataProvider = ({ children }) => {
             console.error("Search failed:", e);
             return [];
         }
-    };
+    }, []);
 
     // CRUD operations
     const addCategory = (category) => setCategories(prev => [...prev, category]);
@@ -229,7 +229,13 @@ export const UserModuleDataProvider = ({ children }) => {
         }
     }, [isLoading, categories, loadCategoryServices]);
 
-    const value = {
+    const checkAvailability = useCallback((item, location, selectedDate = null, selectedTime = null) =>
+        isContentAvailable(item, location, selectedDate, selectedTime, {
+            categories,
+            serviceTypes,
+        }), [categories, serviceTypes]);
+
+    const value = useMemo(() => ({
         serviceTypes,
         bookingTypeConfig,
         categories,
@@ -276,12 +282,12 @@ export const UserModuleDataProvider = ({ children }) => {
         deleteTestimonial,
         // Booking Type Config actions
         updateBookingTypeConfig: (updatedConfig) => setBookingTypeConfig(updatedConfig),
-        checkAvailability: (item, location, selectedDate = null, selectedTime = null) =>
-            isContentAvailable(item, location, selectedDate, selectedTime, {
-                categories,
-                serviceTypes,
-            })
-    };
+        checkAvailability,
+    }), [
+        serviceTypes, bookingTypeConfig, categories, services, banners, providers, officeSettings,
+        spotlights, popularServices, gallery, testimonials, isLoading,
+        loadCategoryServices, loadedCategories, searchServices, checkAvailability
+    ]);
 
     return (
         <UserModuleDataContext.Provider value={value}>

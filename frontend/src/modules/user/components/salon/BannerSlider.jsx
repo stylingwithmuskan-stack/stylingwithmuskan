@@ -96,16 +96,7 @@ const BannerSlider = () => {
   const handleBannerClick = (banner) => {
     if (!banner) return;
 
-    // Priority 1: Service Name - Find service by name and navigate to its detail page
-    if (banner.serviceName) {
-      const service = services.find(s => s.name === banner.serviceName);
-      if (service) {
-        navigate(`/service/${service.id}`);
-        return;
-      }
-    }
-
-    // Priority 2: Custom Link
+    // Priority 1: Custom Link or Category Link (Admin auto-populates this with /explore/category_id)
     if (banner.linkTo) {
       if (banner.linkTo.startsWith('http')) {
         window.open(banner.linkTo, '_blank');
@@ -113,6 +104,15 @@ const BannerSlider = () => {
         navigate(banner.linkTo);
       }
       return;
+    }
+
+    // Priority 2: Service Name - Find service by name and navigate to its detail page (Fallback)
+    if (banner.serviceName) {
+      const service = services.find(s => s.name === banner.serviceName);
+      if (service) {
+        navigate(`/service/${service.id}`);
+        return;
+      }
     }
 
     // Priority 3: Default fallback to explore page

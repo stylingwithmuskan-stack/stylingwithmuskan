@@ -44,13 +44,28 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'unset';
+            
+            // Push a dummy state so back button can be intercepted
+            window.history.pushState({ dropdown: 'notifications' }, '');
+
+            const handlePopState = (event) => {
+                // When back is pressed, close the dropdown
+                onClose();
+            };
+
+            window.addEventListener('popstate', handlePopState);
+            
+            return () => {
+                document.body.style.overflow = 'unset';
+                window.removeEventListener('popstate', handlePopState);
+                
+                // If we're closing manually (not via back button), remove the dummy state
+                if (window.history.state?.dropdown === 'notifications') {
+                    window.history.back();
+                }
+            };
         }
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
-    }, [isOpen]);
+    }, [isOpen, onClose]);
 
     if (!isOpen) return null;
 
@@ -125,131 +140,139 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
     };
 
     return (
-        <div className="fixed sm:absolute top-[70px] sm:top-full left-4 right-4 sm:left-auto sm:right-0 mt-2 w-auto sm:w-80 md:w-96 bg-card border border-border shadow-2xl rounded-[2rem] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="p-5 border-b border-border flex items-center justify-between bg-accent/5">
-                <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                        Unread Alerts
-                        {unreadCount > 0 && (
-                            <Badge 
-                                variant="destructive" 
-                                className="h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-black flex items-center justify-center border border-white/20"
-                            >
-                                {unreadCount > 99 ? "99+" : unreadCount}
-                            </Badge>
-                        )}
-                    </h3>
-                </div>
-                <div className="flex gap-2">
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => fetchNotifications()} 
-                        disabled={loading}
-                        className={cn("h-8 w-8 rounded-full", loading && "bg-accent/10")}
-                    >
-                        <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
-                        <X className="h-4 w-4" />
-                    </Button>
-                </div>
-            </div>
-
-            {pushSupported && (
-                <div className="px-5 py-3 border-b border-border bg-primary/[0.03]">
-                    <div className="flex items-center justify-between gap-3">
-                        <div>
-                            <p className="text-[11px] font-black uppercase tracking-widest text-foreground">Push Notifications</p>
-                            <p className="text-[10px] text-muted-foreground">
-                                {pushRegistered && pushEnabled
-                                    ? "Background alerts are enabled on this device."
-                                    : pushPermission === "denied"
-                                        ? "Browser permission is blocked for this device."
-                                        : "Enable push for instant updates even when the app is closed."}
-                            </p>
-                        </div>
-                        {pushRegistered && pushEnabled ? (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="rounded-full text-[10px] font-black uppercase tracking-wider"
-                                onClick={() => disablePushNotifications()}
-                            >
-                                Disable
-                            </Button>
-                        ) : (
-                            <Button
-                                size="sm"
-                                className="rounded-full text-[10px] font-black uppercase tracking-wider"
-                                disabled={pushPermission === "denied"}
-                                onClick={() => enablePushNotifications().catch(() => {})}
-                            >
-                                Enable
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            <div className="max-h-[400px] overflow-y-auto">
-                {unreadNotifications.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-center p-8">
-                        <div className="w-16 h-16 rounded-full bg-accent/50 flex items-center justify-center mb-4">
-                            <Bell className="w-8 h-8 text-muted-foreground/30" />
-                        </div>
-                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">All caught up!</p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1 uppercase tracking-tighter">No new notifications</p>
-                    </div>
-                ) : (
-                    <div className="divide-y divide-border/50">
-                        <AnimatePresence initial={false}>
-                            {unreadNotifications.map((n) => (
-                                <motion.div
-                                    key={n._id}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: 20 }}
-                                    onClick={() => handleNotificationClick(n)}
-                                    className="p-4 hover:bg-accent/30 transition-colors relative group bg-primary/5 cursor-pointer active:scale-[0.98]"
+        <>
+            {/* Backdrop for closing when clicking outside */}
+            <div 
+                className="fixed inset-0 z-[99] bg-black/5 sm:bg-transparent" 
+                onClick={onClose} 
+            />
+            
+            <div className="fixed sm:absolute top-[70px] sm:top-full left-4 right-4 sm:left-auto sm:right-0 mt-2 w-auto sm:w-80 md:w-96 bg-card border border-border shadow-2xl rounded-[2rem] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="p-5 border-b border-border flex items-center justify-between bg-accent/5">
+                    <div>
+                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                            Unread Alerts
+                            {unreadCount > 0 && (
+                                <Badge 
+                                    variant="destructive" 
+                                    className="h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-black flex items-center justify-center border border-white/20"
                                 >
-                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary group-hover:w-1.5 transition-all" />
-                                    <div className="flex gap-4">
-                                        <div className="mt-1 w-8 h-8 rounded-xl bg-background border border-border flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform">
-                                            {getIcon(n.type)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[13px] font-black leading-tight mb-1 text-foreground group-hover:text-primary transition-colors">
-                                                {n.title}
-                                            </p>
-                                            <p className="text-[11px] text-muted-foreground leading-relaxed mb-2 line-clamp-2">
-                                                {n.message}
-                                            </p>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
-                                                    {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-                                                </span>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        deleteNotification(n._id);
-                                                    }}
-                                                    className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                                                >
-                                                    <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
+                                    {unreadCount > 99 ? "99+" : unreadCount}
+                                </Badge>
+                            )}
+                        </h3>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => fetchNotifications()} 
+                            disabled={loading}
+                            className={cn("h-8 w-8 rounded-full", loading && "bg-accent/10")}
+                        >
+                            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+
+                {pushSupported && (
+                    <div className="px-5 py-3 border-b border-border bg-primary/[0.03]">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-[11px] font-black uppercase tracking-widest text-foreground">Push Notifications</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                    {pushRegistered && pushEnabled
+                                        ? "Background alerts are enabled on this device."
+                                        : pushPermission === "denied"
+                                            ? "Browser permission is blocked for this device."
+                                            : "Enable push for instant updates even when the app is closed."}
+                                </p>
+                            </div>
+                            {pushRegistered && pushEnabled ? (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-full text-[10px] font-black uppercase tracking-wider"
+                                    onClick={() => disablePushNotifications()}
+                                >
+                                    Disable
+                                </Button>
+                            ) : (
+                                <Button
+                                    size="sm"
+                                    className="rounded-full text-[10px] font-black uppercase tracking-wider"
+                                    disabled={pushPermission === "denied"}
+                                    onClick={() => enablePushNotifications().catch(() => {})}
+                                >
+                                    Enable
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 )}
+
+                <div className="max-h-[400px] overflow-y-auto">
+                    {unreadNotifications.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-64 text-center p-8">
+                            <div className="w-16 h-16 rounded-full bg-accent/50 flex items-center justify-center mb-4">
+                                <Bell className="w-8 h-8 text-muted-foreground/30" />
+                            </div>
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">All caught up!</p>
+                            <p className="text-[10px] text-muted-foreground/60 mt-1 uppercase tracking-tighter">No new notifications</p>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-border/50">
+                            <AnimatePresence initial={false}>
+                                {unreadNotifications.map((n) => (
+                                    <motion.div
+                                        key={n._id}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 20 }}
+                                        onClick={() => handleNotificationClick(n)}
+                                        className="p-4 hover:bg-accent/30 transition-colors relative group bg-primary/5 cursor-pointer active:scale-[0.98]"
+                                    >
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary group-hover:w-1.5 transition-all" />
+                                        <div className="flex gap-4">
+                                            <div className="mt-1 w-8 h-8 rounded-xl bg-background border border-border flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform">
+                                                {getIcon(n.type)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[13px] font-black leading-tight mb-1 text-foreground group-hover:text-primary transition-colors">
+                                                    {n.title}
+                                                </p>
+                                                <p className="text-[11px] text-muted-foreground leading-relaxed mb-2 line-clamp-2">
+                                                    {n.message}
+                                                </p>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
+                                                        {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                                                    </span>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            deleteNotification(n._id);
+                                                        }}
+                                                        className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                                    >
+                                                        <Trash2 className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 

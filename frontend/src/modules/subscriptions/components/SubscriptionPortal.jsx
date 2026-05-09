@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle2, Clock3, Crown, ShieldCheck, Sparkles, Users, Wallet, Zap, Trash2, Plus, Package, Frown, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clock3, Crown, ShieldCheck, Sparkles, Users, Wallet, Zap, Trash2, Plus, Package, Frown, AlertCircle, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/modules/user/lib/api";
 import { Button } from "@/modules/user/components/ui/button";
@@ -215,17 +215,25 @@ export default function SubscriptionPortal({
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-5 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Title section - only show if not in user role (who has its own header) */}
       {role !== "user" && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-              <Icon className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight">{title}</h1>
-              <p className="text-sm text-muted-foreground font-medium">{subtitle}</p>
+        <div className="flex flex-col gap-2 sm:gap-3">
+          <div className="flex items-start gap-3">
+            <button 
+                onClick={() => navigate(-1)} 
+                className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors mt-0.5"
+            >
+                <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                <Icon className="h-5 w-5 md:h-6 md:w-6" />
+              </div>
+              <div className="pt-1">
+                <h1 className="text-xl md:text-2xl font-black tracking-tight line-clamp-1">{title}</h1>
+                <p className="text-[11px] md:text-sm text-muted-foreground font-medium">{subtitle}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -234,7 +242,7 @@ export default function SubscriptionPortal({
       {/* Current Status - Only show when plans are available */}
       {!isLoading && plans.length > 0 && (
       <Card className="border-border/60 shadow-xl shadow-primary/5 rounded-[24px] overflow-hidden">
-        <div className="bg-primary/5 px-4 sm:px-6 py-3 sm:py-4 border-b border-primary/10 flex items-center justify-between">
+        <div className="bg-primary/5 px-4 sm:px-6 py-2.5 sm:py-3.5 border-b border-primary/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock3 className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs sm:text-sm font-black tracking-tight">Current Status</span>
@@ -243,7 +251,7 @@ export default function SubscriptionPortal({
             <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           )}
         </div>
-        <CardContent className="p-4 sm:p-6">
+        <CardContent className="p-3.5 sm:p-5">
           {activeSubscription?.isActive ? (
             <div className="space-y-4">
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -282,7 +290,7 @@ export default function SubscriptionPortal({
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center py-16 px-4"
+          className="flex flex-col items-center justify-center py-10 sm:py-16 px-4"
         >
           <div className="relative mb-8">
             <motion.div
@@ -434,14 +442,14 @@ export default function SubscriptionPortal({
                   </div>
                 )}
                 
-                <CardHeader className="pb-3 sm:pb-4 pt-6 sm:pt-8 px-4 sm:px-6">
+                <CardHeader className="pb-2 sm:pb-3 pt-5 sm:pt-7 px-4 sm:px-6">
                   <div className="flex flex-col gap-0.5 sm:gap-1">
                     <CardTitle className="text-lg sm:text-xl font-black">{plan.name}</CardTitle>
                     <CardDescription className="text-xs sm:text-sm font-medium text-primary/70">{plan.tagline || "Unlock Plus Benefits"}</CardDescription>
                   </div>
                 </CardHeader>
-
-                <CardContent className="space-y-4 sm:space-y-6 flex-1 flex flex-col pt-0 px-4 sm:px-6">
+                
+                <CardContent className="space-y-3.5 sm:space-y-5 flex-1 flex flex-col pt-0 px-4 sm:px-6">
                   <div className="bg-accent/30 rounded-[18px] sm:rounded-[20px] p-3 sm:p-4 border border-border/10">
                     <div className="flex items-baseline gap-1">
                       <span className="text-2xl sm:text-3xl font-black italic tracking-tighter text-foreground">₹{Number(plan.price || 0).toLocaleString()}</span>
@@ -472,7 +480,7 @@ export default function SubscriptionPortal({
                     onClick={() => handlePay(plan)}
                     disabled={isPaying || !plan.isActive || isCurrentPlan}
                     variant={isCurrentPlan ? "outline" : "default"}
-                    className={`w-full rounded-[16px] sm:rounded-[18px] h-11 sm:h-12 font-black text-xs sm:text-sm transition-all active:scale-95 mt-2 ${isCurrentPlan ? "border-primary/20 opacity-50 grayscale pointer-events-none" : "bg-black text-white hover:bg-slate-800 shadow-lg shadow-black/10"}`}
+                    className={`w-full rounded-[16px] sm:rounded-[18px] h-11 sm:h-12 font-black text-xs sm:text-sm transition-all active:scale-95 mt-1 ${isCurrentPlan ? "border-primary/20 opacity-50 grayscale pointer-events-none" : "bg-black text-white hover:bg-slate-800 shadow-lg shadow-black/10"}`}
                   >
                     {!plan.isActive ? "Coming Soon" : isCurrentPlan ? "Renew Membership" : "Get SWM Plus"}
                   </Button>

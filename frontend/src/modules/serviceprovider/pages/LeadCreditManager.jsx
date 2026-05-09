@@ -275,21 +275,21 @@ export default function LeadCreditManager() {
     };
 
     return (
-        <div className="flex flex-1 w-full flex-col gap-6 pt-4 md:pt-0">
-            <div className="flex items-center gap-3">
+        <div className="flex flex-1 w-full flex-col gap-6 py-4 md:p-0">
+            <div className="px-4 flex items-start gap-3">
                 <button 
                     onClick={() => navigate(-1)} 
-                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors mt-0.5"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Credits & Leads</h1>
+                    <h1 className="text-xl font-bold tracking-tight">Credits & Leads</h1>
                     <p className="text-muted-foreground text-sm">Manage your wallet balance and review transactions.</p>
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-[1fr_2fr]">
+            <div className="grid gap-6 md:grid-cols-[1fr_2fr] px-2">
                 <Card className="h-max bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-background">
                     <CardHeader>
                         <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -308,23 +308,14 @@ export default function LeadCreditManager() {
                             <Plus className="mr-2 h-4 w-4" /> Recharge Credits
                         </Button>
 
-                        {import.meta.env.DEV && (
-                            <div className="w-full flex gap-2 mt-4 pt-4 border-t">
-                                <Button variant="outline" size="sm" className="w-full text-xs font-bold" onClick={handleBuyLead}>
-                                    Test Buy
-                                </Button>
-                                <Button variant="outline" size="sm" className="w-full text-xs font-bold" onClick={handleRefund}>
-                                    Test Refund
-                                </Button>
-                            </div>
-                        )}
+
                     </CardFooter>
                 </Card>
 
                 <Card className="border-none shadow-sm ring-1 ring-border">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                         <div className="flex-1 mr-2 overflow-hidden">
-                            <CardTitle className="text-base sm:text-lg font-bold whitespace-nowrap">Transaction History</CardTitle>
+                            <CardTitle className="text-sm sm:text-base font-bold whitespace-nowrap">Transaction History</CardTitle>
                             <CardDescription className="text-xs hidden sm:block">A complete log of your wallet activity.</CardDescription>
                         </div>
                         <div className="flex items-center gap-2 bg-muted/50 px-3 py-2 rounded-xl border border-border">

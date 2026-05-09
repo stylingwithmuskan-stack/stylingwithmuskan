@@ -320,7 +320,7 @@ export const api = {
 
   // Public content
   content: {
-    init: () => request("/content/init"),
+    init: () => request(`/content/init?_t=${Date.now()}`),
     serviceTypes: () => request("/content/service-types"),
     bookingTypes: () => request("/content/booking-types"),
     categories: (gender) => request(`/content/categories${gender ? `?gender=${gender}` : ""}`),
@@ -333,7 +333,7 @@ export const api = {
       return request(`/content/search${q ? `?${q}` : ""}`);
     },
     getService: (id) => request(`/content/services/${id}`),
-    banners: (gender) => request(`/content/banners${gender ? `?gender=${gender}` : ""}`),
+    banners: (gender) => request(`/content/banners${gender ? `?gender=${gender}&` : "?"}_t=${Date.now()}`),
     spotlights: (gender) => request(`/content/spotlights${gender ? `?gender=${gender}` : ""}`),
     toggleSpotlightLike: (spotlightId) => request(`/content/spotlights/${spotlightId}/like`, { method: "POST" }),
     gallery: () => request("/content/gallery"),
