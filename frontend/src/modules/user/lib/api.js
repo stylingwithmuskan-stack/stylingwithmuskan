@@ -381,10 +381,22 @@ export const api = {
   // Provider (beautician)
   provider: {
     requestOtp: (phone) => request("/provider/request-otp", { method: "POST", body: { phone } }),
-    verifyOtp: (phone, otp) => request("/provider/verify-otp", { method: "POST", body: { phone, otp } }),
+    verifyOtp: async (phone, otp) => {
+      const res = await request("/provider/verify-otp", { method: "POST", body: { phone, otp } });
+      return {
+        provider: res?.data?.provider || res?.provider,
+        providerToken: res?.data?.token || res?.providerToken
+      };
+    },
     registerRequest: (phone) => request("/provider/register-request", { method: "POST", body: { phone } }),
     verifyRegistrationOtp: (phone, otp) => request("/provider/verify-registration-otp", { method: "POST", body: { phone, otp } }),
-    register: (payload) => request("/provider/register", { method: "POST", body: payload }),
+    register: async (payload) => {
+      const res = await request("/provider/register", { method: "POST", body: payload });
+      return {
+        provider: res?.data?.provider || res?.provider,
+        providerToken: res?.data?.token || res?.providerToken
+      };
+    },
     logout: () => request("/provider/logout", { method: "POST" }),
     me: (phone) => request(`/provider/me/${phone}`),
     summary: (phone) => request(`/provider/summary/${phone}`),
@@ -510,10 +522,28 @@ export const api = {
   vendor: {
     register: (payload) => request("/vendor/register", { method: "POST", body: payload }),
     registerRequest: (phone) => request("/vendor/register-request", { method: "POST", body: { phone } }),
-    verifyRegistrationOtp: (payload) => request("/vendor/verify-registration-otp", { method: "POST", body: payload }),
-    login: (email, password) => request("/vendor/login", { method: "POST", body: { email, password } }),
+    verifyRegistrationOtp: async (payload) => {
+      const res = await request("/vendor/verify-registration-otp", { method: "POST", body: payload });
+      return {
+        vendor: res?.data?.vendor || res?.vendor,
+        vendorToken: res?.data?.token || res?.vendorToken
+      };
+    },
+    login: async (email, password) => {
+      const res = await request("/vendor/login", { method: "POST", body: { email, password } });
+      return {
+        vendor: res?.data?.vendor || res?.vendor,
+        vendorToken: res?.data?.token || res?.vendorToken
+      };
+    },
     requestOtp: (phone) => request("/vendor/request-otp", { method: "POST", body: { phone } }),
-    verifyOtp: (phone, otp) => request("/vendor/verify-otp", { method: "POST", body: { phone, otp } }),
+    verifyOtp: async (phone, otp) => {
+      const res = await request("/vendor/verify-otp", { method: "POST", body: { phone, otp } });
+      return {
+        vendor: res?.data?.vendor || res?.vendor,
+        vendorToken: res?.data?.token || res?.vendorToken
+      };
+    },
     logout: () => request("/vendor/logout", { method: "POST" }),
     me: () => request("/vendor/me"),
     updateMe: (body) => request("/vendor/me", { method: "PATCH", body }),
