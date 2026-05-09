@@ -36,12 +36,12 @@ async function registerServiceWorker() {
   return registration;
 }
 
-async function saveTokenToBackend(fcmToken, authToken) {
+async function saveTokenToBackend(fcmToken, authToken, platform = "web") {
   // Small delay to ensure cookies/auth state is fully synced
   await new Promise(r => setTimeout(r, 1000));
   
   const deviceKey = getOrCreateDeviceKey();
-  console.log("[Push] Sending registration to backend...", { deviceKey, tokenSnippet: fcmToken.slice(-6) });
+  console.log("[Push] Sending registration to backend...", { deviceKey, platform, tokenSnippet: fcmToken.slice(-6) });
   
   const res = await fetch(`${API_BASE_URL}/notifications/push/register`, {
     method: "POST",
@@ -53,7 +53,7 @@ async function saveTokenToBackend(fcmToken, authToken) {
     body: JSON.stringify({
       fcmToken,
       deviceKey,
-      platform: "web",
+      platform,
       permission: "granted",
       enabled: true,
     }),
@@ -72,72 +72,97 @@ async function saveTokenToBackend(fcmToken, authToken) {
 export async function initPushNotifications(authToken, role = "user") {
   console.log(`[Push] 🚀 Starting push notification init for role: ${role}, token present: ${!!authToken}`);
 
-  if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-    console.warn("[Push] ❌ STEP 1 FAIL: Browser does not support notifications or service workers");
-    return;
-  }
-  console.log("[Push] ✅ STEP 1: Browser supports notifications & service workers");
+  // Check if we are in Flutter WebView
+  const isFlutter = !!(
+    (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) ||
+    navigator.userAgent.includes('Flutter') ||
+    window.FlutterInterface
+  );
 
-  if (!messaging) {
-    console.warn("[Push] ❌ STEP 2 FAIL: Firebase messaging not initialized — check VITE_FIREBASE_* env vars");
-    return;
-  }
-  console.log("[Push] ✅ STEP 2: Firebase messaging initialized");
+  let fcmToken = null;
+  let platform = "web";
 
-  if (!VAPID_KEY) {
-    console.warn("[Push] ❌ STEP 3 FAIL: VITE_FIREBASE_VAPID_KEY missing");
-    return;
-  }
-  console.log("[Push] ✅ STEP 3: VAPID_KEY present");
-
-  // Request permission
-  const currentPermission = Notification.permission;
-  console.log("[Push] STEP 4: Current notification permission:", currentPermission);
-
-  let permission = currentPermission;
-  if (currentPermission === "default") {
-    permission = await Notification.requestPermission();
-    console.log("[Push] STEP 4b: Permission after request:", permission);
+  if (isFlutter) {
+    console.log("[Push] 📱 Flutter environment detected, attempting bridge token...");
+    try {
+      // Try to get native FCM token from Flutter side
+      if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+        fcmToken = await window.flutter_inappwebview.callHandler('getFCMToken');
+        platform = navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad') ? 'ios' : 'android';
+      }
+    } catch (err) {
+      console.warn("[Push] ⚠️ Flutter bridge token request failed:", err.message);
+    }
   }
 
-  if (permission !== "granted") {
-    console.warn("[Push] ❌ STEP 4 FAIL: Notification permission not granted:", permission);
-    return;
-  }
-  console.log("[Push] ✅ STEP 4: Permission granted");
+  // Fallback to Web Push if not in Flutter or bridge failed
+  if (!fcmToken) {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+      console.warn("[Push] ❌ STEP 1 FAIL: Browser does not support notifications or service workers");
+      return;
+    }
+    console.log("[Push] ✅ STEP 1: Browser supports notifications & service workers");
 
-  // Register service worker
-  let swRegistration;
-  try {
-    swRegistration = await registerServiceWorker();
-    console.log("[Push] ✅ STEP 5: Service worker registered, state:", swRegistration.active?.state);
-  } catch (err) {
-    console.error("[Push] ❌ STEP 5 FAIL: Service worker registration failed:", err.message);
-    throw err; // Let caller know
-  }
+    if (!messaging) {
+      console.warn("[Push] ❌ STEP 2 FAIL: Firebase messaging not initialized — check VITE_FIREBASE_* env vars");
+      return;
+    }
+    console.log("[Push] ✅ STEP 2: Firebase messaging initialized");
 
-  // Get FCM token
-  let fcmToken;
-  try {
-    fcmToken = await getToken(messaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: swRegistration,
-    });
-    console.log("[Push] FCM token obtained:", fcmToken ? fcmToken.slice(0, 20) + "..." : "null");
-  } catch (err) {
-    console.error("[Push] ❌ STEP 6 FAIL: getToken() failed:", err.message, err);
-    throw err; // Let caller know — this is the likely failure point
+    if (!VAPID_KEY) {
+      console.warn("[Push] ❌ STEP 3 FAIL: VITE_FIREBASE_VAPID_KEY missing");
+      return;
+    }
+    console.log("[Push] ✅ STEP 3: VAPID_KEY present");
+
+    // Request permission
+    const currentPermission = Notification.permission;
+    console.log("[Push] STEP 4: Current notification permission:", currentPermission);
+
+    let permission = currentPermission;
+    if (currentPermission === "default") {
+      permission = await Notification.requestPermission();
+      console.log("[Push] STEP 4b: Permission after request:", permission);
+    }
+
+    if (permission !== "granted") {
+      console.warn("[Push] ❌ STEP 4 FAIL: Notification permission not granted:", permission);
+      return;
+    }
+    console.log("[Push] ✅ STEP 4: Permission granted");
+
+    // Register service worker
+    let swRegistration;
+    try {
+      swRegistration = await registerServiceWorker();
+      console.log("[Push] ✅ STEP 5: Service worker registered, state:", swRegistration.active?.state);
+    } catch (err) {
+      console.error("[Push] ❌ STEP 5 FAIL: Service worker registration failed:", err.message);
+      throw err; // Let caller know
+    }
+
+    // Get FCM token
+    try {
+      fcmToken = await getToken(messaging, {
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: swRegistration,
+      });
+      console.log("[Push] FCM token obtained:", fcmToken ? fcmToken.slice(0, 20) + "..." : "null");
+    } catch (err) {
+      console.error("[Push] ❌ STEP 6 FAIL: getToken() failed:", err.message, err);
+      throw err; // Let caller know — this is the likely failure point
+    }
   }
 
   if (!fcmToken) {
-    console.warn("[Push] ❌ STEP 6 FAIL: getToken() returned null — Firebase may not be reachable");
+    console.warn("[Push] ❌ STEP 6 FAIL: No FCM token obtained (Web or Flutter)");
     return;
   }
-  console.log("[Push] ✅ STEP 6: FCM token obtained successfully");
+  console.log(`[Push] ✅ Token obtained successfully for platform: ${platform}`);
 
   // Save to backend - Always register to ensure server state is in sync
   try {
-    await saveTokenToBackend(fcmToken, authToken);
+    await saveTokenToBackend(fcmToken, authToken, platform);
     console.log("[Push] ✅ STEP 7: Token saved to backend (PushDevice collection)");
   } catch (err) {
     console.error("[Push] ❌ STEP 7 FAIL: saveTokenToBackend() failed:", err.message);

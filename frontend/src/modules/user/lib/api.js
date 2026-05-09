@@ -138,21 +138,23 @@ async function request(path, options = {}) {
     else authToken = providerToken;
   }
   else if (isNotificationPath || isContentPath) {
-    // These paths are shared across roles. We determine the role based on which token is available.
-    // Priority: Customer > Provider > Vendor > Admin
-    if (token) {
+    // Sanitize tokens
+    const isValidToken = (t) => t && t !== "null" && t !== "undefined" && t !== "[object Object]";
+    
+    if (isValidToken(token)) {
       role = "user";
       authToken = token;
-    } else if (providerToken) {
+    } else if (isValidToken(providerToken)) {
       role = "provider";
       authToken = providerToken;
-    } else if (vendorToken) {
+    } else if (isValidToken(vendorToken)) {
       role = "vendor";
       authToken = vendorToken;
-    } else if (adminToken) {
+    } else if (isValidToken(adminToken)) {
       role = "admin";
       authToken = adminToken;
-    } else {
+    }
+    else {
       role = "user";
       authToken = "";
     }
@@ -170,16 +172,12 @@ async function request(path, options = {}) {
   }
 
   // Debug: Log token status for authenticated endpoints
-  if (import.meta?.env?.DEV && !authToken && !path.includes("/auth/") && !path.includes("/content/")) {
-    console.warn(`[API] ⚠️ No token for authenticated endpoint: ${path}`);
-    console.warn(`[API] Token status:`, { 
-      userToken: token ? '✓' : '✗', 
-      providerToken: providerToken ? '✓' : '✗',
-      adminToken: adminToken ? '✓' : '✗',
-      vendorToken: vendorToken ? '✓' : '✗'
+  if (import.meta?.env?.DEV || true) { // Force logging for debugging
+    console.log(`[API Request] ${options.method || "GET"} ${path}`, { 
+      hasAuthToken: !!authToken,
+      role 
     });
   }
-
 
   const isFormData = options.body instanceof FormData;
 
@@ -265,7 +263,9 @@ export const api = {
       method: "POST",
       body: { phone, otp, intent },
     });
-    if (res?.token) setToken(res.token);
+    // Handle both wrapped and unwrapped formats
+    const token = res?.data?.token || res?.token;
+    if (token) setToken(token);
     return res;
   },
   me: () => request("/auth/me"),

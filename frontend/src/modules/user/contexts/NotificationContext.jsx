@@ -188,6 +188,8 @@ export const NotificationProvider = ({ children, role }) => {
         // Expose to window for testing
         window.__DEBUG_PLAY_SOUND__ = playNotificationSound;
         
+        console.log(`[NotificationContext] Init Effect. Role: ${activeRole}, User: ${currentUserId}, HasToken: ${!!activeToken}`);
+
         // Auto-initialize push notifications on mount if token exists
         if (activeToken && activeRole) {
             import("@/services/pushNotificationService").then(({ initPushNotifications }) => {
@@ -198,12 +200,23 @@ export const NotificationProvider = ({ children, role }) => {
         }
         
         if (!currentUserId || !activeToken) {
+            console.log("[NotificationContext] Skipping socket connection (missing user or token)");
             return;
         }
 
+        console.log(`[NotificationContext] Connecting to socket: ${SOCKET_BASE_URL}/bookings`);
         const socket = io(`${SOCKET_BASE_URL}/bookings`, {
             auth: { token: activeToken },
             transports: ["websocket", "polling"],
+            reconnectionAttempts: 5,
+        });
+
+        socket.on("connect", () => {
+            console.log("[NotificationContext] Socket connected successfully!");
+        });
+
+        socket.on("connect_error", (err) => {
+            console.error("[NotificationContext] Socket connection error:", err.message);
         });
 
         socket.on("new_notification", (payload) => {
@@ -223,7 +236,7 @@ export const NotificationProvider = ({ children, role }) => {
                     playNotificationSound(payload.notification.sound);
                 }
             } else {
-                console.log("[NotificationContext] Notification ignored (ID or Role mismatch)");
+                console.warn("[NotificationContext] Notification ignored (ID or Role mismatch)");
             }
         });
 
@@ -232,6 +245,7 @@ export const NotificationProvider = ({ children, role }) => {
         });
 
         return () => {
+            console.log("[NotificationContext] Cleaning up socket connection");
             socket.disconnect();
         };
     }, [currentUserId, activeRole, activeToken, playNotificationSound, fetchNotifications]);

@@ -173,6 +173,40 @@ export function startCron() {
           } catch {}
         }
       }
+      
+      // Auto-expire payment_pending bookings after 15 minutes of inactivity
+      try {
+        const paymentTimeoutThreshold = new Date(now.getTime() - 15 * 60 * 1000);
+        const unpaidBookings = await Booking.find({
+          status: "payment_pending",
+          createdAt: { $lt: paymentTimeoutThreshold }
+        });
+
+        for (const b of unpaidBookings) {
+          b.status = "cancelled";
+          b.cancelledBy = "system";
+          b.cancellationReason = "Payment timeout: No payment received within 20 minutes";
+          b.cancelledAt = now;
+          await b.save();
+          
+          await BookingLog.create({
+            action: "booking:auto-cancel",
+            bookingId: b._id.toString(),
+            meta: { reason: "payment_timeout", createdAt: b.createdAt }
+          });
+          
+          try {
+            const io = getIO();
+            io?.of("/bookings").emit("status:update", { 
+              id: b._id.toString(), 
+              status: "cancelled", 
+              message: "Booking cancelled due to payment timeout." 
+            });
+          } catch {}
+        }
+      } catch (err) {
+        console.error("[Cron] Error in payment expiry:", err.message);
+      }
 
       // Existing release logic for other statuses...
       const expired = await Booking.find({

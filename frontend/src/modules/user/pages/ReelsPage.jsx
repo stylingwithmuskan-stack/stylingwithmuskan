@@ -6,10 +6,12 @@ import { api } from "@/modules/user/lib/api";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { toast } from "sonner";
 
+import { safeStorage } from "@/modules/user/lib/safeStorage";
+
 const ReelsPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { isLoggedIn } = useAuth();
+    const { isLoggedIn, user } = useAuth();
     const { reels = [], startIndex = 0 } = location.state || {};
     
     const [currentIndex, setCurrentIndex] = useState(startIndex);
@@ -73,10 +75,10 @@ const ReelsPage = () => {
     };
 
     const handleLike = async (reelId, index) => {
-        // Check if any role is authenticated
-        const hasToken = localStorage.getItem("swm_token") || 
-                         localStorage.getItem("swm_provider_token") || 
-                         localStorage.getItem("swm_vendor_token");
+        // Check if any role is authenticated using safeStorage
+        const hasToken = safeStorage.getItem("swm_token") || 
+                         safeStorage.getItem("swm_provider_token") || 
+                         safeStorage.getItem("swm_vendor_token");
 
         if (!hasToken) {
             toast.error("Please login to like reels");

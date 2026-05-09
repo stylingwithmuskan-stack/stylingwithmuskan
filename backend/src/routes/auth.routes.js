@@ -153,22 +153,30 @@ router.post(
         maxAge: 30 * 24 * 60 * 60 * 1000,
       })
       .json({
-        token,
-        user: {
-          _id: user._id,
-          id: user._id,
-          phone: user.phone,
-          name: user.name,
-          referralCode: user.referralCode,
-          isVerified: user.isVerified,
-          addresses: user.addresses,
-          subscription,
-          isPlusMember: subscription.isPlusMember,
-          plusExpiry: subscription.currentPeriodEnd,
-          plusPlan: subscription.planId,
-          isNew,
+        success: true,
+        message: isNew ? "Registration successful" : "Login successful",
+        data: {
+          token,
+          user: {
+            _id: user._id,
+            id: user._id,
+            phone: user.phone,
+            name: user.name || "User",
+            email: user.email || "",
+            walletAmount: user.wallet?.balance || 0,
+            refCode: user.referralCode || "",
+            status: "Active",
+            referralCode: user.referralCode,
+            isVerified: user.isVerified,
+            addresses: user.addresses,
+            subscription,
+            isPlusMember: subscription.isPlusMember,
+            plusExpiry: subscription.currentPeriodEnd,
+            plusPlan: subscription.planId,
+            isNew,
+          },
+          intent,
         },
-        intent,
       });
   }
 );

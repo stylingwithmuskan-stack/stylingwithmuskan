@@ -13,6 +13,7 @@ import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM, parse
 import { isIsoDate } from "../../../lib/isoDateTime.js";
 import { computeExpiresAt, pickNextProviderForBooking } from "../../../lib/assignment.js";
 import { resolveBookingSettings } from "../../../lib/settings.js";
+import { resolveServiceLocation } from "../../../lib/locationResolution.js";
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../../../config.js";
 import { getIO } from "../../../startup/socket.js";
@@ -154,6 +155,7 @@ export async function list(req, res) {
   const q = { customerId: req.user._id.toString() };
   const total = await Booking.countDocuments(q);
   const items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+  
   let bookings = (items || []).map((b) => ({
     ...b,
     id: b._id?.toString?.() || b.id,
@@ -294,6 +296,31 @@ export async function create(req, res) {
   // Final fallback for zone if still empty
   if (!safeAddress.zone) {
     safeAddress.zone = safeAddress.area || safeAddress.city || "";
+  }
+
+  // ✅ CRITICAL FIX: Ensure CityId and ZoneId are resolved for NEW users
+  // This prevents empty candidateProviders list which causes auto-cancellation
+  if (!safeAddress.cityId || !safeAddress.zoneId) {
+    if (typeof safeAddress.lat === "number" && typeof safeAddress.lng === "number") {
+      try {
+        const resolved = await resolveServiceLocation({
+          lat: safeAddress.lat,
+          lng: safeAddress.lng,
+          cityId: safeAddress.cityId,
+          cityName: safeAddress.city
+        });
+        
+        if (resolved.insideServiceArea) {
+          safeAddress.city = resolved.cityName || safeAddress.city;
+          safeAddress.cityId = resolved.cityId || safeAddress.cityId;
+          safeAddress.zone = resolved.zoneName || safeAddress.zone;
+          safeAddress.zoneId = resolved.zoneId || safeAddress.zoneId;
+          console.log(`[BookingFix] Resolved missing IDs for new user: cityId=${safeAddress.cityId}, zoneId=${safeAddress.zoneId}`);
+        }
+      } catch (err) {
+        console.error("[BookingFix] Address resolution failed:", err);
+      }
+    }
   }
   const preferredProviderId = String(req.body.preferredProviderId || "").trim();
   const [couponDoc, advanceAmount, settings] = await Promise.all([

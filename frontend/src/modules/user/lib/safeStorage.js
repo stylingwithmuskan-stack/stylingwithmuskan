@@ -43,13 +43,21 @@ export const safeStorage = {
    */
   getItem(key) {
     try {
+      let value = null;
       if (checkStorage()) {
-        return localStorage.getItem(key);
+        value = localStorage.getItem(key);
+      } else {
+        value = memoryStorage.get(key) || null;
       }
-      return memoryStorage.get(key) || null;
+      
+      // Handle edge cases where storage returns "null" or "undefined" as strings
+      if (value === "null" || value === "undefined") return null;
+      return value;
     } catch (error) {
       console.warn(`[SafeStorage] getItem failed for key "${key}":`, error);
-      return memoryStorage.get(key) || null;
+      let value = memoryStorage.get(key) || null;
+      if (value === "null" || value === "undefined") return null;
+      return value;
     }
   },
 

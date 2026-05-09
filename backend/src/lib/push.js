@@ -286,7 +286,8 @@ export async function sendPushForNotification(notification) {
           totalFailed++;
           const code = res.error?.code;
           const message = res.error?.message;
-          console.error(`[push] Token ${batch[j].slice(-6)} failed. Code: ${code}, Message: ${message}`);
+          const device = devices.find(d => d.fcmToken === batch[j]);
+          console.error(`[push] Token ${batch[j].slice(-6)} failed. Platform: ${device?.platform || 'unknown'}, Role: ${device?.recipientRole || 'unknown'}, Code: ${code}, Message: ${message}`);
           if (
             code === "messaging/registration-token-not-registered" ||
             code === "messaging/invalid-registration-token"
