@@ -36,6 +36,20 @@ export async function connectMongo() {
       console.log(`[DB] ✅ Mongo connected to Atlas/Remote db=${dbName}`);
       console.log(`[DB] Connection state: ${mongoose.connection.readyState}`); // 1 = connected
       
+      // ✅ FIX: Drop the TTL index that was deleting bookings
+      try {
+        const Booking = mongoose.connection.db.collection("bookings");
+        const indexes = await Booking.indexes();
+        const hasTtlIndex = indexes.some(idx => idx.name === "payment_pending_timeout");
+        if (hasTtlIndex) {
+          console.log('[DB] 🗑️  Found problematic TTL index "payment_pending_timeout". Dropping it...');
+          await Booking.dropIndex("payment_pending_timeout");
+          console.log('[DB] ✅ TTL index dropped successfully. Bookings will no longer be deleted.');
+        }
+      } catch (idxErr) {
+        console.warn('[DB] ⚠️  Failed to check/drop TTL index:', idxErr.message);
+      }
+      
       // Log connection events
       mongoose.connection.on('connected', () => {
         console.log('[DB] 🟢 Mongoose connected');
