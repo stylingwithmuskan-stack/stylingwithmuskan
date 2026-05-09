@@ -50,6 +50,19 @@ export default function VenderSOSMonitor() {
         );
     };
 
+    const formatTime = (dateStr) => {
+        if (!dateStr) return "Just now";
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return "Just now";
+        if (diffMins < 60) return `${diffMins}m ago`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours}h ago`;
+        return date.toLocaleDateString();
+    };
+
     const load = async () => {
         try {
             if (!hydrated || !isLoggedIn) return;
@@ -119,7 +132,7 @@ export default function VenderSOSMonitor() {
                                                 </p>
                                             </div>
                                             <div className="text-right shrink-0">
-                                                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{alert.time || "Just now"}</p>
+                                                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{alert.time || formatTime(alert.createdAt)}</p>
                                                 <p className="text-[9px] text-muted-foreground font-medium opacity-50 mt-1">#{alert.id?.toString().slice(-6)}</p>
                                             </div>
                                         </div>
@@ -132,10 +145,28 @@ export default function VenderSOSMonitor() {
                                         </div>
 
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                            <Button className="h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold gap-2 text-xs shadow-lg shadow-indigo-100">
+                                            <Button 
+                                                className="h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold gap-2 text-xs shadow-lg shadow-indigo-100"
+                                                onClick={() => {
+                                                    if (alert.location?.lat && alert.location?.lng) {
+                                                        window.open(`https://www.google.com/maps?q=${alert.location.lat},${alert.location.lng}`, "_blank");
+                                                    } else {
+                                                        alert("Location not available for tracking.");
+                                                    }
+                                                }}
+                                            >
                                                 <Map className="h-4 w-4" /> Track
                                             </Button>
-                                            <Button className="h-11 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold gap-2 text-xs shadow-lg shadow-red-100">
+                                            <Button 
+                                                className="h-11 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold gap-2 text-xs shadow-lg shadow-red-100"
+                                                onClick={() => {
+                                                    if (alert.phone || alert.userPhone) {
+                                                        window.location.href = `tel:${alert.phone || alert.userPhone}`;
+                                                    } else {
+                                                        alert("Phone number not available.");
+                                                    }
+                                                }}
+                                            >
                                                 <Phone className="h-4 w-4" /> Call
                                             </Button>
                                             <Button variant="outline" className="h-11 col-span-2 sm:col-span-1 rounded-2xl font-bold gap-2 text-xs bg-white border-slate-200 text-slate-700 hover:bg-green-50 hover:text-green-600 hover:border-green-200" onClick={() => handleResolve(alert._id || alert.id)} disabled={!alert._id && !alert.id}>

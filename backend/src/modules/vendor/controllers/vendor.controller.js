@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import ProviderAccount from "../../../models/ProviderAccount.js";
 import Booking from "../../../models/Booking.js";
 import SOSAlert from "../../../models/SOSAlert.js";
+import User from "../../../models/User.js";
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 import ProviderWalletTxn from "../../../models/ProviderWalletTxn.js";
 import { CommissionSettings, BookingSettings } from "../../../models/Settings.js";
@@ -21,6 +22,32 @@ import { canAssignProviderToBooking } from "../../../lib/assignment.js";
 import { invalidateProviderSlots } from "../../../lib/availability.js";
 import { belongsToCity, ensureCityAndZoneNames, locationOutOfZoneMessage, resolveServiceLocation } from "../../../lib/locationResolution.js";
 import { providerMatchesAllServiceIds } from "../../../lib/serviceMatching.js";
+import { City, Zone } from "../../../models/CityZone.js";
+
+/**
+ * Dynamically fetches the latest active zones for a vendor's city from the CityZone model.
+ * This ensures the vendor dashboard and operations always use up-to-date zone data.
+ */
+async function getLatestVendorZones(vendor) {
+  if (!vendor) return [];
+  let latestZones = vendor.zones || [];
+  try {
+    const cityId = vendor.cityId || (await City.findOne({ 
+      name: new RegExp(`^${(vendor.city || "").trim()}$`, "i"), 
+      status: "active" 
+    }).lean())?._id;
+
+    if (cityId) {
+      const zones = await Zone.find({ city: cityId, status: "active" }).lean();
+      if (zones.length > 0) {
+        latestZones = zones.map(z => z.name);
+      }
+    }
+  } catch (err) {
+    console.error("[VendorZoneSync] Failed to fetch fresh zones:", err.message);
+  }
+  return latestZones;
+}
 
 // Helper function to create default availability for provider (30 days)
 async function createDefaultProviderAvailability(providerId) {
@@ -218,8 +245,13 @@ export async function verifyRegistrationOtp(req, res) {
     res.status(201).json({ 
       success: true, 
       message: "Registration submitted for admin approval",
-      vendor: v,
-      vendorToken: token
+      data: {
+        token: token,
+        vendor: {
+          ...v.toObject(),
+          id: v._id.toString()
+        }
+      }
     });
   } catch (err) {
     console.error('[Vendor Registration] ERROR:', err.message, err.stack);
@@ -234,6 +266,8 @@ export async function login(req, res) {
   if (!v) return res.status(400).json({ error: "Vendor not found" });
   if (v.status === "blocked") return res.status(403).json({ error: "Your account is blocked by admin . Approve first then login again" });
   if (v.status !== "approved") return res.status(403).json({ error: "Your account is pending admin approval" });
+
+  const latestZones = await getLatestVendorZones(v);
   const token = issueRoleToken("vendor", v._id?.toString() || v.email);
   const subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");
   try {
@@ -252,14 +286,28 @@ export async function login(req, res) {
     secure: isProd,
     maxAge: 30 * 24 * 3600 * 1000,
   });
-  res.json({ vendor: { ...v, subscription }, vendorToken: token });
+  res.json({
+    success: true,
+    message: "Login successful",
+    data: {
+      token: token,
+      vendor: {
+        ...v,
+        zones: latestZones,
+        id: v._id.toString(),
+        subscription
+      }
+    }
+  });
 }
 
 export async function getMe(req, res) {
   const v = await Vendor.findById(req.auth?.sub).lean();
   if (!v) return res.status(404).json({ error: "Vendor not found" });
+
+  const latestZones = await getLatestVendorZones(v);
   const subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");
-  res.json({ vendor: { ...v, subscription } });
+  res.json({ vendor: { ...v, zones: latestZones, subscription } });
 }
 
 export async function updateMe(req, res) {
@@ -288,8 +336,9 @@ export async function updateMe(req, res) {
 
     const updated = await Vendor.findByIdAndUpdate(vendorId, updates, { new: true }).lean();
     if (!updated) return res.status(404).json({ error: "Vendor not found" });
+    const latestZones = await getLatestVendorZones(updated);
     const subscription = await getSubscriptionSnapshot(updated._id?.toString() || updated.email, "vendor");
-    res.json({ vendor: { ...updated, subscription } });
+    res.json({ vendor: { ...updated, zones: latestZones, subscription } });
   } catch (err) {
     console.error("[Vendor] updateMe error:", err);
     res.status(500).json({ error: "Failed to update profile" });
@@ -394,7 +443,19 @@ export async function verifyOtp(req, res) {
     secure: isProd,
     maxAge: 30 * 24 * 3600 * 1000,
   });
-  res.json({ vendor: { ...v, subscription }, vendorToken: token });
+  
+  res.json({
+    success: true,
+    message: "Login successful",
+    data: {
+      token: token,
+      vendor: {
+        ...v,
+        id: v._id.toString(),
+        subscription
+      }
+    }
+  });
 }
 
 export async function listProviders(req, res) {
@@ -403,7 +464,7 @@ export async function listProviders(req, res) {
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   const city = normCity(vendor?.city) || "";
   const cityId = String(vendor?.cityId || "").trim();
-  const zones = vendor?.zones || [];
+  const zones = await getLatestVendorZones(vendor);
   
   console.log('[Vendor] listProviders called:', { vendorId, vendorCity: vendor?.city, normalizedCity: city, zones });
   
@@ -711,7 +772,7 @@ export async function listBookings(req, res) {
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   const city = normCity(vendor?.city) || "";
   const cityId = String(vendor?.cityId || "").trim();
-  const zones = vendor?.zones || [];
+  const zones = await getLatestVendorZones(vendor);
 
   if (!city && zones.length === 0) {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
@@ -964,6 +1025,7 @@ export async function assignBooking(req, res) {
   }
   
   const previousProviderId = String(existing.assignedProvider || "").trim();
+  const previousStatus = existing.status;
   existing.assignedProvider = providerId;
   existing.status = "accepted";
   existing.lastAssignedAt = now;
@@ -972,6 +1034,53 @@ export async function assignBooking(req, res) {
   existing.adminEscalated = false;
   existing.vendorEscalated = false;
   const b = await existing.save();
+
+  // ───── SCENARIO 3: REASSIGNMENT PENALTY/REWARD ─────
+  if (previousProviderId && previousProviderId !== providerId && !["pending", "payment_pending", "unassigned"].includes(String(previousStatus).toLowerCase())) {
+    const penaltyReward = Math.round(totalAmount * 0.2);
+    if (penaltyReward > 0) {
+      try {
+        // Deduct from NEW provider (provider)
+        provider.credits = Number(provider.credits || 0) - penaltyReward;
+        await provider.save();
+        await ProviderWalletTxn.create({
+          providerId: provider._id.toString(),
+          bookingId: existing._id.toString(),
+          type: "penalty",
+          amount: -penaltyReward,
+          balanceAfter: provider.credits,
+          meta: { title: "Reassignment Fee (20%)", reason: "reassigned_to_you", fromProvider: previousProviderId },
+        });
+
+        // Add to OLD provider (previousProviderId)
+        const prevProv = await ProviderAccount.findById(previousProviderId);
+        if (prevProv) {
+          prevProv.credits = Number(prevProv.credits || 0) + penaltyReward;
+          await prevProv.save();
+          await ProviderWalletTxn.create({
+            providerId: previousProviderId,
+            bookingId: existing._id.toString(),
+            type: "compensation",
+            amount: penaltyReward,
+            balanceAfter: prevProv.credits,
+            meta: { title: "Reassignment Compensation (20%)", reason: "reassigned_from_you", toProvider: providerId },
+          });
+          
+          try {
+            await notify({
+              recipientId: previousProviderId,
+              recipientRole: "provider",
+              type: "compensation",
+              meta: { bookingId: existing._id.toString(), amount: penaltyReward, reason: "reassignment_compensation" },
+              respectProviderQuietHours: true,
+            });
+          } catch {}
+        }
+      } catch (err) {
+        console.error("[VendorAssign] Transfer logic failed:", err);
+      }
+    }
+  }
   
   // Emit socket events for real-time updates
   try {
@@ -1129,6 +1238,7 @@ export async function reassignBooking(req, res) {
       }
     }
   
+  const previousStatus = existing.status;
   existing.assignedProvider = providerId;
   existing.status = "accepted";
   existing.lastAssignedAt = now;
@@ -1137,6 +1247,53 @@ export async function reassignBooking(req, res) {
   existing.adminEscalated = false;
   existing.vendorEscalated = false;
   const b = await existing.save();
+
+  // ───── SCENARIO 3: REASSIGNMENT PENALTY/REWARD ─────
+  if (previousProviderId && previousProviderId !== providerId && !["pending", "payment_pending", "unassigned"].includes(String(previousStatus).toLowerCase())) {
+    const penaltyReward = Math.round(totalAmount * 0.2);
+    if (penaltyReward > 0) {
+      try {
+        // Deduct from NEW provider (provider)
+        provider.credits = Number(provider.credits || 0) - penaltyReward;
+        await provider.save();
+        await ProviderWalletTxn.create({
+          providerId: provider._id.toString(),
+          bookingId: existing._id.toString(),
+          type: "penalty",
+          amount: -penaltyReward,
+          balanceAfter: provider.credits,
+          meta: { title: "Reassignment Fee (20%)", reason: "reassigned_to_you", fromProvider: previousProviderId },
+        });
+
+        // Add to OLD provider (previousProviderId)
+        const prevProv = await ProviderAccount.findById(previousProviderId);
+        if (prevProv) {
+          prevProv.credits = Number(prevProv.credits || 0) + penaltyReward;
+          await prevProv.save();
+          await ProviderWalletTxn.create({
+            providerId: previousProviderId,
+            bookingId: existing._id.toString(),
+            type: "compensation",
+            amount: penaltyReward,
+            balanceAfter: prevProv.credits,
+            meta: { title: "Reassignment Compensation (20%)", reason: "reassigned_from_you", toProvider: providerId },
+          });
+          
+          try {
+            await notify({
+              recipientId: previousProviderId,
+              recipientRole: "provider",
+              type: "compensation",
+              meta: { bookingId: existing._id.toString(), amount: penaltyReward, reason: "reassignment_compensation" },
+              respectProviderQuietHours: true,
+            });
+          } catch {}
+        }
+      } catch (err) {
+        console.error("[VendorReassign] Transfer logic failed:", err);
+      }
+    }
+  }
   
   // Emit socket events for real-time updates
   try {
@@ -1422,9 +1579,98 @@ export async function assignTeamCustomEnquiry(req, res) {
 }
 
 export async function listSOS(req, res) {
-  // Basic list for now (optionally filtered by city in future)
-  const items = await SOSAlert.find().sort({ createdAt: -1 }).lean();
-  res.json({ alerts: items });
+  try {
+    const vendorId = req.auth?.sub;
+    const vendor = await Vendor.findById(vendorId).lean();
+    if (!vendor) return res.status(404).json({ error: "Vendor not found" });
+
+    const city = (vendor.city || "").trim();
+    const cityId = String(vendor.cityId || "").trim();
+
+    // 1. Find providers in vendor's city/zones
+    const zones = await getLatestVendorZones(vendor);
+    let pQuery = {};
+    if (zones.length > 0) {
+      pQuery = { 
+        $and: [
+          { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
+          { 
+            $or: [
+              { zone: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } },
+              { address: { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } }
+            ]
+          }
+        ]
+      };
+    } else if (city) {
+      pQuery = { city: new RegExp(`^${escapeRegex(city)}$`, "i") };
+    }
+    const providers = (await ProviderAccount.find(pQuery).lean()).filter(p => belongsToCity(p, cityId, city));
+    const providerIds = providers.map(p => p._id.toString());
+
+    // 2. Find alerts: matching city OR matching providerId
+    const query = {
+      $or: [
+        { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
+        { userId: { $in: providerIds } }
+      ]
+    };
+
+    const rawAlerts = await SOSAlert.find(query).sort({ createdAt: -1 }).lean();
+
+    // 3. Enrich alerts
+    const enrichedAlerts = await Promise.all(rawAlerts.map(async (alert) => {
+      // If it already has userName and it's not unknown, keep it
+      if (alert.userName && !["Unknown", "Unknown User", "Unknown Provider", "Unknown Vendor"].includes(alert.userName)) {
+        return alert;
+      }
+
+      try {
+        const typeLower = String(alert.userType || "").toLowerCase();
+        if (typeLower === "provider" || typeLower === "beautician") {
+          const p = await ProviderAccount.findById(alert.userId).lean();
+          if (p) {
+            alert.userName = p.name || "Unknown Provider";
+            alert.userPhone = p.phone || "";
+            alert.phone = p.phone || ""; // For frontend compatibility
+            alert.city = p.city || alert.city || "";
+            if ((!alert.location || !alert.location.lat) && p.currentLocation?.lat) {
+              alert.location = { lat: p.currentLocation.lat, lng: p.currentLocation.lng };
+            }
+          }
+        } else if (typeLower === "vendor") {
+          const v = await Vendor.findById(alert.userId).lean();
+          if (v) {
+            alert.userName = v.name || "Unknown Vendor";
+            alert.userPhone = v.phone || "";
+            alert.phone = v.phone || ""; // For frontend compatibility
+            alert.city = v.city || alert.city || "";
+          }
+        } else {
+          const u = await User.findById(alert.userId).lean();
+          if (u) {
+            alert.userName = u.name || "Unknown User";
+            alert.userPhone = u.phone || "";
+            alert.phone = u.phone || ""; // For frontend compatibility
+            alert.city = u.addresses?.[0]?.city || alert.city || "";
+          }
+        }
+      } catch (err) {
+        console.error("[Vendor SOS Enrichment] Failed for alert", alert._id, err.message);
+      }
+      
+      // Ensure ID and phone are present for frontend
+      alert.id = alert._id.toString();
+      if (!alert.phone && alert.userPhone) alert.phone = alert.userPhone;
+      
+      return alert;
+    }));
+
+    res.json({ alerts: enrichedAlerts });
+  } catch (err) {
+    console.error("[Vendor SOS] Error:", err);
+    res.status(500).json({ message: err.message });
+  }
 }
 
 export async function resolveSOS(req, res) {
@@ -1441,7 +1687,7 @@ export async function stats(req, res) {
   const vendor = await Vendor.findById(vendorId).lean();
   const city = normCity(vendor?.city) || "";
   const cityId = String(vendor?.cityId || "").trim();
-  const zones = vendor?.zones || [];
+  const zones = await getLatestVendorZones(vendor);
 
   let pQuery = {};
   if (zones.length > 0) {
@@ -1501,8 +1747,8 @@ export async function stats(req, res) {
   const sos = await SOSAlert.countDocuments({ 
     status: { $ne: "resolved" },
     $or: [
-      { providerId: { $in: providerIds } },
-      { bookingId: { $in: bookings.map(b => b._id.toString()) } }
+      { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
+      { userId: { $in: providerIds } }
     ]
   });
 

@@ -372,14 +372,14 @@ const BookingsPage = () => {
                                                             <Clock className="w-3.5 h-3.5 text-primary/60" /> {booking.slot?.time}
                                                         </div>
                                                         <div className="col-span-2 sm:col-auto">
-                                                        {["accepted", "travelling", "arrived", "in_progress", "documentation", "completed"].includes(booking.status?.toLowerCase()) ? (
+                                                        {(booking.assignedProvider || booking.teamMembers?.length > 0 || ["accepted", "travelling", "arrived", "in_progress", "documentation", "completed", "payment_pending"].includes(booking.status?.toLowerCase())) ? (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleProviderClick(booking); }} 
                                                                 className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer group/pro"
                                                             >
                                                                 <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                                                                 <span className="font-bold underline decoration-primary/30 underline-offset-2 group-hover/pro:decoration-primary">
-                                                                    {booking.slot?.provider?.name || booking.teamMembers?.[0]?.name || Object.values(providers || {}).find(p => p.id === booking.assignedProvider)?.name || 'Trained Pro'}
+                                                                    {booking.slot?.provider?.name || booking.teamMembers?.[0]?.name || (Array.isArray(providers) ? providers.find(p => p.id === booking.assignedProvider) : providers?.[booking.assignedProvider])?.name || 'Trained Pro'}
                                                                 </span>
                                                             </button>
                                                         ) : (

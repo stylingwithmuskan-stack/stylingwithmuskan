@@ -108,12 +108,14 @@ export const AuthProvider = ({ children }) => {
             const res = await api.verifyOtp(phone, otp, intent);
             console.log("[Auth] verifyOtp response", res);
             
+            // Extract user from wrapped data or direct response
+            const u = res?.data?.user || res?.user;
+            
             // Validate response
-            if (!res || !res.user || !res.user._id) {
+            if (!u || !u._id) {
                 throw new Error("Login failed - invalid response from server");
             }
             
-            const { user: u } = res;
             const isNewUser = !!u?.isNew;
             
             // If new user and profile fields provided, update

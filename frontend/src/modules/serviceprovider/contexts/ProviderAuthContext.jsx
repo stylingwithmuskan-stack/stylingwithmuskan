@@ -112,7 +112,7 @@ export const ProviderAuthProvider = ({ children }) => {
             const { provider: regProvider, providerToken } = await api.provider.register(safe);
             
             // Validate response
-            if (!regProvider || !regProvider._id) {
+            if (!regProvider || (!regProvider._id && !regProvider.id)) {
                 throw new Error("Registration failed - no provider data received");
             }
             
@@ -203,8 +203,8 @@ export const ProviderAuthProvider = ({ children }) => {
         try {
             const { provider, providerToken } = await api.provider.verifyOtp(phone, otp);
             
-            // Validate response
-            if (!provider || !provider._id) {
+            // Validate response - check for both _id and id
+            if (!provider || (!provider._id && !provider.id)) {
                 throw new Error("OTP verification failed - invalid response from server");
             }
             

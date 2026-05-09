@@ -7,7 +7,35 @@ import { versionedKey } from "../lib/contentCache.js";
 import { City, Zone } from "../models/CityZone.js";
 import { resolveServiceLocation } from "../lib/locationResolution.js";
 
+import { flexibleAuth } from "../middleware/auth.js";
+
 const router = Router();
+
+// Optional authentication middleware to populate req.user if token is present
+async function injectUser(req, res, next) {
+  try {
+    const token =
+      req.cookies?.token ||
+      (req.headers.authorization?.startsWith("Bearer ")
+        ? req.headers.authorization.split(" ")[1]
+        : null);
+    if (token) {
+      const jwt = (await import("jsonwebtoken")).default;
+      const User = (await import("../models/User.js")).default;
+      const { JWT_SECRET } = await import("../config.js");
+      const payload = jwt.verify(token, JWT_SECRET);
+
+      // Store raw payload in case User doesn't exist (e.g. Provider)
+      req.auth = payload;
+
+      const user = await User.findById(payload.sub);
+      if (user) req.user = user;
+    }
+    next();
+  } catch (e) {
+    next();
+  }
+}
 
 const CACHE_TIMEOUT_MS = Number(process.env.CONTENT_CACHE_TIMEOUT_MS || 1200);
 const CACHE_TTL_SECONDS = Number(process.env.CONTENT_CACHE_TTL_SECONDS || 300);
@@ -56,7 +84,7 @@ async function cached(keyBase, fn) {
 }
 
 // Master Initialization Endpoint - Aggregates 10 calls into 1
-router.get("/init", async (req, res) => {
+router.get("/init", injectUser, async (req, res) => {
   try {
     const now = new Date();
 
@@ -86,7 +114,7 @@ router.get("/init", async (req, res) => {
           if (b.endAt && new Date(b.endAt).getTime() < now.getTime()) return false;
           return true;
         });
-        active.sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+        active.sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
         const grouped = active.reduce((acc, b) => {
           const g = String(b.gender || "women").toLowerCase();
           acc[g] = acc[g] || [];
@@ -113,24 +141,26 @@ router.get("/init", async (req, res) => {
             if (s.endAt && new Date(s.endAt).getTime() < now.getTime()) return false;
             return true;
           })
-          .sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+          .sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
       }),
 
       // Gallery
       cached("content:gallery", async () => {
         const items = await GalleryItem.find({ isActive: true }).lean();
-        return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+        return (items || []).sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
       }),
 
       // Testimonials
       cached("content:testimonials", async () => {
         const items = await Testimonial.find({ isActive: true }).lean();
-        return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+        return (items || []).sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
       })
     ]);
 
-    // Handle like status for spotlights if user is authenticated (pass token if required, but usually /init is public)
-    const userId = req.user?._id;
+    // Handle like status for spotlights if user is authenticated
+    const userId = req.auth?.sub || req.user?._id;
+    console.log(`[Init] App initialization. UserID: ${userId || 'guest'}`);
+    
     const spotlights = userId ? spotlightsData.map(spotlight => ({
       ...spotlight,
       isLikedByUser: spotlight.likedBy?.some(id => id.toString() === userId.toString()) || false
@@ -224,16 +254,16 @@ router.get("/services", async (req, res) => {
   const q = {};
   if (category) q.category = category;
   if (gender) q.gender = gender;
-  
+
   // ✅ FIX: Use a high default limit (1000) for registration/catalog, 
   // but respect the requested limit if provided (e.g., from infinite scroll).
   const effectiveLimit = limit ? parseInt(limit) : 1000;
   const skip = (parseInt(page) - 1) * effectiveLimit;
   const key = `content:services:${category || "all"}:${gender || "all"}:p${page}:l${effectiveLimit}`;
-  
+
   let data = [];
   try {
-    data = await cached(key, () => 
+    data = await cached(key, () =>
       Service.find(q)
         .select("-gallery -steps")
         .skip(skip)
@@ -243,7 +273,7 @@ router.get("/services", async (req, res) => {
   } catch {
     data = [];
   }
-  
+
   if (!Array.isArray(data) || data.length === 0) {
     try {
       data = await Service.find(q)
@@ -297,7 +327,7 @@ router.get("/search", async (req, res) => {
       const bNameMatch = b.name.toLowerCase().includes(q.toLowerCase());
       const aCatMatch = matchingCategoryIds.includes(a.category);
       const bCatMatch = matchingCategoryIds.includes(b.category);
-      
+
       const getScore = (isName, isCat) => {
         if (isName) return 0;
         if (isCat) return 1;
@@ -331,7 +361,7 @@ router.get("/banners", async (req, res) => {
         if (b.endAt && new Date(b.endAt).getTime() < now.getTime()) return false;
         return true;
       });
-      active.sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+      active.sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
       const grouped = active.reduce((acc, b) => {
         const g = String(b.gender || "women").toLowerCase();
         acc[g] = acc[g] || [];
@@ -357,9 +387,9 @@ router.get("/banners", async (req, res) => {
   res.json({ data });
 });
 
-router.get("/spotlights", async (req, res) => {
+router.get("/spotlights", injectUser, async (req, res) => {
   const { gender } = req.query;
-  const userId = req.user?._id; // Get user ID from auth middleware if available
+  const userId = req.auth?.sub || req.user?._id; // Get user ID from auth middleware if available
   const key = `content:spotlights:${gender || "all"}`;
   let data = [];
   try {
@@ -374,7 +404,7 @@ router.get("/spotlights", async (req, res) => {
           if (s.endAt && new Date(s.endAt).getTime() < now.getTime()) return false;
           return true;
         })
-        .sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+        .sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
     });
 
     // Add isLikedByUser flag if user is logged in
@@ -391,11 +421,14 @@ router.get("/spotlights", async (req, res) => {
 });
 
 // Like/Unlike spotlight endpoint
-router.post("/spotlights/:id/like", async (req, res) => {
+router.post("/spotlights/:id/like", flexibleAuth, async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const userId = req.auth?.sub || req.user?._id;
+    console.log(`[Spotlight Like] Attempt by ${userId} (Source: ${req.auth?.sub ? 'auth.sub' : 'user._id'}) for spotlight ${req.params.id}`);
+    
     if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
+      console.warn(`[Spotlight Like] Unauthorized: No userId found in request.`);
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const spotlight = await Spotlight.findOne({ id: req.params.id });
@@ -433,7 +466,7 @@ router.get("/gallery", async (_req, res) => {
   try {
     data = await cached("content:gallery", async () => {
       const items = await GalleryItem.find({ isActive: true }).lean();
-      return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+      return (items || []).sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
     });
   } catch {
     data = [];
@@ -446,7 +479,7 @@ router.get("/testimonials", async (_req, res) => {
   try {
     data = await cached("content:testimonials", async () => {
       const items = await Testimonial.find({ isActive: true }).lean();
-      return (items || []).sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)));
+      return (items || []).sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0)));
     });
   } catch {
     data = [];
@@ -556,9 +589,9 @@ router.get("/services/reviews/:serviceName", async (req, res) => {
     const Booking = (await import("../models/Booking.js")).default;
 
     // 1. Get all active feedback for this service
-    const feedbacks = await Feedback.find({ 
+    const feedbacks = await Feedback.find({
       serviceName: new RegExp(`^${escapeRegex(serviceName)}$`, "i"),
-      status: "active" 
+      status: "active"
     }).sort({ createdAt: -1 }).limit(20).lean();
 
     // 2. Get all approved images from bookings for this service
@@ -570,10 +603,10 @@ router.get("/services/reviews/:serviceName", async (req, res) => {
       imagesApproved: true,
       status: "completed"
     })
-    .select("beforeImages afterImages productImages customerName createdAt")
-    .sort({ createdAt: -1 })
-    .limit(10)
-    .lean();
+      .select("beforeImages afterImages productImages customerName createdAt")
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
 
     res.json({
       success: true,

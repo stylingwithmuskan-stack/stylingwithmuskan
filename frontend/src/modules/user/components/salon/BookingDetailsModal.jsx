@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Calendar, Clock, MapPin, Star, Phone, MessageSquare, Zap, Receipt, ShieldCheck, ChevronRight, CheckCircle2, Navigation, Home, Scissors, AlertTriangle, Trash2 } from "lucide-react";
+import { X, Calendar, Clock, MapPin, Star, Phone, MessageSquare, Zap, Receipt, ShieldCheck, ChevronRight, CheckCircle2, Navigation, Home, Scissors, AlertTriangle, Trash2, Camera } from "lucide-react";
 import { io } from "socket.io-client";
 import LiveMap from "@/components/LiveMap";
 import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { useNavigate } from "react-router-dom";
 import { useBookings } from "@/modules/user/contexts/BookingContext";
+import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { toast } from "sonner";
 
@@ -32,7 +33,8 @@ const StatusBadge = ({ status }) => {
 const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     const pollRef = useRef(null);
     const navigate = useNavigate();
-    const { cancelBooking } = useBookings();
+    const { cancelBooking, loadBookings } = useBookings();
+    const { user } = useAuth();
     const { providers, services: globalServices } = useUserModuleData();
     const [localBooking, setLocalBooking] = useState(booking);
     const [userLocation, setUserLocation] = useState(null);
@@ -40,6 +42,99 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
     const [socketConnected, setSocketConnected] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+    const [isPaying, setIsPaying] = useState(false);
+
+    const loadRazorpay = () =>
+        new Promise((resolve, reject) => {
+            if (window.Razorpay) return resolve(true);
+            const script = document.createElement("script");
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => reject(new Error("Razorpay SDK failed to load"));
+            document.body.appendChild(script);
+        });
+
+    const handleDirectPayment = async () => {
+        if (!localBooking || isPaying) return;
+        
+        setIsPaying(true);
+        const bookingId = localBooking._id || localBooking.id;
+
+        try {
+            const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+            if (!rzpKey) {
+                toast.error("Razorpay key is not configured.");
+                setIsPaying(false);
+                return;
+            }
+
+            const amountPaise = Math.round(localBooking.balanceAmount * 100);
+            const purpose = "booking_full";
+
+            await loadRazorpay();
+
+            const { order } = await api.payments.createOrder({
+                amount: amountPaise,
+                currency: "INR",
+                purpose,
+                bookingId: bookingId
+            });
+
+            if (!order || !order.id) {
+                toast.error("Unable to create payment order");
+                setIsPaying(false);
+                return;
+            }
+
+            const rzp = new window.Razorpay({
+                key: rzpKey,
+                amount: order.amount,
+                currency: order.currency,
+                name: "stylingwithmuskan",
+                description: "Booking Balance Payment",
+                order_id: order.id,
+                prefill: {
+                    name: user?.name || "",
+                    email: user?.email || "",
+                    contact: user?.phone || ""
+                },
+                theme: { color: "#7c3aed" },
+                handler: async (response) => {
+                    try {
+                        await api.payments.verify({
+                            order_id: response.razorpay_order_id,
+                            payment_id: response.razorpay_payment_id,
+                            signature: response.razorpay_signature,
+                            amount: order.amount,
+                            purpose,
+                            bookingId: bookingId
+                        });
+                        
+                        toast.success("Payment Successful!");
+                        loadBookings();
+                        // Close modal after success
+                        setTimeout(() => {
+                            setIsPaying(false);
+                            onClose();
+                        }, 1500);
+                    } catch (e) {
+                        toast.error(e?.message || "Payment verification failed");
+                        setIsPaying(false);
+                    }
+                },
+                modal: {
+                    ondismiss: () => {
+                        setIsPaying(false);
+                    }
+                }
+            });
+            rzp.open();
+        } catch (e) {
+            console.error("[Payment] Critical Error:", e);
+            toast.error(e?.message || "Payment failed to initialize");
+            setIsPaying(false);
+        }
+    };
 
     // Lock body scroll when modal is open
     useEffect(() => {
@@ -733,19 +828,11 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                     </div>
                                     {currentStatus === "payment_pending" && (booking.balanceAmount || 0) > 0 && (
                                         <button
-                                            onClick={() => navigate("/payment", {
-                                                state: {
-                                                    bookingId,
-                                                    finalTotal: booking.balanceAmount,
-                                                    amountOverride: booking.balanceAmount,
-                                                    paymentPurpose: "booking_full",
-                                                    isPayNow: true,
-                                                    order: booking.paymentOrder?.id ? booking.paymentOrder : undefined
-                                                }
-                                            })}
-                                            className="w-full mt-4 h-12 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.01] transition-all"
+                                            onClick={handleDirectPayment}
+                                            disabled={isPaying}
+                                            className="w-full mt-4 h-12 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.01] transition-all disabled:opacity-70"
                                         >
-                                            Pay Now
+                                            {isPaying ? "Processing..." : "Pay Now"}
                                         </button>
                                     )}
                                 </div>

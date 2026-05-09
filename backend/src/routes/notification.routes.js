@@ -1,6 +1,6 @@
 import express from "express";
 import { requireRole } from "../middleware/roles.js";
-import { requireAuth } from "../middleware/auth.js";
+import { flexibleAuth } from "../middleware/auth.js";
 import Notification from "../models/Notification.js";
 import PushDevice from "../models/PushDevice.js";
 
@@ -32,46 +32,8 @@ router.get("/test-sound", async (req, res) => {
   }
 });
 
-// Helper to check for ANY role or standard user auth
-const requireAnyAuth = async (req, res, next) => {
-  try {
-    const cookies = req.cookies || {};
-    const headerToken = req.headers.authorization?.startsWith("Bearer ")
-      ? req.headers.authorization.split(" ")[1]
-      : null;
-
-    const candidates = [
-      headerToken,
-      cookies.token,
-      cookies.providerToken,
-      cookies.adminToken,
-      cookies.vendorToken,
-    ].filter(Boolean);
-
-    let decoded = null;
-    for (const t of candidates) {
-      try {
-        decoded = jwt.verify(t, JWT_SECRET);
-        if (decoded) break;
-      } catch {}
-    }
-
-    if (!decoded) return res.status(401).json({ error: "Unauthorized" });
-    
-    req.auth = decoded;
-    // Back-compat for some middlewares that expect req.user
-    if (decoded.role === "user") {
-      req.user = { _id: decoded.sub };
-    }
-    
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-};
-
 // Get notifications for current user/role
-router.get("/", requireAnyAuth, async (req, res) => {
+router.get("/", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
@@ -88,7 +50,7 @@ router.get("/", requireAnyAuth, async (req, res) => {
 });
 
 // Mark all as read
-router.put("/read-all", requireAnyAuth, async (req, res) => {
+router.put("/read-all", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
@@ -100,7 +62,7 @@ router.put("/read-all", requireAnyAuth, async (req, res) => {
 });
 
 // Mark single notification as read
-router.patch("/:id/read", requireAnyAuth, async (req, res) => {
+router.patch("/:id/read", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
@@ -116,7 +78,7 @@ router.patch("/:id/read", requireAnyAuth, async (req, res) => {
   }
 });
 
-router.post("/push/register", requireAnyAuth, async (req, res) => {
+router.post("/push/register", flexibleAuth, async (req, res) => {
   try {
     const recipientId = String(req.auth.sub);
     const recipientRole = req.auth.role || "user";
@@ -169,7 +131,7 @@ router.post("/push/register", requireAnyAuth, async (req, res) => {
   }
 });
 
-router.delete("/push/register", requireAnyAuth, async (req, res) => {
+router.delete("/push/register", flexibleAuth, async (req, res) => {
   try {
     const recipientId = String(req.auth.sub);
     const recipientRole = req.auth.role || "user";
@@ -197,7 +159,7 @@ router.delete("/push/register", requireAnyAuth, async (req, res) => {
   }
 });
 
-router.get("/push/status", requireAnyAuth, async (req, res) => {
+router.get("/push/status", flexibleAuth, async (req, res) => {
   try {
     const recipientId = String(req.auth.sub);
     const recipientRole = req.auth.role || "user";
@@ -225,7 +187,7 @@ router.get("/push/status", requireAnyAuth, async (req, res) => {
   }
 });
 
-router.patch("/push/preferences", requireAnyAuth, async (req, res) => {
+router.patch("/push/preferences", flexibleAuth, async (req, res) => {
   try {
     const recipientId = String(req.auth.sub);
     const recipientRole = req.auth.role || "user";
@@ -255,7 +217,7 @@ router.patch("/push/preferences", requireAnyAuth, async (req, res) => {
 });
 
 // Send a test push notification to the current user's own devices
-router.post("/push/test-self", requireAnyAuth, async (req, res) => {
+router.post("/push/test-self", flexibleAuth, async (req, res) => {
   try {
     const recipientId = String(req.auth.sub);
     const recipientRole = req.auth.role || "user";
@@ -276,7 +238,7 @@ router.post("/push/test-self", requireAnyAuth, async (req, res) => {
 });
 
 // Delete a single notification
-router.delete("/:id", requireAnyAuth, async (req, res) => {
+router.delete("/:id", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
@@ -288,7 +250,7 @@ router.delete("/:id", requireAnyAuth, async (req, res) => {
 });
 
 // Delete all notifications for the current user/role
-router.delete("/", requireAnyAuth, async (req, res) => {
+router.delete("/", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
@@ -300,7 +262,7 @@ router.delete("/", requireAnyAuth, async (req, res) => {
 });
 
 // Delete selected notifications (Bulk Delete)
-router.post("/delete-multiple", requireAnyAuth, async (req, res) => {
+router.post("/delete-multiple", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";

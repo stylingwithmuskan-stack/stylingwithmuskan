@@ -225,15 +225,25 @@ router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLeng
     });
   } catch { }
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
+  
+  const providerData = await filterProviderActiveZones({
+    ...acc.toObject(),
+    subscription,
+    isPro: subscription.isPro,
+    proExpiry: subscription.currentPeriodEnd,
+    proPlan: subscription.planId,
+  });
+
   res.json({
-    provider: await filterProviderActiveZones({
-      ...acc.toObject(),
-      subscription,
-      isPro: subscription.isPro,
-      proExpiry: subscription.currentPeriodEnd,
-      proPlan: subscription.planId,
-    }),
-    providerToken: token,
+    success: true,
+    message: "Login successful",
+    data: {
+      token: token,
+      provider: {
+        ...providerData,
+        id: acc._id.toString()
+      }
+    }
   });
 });
 
@@ -746,15 +756,25 @@ router.post("/register", body("phone").matches(/^\d{10}$/), body("name").isStrin
   const token = issueRoleToken("provider", acc._id.toString());
   const subscription = await getSubscriptionSnapshot(acc._id.toString(), "provider");
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
+
+  const providerData = await filterProviderActiveZones({
+    ...acc.toObject(),
+    subscription,
+    isPro: subscription.isPro,
+    proExpiry: subscription.currentPeriodEnd,
+    proPlan: subscription.planId,
+  });
+
   res.json({
-    provider: await filterProviderActiveZones({
-      ...acc.toObject(),
-      subscription,
-      isPro: subscription.isPro,
-      proExpiry: subscription.currentPeriodEnd,
-      proPlan: subscription.planId,
-    }),
-    providerToken: token,
+    success: true,
+    message: "Registration successful",
+    data: {
+      token: token,
+      provider: {
+        ...providerData,
+        id: acc._id.toString()
+      }
+    }
   });
 });
 
@@ -1696,31 +1716,59 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       b.cancellationReason = req.body.reason || "Provider requested reassignment";
     }
 
-    // Refund commission if it was charged
-    if (b.commissionChargedAt && b.commissionAmount > 0) {
-      const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
-      const acc = await ProviderAccount.findById(pId);
-      if (acc) {
-        acc.credits = Number(acc.credits || 0) + b.commissionAmount;
-        await acc.save();
-        await ProviderWalletTxn.create({
-          providerId: pId,
-          bookingId: b._id.toString(),
-          type: "refund",
-          amount: b.commissionAmount,
-          balanceAfter: acc.credits,
-          meta: { title: "Commission Refund (Provider Cancelled)", reason: "cancelled_by_provider" },
-        });
-        try {
-          await notify({
-            recipientId: pId,
-            recipientRole: "provider",
-            type: "commission_refund",
-            meta: { bookingId: b._id.toString(), amount: b.commissionAmount },
-            respectProviderQuietHours: true,
+    // 20% Penalty for Provider Cancellation
+    try {
+      const refundPolicy = calculateRefundPolicy(b, "provider");
+      const penaltyAmount = refundPolicy.providerPenalty;
+
+      if (penaltyAmount > 0) {
+        const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
+        const acc = await ProviderAccount.findById(pId);
+        if (acc) {
+          acc.credits = Number(acc.credits || 0) - penaltyAmount;
+          await acc.save();
+          
+          await ProviderWalletTxn.create({
+            providerId: pId,
+            bookingId: b._id.toString(),
+            type: "penalty",
+            amount: -penaltyAmount,
+            balanceAfter: acc.credits,
+            meta: { title: "Cancellation Penalty (20%)", reason: "cancelled_by_provider" },
           });
-        } catch { }
+
+          console.log(`[ProviderCancel] Deducted ₹${penaltyAmount} penalty from provider ${pId}`);
+          
+          try {
+            await notify({
+              recipientId: pId,
+              recipientRole: "provider",
+              type: "penalty",
+              meta: { bookingId: b._id.toString(), amount: penaltyAmount, reason: "cancellation_penalty" },
+              respectProviderQuietHours: true,
+            });
+          } catch { }
+        }
       }
+      
+      // Also refund commission if it was charged (so only penalty applies)
+      if (b.commissionChargedAt && b.commissionAmount > 0) {
+        const acc = await ProviderAccount.findById(pId);
+        if (acc) {
+          acc.credits = Number(acc.credits || 0) + b.commissionAmount;
+          await acc.save();
+          await ProviderWalletTxn.create({
+            providerId: pId,
+            bookingId: b._id.toString(),
+            type: "commission_refund",
+            amount: b.commissionAmount,
+            balanceAfter: acc.credits,
+            meta: { title: "Commission Refund (Provider Cancelled)", reason: "penalty_applied" },
+          });
+        }
+      }
+    } catch (err) {
+      console.error(`[ProviderCancel] Penalty application failed:`, err);
     }
 
     await b.save();

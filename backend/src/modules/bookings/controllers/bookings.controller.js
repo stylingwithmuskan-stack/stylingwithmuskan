@@ -1,4 +1,6 @@
 import { validationResult } from "express-validator";
+import fs from "fs";
+import path from "path";
 import Booking from "../../../models/Booking.js";
 import mongoose from "mongoose";
 import Coupon from "../../../models/Coupon.js";
@@ -13,6 +15,7 @@ import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM, parse
 import { isIsoDate } from "../../../lib/isoDateTime.js";
 import { computeExpiresAt, pickNextProviderForBooking } from "../../../lib/assignment.js";
 import { resolveBookingSettings } from "../../../lib/settings.js";
+import { resolveServiceLocation } from "../../../lib/locationResolution.js";
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../../../config.js";
 import { getIO } from "../../../startup/socket.js";
@@ -179,9 +182,43 @@ async function attachProviderToBookings(bookings = []) {
 export async function list(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const q = { customerId: req.user._id.toString() };
-  const total = await Booking.countDocuments(q);
-  const items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+  const customerId = req.user._id.toString();
+  const q = { 
+    $or: [
+      { customerId: customerId },
+      { customerId: new mongoose.Types.ObjectId(customerId) }
+    ]
+  };
+  
+  let total = await Booking.countDocuments(q);
+  let items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+
+  // FALLBACK: If no bookings found by ID, try finding by phone number to handle ID mismatches
+  if (items.length === 0 && req.user.phone) {
+    const phoneQ = { customerPhone: req.user.phone };
+    const phoneItems = await Booking.find(phoneQ).sort({ createdAt: -1 }).limit(limit).lean();
+    if (phoneItems.length > 0) {
+      console.log(`[BookingList] Fallback to phone search found ${phoneItems.length} bookings for ${req.user.phone}`);
+      items = phoneItems;
+      total = await Booking.countDocuments(phoneQ);
+    }
+  }
+  
+  // DEBUG LOG TO FILE
+  try {
+    const allUserBookings = await Booking.find({ customerPhone: req.user.phone }).select('_id customerId status').lean();
+    const logPath = path.join(process.cwd(), "booking_debug.log");
+    const logMsg = `[${new Date().toISOString()}] DEBUG LIST:
+      ReqUser: ${req.user._id} (${typeof req.user._id})
+      SearchQuery: ${JSON.stringify(q)}
+      ResultCount: ${items.length}
+      PhoneMatchCount: ${allUserBookings.length}
+      PhoneMatchDetails: ${JSON.stringify(allUserBookings)}\n`;
+    fs.appendFileSync(logPath, logMsg);
+  } catch (err) {
+    console.error("[BookingDebugError]", err);
+  }
+  
   let bookings = (items || []).map((b) => ({
     ...b,
     id: b._id?.toString?.() || b.id,
@@ -322,6 +359,31 @@ export async function create(req, res) {
   // Final fallback for zone if still empty
   if (!safeAddress.zone) {
     safeAddress.zone = safeAddress.area || safeAddress.city || "";
+  }
+
+  // ✅ CRITICAL FIX: Ensure CityId and ZoneId are resolved for NEW users
+  // This prevents empty candidateProviders list which causes auto-cancellation
+  if (!safeAddress.cityId || !safeAddress.zoneId) {
+    if (typeof safeAddress.lat === "number" && typeof safeAddress.lng === "number") {
+      try {
+        const resolved = await resolveServiceLocation({
+          lat: safeAddress.lat,
+          lng: safeAddress.lng,
+          cityId: safeAddress.cityId,
+          cityName: safeAddress.city
+        });
+        
+        if (resolved.insideServiceArea) {
+          safeAddress.city = resolved.cityName || safeAddress.city;
+          safeAddress.cityId = resolved.cityId || safeAddress.cityId;
+          safeAddress.zone = resolved.zoneName || safeAddress.zone;
+          safeAddress.zoneId = resolved.zoneId || safeAddress.zoneId;
+          console.log(`[BookingFix] Resolved missing IDs for new user: cityId=${safeAddress.cityId}, zoneId=${safeAddress.zoneId}`);
+        }
+      } catch (err) {
+        console.error("[BookingFix] Address resolution failed:", err);
+      }
+    }
   }
   const preferredProviderId = String(req.body.preferredProviderId || "").trim();
   const [couponDoc, advanceAmount, settings] = await Promise.all([
@@ -575,11 +637,21 @@ export async function create(req, res) {
     candidateProviders: booking.candidateProviders || [],
     status: booking.status || "",
   });
+
+  // EXTREME PERSISTENCE LOG
   try {
-    if (assignedProvider && booking?.slot?.date) {
-      await invalidateProviderSlots(assignedProvider, booking.slot.date);
-    }
-  } catch {}
+    const check = await Booking.findById(booking._id);
+    const fs = await import("fs");
+    const path = await import("path");
+    const logPath = path.join(process.cwd(), "booking_creation.log");
+    const logMsg = `[${new Date().toISOString()}] CREATED:
+      ID: ${booking._id}
+      User: ${booking.customerId}
+      Phone: ${booking.customerPhone}
+      Status: ${booking.status}
+      InDB: ${!!check}\n`;
+    fs.appendFileSync(logPath, logMsg);
+  } catch (err) {}
   let order = null;
   if (advanceAmount > 0 && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
     try {
@@ -1100,6 +1172,33 @@ export async function cancel(req, res) {
         status: "failed",
         error: error.message
       }];
+    }
+  }
+
+  // Credit provider compensation if applicable
+  if (refundPolicy.providerCompensation > 0 && booking.assignedProvider) {
+    try {
+      const ProviderAccount = (await import("../../../models/ProviderAccount.js")).default;
+      const ProviderWalletTxn = (await import("../../../models/ProviderWalletTxn.js")).default;
+      const provider = await ProviderAccount.findById(booking.assignedProvider);
+      
+      if (provider) {
+        provider.credits = (provider.credits || 0) + refundPolicy.providerCompensation;
+        await provider.save();
+
+        await ProviderWalletTxn.create({
+          providerId: provider._id.toString(),
+          bookingId: booking._id.toString(),
+          type: "compensation",
+          amount: refundPolicy.providerCompensation,
+          balanceAfter: provider.credits,
+          meta: { reason: "customer_cancellation", title: "Cancellation Compensation" },
+        });
+
+        console.log(`[Cancel] Credited provider ${provider._id} with ₹${refundPolicy.providerCompensation} compensation`);
+      }
+    } catch (err) {
+      console.error(`[Cancel] Failed to credit provider compensation:`, err);
     }
   }
 
