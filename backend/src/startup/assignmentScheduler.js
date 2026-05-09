@@ -319,19 +319,23 @@ export async function runAssignmentSchedulerOnce(now = new Date()) {
       if (!slotStart) continue;
 
       const diffMs = slotStart.getTime() - now.getTime();
-      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes safety window
+      const RECENT_BOOKING_MS = 15 * 60 * 1000; // Don't cancel if created in last 15 mins
 
-      if (diffMs < ONE_HOUR_MS) {
-        logDevSchedulerFlow("Scheduler auto-cancelling critical escalated booking (within 1-hour window)", {
+      const ageMs = now.getTime() - new Date(b.createdAt).getTime();
+
+      if (diffMs < THRESHOLD_MS && ageMs > RECENT_BOOKING_MS) {
+        logDevSchedulerFlow("Scheduler auto-cancelling critical escalated booking (within 30-minute window)", {
           bookingId: b._id.toString(),
           slotTime: b.slot?.time,
           remainingMinutes: Math.round(diffMs / 60000),
+          ageMinutes: Math.round(ageMs / 60000),
         });
         // eslint-disable-next-line no-await-in-loop
         await handleExhaustedAssignmentChain({
           booking: b,
           now,
-          cancellationReason: "No professional assigned within safety window",
+          cancellationReason: "No professional assigned within safety window (30m)",
         });
       }
     }
