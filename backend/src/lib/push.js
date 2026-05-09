@@ -1,16 +1,18 @@
 import admin from "firebase-admin";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import Notification from "../models/Notification.js";
 import PushDevice from "../models/PushDevice.js";
 import { BookingSettings } from "../models/Settings.js";
 import { OfficeSettings } from "../models/Content.js";
 import {
-  FIREBASE_PROJECT_ID,
-  FIREBASE_CLIENT_EMAIL,
-  FIREBASE_PRIVATE_KEY,
   PUSH_DEFAULT_CLICK_BASE_URL,
   PUSH_BATCH_SIZE,
   PUSH_RETRY_LIMIT,
 } from "../config.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ---------------------------------------------------------------------------
 // Firebase init (singleton)
@@ -19,29 +21,46 @@ import {
 export let pushEnabled = false;
 
 (function initFirebase() {
-  if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
-    console.warn("[push] Firebase credentials missing — push notifications disabled");
+  const fileName = "stylingwithmuskan-635f3-firebase-adminsdk-fbsvc-1124a7e333.json";
+  const possiblePaths = [
+    path.resolve(__dirname, "../config", fileName),
+    path.resolve(process.cwd(), "src/config", fileName),
+    path.resolve(process.cwd(), "backend/src/config", fileName),
+    path.join("/root/stylingwithmuskan/backend/src/config", fileName)
+  ];
+
+  let serviceAccountPath = null;
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      serviceAccountPath = p;
+      break;
+    }
+  }
+
+  if (!serviceAccountPath) {
+    console.error(`[push] ❌ CRITICAL: Service account file NOT found in any search paths!`);
+    console.error(`[push] Paths tried: ${JSON.stringify(possiblePaths, null, 2)}`);
+    pushEnabled = false;
     return;
   }
+
+  console.log(`[push] 🏁 initFirebase found config at: ${serviceAccountPath}`);
+
   try {
     if (admin.apps.length === 0) {
-      // Clean the private key: remove wrapping quotes and handle escaped newlines
-      const cleanKey = FIREBASE_PRIVATE_KEY
-        .trim()
-        .replace(/^["']|["']$/g, "") // Remove leading/trailing quotes
-        .replace(/\\n/g, "\n");
-
+      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
+      
       admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: FIREBASE_PROJECT_ID,
-          clientEmail: FIREBASE_CLIENT_EMAIL,
-          privateKey: cleanKey,
-        }),
+        credential: admin.credential.cert(serviceAccount),
       });
+      
+      console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${serviceAccount.project_id}`);
+      pushEnabled = true;
+    } else {
+      pushEnabled = true;
     }
-    pushEnabled = true;
   } catch (err) {
-    console.error("[push] Firebase init error:", err);
+    console.error("[push] ❌ Firebase Admin initialization error:", err.message);
     pushEnabled = false;
   }
 })();
@@ -125,7 +144,7 @@ async function deactivateToken(fcmToken, error) {
 }
 
 // ---------------------------------------------------------------------------
-// buildFCMPayload (Task 2.3)
+// buildFCMPayload
 // ---------------------------------------------------------------------------
 
 export function buildFCMPayload(notification) {
@@ -138,8 +157,7 @@ export function buildFCMPayload(notification) {
   return {
     notification: { 
         title, 
-        body,
-        sound: sound === "default" ? "default" : sound
+        body
     },
     android: {
       priority: "high",
@@ -186,17 +204,16 @@ export function buildFCMPayload(notification) {
       type: String(notification.type),
       role: String(notification.recipientRole),
       sound: String(sound),
-      click_action: "FLUTTER_NOTIFICATION_CLICK", // for flutter/android back-compat
+      click_action: "FLUTTER_NOTIFICATION_CLICK", 
     },
   };
 }
 
 // ---------------------------------------------------------------------------
-// sendPushForNotification (Tasks 3.1, 3.2, 4.3)
+// sendPushForNotification
 // ---------------------------------------------------------------------------
 
 export async function sendPushForNotification(notification) {
-  // Disabled guard
   if (!pushEnabled) {
     await Notification.updateOne(
       { _id: notification._id },
@@ -205,7 +222,6 @@ export async function sendPushForNotification(notification) {
     return { sent: 0, failed: 0 };
   }
 
-  // Retry limit guard
   if ((notification.delivery?.push?.failureCount ?? 0) >= PUSH_RETRY_LIMIT) {
     await Notification.updateOne(
       { _id: notification._id },
@@ -214,7 +230,6 @@ export async function sendPushForNotification(notification) {
     return { sent: 0, failed: 0 };
   }
 
-  // Provider quiet hours guard
   if (notification.recipientRole === "provider") {
     const inWindow = await isWithinProviderPushWindow();
     if (!inWindow) {
@@ -223,7 +238,6 @@ export async function sendPushForNotification(notification) {
     }
   }
 
-  // Find active, enabled devices
   const devices = await PushDevice.find({
     recipientId: notification.recipientId,
     isActive: true,
@@ -248,12 +262,12 @@ export async function sendPushForNotification(notification) {
 
   console.log(`[push] Found ${devices.length} devices for recipient ${notification.recipientId}. Sending FCM...`);
   const payload = buildFCMPayload(notification);
-  const tokens = devices.map((d) => d.fcmToken);
+  // Unique tokens only to avoid duplicates
+  const tokens = [...new Set(devices.map((d) => d.fcmToken))];
 
   let totalSent = 0;
   let totalFailed = 0;
 
-  // Batch sends
   for (let i = 0; i < tokens.length; i += PUSH_BATCH_SIZE) {
     const batch = tokens.slice(i, i + PUSH_BATCH_SIZE);
     try {
@@ -271,7 +285,8 @@ export async function sendPushForNotification(notification) {
         } else {
           totalFailed++;
           const code = res.error?.code;
-          console.error(`[push] Token ${batch[j].slice(-6)} failed with code: ${code}`);
+          const message = res.error?.message;
+          console.error(`[push] Token ${batch[j].slice(-6)} failed. Code: ${code}, Message: ${message}`);
           if (
             code === "messaging/registration-token-not-registered" ||
             code === "messaging/invalid-registration-token"
@@ -286,7 +301,6 @@ export async function sendPushForNotification(notification) {
     }
   }
 
-  // Update delivery status
   const now = new Date();
   const statusUpdate = {
     "delivery.push.status": totalSent > 0 ? "sent" : "failed",
@@ -306,7 +320,7 @@ export async function sendPushForNotification(notification) {
 }
 
 // ---------------------------------------------------------------------------
-// queuePushForNotification (Task 4.1)
+// queuePushForNotification
 // ---------------------------------------------------------------------------
 
 export async function queuePushForNotification(notification, reason = "") {
@@ -322,7 +336,7 @@ export async function queuePushForNotification(notification, reason = "") {
 }
 
 // ---------------------------------------------------------------------------
-// processQueuedPushNotifications (Task 4.2)
+// processQueuedPushNotifications
 // ---------------------------------------------------------------------------
 
 export async function processQueuedPushNotifications() {
@@ -343,7 +357,7 @@ export async function processQueuedPushNotifications() {
 }
 
 // ---------------------------------------------------------------------------
-// enforceDeviceLimit (Task 5.1)
+// enforceDeviceLimit
 // ---------------------------------------------------------------------------
 
 export async function enforceDeviceLimit(recipientId, recipientRole) {
@@ -366,7 +380,7 @@ export async function enforceDeviceLimit(recipientId, recipientRole) {
 }
 
 // ---------------------------------------------------------------------------
-// isDuplicatePush (Task 5.3)
+// isDuplicatePush
 // ---------------------------------------------------------------------------
 
 export async function isDuplicatePush(recipientId, dedupeKey, windowMs) {

@@ -149,6 +149,12 @@ router.post("/push/register", requireAnyAuth, async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    // AUTO-CLEANUP: Deactivate any other entries with the SAME fcmToken for this user
+    await PushDevice.updateMany(
+      { recipientId, recipientRole, fcmToken, deviceKey: { $ne: deviceKey } },
+      { $set: { isActive: false, lastError: "Duplicate token replaced" } }
+    );
+
     res.json({
       success: true,
       device: {

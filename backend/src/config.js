@@ -41,9 +41,6 @@ export const DEFAULT_PROVIDER_OTP = process.env.DEFAULT_PROVIDER_OTP || "123456"
 export const DEFAULT_VENDOR_OTP = process.env.DEFAULT_VENDOR_OTP || "123456";
 
 // Firebase Push
-export const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "";
-export const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || "";
-export const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY || "";
 export const PUSH_DEFAULT_ICON_URL = process.env.PUSH_DEFAULT_ICON_URL || "";
 export const PUSH_DEFAULT_CLICK_BASE_URL = process.env.PUSH_DEFAULT_CLICK_BASE_URL || "http://localhost:5173";
 export const PUSH_BATCH_SIZE = Number(process.env.PUSH_BATCH_SIZE || 100);
