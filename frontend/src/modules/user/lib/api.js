@@ -581,6 +581,7 @@ export const api = {
     subAccounts: () => request("/vendor/subaccounts"),
     createSubAccount: (body) => request("/vendor/subaccounts", { method: "POST", body }),
     deleteSubAccount: (id) => request(`/vendor/subaccounts/${id}`, { method: "DELETE" }),
+    deleteAccount: () => request("/vendor/me", { method: "DELETE" }),
     stats: () => request("/vendor/stats"),
     support: {
       sendMessage: (message) => {

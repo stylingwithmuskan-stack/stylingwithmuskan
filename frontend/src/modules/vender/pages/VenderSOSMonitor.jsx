@@ -12,6 +12,13 @@ const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 export default function VenderSOSMonitor() {
     const { getSOSAlerts, resolveSOSAlert, hydrated, isLoggedIn } = useVenderAuth();
     const [alerts, setAlerts] = useState([]);
+    const [prevAlertIds, setPrevAlertIds] = useState(new Set());
+
+    const playSOSSound = () => {
+        const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3");
+        audio.loop = false;
+        audio.play().catch(err => console.warn("SOS Sound blocked by browser. Interaction required.", err));
+    };
 
     const AddressDisplay = ({ location }) => {
         const [address, setAddress] = useState("Resolving address...");
@@ -32,7 +39,7 @@ export default function VenderSOSMonitor() {
                     if (data.status === "OK" && data.results?.[0]) {
                         setAddress(data.results[0].formatted_address);
                     } else {
-                        setAddress(`${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`);
+                        setAddress(`${location.lat}, ${location.lng}`);
                     }
                 } catch (error) {
                     setAddress("Address error");
@@ -67,10 +74,27 @@ export default function VenderSOSMonitor() {
         try {
             if (!hydrated || !isLoggedIn) return;
             const items = await getSOSAlerts();
-            setAlerts(Array.isArray(items) ? items : []);
+            const newAlerts = Array.isArray(items) ? items : [];
+            
+            // Check for new alerts to play sound
+            const activeNow = newAlerts.filter(a => a.status !== "resolved");
+            const currentIds = new Set(activeNow.map(a => a.id || a._id));
+            
+            if (prevAlertIds.size > 0) {
+                const hasNew = [...currentIds].some(id => !prevAlertIds.has(id));
+                if (hasNew) playSOSSound();
+            }
+            
+            setPrevAlertIds(currentIds);
+            setAlerts(newAlerts);
         } catch {}
     };
-    useEffect(() => { load(); }, [hydrated, isLoggedIn]);
+
+    useEffect(() => { 
+        load();
+        const interval = setInterval(load, 10000); // Auto-refresh every 10 seconds
+        return () => clearInterval(interval);
+    }, [hydrated, isLoggedIn]);
 
     const activeAlerts = alerts.filter(a => a.status !== "resolved");
     const resolvedAlerts = alerts.filter(a => a.status === "resolved");
@@ -149,7 +173,11 @@ export default function VenderSOSMonitor() {
                                                 className="h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold gap-2 text-xs shadow-lg shadow-indigo-100"
                                                 onClick={() => {
                                                     if (alert.location?.lat && alert.location?.lng) {
-                                                        window.open(`https://www.google.com/maps?q=${alert.location.lat},${alert.location.lng}`, "_blank");
+                                                        const lat = alert.location.lat;
+                                                        const lng = alert.location.lng;
+                                                        // Using the official Google Maps Search API format for exact pin placement
+                                                        const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+                                                        window.open(url, "_blank");
                                                     } else {
                                                         alert("Location not available for tracking.");
                                                     }

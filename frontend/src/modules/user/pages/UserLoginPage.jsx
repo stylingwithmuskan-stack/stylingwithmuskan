@@ -171,7 +171,7 @@ const UserLoginPage = () => {
                                         autoComplete={i === 0 ? "one-time-code" : "off"}
                                         onChange={(e) => handleOtpChange(i, e.target.value)} 
                                         onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                                        className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold bg-accent rounded-xl border-2 border-transparent focus:border-primary focus:bg-white text-foreground flex-shrink-0" 
+                                        className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold bg-accent rounded-xl border-2 border-transparent focus:border-primary focus:bg-white text-foreground flex-shrink-0 p-0 leading-none" 
                                     />
                                 ))}
                             </div>

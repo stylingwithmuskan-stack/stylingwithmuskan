@@ -529,7 +529,7 @@ export default function VenderBookings() {
                     </div>
                     <div className="hidden md:flex">
                         <Select value={typeFilter} onValueChange={setTypeFilter}>
-                            <SelectTrigger className="w-[160px] h-10 rounded-xl">
+                            <SelectTrigger className="w-[180px] h-10 rounded-xl">
                                 <SelectValue placeholder="Booking Type" />
                             </SelectTrigger>
                             <SelectContent>

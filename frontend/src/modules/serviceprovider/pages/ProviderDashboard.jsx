@@ -36,7 +36,7 @@ import { useProviderAuth } from "../contexts/ProviderAuthContext";
 import { api } from "@/modules/user/lib/api";
 import { toast } from "sonner";
 import { initPushNotifications } from "@/services/pushNotificationService";
-import { Bug } from "lucide-react";
+
 
 const ProviderDashboard = () => {
     const { activeBookings, completedBookings, incomingBookings, refreshBookings } = useProviderBookings();
@@ -183,7 +183,7 @@ const ProviderDashboard = () => {
                     <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 flex-1 min-w-0 sm:flex-none">
                         <Filter className="h-4 w-4 text-slate-400 ml-1 sm:ml-2 shrink-0" />
                         <Select value={selectedZone} onValueChange={setSelectedZone}>
-                            <SelectTrigger className="w-full sm:w-[160px] h-9 border-none bg-transparent focus:ring-0 font-bold text-xs">
+                            <SelectTrigger className="w-full sm:w-[180px] h-9 border-none bg-transparent focus:ring-0 font-bold text-xs pl-1 pr-2">
                                 <SelectValue placeholder="All Zones" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-violet-100">
@@ -194,25 +194,7 @@ const ProviderDashboard = () => {
                             </SelectContent>
                         </Select>
                     </div>
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-10 sm:h-12 px-3 sm:px-4 rounded-xl border-violet-200 text-violet-600 hover:bg-violet-50 font-bold gap-2 shrink-0"
-                        onClick={async () => {
-                            const tId = toast.loading("Checking Push Notifications...");
-                            try {
-                                const token = localStorage.getItem("swm_provider_token");
-                                await initPushNotifications(token, "provider");
-                                toast.success("Push Registration Successful! ✅", { id: tId });
-                            } catch (err) {
-                                toast.error(`Registration Failed: ${err.message} ❌`, { id: tId, duration: 5000 });
-                                console.error("Push Debug Error:", err);
-                            }
-                        }}
-                    >
-                        <Bug className="h-4 w-4" />
-                        <span className="hidden sm:inline">Debug Push</span>
-                    </Button>
+
                     <Button variant="outline" size="icon" className={`rounded-xl h-10 w-10 sm:h-12 sm:w-12 shrink-0 transition-all ${loading ? 'animate-spin border-violet-500 text-violet-600' : 'hover:border-violet-500 hover:text-violet-600'}`} onClick={handleRefresh}>
                         <RefreshCw className="h-4 w-4" />
                     </Button>

@@ -217,7 +217,7 @@ export default function ProviderLoginPage() {
                                         autoFocus={i === 0}
                                         onChange={(e) => handleOtpChange(i, e.target.value)}
                                         onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                                        className="flex-1 aspect-square min-w-0 max-w-[48px] h-auto text-center text-lg sm:text-xl font-bold bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-violet-600 focus:bg-white focus:ring-0 outline-none transition-all shadow-sm"
+                                        className="flex-1 aspect-square min-w-0 max-w-[48px] h-auto text-center text-lg sm:text-xl font-bold bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-violet-600 focus:bg-white focus:ring-0 outline-none transition-all shadow-sm p-0 leading-none"
                                     />
                                 ))}
                             </div>

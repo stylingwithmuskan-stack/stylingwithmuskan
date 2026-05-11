@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronLeft, Phone, Send, CheckCircle2, Loader2, MessageCircle } from "lucide-react";
+import { ChevronLeft, Phone, Send, CheckCircle2, Loader2, MessageCircle, ShieldAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/modules/user/components/ui/button";
 import { api } from "@/modules/user/lib/api";

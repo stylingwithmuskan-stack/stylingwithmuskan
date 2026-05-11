@@ -799,7 +799,7 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
     const provider = await ProviderAccount.findOne({ phone }).lean();
     if (!provider) return res.status(404).json({ error: "Not found" });
     // Real metrics from bookings (initial defaults)
-    let performance = { responseRate: 0, cancellations: 0, grade: "N/A", weeklyTrend: [], rating: provider.rating || 0 };
+    let performance = { responseRate: 0, cancellations: 0, punctuality: 100, grade: "N/A", weeklyTrend: [], rating: provider.rating || 0 };
     // calendar hours = sum of booked durations (mins) in last 7d, converted to hours
     let calendar = { availableHoursWeek: 0 };
     // hub metrics
@@ -894,7 +894,8 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
       }
       hub.repeatCustomers = Array.from(customerCount.values()).filter(c => c > 1).length;
 
-      performance = { responseRate, cancellations, grade, weeklyTrend, rating };
+      const punctuality = Math.max(85, 100 - (cancellations * 3)); // Dynamic proxy: fewer cancellations = higher punctuality score
+      performance = { responseRate, cancellations, punctuality, grade, weeklyTrend, rating };
     } catch (err) {
       console.error(`[ProviderRoutes] Summary calculation failed for ${phone}:`, err.message);
     }

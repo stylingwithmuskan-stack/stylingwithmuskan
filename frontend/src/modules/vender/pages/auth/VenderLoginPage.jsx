@@ -157,7 +157,7 @@ export default function VenderLoginPage() {
                                                     document.getElementById(`otp-${i - 1}`)?.focus();
                                                 }
                                             }}
-                                            className="h-10 sm:h-12 text-center font-bold rounded-xl flex-shrink-0" 
+                                            className="h-12 sm:h-14 text-center font-black rounded-2xl border-2 border-gray-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-xl p-0 flex-shrink-0 leading-none" 
                                             maxLength={1} 
                                         />
                                     ))}

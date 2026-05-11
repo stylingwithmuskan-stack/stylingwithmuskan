@@ -5,7 +5,7 @@ import { useCart } from "@/modules/user/contexts/CartContext";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { Button } from "@/modules/user/components/ui/button";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
-import { api } from "@/modules/user/lib/api";
+import { api, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { toast } from "sonner";
 
 
@@ -46,6 +46,13 @@ const getLocalDateKey = (date = new Date()) => {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+};
+
+const resolveImageUrl = (path) => {
+    if (!path) return "";
+    if (path.startsWith("http")) return path;
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    return `${SOCKET_BASE_URL}${cleanPath}`;
 };
 
 const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
@@ -407,9 +414,24 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                                 }`}
                                         >
                                             <div className="relative">
-                                                <img src={provider.profilePhoto || provider.image} className="w-14 h-14 rounded-xl object-cover" alt={provider.name} />
+                                                <div className="w-14 h-14 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center border border-border/50">
+                                                    {(provider.profilePhoto || provider.image) ? (
+                                                        <img 
+                                                            src={resolveImageUrl(provider.profilePhoto || provider.image)} 
+                                                            className="w-full h-full object-cover" 
+                                                            alt={provider.name} 
+                                                            onError={(e) => {
+                                                                e.target.style.display = 'none';
+                                                                e.target.nextSibling.style.display = 'flex';
+                                                            }}
+                                                        />
+                                                    ) : null}
+                                                    <div className="w-full h-full flex items-center justify-center bg-teal-600 text-white font-black text-lg uppercase" style={{ display: (provider.profilePhoto || provider.image) ? 'none' : 'flex' }}>
+                                                        {provider.name?.slice(0, 2) || "P"}
+                                                    </div>
+                                                </div>
                                                 {selectedProvider?.id === provider.id && (
-                                                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center border-2 border-background">
+                                                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center border-2 border-background z-10">
                                                         <Check className="w-3 h-3 text-white" />
                                                     </div>
                                                 )}

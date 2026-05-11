@@ -26,7 +26,7 @@ import NotificationDropdown from "@/modules/user/components/salon/NotificationDr
 const VenderLayout = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { vendor, logout, hydrated, isLoggedIn } = useVenderAuth();
+    const { vendor, logout, deleteAccount, hydrated, isLoggedIn } = useVenderAuth();
     const { unreadCount } = useNotifications();
     const [sidebarOpen, setSidebarOpen] = React.useState(false);
     const [isNotifOpen, setIsNotifOpen] = React.useState(false);
@@ -77,6 +77,17 @@ const VenderLayout = () => {
     const handleLogout = () => {
         logout();
         navigate("/vender/login");
+    };
+
+    const handleDeleteAccount = async () => {
+        if (window.confirm("Are you sure you want to delete your vendor account? This action is permanent and cannot be undone.")) {
+            try {
+                await deleteAccount();
+                navigate("/vender/login");
+            } catch (error) {
+                alert("Failed to delete account. Please contact support.");
+            }
+        }
     };
 
     return (
@@ -134,17 +145,28 @@ const VenderLayout = () => {
                 </div>
 
                 {/* Bottom */}
-                <div className="border-t border-sidebar-border p-4">
+                <div className="border-t border-sidebar-border p-4 space-y-1">
                     <motion.button
                         whileHover={{ x: 4 }}
                         whileTap={{ scale: 0.97 }}
                         onClick={handleLogout}
-                        className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-emerald-100/70 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                        className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-emerald-100/70 hover:text-white hover:bg-emerald-800/30 transition-all"
                     >
                         <div className="h-8 w-8 rounded-lg bg-black/20 text-emerald-200/70 flex items-center justify-center">
                             <LogOut className="h-4 w-4" />
                         </div>
                         Logout
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ x: 4 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={handleDeleteAccount}
+                        className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                    >
+                        <div className="h-8 w-8 rounded-lg bg-red-500/10 text-red-400/70 flex items-center justify-center">
+                            <X className="h-4 w-4" />
+                        </div>
+                        Delete Account
                     </motion.button>
                 </div>
             </aside>
@@ -204,12 +226,18 @@ const VenderLayout = () => {
                                     })}
                                 </nav>
                             </div>
-                            <div className="p-4 mb-4 border-t border-sidebar-border shrink-0">
-                                <button onClick={handleLogout} className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-emerald-100/70 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                            <div className="p-4 mb-4 border-t border-sidebar-border shrink-0 space-y-1">
+                                <button onClick={handleLogout} className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-emerald-100/70 hover:text-white hover:bg-emerald-800/30 transition-all">
                                     <div className="h-8 w-8 rounded-lg bg-black/20 text-emerald-200/70 flex items-center justify-center">
                                         <LogOut className="h-4 w-4" />
                                     </div>
                                     Logout
+                                </button>
+                                <button onClick={handleDeleteAccount} className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                                    <div className="h-8 w-8 rounded-lg bg-red-500/10 text-red-400/70 flex items-center justify-center">
+                                        <X className="h-4 w-4" />
+                                    </div>
+                                    Delete Account
                                 </button>
                             </div>
                         </motion.aside>

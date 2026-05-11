@@ -499,7 +499,7 @@ export default function BookingManagement() {
                             <TabsTrigger value="missed" className="rounded-lg text-xs font-bold">Missed</TabsTrigger>
                         </TabsList>
                         <Select value={typeFilter} onValueChange={setTypeFilter}>
-                            <SelectTrigger className="w-[160px] h-10 rounded-xl bg-muted/30 border-border/50">
+                            <SelectTrigger className="w-[180px] h-10 rounded-xl bg-muted/30 border-border/50">
                                 <SelectValue placeholder="Booking Type" />
                             </SelectTrigger>
                             <SelectContent>

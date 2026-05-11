@@ -820,6 +820,8 @@ const BookingsPage = () => {
                             isOpen={!!detailsBooking}
                             onClose={() => setDetailsBooking(null)}
                             booking={detailsBooking}
+                            onChat={() => setChatBooking(detailsBooking)}
+                            onCall={() => setCallingBooking(detailsBooking)}
                         />
                     )}
                 </>

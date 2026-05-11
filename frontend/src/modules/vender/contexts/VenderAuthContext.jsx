@@ -244,6 +244,11 @@ export const VenderAuthProvider = ({ children }) => {
         return latest || null;
     };
 
+    const deleteAccount = async () => {
+        await api.vendor.deleteAccount();
+        logout();
+    };
+
     return (
         <VenderAuthContext.Provider value={{
             vendor,
@@ -258,6 +263,7 @@ export const VenderAuthProvider = ({ children }) => {
             registerRequest,
             verifyRegistrationOtp,
             logout,
+            deleteAccount,
             getServiceProviders,
             getCityVendors,
             updateSPStatus,

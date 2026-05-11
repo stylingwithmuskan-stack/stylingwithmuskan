@@ -38,6 +38,7 @@ export default function MarketingControl() {
         sendPushTest,
         getSubscriptionPlans,
         getSystemSettings,
+        getMetricsCities,
     } = useAdminAuth();
 
     const { services, categories } = useUserModuleData();
@@ -62,6 +63,7 @@ export default function MarketingControl() {
     });
     const [broadcastHistory, setBroadcastHistory] = useState([]);
     const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+    const [cities, setCities] = useState([]);
     const [broadcasting, setBroadcasting] = useState(false);
 
     const takenPriorities = useMemo(() => 
@@ -89,13 +91,15 @@ export default function MarketingControl() {
 
     const loadPushMeta = async () => {
         try {
-            const [history, plans, sys] = await Promise.all([
+            const [history, plans, sys, cityList] = await Promise.all([
                 getPushBroadcastHistory(),
                 getSubscriptionPlans().catch(() => []),
-                getSystemSettings().catch(() => null)
+                getSystemSettings().catch(() => null),
+                getMetricsCities().catch(() => [])
             ]);
             setBroadcastHistory(Array.isArray(history) ? history : []);
             setSubscriptionPlans(Array.isArray(plans) ? plans : []);
+            setCities(Array.isArray(cityList) ? cityList : []);
             if (sys?.availableRoles) setRoleOptions(sys.availableRoles);
         } catch {
             setBroadcastHistory([]);
@@ -534,7 +538,18 @@ export default function MarketingControl() {
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">City Filter</Label>
-                                        <Input value={broadcastForm.city} onChange={(e) => updateBroadcastForm("city", e.target.value)} placeholder="Optional city" className="rounded-xl h-10 bg-muted/30" />
+                                        <select
+                                            value={broadcastForm.city}
+                                            onChange={(e) => updateBroadcastForm("city", e.target.value)}
+                                            className="w-full rounded-xl h-10 bg-muted/30 border border-input px-3 text-sm font-bold text-slate-700 shadow-sm focus:border-primary outline-none transition-all cursor-pointer"
+                                        >
+                                            <option value="">All Cities</option>
+                                            {cities.map((city) => (
+                                                <option key={city} value={city}>
+                                                    {city}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs font-bold">Subscription Status</Label>

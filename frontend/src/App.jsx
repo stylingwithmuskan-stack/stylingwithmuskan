@@ -91,6 +91,7 @@ import ProviderPrivacyPolicyPage from "@/modules/serviceprovider/pages/ProviderP
 import ProviderContactUsPage from "@/modules/serviceprovider/pages/ProviderContactUsPage";
 import ProviderAboutUsPage from "@/modules/serviceprovider/pages/ProviderAboutUsPage";
 import ProviderTermsConditionsPage from "@/modules/serviceprovider/pages/ProviderTermsConditionsPage";
+import ProviderFeedback from "@/modules/serviceprovider/pages/ProviderFeedback";
 
 // Vendor Module
 import { VenderAuthProvider, VenderAuthContext } from "@/modules/vender/contexts/VenderAuthContext";
@@ -305,6 +306,7 @@ const App = () => {
                                   <Route path="shop" element={<SWMShop />} />
                                   <Route path="notifications" element={<NotificationsPage />} />
                                   <Route path="activity" element={<ProviderActivityPage />} />
+                                  <Route path="feedback" element={<ProviderFeedback />} />
                                 </Route>
 
                                 {/* Vendor Module */}

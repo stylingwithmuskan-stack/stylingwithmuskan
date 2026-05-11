@@ -520,7 +520,7 @@ export default function ProviderProfile() {
             </div>
 
             {/* Hub Zones Management */}
-            <div className="py-6 border-b border-gray-100 bg-violet-50/30">
+            <div className="py-4 border-b border-gray-100 bg-violet-50/30">
                 <div className="px-6">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -578,7 +578,7 @@ export default function ProviderProfile() {
                             <Link
                                 key={index}
                                 to={item.path}
-                                className="w-full flex items-center justify-between p-5 border-b border-gray-50 active:bg-gray-50 transition-colors"
+                                className="w-full flex items-center justify-between py-3.5 px-6 border-b border-gray-50 active:bg-gray-50 transition-colors"
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="relative">
@@ -600,7 +600,7 @@ export default function ProviderProfile() {
                         <Link
                             key={index}
                             to={item.path}
-                            className="flex items-center justify-between p-5 border-b border-gray-50 active:bg-gray-50 transition-colors"
+                            className="flex items-center justify-between py-3.5 px-6 border-b border-gray-50 active:bg-gray-50 transition-colors"
                         >
                             <div className="flex items-center gap-4">
                                 <Icon className={`h-6 w-6 ${item.color?.includes('text-red') ? 'text-red-500' : 'text-gray-700'} stroke-[1.5px]`} />
@@ -614,10 +614,10 @@ export default function ProviderProfile() {
                 })}
 
                 {/* Logout Button */}
-                <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center justify-between p-5 border-b border-gray-50 active:bg-red-50 transition-colors group"
-                >
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center justify-between py-3.5 px-6 border-b border-gray-50 active:bg-red-50 transition-colors group"
+                    >
                     <div className="flex items-center gap-4">
                         <div className="bg-red-50 p-2 rounded-lg group-active:bg-red-100 transition-colors">
                             <LogOut className="h-5 w-5 text-red-600 stroke-[2px]" />
@@ -629,7 +629,7 @@ export default function ProviderProfile() {
                 {/* Delete Account Button */}
                 <button
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="w-full flex items-center justify-between p-5 border-b border-gray-50 active:bg-red-50 transition-colors group"
+                    className="w-full flex items-center justify-between py-3.5 px-6 border-b border-gray-50 active:bg-red-50 transition-colors group"
                 >
                     <div className="flex items-center gap-4">
                         <div className="bg-red-50 p-2 rounded-lg group-active:bg-red-100 transition-colors">

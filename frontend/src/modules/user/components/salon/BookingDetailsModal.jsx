@@ -30,7 +30,7 @@ const StatusBadge = ({ status }) => {
     );
 };
 
-const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
+const BookingDetailsModal = ({ isOpen, onClose, booking, onChat, onCall }) => {
     const pollRef = useRef(null);
     const navigate = useNavigate();
     const { cancelBooking, loadBookings } = useBookings();
@@ -478,7 +478,10 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                             <p className="text-sm font-black text-gray-900">{currentStatus === 'travelling' ? 'Provider on the way' : currentStatus === 'arrived' ? 'Provider Arrived at Location' : (currentStatus === 'documentation' ? 'Documentation in Progress' : 'Service in Progress')}</p>
                                             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">{providerLocation ? 'Live tracking enabled' : 'Waiting for provider location'}</p>
                                         </div>
-                                        <button className="h-10 w-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center shadow-sm pointer-events-auto">
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); onCall?.(); }}
+                                            className="h-10 w-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center shadow-sm pointer-events-auto"
+                                        >
                                             <Phone className="w-4 h-4 fill-green-600/20" />
                                         </button>
                                     </div>
@@ -784,10 +787,15 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                                 </h3>
                                 <div className="p-5 bg-white rounded-3xl border border-border/40 shadow-sm space-y-3">
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground font-medium">Item Total</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-muted-foreground font-medium">Item Total</span>
+                                            <span className="text-[10px] text-muted-foreground/60 font-bold mt-0.5">
+                                                ({(booking.items?.length || booking.selectedServices?.length || 1)} x ₹{((booking.totalAmount || 0) - (booking.convenienceFee || 0) + (booking.discount || 0)) / (booking.items?.length || booking.selectedServices?.length || 1)})
+                                            </span>
+                                        </div>
                                         <span className="font-bold font-display tracking-tight text-foreground">₹{(booking.totalAmount || 0) - (booking.convenienceFee || 0) + (booking.discount || 0)}</span>
                                     </div>
-                                    {booking.convenienceFee && (
+                                    {!!booking.convenienceFee && (
                                         <div className="flex justify-between text-sm">
                                             <span className="text-muted-foreground font-medium">Convenience Fee</span>
                                             <span className="font-bold text-foreground">₹{booking.convenienceFee}</span>
@@ -853,10 +861,16 @@ const BookingDetailsModal = ({ isOpen, onClose, booking }) => {
                             <div className="flex items-center gap-3">
                                 {["accepted", "travelling", "arrived", "in_progress", "documentation"].includes(currentStatus) ? (
                                     <>
-                                        <button className="flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 border border-primary/20 bg-primary/5 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary/10 transition-all">
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); onCall?.(); }}
+                                            className="flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 border border-primary/20 bg-primary/5 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary/10 transition-all"
+                                        >
                                             <Phone className="w-4 h-4" /> Call Pro
                                         </button>
-                                        <button className="flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 bg-primary text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); onChat?.(); }}
+                                            className="flex-1 h-12 rounded-2xl flex items-center justify-center gap-2 bg-primary text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                                        >
                                             <MessageSquare className="w-4 h-4" /> Chat Now
                                         </button>
                                     </>

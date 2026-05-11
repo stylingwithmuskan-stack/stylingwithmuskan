@@ -96,6 +96,7 @@ export default function PerformanceDashboard() {
         grade: summary?.performance?.grade ?? "N/A",
         isActive: provider?.approvalStatus === "approved",
         weeklyTrend: summary?.performance?.weeklyTrend ?? [],
+        punctuality: summary?.performance?.punctuality ?? 100,
     }), [summary, provider?.approvalStatus]);
 
     const isPaused = (metrics.rating < (performanceCriteria?.minRatingThreshold || 4.5) && metrics.rating > 0) || !metrics.isActive;
@@ -431,27 +432,38 @@ export default function PerformanceDashboard() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <div className="bg-white rounded-xl p-4 border border-slate-100 flex items-center gap-4 shadow-sm">
-                                <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                                    <AwardIcon className="h-5 w-5 text-blue-600" />
+                            <div className="bg-white rounded-xl p-4 border border-slate-100 flex items-center gap-4 shadow-sm transition-all hover:shadow-md">
+                                <div className={`h-10 w-10 rounded-full ${metrics.punctuality >= 90 ? 'bg-blue-50' : 'bg-amber-50'} flex items-center justify-center shrink-0`}>
+                                    <AwardIcon className={`h-5 w-5 ${metrics.punctuality >= 90 ? 'text-blue-600' : 'text-amber-600'}`} />
                                 </div>
                                 <div className="flex-1">
                                     <p className="font-bold text-sm text-slate-900">Punctuality Legend</p>
-                                    <p className="text-[11px] text-slate-500">You reached 100% of jobs on time this week.</p>
+                                    <p className="text-[11px] text-slate-500">You reached {metrics.punctuality}% of jobs on time this week.</p>
                                 </div>
-                                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none">Active</Badge>
+                                <Badge 
+                                    className={`border-none ${
+                                        metrics.punctuality >= 95 ? 'bg-blue-100 text-blue-700' : 
+                                        metrics.punctuality >= 80 ? 'bg-amber-100 text-amber-700' : 
+                                        'bg-red-100 text-red-700'
+                                    } hover:bg-opacity-80`}
+                                >
+                                    {metrics.punctuality >= 95 ? 'Elite' : metrics.punctuality >= 80 ? 'Active' : 'At Risk'}
+                                </Badge>
                             </div>
 
-                            <div className="bg-white rounded-xl p-4 border border-slate-100 flex items-center gap-4 shadow-sm">
+                            <Link 
+                                to="/provider/feedback"
+                                className="bg-white rounded-xl p-4 border border-slate-100 flex items-center gap-4 shadow-sm hover:border-purple-200 hover:shadow-md transition-all active:scale-[0.99]"
+                            >
                                 <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
                                     <AlertCircle className="h-5 w-5 text-destructive" />
                                 </div>
                                 <div className="flex-1">
                                     <p className="font-bold text-sm text-slate-900">Customer Feedback</p>
-                                    <p className="text-[11px] text-slate-500">1 complaint recorded regarding start time delay.</p>
+                                    <p className="text-[11px] text-slate-500">View your ratings and reviews from customers.</p>
                                 </div>
                                 <Badge variant="outline" className="text-destructive border-destructive ml-auto">Review</Badge>
-                            </div>
+                            </Link>
                         </CardContent>
                     </Card>
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, LogOut, Bell, Plus, Check, X, Loader2, History, Info, FileText, ShieldCheck, Trash2, Pencil, Save, Camera, ImagePlus } from "lucide-react";
+import { User, Mail, Phone, MapPin, Calendar, Shield, LogOut, Bell, Plus, Check, X, Loader2, History, Info, FileText, ShieldCheck, Trash2, Pencil, Save, Camera, ImagePlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
@@ -29,7 +29,7 @@ export default function VenderProfile() {
     // Profile edit state
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [editForm, setEditForm] = useState({ name: "", email: "", businessName: "" });
+    const [editForm, setEditForm] = useState({ name: "", email: "" });
     const [editErrors, setEditErrors] = useState({});
 
     // Profile photo state
@@ -90,7 +90,6 @@ export default function VenderProfile() {
         setEditForm({
             name: vendor?.name || "",
             email: vendor?.email || "",
-            businessName: vendor?.businessName || "",
         });
         setEditErrors({});
         setIsEditing(true);
@@ -114,7 +113,6 @@ export default function VenderProfile() {
             const res = await api.vendor.updateMe({
                 name: editForm.name.trim(),
                 email: editForm.email.trim(),
-                businessName: editForm.businessName.trim(),
             });
             if (res?.vendor) {
                 setVendor(res.vendor);
@@ -194,7 +192,6 @@ export default function VenderProfile() {
         { label: "Email", value: vendor?.email || "—", icon: Mail },
         { label: "Phone", value: vendor?.phone || "—", icon: Phone },
         { label: "City", value: vendor?.city || "—", icon: MapPin },
-        { label: "Business Name", value: vendor?.businessName || "—", icon: Building2 },
         { label: "Member Since", value: vendor?.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "—", icon: Calendar },
     ];
 
@@ -389,19 +386,7 @@ export default function VenderProfile() {
                                     </div>
                                     {editErrors.email && <p className="text-[10px] text-red-500 font-bold ml-1">{editErrors.email}</p>}
                                 </div>
-                                {/* Business Name */}
-                                <div className="space-y-1">
-                                    <Label className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Business Name</Label>
-                                    <div className="relative">
-                                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            value={editForm.businessName}
-                                            onChange={(e) => setEditForm(prev => ({ ...prev, businessName: e.target.value }))}
-                                            placeholder="Your business name (optional)"
-                                            className="pl-9 h-10 rounded-xl text-sm font-semibold"
-                                        />
-                                    </div>
-                                </div>
+
                                 {/* Read-only fields */}
                                 <div className="pt-2 border-t border-border/30">
                                     <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Read-only</p>

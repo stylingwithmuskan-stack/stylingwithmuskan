@@ -157,7 +157,7 @@ export default function VenderDashboard() {
                     <div className="flex flex-1 md:flex-none items-center gap-2 bg-muted/50 p-1.5 rounded-xl border border-border/50 overflow-hidden">
                         <Filter className="h-4 w-4 text-muted-foreground ml-2 shrink-0" />
                         <Select value={selectedZone} onValueChange={setSelectedZone}>
-                            <SelectTrigger className="w-full md:w-[160px] h-9 border-none bg-transparent focus:ring-0 font-bold text-xs truncate">
+                            <SelectTrigger className="w-full md:w-[180px] h-9 border-none bg-transparent focus:ring-0 font-bold text-xs pl-1 pr-2">
                                 <SelectValue placeholder="All Zones" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-emerald-100">

@@ -12,6 +12,13 @@ const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 export default function SOSMonitor() {
     const { isLoggedIn, getSOSAlerts, resolveSOSAlert } = useAdminAuth();
     const [alerts, setAlerts] = useState([]);
+    const [prevAlertIds, setPrevAlertIds] = useState(new Set());
+
+    const playSOSSound = () => {
+        const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3");
+        audio.loop = false;
+        audio.play().catch(err => console.warn("SOS Sound blocked by browser. Interaction required.", err));
+    };
 
     const AddressDisplay = ({ location, city }) => {
         const [address, setAddress] = useState("Resolving address...");
@@ -54,12 +61,29 @@ export default function SOSMonitor() {
         if (!isLoggedIn) return;
         try {
             const items = await getSOSAlerts();
-            setAlerts(Array.isArray(items) ? items : []);
+            const newAlerts = Array.isArray(items) ? items : [];
+            
+            // Check for new alerts to play sound
+            const activeNow = newAlerts.filter(a => a.status !== "resolved");
+            const currentIds = new Set(activeNow.map(a => a.id || a._id));
+            
+            if (prevAlertIds.size > 0) {
+                const hasNew = [...currentIds].some(id => !prevAlertIds.has(id));
+                if (hasNew) playSOSSound();
+            }
+            
+            setPrevAlertIds(currentIds);
+            setAlerts(newAlerts);
         } catch {
             setAlerts([]);
         }
     };
-    useEffect(() => { load(); }, [isLoggedIn]);
+
+    useEffect(() => { 
+        load();
+        const interval = setInterval(load, 10000); // Auto-refresh every 10 seconds
+        return () => clearInterval(interval);
+    }, [isLoggedIn]);
 
     const active = alerts.filter(a => a.status !== "resolved");
     const resolved = alerts.filter(a => a.status === "resolved");
@@ -104,7 +128,11 @@ export default function SOSMonitor() {
                                             className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold gap-1"
                                             onClick={() => {
                                                 if (a.location?.lat && a.location?.lng) {
-                                                    window.open(`https://www.google.com/maps?q=${a.location.lat},${a.location.lng}`, "_blank");
+                                                    const lat = a.location.lat;
+                                                    const lng = a.location.lng;
+                                                    // Using the official Google Maps Search API format for exact pin placement
+                                                    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+                                                    window.open(url, "_blank");
                                                 } else {
                                                     alert("Live location not available for this alert.");
                                                 }
