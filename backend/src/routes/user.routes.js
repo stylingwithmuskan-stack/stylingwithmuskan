@@ -206,6 +206,8 @@ router.patch(
               await referrer.save();
             }
           }
+        } else {
+          return res.status(400).json({ error: "Invalid referral code. Please enter a correct code." });
         }
       }
     }

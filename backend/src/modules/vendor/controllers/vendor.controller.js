@@ -32,9 +32,9 @@ async function getLatestVendorZones(vendor) {
   if (!vendor) return [];
   let latestZones = vendor.zones || [];
   try {
-    const cityId = vendor.cityId || (await City.findOne({ 
-      name: new RegExp(`^${(vendor.city || "").trim()}$`, "i"), 
-      status: "active" 
+    const cityId = vendor.cityId || (await City.findOne({
+      name: new RegExp(`^${(vendor.city || "").trim()}$`, "i"),
+      status: "active"
     }).lean())?._id;
 
     if (cityId) {
@@ -55,14 +55,14 @@ async function createDefaultProviderAvailability(providerId) {
     const office = await OfficeSettings.findOne().lean();
     const defaultSlots = defaultSlotsMap(office?.providerStartTime || "07:00", office?.providerEndTime || "22:00");
     const availableSlots = Object.keys(defaultSlots).filter(slot => defaultSlots[slot] === true);
-    
+
     // Create availability for next 30 days
     const promises = [];
     for (let i = 0; i < 30; i++) {
       const date = new Date();
       date.setDate(date.getDate() + i);
       const dateStr = date.toISOString().split('T')[0];
-      
+
       promises.push(
         ProviderDayAvailability.findOneAndUpdate(
           { providerId: providerId.toString(), date: dateStr },
@@ -71,7 +71,7 @@ async function createDefaultProviderAvailability(providerId) {
         )
       );
     }
-    
+
     await Promise.all(promises);
     console.log(`[Provider] Created default availability for provider ${providerId} (30 days, 7 AM - 10 PM)`);
   } catch (error) {
@@ -119,7 +119,7 @@ export async function register(req, res) {
 export async function registerRequest(req, res) {
   const { phone } = req.body;
   const isDev = (process.env.NODE_ENV !== "production");
-  
+
   // Check if vendor already exists
   const exists = await Vendor.findOne({ phone }).lean();
   if (exists) return res.status(409).json({ error: "Account already exists. Please login." });
@@ -211,14 +211,14 @@ export async function verifyRegistrationOtp(req, res) {
         title: "Registration Submitted",
         message: "Your vendor account has been created and is pending admin approval.",
       });
-    } catch {}
+    } catch { }
 
-    console.log('[Vendor Registration] SUCCESS - Vendor created:', { 
-      id: v._id.toString(), 
-      name: v.name, 
-      city: v.city, 
+    console.log('[Vendor Registration] SUCCESS - Vendor created:', {
+      id: v._id.toString(),
+      name: v.name,
+      city: v.city,
       zones: v.zones,
-      status: v.status 
+      status: v.status
     });
 
     // Notify admin
@@ -231,7 +231,7 @@ export async function verifyRegistrationOtp(req, res) {
         type: "system",
         meta: { vendorId: v._id.toString() },
       });
-    } catch {}
+    } catch { }
 
     const token = issueRoleToken("vendor", v._id?.toString() || v.email);
     const isProd = process.env.NODE_ENV === "production";
@@ -242,8 +242,8 @@ export async function verifyRegistrationOtp(req, res) {
       maxAge: 30 * 24 * 3600 * 1000,
     });
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: "Registration submitted for admin approval",
       data: {
         token: token,
@@ -278,7 +278,7 @@ export async function login(req, res) {
       title: "Login Successful",
       message: "You are logged in successfully.",
     });
-  } catch {}
+  } catch { }
   const isProd = process.env.NODE_ENV === "production";
   res.cookie("vendorToken", token, {
     httpOnly: true,
@@ -348,30 +348,30 @@ export async function updateMe(req, res) {
 export async function deleteAccount(req, res) {
   try {
     const vendorId = req.auth.sub;
-    
+
     // Check for active bookings in vendor's zones
     const vendor = await Vendor.findById(vendorId).lean();
     if (!vendor) {
       return res.status(404).json({ error: "Vendor not found" });
     }
-    
+
     const activeBookings = await Booking.countDocuments({
       "address.zone": { $in: vendor.zones || [] },
       status: { $in: ["pending", "assigned", "accepted", "in_progress"] }
     });
-    
+
     if (activeBookings > 0) {
-      return res.status(400).json({ 
-        error: "Cannot delete account with active bookings in your zones. Please ensure all bookings are completed first." 
+      return res.status(400).json({
+        error: "Cannot delete account with active bookings in your zones. Please ensure all bookings are completed first."
       });
     }
-    
+
     // Delete vendor account
     await Vendor.findByIdAndDelete(vendorId);
-    
+
     // Clear auth cookie
     res.clearCookie("vendorToken");
-    
+
     res.json({ success: true, message: "Account deleted successfully" });
   } catch (error) {
     console.error("Error deleting vendor account:", error);
@@ -435,7 +435,7 @@ export async function verifyOtp(req, res) {
       title: "Login Successful",
       message: "You are logged in successfully.",
     });
-  } catch {}
+  } catch { }
   const isProd = process.env.NODE_ENV === "production";
   res.cookie("vendorToken", token, {
     httpOnly: true,
@@ -443,7 +443,7 @@ export async function verifyOtp(req, res) {
     secure: isProd,
     maxAge: 30 * 24 * 3600 * 1000,
   });
-  
+
   res.json({
     success: true,
     message: "Login successful",
@@ -465,9 +465,9 @@ export async function listProviders(req, res) {
   const city = normCity(vendor?.city) || "";
   const cityId = String(vendor?.cityId || "").trim();
   const zones = await getLatestVendorZones(vendor);
-  
+
   console.log('[Vendor] listProviders called:', { vendorId, vendorCity: vendor?.city, normalizedCity: city, zones });
-  
+
   let q = {};
   const cityRegex = city ? new RegExp(`^${escapeRegex(city)}$`, "i") : null;
   if (cityRegex && zones.length > 0) {
@@ -489,13 +489,13 @@ export async function listProviders(req, res) {
   } else if (cityRegex) {
     q = { city: cityRegex };
   }
-  
+
   console.log('[Vendor] Query:', JSON.stringify(q, null, 2));
-  
+
   // Pagination parameters
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  
+
   const total = await ProviderAccount.countDocuments(q);
   let items = await ProviderAccount.find(q)
     .sort({ createdAt: -1 })
@@ -503,12 +503,12 @@ export async function listProviders(req, res) {
     .limit(limit)
     .lean();
   items = items.filter((item) => belongsToCity(item, cityId, city));
-  
+
   console.log('[Vendor] Found providers:', items.length, 'of', total);
   if (items.length > 0) {
     console.log('[Vendor] Sample provider cities:', items.slice(0, 3).map(p => ({ name: p.name, city: p.city, zones: p.zones })));
   }
-  
+
   res.json({ providers: items, page, limit, total });
 }
 
@@ -530,7 +530,7 @@ export async function listVendors(req, res) {
 
 export async function updateProviderStatus(req, res) {
   const status = String(req.body.status || "").trim().toLowerCase();
-  
+
   const updates = {};
   if (status === "approved") {
     updates.vendorApprovalStatus = "approved";
@@ -552,18 +552,18 @@ export async function updateProviderStatus(req, res) {
       const t = status === "approved"
         ? "provider_vendor_approved"
         : status === "rejected"
-        ? "provider_rejected"
-        : "provider_vendor_approved";
+          ? "provider_rejected"
+          : "provider_vendor_approved";
       const title = status === "approved"
         ? "Vendor Approved"
         : status === "rejected"
-        ? "Vendor Rejected"
-        : "Status Updated";
+          ? "Vendor Rejected"
+          : "Status Updated";
       const msg = status === "approved"
         ? "Your profile is approved by vendor and sent for admin review."
         : status === "rejected"
-        ? "Your profile was rejected by vendor."
-        : `Your status was updated to ${status}.`;
+          ? "Your profile was rejected by vendor."
+          : `Your status was updated to ${status}.`;
       await notify({
         recipientId: p._id.toString(),
         recipientRole: "provider",
@@ -574,37 +574,37 @@ export async function updateProviderStatus(req, res) {
         respectProviderQuietHours: true,
       });
     }
-  } catch {}
+  } catch { }
   res.json({ provider: p });
 }
 
 export async function approveSPZones(req, res) {
   const { id } = req.params;
   const { requestIds } = req.body; // Optional: specific request IDs to approve
-  
+
   const p = await ProviderAccount.findById(id);
   if (!p) return res.status(404).json({ error: "Provider not found" });
-  
+
   // Enhanced workflow: Handle pendingZoneRequests
   if (p.pendingZoneRequests && p.pendingZoneRequests.length > 0) {
     const vendorId = req.auth?.sub;
     const vendor = await Vendor.findById(vendorId).lean();
-    
+
     // Filter requests to approve (either specific IDs or all pending)
     let requestsToApprove = p.pendingZoneRequests.filter(r => r.vendorStatus === "pending");
     if (requestIds && Array.isArray(requestIds)) {
       requestsToApprove = requestsToApprove.filter(r => requestIds.includes(r._id?.toString()));
     }
-    
+
     const existingZones = [];
     const newZones = [];
-    
+
     for (const request of requestsToApprove) {
       // Update vendor approval
       request.vendorStatus = "approved";
       request.vendorReviewedAt = new Date();
       request.vendorReviewedBy = vendor?.name || vendorId;
-      
+
       if (request.isNewZone) {
         // New zone: Forward to admin for zone creation
         newZones.push(request.zoneName);
@@ -615,16 +615,16 @@ export async function approveSPZones(req, res) {
         request.adminStatus = "approved"; // Auto-approve for existing zones
         request.adminReviewedAt = new Date();
         request.adminReviewedBy = "auto";
-        
+
         // Add to provider's zones array
         if (!p.zones.includes(request.zoneName)) {
           p.zones.push(request.zoneName);
         }
       }
     }
-    
+
     await p.save();
-    
+
     // Notifications
     try {
       if (existingZones.length > 0) {
@@ -637,7 +637,7 @@ export async function approveSPZones(req, res) {
           meta: { providerId: p._id.toString(), zones: existingZones },
         });
       }
-      
+
       if (newZones.length > 0) {
         await notify({
           recipientId: p._id.toString(),
@@ -647,7 +647,7 @@ export async function approveSPZones(req, res) {
           type: "provider_zones_pending_admin",
           meta: { providerId: p._id.toString(), zones: newZones },
         });
-        
+
         // Notify admin about new zone creation requests
         await notify({
           recipientId: "ADMIN001",
@@ -655,8 +655,8 @@ export async function approveSPZones(req, res) {
           title: "New Zone Creation Request",
           message: `Vendor ${vendor?.name || "Unknown"} approved provider ${p.name}'s request for new zones: ${newZones.join(", ")}. Please create zones.`,
           type: "zone_creation_request",
-          meta: { 
-            providerId: p._id.toString(), 
+          meta: {
+            providerId: p._id.toString(),
             vendorId: vendorId,
             zones: newZones,
             providerLocation: p.currentLocation,
@@ -667,9 +667,9 @@ export async function approveSPZones(req, res) {
     } catch (err) {
       console.error('[Vendor] Failed to send zone approval notifications:', err);
     }
-    
-    return res.json({ 
-      success: true, 
+
+    return res.json({
+      success: true,
       provider: p,
       summary: {
         existingZonesApproved: existingZones.length,
@@ -677,7 +677,7 @@ export async function approveSPZones(req, res) {
       }
     });
   }
-  
+
   // Legacy support: Handle old pendingZones array
   if (p.pendingZones && p.pendingZones.length > 0) {
     p.zones = [...new Set([...(p.zones || []), ...p.pendingZones])];
@@ -692,32 +692,32 @@ export async function approveSPZones(req, res) {
         type: "provider_zones_approved",
         meta: { providerId: p._id.toString(), zones: p.zones },
       });
-    } catch {}
+    } catch { }
   }
-  
+
   res.json({ success: true, provider: p });
 }
 
 export async function rejectSPZones(req, res) {
   const { id } = req.params;
   const { requestIds, reason } = req.body; // Optional: specific request IDs and rejection reason
-  
+
   const p = await ProviderAccount.findById(id);
   if (!p) return res.status(404).json({ error: "Provider not found" });
-  
+
   // Enhanced workflow: Handle pendingZoneRequests
   if (p.pendingZoneRequests && p.pendingZoneRequests.length > 0) {
     const vendorId = req.auth?.sub;
     const vendor = await Vendor.findById(vendorId).lean();
-    
+
     // Filter requests to reject (either specific IDs or all pending)
     let requestsToReject = p.pendingZoneRequests.filter(r => r.vendorStatus === "pending");
     if (requestIds && Array.isArray(requestIds)) {
       requestsToReject = requestsToReject.filter(r => requestIds.includes(r._id?.toString()));
     }
-    
+
     const rejectedZones = [];
-    
+
     for (const request of requestsToReject) {
       request.vendorStatus = "rejected";
       request.vendorReviewedAt = new Date();
@@ -725,9 +725,9 @@ export async function rejectSPZones(req, res) {
       request.rejectionReason = reason || "Rejected by vendor";
       rejectedZones.push(request.zoneName);
     }
-    
+
     await p.save();
-    
+
     try {
       await notify({
         recipientId: p._id.toString(),
@@ -737,21 +737,21 @@ export async function rejectSPZones(req, res) {
         type: "provider_zones_rejected",
         meta: { providerId: p._id.toString(), zones: rejectedZones, reason },
       });
-    } catch {}
-    
-    return res.json({ 
-      success: true, 
+    } catch { }
+
+    return res.json({
+      success: true,
       provider: p,
       summary: {
         rejectedZones: rejectedZones.length
       }
     });
   }
-  
+
   // Legacy support: Handle old pendingZones array
   p.pendingZones = [];
   await p.save();
-  
+
   try {
     await notify({
       recipientId: p._id.toString(),
@@ -761,8 +761,8 @@ export async function rejectSPZones(req, res) {
       type: "provider_zones_rejected",
       meta: { providerId: p._id.toString() },
     });
-  } catch {}
-  
+  } catch { }
+
   res.json({ success: true, provider: p });
 }
 
@@ -789,7 +789,7 @@ export async function listBookings(req, res) {
   // Find providers in vendor's areas
   let pQuery = {};
   if (zones.length > 0) {
-    pQuery = { 
+    pQuery = {
       $and: [
         { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
         { zones: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } }
@@ -812,11 +812,11 @@ export async function listBookings(req, res) {
   if (providerIds.length > 0) {
     orConditions.push({ assignedProvider: { $in: providerIds } });
   }
-  
+
   // Vendor escalation logic
-  orConditions.push({ 
-    vendorEscalated: true, 
-    assignedProvider: "", 
+  orConditions.push({
+    vendorEscalated: true,
+    assignedProvider: "",
     "address.city": new RegExp(`^${escapeRegex(city)}`, "i")
   });
 
@@ -862,17 +862,17 @@ export async function listBookings(req, res) {
 export async function getAvailableProvidersForBooking(req, res) {
   const vendorId = req.auth.sub;
   const bookingId = req.params.bookingId;
-  
+
   const vendor = await Vendor.findById(vendorId).lean();
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
-  
+
   const booking = await Booking.findById(bookingId).lean();
   if (!booking) return res.status(404).json({ error: "Booking not found" });
-  
+
   const city = (vendor.city || "").trim();
   const cityId = (vendor.cityId || "").trim();
   const bookingZoneId = (booking.address?.zoneId || "").trim();
-  
+
   let pQuery = {
     approvalStatus: "approved",
     registrationComplete: true,
@@ -893,12 +893,12 @@ export async function getAvailableProvidersForBooking(req, res) {
 
   // We relax the zone filter for vendor assignment as well.
   const allProviders = await ProviderAccount.find(pQuery).lean();
-  
+
   const availableProviders = [];
   for (const provider of allProviders) {
     // eslint-disable-next-line no-await-in-loop
     const isAvailable = await canAssignProviderToBooking(
-      provider._id.toString(), 
+      provider._id.toString(),
       booking,
       { ignoreLeadTime: true }
     );
@@ -907,7 +907,7 @@ export async function getAvailableProvidersForBooking(req, res) {
       // Check specialty match
       // eslint-disable-next-line no-await-in-loop
       const matchesSpecialty = await providerMatchesAllServiceIds(
-        provider, 
+        provider,
         (booking.services || booking.items || []).map(s => s.id).filter(Boolean)
       );
 
@@ -917,7 +917,7 @@ export async function getAvailableProvidersForBooking(req, res) {
         ...(provider.zoneIds || []),
         provider.baseZoneId
       ].filter(Boolean).map(id => String(id));
-      
+
       const inZone = bookingZoneId ? pZoneIds.includes(bookingZoneId) : true;
 
       availableProviders.push({
@@ -945,7 +945,7 @@ export async function getAvailableProvidersForBooking(req, res) {
     if (a.matchesSpecialty !== b.matchesSpecialty) return a.matchesSpecialty ? -1 : 1;
     return (b.rating || 0) - (a.rating || 0);
   });
-  
+
   res.json({ availableProviders });
 }
 
@@ -958,13 +958,13 @@ export async function assignBooking(req, res) {
   if (!allowed) {
     return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
   }
-  
+
   // Get provider account for commission deduction
   const provider = await ProviderAccount.findById(providerId);
   if (!provider) {
     return res.status(404).json({ error: "Provider not found" });
   }
-  
+
   // Calculate and deduct commission from provider's wallet
   const commissionSettings = await CommissionSettings.findOne().lean();
   const rate = Number(commissionSettings?.rate || 20);
@@ -983,20 +983,20 @@ export async function assignBooking(req, res) {
     required = Math.round(totalAmount * (rate / 100));
   }
   required = Math.max(required, 0);
-  
+
   // Check if commission not already charged
   if (!existing.commissionChargedAt && required > 0) {
     const hasBalance = Number(provider.credits || 0) >= required;
-    
+
     if (hasBalance) {
       // Deduct commission from provider's wallet
       provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
       await provider.save();
-      
+
       // Update booking with commission details
       existing.commissionAmount = required;
       existing.commissionChargedAt = new Date();
-      
+
       // Create wallet transaction record
       await ProviderWalletTxn.create({
         providerId: provider._id.toString(),
@@ -1006,7 +1006,7 @@ export async function assignBooking(req, res) {
         balanceAfter: provider.credits,
         meta: { rate, totalAmount, source: "vendor_assignment" },
       });
-      
+
       // Notify provider about commission deduction
       try {
         await notify({
@@ -1016,14 +1016,14 @@ export async function assignBooking(req, res) {
           meta: { bookingId: existing._id.toString(), amount: required },
           respectProviderQuietHours: true,
         });
-      } catch {}
+      } catch { }
     } else {
       // Low balance: Assign but leave commissionChargedAt as null for manual activation
       existing.commissionAmount = required;
       existing.commissionChargedAt = null;
     }
   }
-  
+
   const previousProviderId = String(existing.assignedProvider || "").trim();
   const previousStatus = existing.status;
   existing.assignedProvider = providerId;
@@ -1065,7 +1065,7 @@ export async function assignBooking(req, res) {
             balanceAfter: prevProv.credits,
             meta: { title: "Reassignment Compensation (20%)", reason: "reassigned_from_you", toProvider: providerId },
           });
-          
+
           try {
             await notify({
               recipientId: previousProviderId,
@@ -1074,32 +1074,32 @@ export async function assignBooking(req, res) {
               meta: { bookingId: existing._id.toString(), amount: penaltyReward, reason: "reassignment_compensation" },
               respectProviderQuietHours: true,
             });
-          } catch {}
+          } catch { }
         }
       } catch (err) {
         console.error("[VendorAssign] Transfer logic failed:", err);
       }
     }
   }
-  
+
   // Emit socket events for real-time updates
   try {
     const { getIO } = await import("../../../startup/socket.js");
     const io = getIO();
-    io?.of("/bookings").emit("assignment:changed", { 
-      id: b._id.toString(), 
-      fromProvider: previousProviderId, 
-      toProvider: providerId, 
-      reason: "vendor_assigned" 
+    io?.of("/bookings").emit("assignment:changed", {
+      id: b._id.toString(),
+      fromProvider: previousProviderId,
+      toProvider: providerId,
+      reason: "vendor_assigned"
     });
-    io?.of("/bookings").emit("status:update", { 
-      id: b._id.toString(), 
-      status: "vendor_assigned" 
+    io?.of("/bookings").emit("status:update", {
+      id: b._id.toString(),
+      status: "vendor_assigned"
     });
   } catch (err) {
     console.error("Socket notification failed:", err);
   }
-  
+
   try {
     if (b?.slot?.date) {
       const ids = Array.from(new Set([previousProviderId, providerId].filter(Boolean)));
@@ -1108,26 +1108,26 @@ export async function assignBooking(req, res) {
         await invalidateProviderSlots(id, b.slot.date);
       }
     }
-  } catch {}
-    try {
-      if (b?.assignedProvider) {
-        await notify({
-          recipientId: b.assignedProvider,
-          recipientRole: "provider",
-          type: "booking_assigned",
-          meta: { bookingId: b._id.toString(), reason: "vendor_assigned" },
-          respectProviderQuietHours: true,
-        });
-      }
-      if (b?.customerId) {
-        await notify({
-          recipientId: b.customerId,
-          recipientRole: "user",
-          type: "booking_assigned",
-          meta: { bookingId: b._id.toString() },
-        });
-      }
-    } catch {}
+  } catch { }
+  try {
+    if (b?.assignedProvider) {
+      await notify({
+        recipientId: b.assignedProvider,
+        recipientRole: "provider",
+        type: "booking_assigned",
+        meta: { bookingId: b._id.toString(), reason: "vendor_assigned" },
+        respectProviderQuietHours: true,
+      });
+    }
+    if (b?.customerId) {
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        type: "booking_assigned",
+        meta: { bookingId: b._id.toString() },
+      });
+    }
+  } catch { }
   res.json({ booking: b });
 }
 
@@ -1140,15 +1140,15 @@ export async function reassignBooking(req, res) {
   if (!allowed) {
     return res.status(409).json({ error: "Selected provider is not free for this booking slot." });
   }
-  
+
   const previousProviderId = String(existing.assignedProvider || "").trim();
-  
+
   // Get new provider account for commission deduction
   const provider = await ProviderAccount.findById(providerId);
   if (!provider) {
     return res.status(404).json({ error: "Provider not found" });
   }
-  
+
   // Calculate and deduct commission from new provider's wallet
   const commissionSettings = await CommissionSettings.findOne().lean();
   const rate = Number(commissionSettings?.rate || 20);
@@ -1167,77 +1167,77 @@ export async function reassignBooking(req, res) {
     required = Math.round(totalAmount * (rate / 100));
   }
   required = Math.max(required, 0);
-  
-    // Handle commission for reassignment
-    if (required > 0) {
-      // If previous provider had commission charged, refund it first
-      if (existing.commissionChargedAt && previousProviderId && previousProviderId !== providerId) {
-        const prevProvider = await ProviderAccount.findById(previousProviderId);
-        if (prevProvider && existing.commissionAmount > 0) {
-          prevProvider.credits = Number(prevProvider.credits || 0) + existing.commissionAmount;
-          await prevProvider.save();
-          
-          await ProviderWalletTxn.create({
-            providerId: previousProviderId,
-            bookingId: existing._id.toString(),
-            type: "commission_refund",
-            amount: existing.commissionAmount,
-            balanceAfter: prevProvider.credits,
-            meta: { reason: "booking_reassigned" },
-          });
-          
-          try {
-            await notify({
-              recipientId: previousProviderId,
-              recipientRole: "provider",
-              type: "commission_refund",
-              meta: { bookingId: existing._id.toString(), amount: existing.commissionAmount },
-              respectProviderQuietHours: true,
-            });
-          } catch {}
-        }
-      }
-      
-      const hasBalance = Number(provider.credits || 0) >= required;
-      
-      if (hasBalance) {
-        // Deduct commission from new provider's wallet
-        provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
-        await provider.save();
-        
-        // Update booking with new commission details
-        existing.commissionAmount = required;
-        existing.commissionChargedAt = new Date();
-        existing.commissionRefundedAt = null;
-        
-        // Create wallet transaction record
+
+  // Handle commission for reassignment
+  if (required > 0) {
+    // If previous provider had commission charged, refund it first
+    if (existing.commissionChargedAt && previousProviderId && previousProviderId !== providerId) {
+      const prevProvider = await ProviderAccount.findById(previousProviderId);
+      if (prevProvider && existing.commissionAmount > 0) {
+        prevProvider.credits = Number(prevProvider.credits || 0) + existing.commissionAmount;
+        await prevProvider.save();
+
         await ProviderWalletTxn.create({
-          providerId: provider._id.toString(),
+          providerId: previousProviderId,
           bookingId: existing._id.toString(),
-          type: "commission_hold",
-          amount: -required,
-          balanceAfter: provider.credits,
-          meta: { rate, totalAmount, source: "vendor_reassignment" },
+          type: "commission_refund",
+          amount: existing.commissionAmount,
+          balanceAfter: prevProvider.credits,
+          meta: { reason: "booking_reassigned" },
         });
-        
-        // Notify new provider about commission deduction
+
         try {
           await notify({
-            recipientId: providerId,
+            recipientId: previousProviderId,
             recipientRole: "provider",
-            type: "commission_hold",
-            meta: { bookingId: existing._id.toString(), amount: required },
+            type: "commission_refund",
+            meta: { bookingId: existing._id.toString(), amount: existing.commissionAmount },
             respectProviderQuietHours: true,
           });
-        } catch {}
-      } else {
-        // Low balance: Reassign but leave commissionChargedAt as null for manual activation
-        existing.commissionAmount = required;
-        existing.commissionChargedAt = null;
-        existing.commissionRefundedAt = null;
+        } catch { }
       }
     }
-  
+
+    const hasBalance = Number(provider.credits || 0) >= required;
+
+    if (hasBalance) {
+      // Deduct commission from new provider's wallet
+      provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
+      await provider.save();
+
+      // Update booking with new commission details
+      existing.commissionAmount = required;
+      existing.commissionChargedAt = new Date();
+      existing.commissionRefundedAt = null;
+
+      // Create wallet transaction record
+      await ProviderWalletTxn.create({
+        providerId: provider._id.toString(),
+        bookingId: existing._id.toString(),
+        type: "commission_hold",
+        amount: -required,
+        balanceAfter: provider.credits,
+        meta: { rate, totalAmount, source: "vendor_reassignment" },
+      });
+
+      // Notify new provider about commission deduction
+      try {
+        await notify({
+          recipientId: providerId,
+          recipientRole: "provider",
+          type: "commission_hold",
+          meta: { bookingId: existing._id.toString(), amount: required },
+          respectProviderQuietHours: true,
+        });
+      } catch { }
+    } else {
+      // Low balance: Reassign but leave commissionChargedAt as null for manual activation
+      existing.commissionAmount = required;
+      existing.commissionChargedAt = null;
+      existing.commissionRefundedAt = null;
+    }
+  }
+
   const previousStatus = existing.status;
   existing.assignedProvider = providerId;
   existing.status = "accepted";
@@ -1278,7 +1278,7 @@ export async function reassignBooking(req, res) {
             balanceAfter: prevProv.credits,
             meta: { title: "Reassignment Compensation (20%)", reason: "reassigned_from_you", toProvider: providerId },
           });
-          
+
           try {
             await notify({
               recipientId: previousProviderId,
@@ -1287,32 +1287,32 @@ export async function reassignBooking(req, res) {
               meta: { bookingId: existing._id.toString(), amount: penaltyReward, reason: "reassignment_compensation" },
               respectProviderQuietHours: true,
             });
-          } catch {}
+          } catch { }
         }
       } catch (err) {
         console.error("[VendorReassign] Transfer logic failed:", err);
       }
     }
   }
-  
+
   // Emit socket events for real-time updates
   try {
     const { getIO } = await import("../../../startup/socket.js");
     const io = getIO();
-    io?.of("/bookings").emit("assignment:changed", { 
-      id: b._id.toString(), 
-      fromProvider: previousProviderId, 
-      toProvider: providerId, 
-      reason: "vendor_reassigned" 
+    io?.of("/bookings").emit("assignment:changed", {
+      id: b._id.toString(),
+      fromProvider: previousProviderId,
+      toProvider: providerId,
+      reason: "vendor_reassigned"
     });
-    io?.of("/bookings").emit("status:update", { 
-      id: b._id.toString(), 
-      status: "vendor_reassigned" 
+    io?.of("/bookings").emit("status:update", {
+      id: b._id.toString(),
+      status: "vendor_reassigned"
     });
   } catch (err) {
     console.error("Socket notification failed:", err);
   }
-  
+
   try {
     if (b?.slot?.date) {
       const ids = Array.from(new Set([previousProviderId, providerId].filter(Boolean)));
@@ -1321,26 +1321,26 @@ export async function reassignBooking(req, res) {
         await invalidateProviderSlots(id, b.slot.date);
       }
     }
-  } catch {}
-    try {
-      if (b?.assignedProvider) {
-        await notify({
-          recipientId: b.assignedProvider,
-          recipientRole: "provider",
-          type: "booking_reassigned",
-          meta: { bookingId: b._id.toString(), reason: "vendor_reassigned" },
-          respectProviderQuietHours: true,
-        });
-      }
-      if (b?.customerId) {
-        await notify({
-          recipientId: b.customerId,
-          recipientRole: "user",
-          type: "booking_reassigned",
-          meta: { bookingId: b._id.toString() },
-        });
-      }
-    } catch {}
+  } catch { }
+  try {
+    if (b?.assignedProvider) {
+      await notify({
+        recipientId: b.assignedProvider,
+        recipientRole: "provider",
+        type: "booking_reassigned",
+        meta: { bookingId: b._id.toString(), reason: "vendor_reassigned" },
+        respectProviderQuietHours: true,
+      });
+    }
+    if (b?.customerId) {
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        type: "booking_reassigned",
+        meta: { bookingId: b._id.toString() },
+      });
+    }
+  } catch { }
   res.json({ booking: b });
 }
 
@@ -1355,24 +1355,24 @@ export async function expireBooking(req, res) {
   try {
     const { getIO } = await import("../../../startup/socket.js");
     const io = getIO();
-    io?.of("/bookings").emit("status:update", { 
-      id: b._id.toString(), 
-      status: "cancelled", 
-      message: "booking cancelled by the provider, kindly rebook the service" 
+    io?.of("/bookings").emit("status:update", {
+      id: b._id.toString(),
+      status: "cancelled",
+      message: "booking cancelled by the provider, kindly rebook the service"
     });
   } catch (err) {
     console.error("Socket notification failed:", err);
   }
-    try {
-      if (b?.customerId) {
-        await notify({
-          recipientId: b.customerId,
-          recipientRole: "user",
-          type: "booking_cancelled",
-          meta: { bookingId: b._id.toString(), reason: "cancelled by vendor" },
-        });
-      }
-    } catch {}
+  try {
+    if (b?.customerId) {
+      await notify({
+        recipientId: b.customerId,
+        recipientRole: "user",
+        type: "booking_cancelled",
+        meta: { bookingId: b._id.toString(), reason: "cancelled by vendor" },
+      });
+    }
+  } catch { }
 
   res.json({ booking: b });
 }
@@ -1432,7 +1432,7 @@ export async function priceQuoteCustomEnquiry(req, res) {
       type: "custom_quote_submitted",
       meta: { enquiryId: enq._id?.toString?.() },
     });
-  } catch {}
+  } catch { }
   res.json({ enquiry: enq });
 }
 
@@ -1574,7 +1574,7 @@ export async function assignTeamCustomEnquiry(req, res) {
       type: "custom_approved",
       meta: { bookingId: enq.bookingId || "", enquiryId: enq._id?.toString?.() },
     });
-  } catch {}
+  } catch { }
   res.json({ enquiry: enq, booking });
 }
 
@@ -1591,10 +1591,10 @@ export async function listSOS(req, res) {
     const zones = await getLatestVendorZones(vendor);
     let pQuery = {};
     if (zones.length > 0) {
-      pQuery = { 
+      pQuery = {
         $and: [
           { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
-          { 
+          {
             $or: [
               { zone: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } },
               { address: { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } }
@@ -1658,11 +1658,11 @@ export async function listSOS(req, res) {
       } catch (err) {
         console.error("[Vendor SOS Enrichment] Failed for alert", alert._id, err.message);
       }
-      
+
       // Ensure ID and phone are present for frontend
       alert.id = alert._id.toString();
       if (!alert.phone && alert.userPhone) alert.phone = alert.userPhone;
-      
+
       return alert;
     }));
 
@@ -1691,10 +1691,10 @@ export async function stats(req, res) {
 
   let pQuery = {};
   if (zones.length > 0) {
-    pQuery = { 
+    pQuery = {
       $and: [
         { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
-        { 
+        {
           $or: [
             { zone: { $in: zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i")) } },
             { address: { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } }
@@ -1722,12 +1722,12 @@ export async function stats(req, res) {
   }
 
   const bookings = ((zones.length > 0 || city)
-    ? await Booking.find({ 
-        $or: [
-          { assignedProvider: { $in: providerIds } },
-          bQuery
-        ]
-      }).lean()
+    ? await Booking.find({
+      $or: [
+        { assignedProvider: { $in: providerIds } },
+        bQuery
+      ]
+    }).lean()
     : await Booking.find().lean()).filter((booking) => {
       if (cityId && String(booking?.address?.cityId || "") === cityId) return true;
       return !cityId ? sameText(String(booking?.address?.city || ""), city) : false;
@@ -1742,9 +1742,9 @@ export async function stats(req, res) {
   const cancellations = bookings.filter((b) =>
     ["cancelled", "rejected"].includes(b.status)
   ).length;
-  
+
   // SOS alerts for vendor's area
-  const sos = await SOSAlert.countDocuments({ 
+  const sos = await SOSAlert.countDocuments({
     status: { $ne: "resolved" },
     $or: [
       { city: new RegExp(`^${escapeRegex(city)}$`, "i") },
@@ -1850,7 +1850,7 @@ export async function requestZones(req, res) {
       type: "system",
       meta: { vendorId: v._id.toString(), pendingZones: zones },
     });
-  } catch {}
+  } catch { }
 
   res.json({ success: true, vendor: v });
 }
@@ -1861,24 +1861,24 @@ export async function listZoneRequests(req, res) {
   const vendorId = req.auth?.sub;
   const vendor = await Vendor.findById(vendorId).lean();
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
-  
+
   const city = normCity(vendor?.city) || "";
   const cityId = String(vendor?.cityId || "").trim();
   if (!city) {
     return res.json({ requests: [] });
   }
-  
+
   // Find all providers in vendor's city with pending zone requests
   const providers = await ProviderAccount.find({
     ...(cityId ? { cityId } : { city: new RegExp(`^${escapeRegex(city)}$`, "i") }),
     pendingZoneRequests: { $exists: true, $ne: [] }
   }).select('name phone address currentLocation city cityId pendingZoneRequests').lean();
-  
+
   // Flatten and format zone requests
   const requests = [];
   for (const provider of providers) {
     if (!provider.pendingZoneRequests) continue;
-    
+
     for (const request of provider.pendingZoneRequests) {
       requests.push({
         _id: request._id,
@@ -1900,9 +1900,9 @@ export async function listZoneRequests(req, res) {
       });
     }
   }
-  
+
   // Sort by requested date (newest first)
   requests.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
-  
+
   res.json({ requests });
 }

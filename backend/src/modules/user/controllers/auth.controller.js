@@ -98,6 +98,8 @@ export async function verifyOtp(req, res) {
             await referrer.save();
           }
         }
+      } else {
+        return res.status(400).json({ error: "Invalid referral code. Please enter a correct code." });
       }
     }
     await user.save();
@@ -116,7 +118,7 @@ export async function verifyOtp(req, res) {
   }
   const token = issueToken(user);
   res.cookie("token", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
-  res.json({ user });
+  res.json({ user: { ...user.toObject(), isNew: isNewUser } });
 }
 
 export async function logout(req, res) {

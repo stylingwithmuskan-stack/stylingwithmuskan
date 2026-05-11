@@ -14,7 +14,7 @@ import { toast } from "sonner";
 const UserRegisterPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { loginWithOtp, isLoggedIn, updateProfile } = useAuth();
+    const { loginWithOtp, isLoggedIn, user, updateProfile } = useAuth();
     const [step, setStep] = useState(1); // 1: Phone, 2: OTP, 3: Profile Setup
     const [phone, setPhone] = useState("");
     const [name, setName] = useState("");
@@ -25,12 +25,12 @@ const UserRegisterPage = () => {
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
-        if (isLoggedIn && step !== 3) {
+        if (isLoggedIn && user?.name && step !== 3) {
             const from = location.state?.from || "/home";
             const extraState = location.state || {};
             navigate(from, { state: extraState, replace: true });
         }
-    }, [isLoggedIn, navigate, location.state, step]);
+    }, [isLoggedIn, user, navigate, location.state, step]);
 
     useEffect(() => {
         let interval;
@@ -72,7 +72,7 @@ const UserRegisterPage = () => {
         }
         try {
             const res = await loginWithOtp({ phone, otp: code, intent: "register" });
-            const isNewUser = !!res?.user?.isNew;
+            const isNewUser = !!res?.user?.isNew || !res?.user?.name;
             if (!isNewUser) {
                 // Existing user - loginWithOtp already navigated or is handling it
                 // But just in case, manual navigation
@@ -140,25 +140,9 @@ const UserRegisterPage = () => {
             navigate("/home");
         } catch (err) {
             console.error("[UserRegister] profile update error", err);
-            const msg = err.message || "";
-            
-            // If it's a referral error, we should still let them in but without the bonus
-            if (msg.toLowerCase().includes("referral")) {
-                try {
-                    // Try again WITHOUT referral code so they aren't blocked
-                    await updateProfile({ name: nameVal });
-                    console.log("[UserRegister] profile update success (referral failed, but name saved)", { phone });
-                    sessionStorage.setItem("swm_referral_error", "Invalid referral code. Profile created without bonus.");
-                    navigate("/home");
-                    return;
-                } catch (retryErr) {
-                    setProfileError(retryErr.message || "Failed to complete profile");
-                    toast.error(retryErr.message || "Failed to complete profile");
-                }
-            } else {
-                setProfileError(msg || "Failed to complete profile");
-                toast.error(msg || "Failed to complete profile");
-            }
+            const msg = err.message || "Failed to complete profile";
+            setProfileError(msg);
+            toast.error(msg);
         }
     };
 
