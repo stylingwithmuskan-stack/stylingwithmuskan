@@ -191,9 +191,39 @@ const UserLoginPage = () => {
                 </AnimatePresence>
             </div>
 
+            {/* App Store & Play Store Links */}
+            <div className="mt-8 flex flex-col items-center gap-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">Download Our App</p>
+                <div className="flex items-center gap-3">
+                    <a 
+                        href="https://play.google.com/store/apps/details?id=com.company.stylewithmuskan" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-black text-white px-4 py-2.5 rounded-xl hover:scale-105 transition-transform shadow-lg shadow-black/10 border border-white/10"
+                    >
+                        <Smartphone className="w-5 h-5 text-primary" />
+                        <div className="flex flex-col items-start leading-none">
+                            <span className="text-[8px] font-bold uppercase opacity-60">Get it on</span>
+                            <span className="text-sm font-black tracking-tight">Google Play</span>
+                        </div>
+                    </a>
+                    <a 
+                        href="https://apps.apple.com/in/app/stylingwithmuskan/id6761753707" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-black text-white px-4 py-2.5 rounded-xl hover:scale-105 transition-transform shadow-lg shadow-black/10 border border-white/10"
+                    >
+                        <Apple className="w-5 h-5 text-primary" />
+                        <div className="flex flex-col items-start leading-none">
+                            <span className="text-[8px] font-bold uppercase opacity-60">Download on</span>
+                            <span className="text-sm font-black tracking-tight">App Store</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
 
             {/* Bottom Credits */}
-            <p className="mt-12 text-[10px] font-bold text-muted-foreground opacity-40 uppercase tracking-widest">
+            <p className="mt-8 text-[10px] font-bold text-muted-foreground opacity-40 uppercase tracking-widest">
                 &copy; {new Date().getFullYear()} stylingwithmuskan. All Rights Reserved.
             </p>
         </div>
