@@ -207,6 +207,7 @@ export const CartProvider = ({ children }) => {
                     const enqId = enquiry?._id || enquiry?.id || `custom-${Date.now()}`;
                     const price = Number(amount || 0);
                     const name = `Advance for ${enquiry?.eventType || enquiry?.name || "Custom Booking"}`;
+                    const dynamicImage = enquiry?.quote?.items?.[0]?.image || enquiry?.image || "/logo1.png";
                     const item = {
                         id: `custom-advance-${enqId}`,
                         name,
@@ -215,7 +216,8 @@ export const CartProvider = ({ children }) => {
                         category: "custom",
                         serviceType: "custom",
                         isCustomAdvance: true,
-                        enquiryId: enqId
+                        enquiryId: enqId,
+                        image: dynamicImage
                     };
                     setCartItems([item]);
                     setBookingType("customized");

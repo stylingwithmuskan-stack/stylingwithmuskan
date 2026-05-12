@@ -226,11 +226,23 @@ export const ProviderAuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        const token = safeStorage.getItem("swm_provider_token") || "";
-        unregisterPush(token, "provider").catch(() => {});
-        setProvider(null);
-        setProviderToken("");
-        api.provider.logout();
+        try {
+            const token = safeStorage.getItem("swm_provider_token") || "";
+            unregisterPush(token, "provider").catch(() => {});
+            setProvider(null);
+            setProviderToken("");
+            api.provider.logout();
+            
+            // Critical: Clear everything and redirect to login to reset all contexts/sockets
+            localStorage.removeItem(STORAGE_KEY);
+            safeStorage.removeItem(TOKEN_KEY);
+            
+            window.location.href = "/provider/login";
+            // Optional: window.location.reload(); 
+        } catch (e) {
+            console.error("Logout error:", e);
+            window.location.href = "/provider/login";
+        }
     };
 
     const adminApprove = () => {

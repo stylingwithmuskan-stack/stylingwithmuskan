@@ -222,11 +222,75 @@ const BookingSummary = () => {
         toast.error("Advance amount not available.");
         return;
       }
-      goToPayment({ 
-        serverAdvance: amt, 
-        customAdvance: { enquiryId: customAdvanceData.enquiryId, amount: amt },
-        paymentPurpose: "custom_advance"
-      });
+      
+      setIsProcessing(true);
+      try {
+        const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+        if (!rzpKey) {
+          toast.error("Razorpay key not configured.");
+          setIsProcessing(false);
+          return;
+        }
+
+        await loadRazorpay();
+
+        // Create order for custom advance
+        const orderRes = await api.payments.createOrder({
+          amount: Math.round(amt * 100),
+          currency: "INR",
+          purpose: "custom_advance",
+          enquiryId: customAdvanceData.enquiryId
+        });
+
+        const order = orderRes.order;
+        if (!order || !order.id) {
+          throw new Error("Failed to create payment order");
+        }
+
+        const rzp = new window.Razorpay({
+          key: rzpKey,
+          amount: order.amount,
+          currency: order.currency,
+          name: "stylingwithmuskan",
+          description: "Advance for Custom Booking",
+          order_id: order.id,
+          prefill: {
+            name: user?.name || "",
+            email: user?.email || "",
+            contact: user?.phone ? (user.phone.startsWith("+91") ? user.phone : "+91" + user.phone) : ""
+          },
+          theme: { color: "#7c3aed" },
+          handler: async (response) => {
+            try {
+              await api.payments.verify({
+                order_id: response.razorpay_order_id,
+                payment_id: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+                amount: order.amount,
+                purpose: "custom_advance",
+                enquiryId: customAdvanceData.enquiryId
+              });
+
+              setIsProcessing(false);
+              setShowSuccess(true);
+              clearCart();
+            } catch (e) {
+              toast.error(e?.message || "Payment verification failed");
+              setIsProcessing(false);
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              setIsProcessing(false);
+            }
+          }
+        });
+        
+        rzp.open();
+      } catch (e) {
+        setIsProcessing(false);
+        toast.error(e.message || "Payment initiation failed");
+      }
       return;
     }
     if (!user?.addresses || user.addresses.length === 0) {

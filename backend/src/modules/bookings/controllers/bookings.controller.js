@@ -1044,7 +1044,7 @@ export async function adminPriceQuote(req, res) {
     }
   }
   enq.quote = {
-    items: (items || []).map((s) => ({ id: s.id, name: s.name, category: s.category, serviceType: s.serviceType, quantity: s.quantity || 1, price: Number(s.price) || 0 })),
+    items: (items || []).map((s) => ({ id: s.id, name: s.name, category: s.category, serviceType: s.serviceType, quantity: s.quantity || 1, price: Number(s.price) || 0, image: s.image || "" })),
     totalAmount: Number(totalAmount) || 0,
     discountPrice: Number(discountPrice) || 0,
     notes: notes || "",
@@ -1071,21 +1071,34 @@ export async function adminFinalApprove(req, res) {
     booking = await Booking.create({
       customerId: enq.userId,
       customerName: enq.name || "",
-      services: items.map(it => ({ name: it.name, price: it.price, duration: "", category: it.category, serviceType: it.serviceType })),
+      customerPhone: enq.phone || "",
+      services: items.map(it => ({ 
+        name: it.name, 
+        price: Number(it.price) || 0, 
+        duration: "60", // Default duration
+        category: it.category || it.categoryName || "", 
+        serviceType: it.serviceType || "" 
+      })),
       totalAmount: total,
-      prepaidAmount: 0,
-      balanceAmount: total,
+      prepaidAmount: Number(enq.quote?.prebookAmount) || 0,
+      balanceAmount: total - (Number(enq.quote?.prebookAmount) || 0),
       address: {
         houseNo: enq.address?.houseNo || "",
         area: enq.address?.area || "",
         landmark: enq.address?.landmark || "",
-        city: enq.address?.city || enq.address?.area || "",
+        city: enq.address?.city || "",
+        cityId: enq.address?.cityId || "",
+        zone: enq.address?.zone || "",
+        zoneId: enq.address?.zoneId || "",
         lat: enq.address?.lat ?? null,
         lng: enq.address?.lng ?? null,
       },
-      slot: { date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10), time: enq.scheduledAt?.timeSlot || "10:00" },
+      slot: { 
+        date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10), 
+        time: enq.scheduledAt?.timeSlot || "10:00" 
+      },
       bookingType: "customized",
-      status: "final_approved",
+      status: "pending", // Set to pending so it appears in provider flows
       assignedProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
       maintainProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
       teamMembers: Array.isArray(req.body?.teamMembers) ? req.body.teamMembers : (Array.isArray(enq.teamMembers) ? enq.teamMembers : []),

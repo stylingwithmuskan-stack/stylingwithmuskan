@@ -160,7 +160,7 @@ export default function CustomEnquiries() {
                 <Button onClick={() => beginQuote(enq)} variant="outline" className="rounded-xl h-9 text-xs font-bold gap-1.5">
                   <Eye className="h-3.5 w-3.5" /> View Details
                 </Button>
-                {enq.status !== "quote_expired" && (
+                {!["final_approved", "rejected", "quote_expired"].includes(enq.status) && (
                   <Button onClick={async () => { try { await finalApproveEnquiry(enq._id); toast.success("Booking created."); load(); } catch (e) { toast.error(e?.message || "Booking creation failed"); } }} className="rounded-xl h-9 text-xs font-bold gap-1 bg-primary text-white"><CheckCircle className="h-3 w-3" /> Force Create</Button>
                 )}
               </div>
