@@ -464,7 +464,7 @@ export async function notify({
   const payload = {
     recipientId: String(recipientId),
     recipientRole,
-    title: templated?.title || title || "Notification",
+    title: title || templated?.title || "Notification",
     message: message || templated?.message || "You have a new notification.",
     type,
     link: link || buildNotificationLink({ recipientRole, type, meta: safeMeta }),

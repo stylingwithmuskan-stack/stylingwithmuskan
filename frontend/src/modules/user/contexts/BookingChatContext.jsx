@@ -78,13 +78,7 @@ export const BookingChatProvider = ({ children }) => {
                 // Show Toast Notification
                 // ...
                 toast("New message from your Beautician", {
-                    description: newMessage.message,
-                    action: {
-                        label: "Reply",
-                        onClick: () => {
-                            // Logic to open chat if needed, but for now just toast is good
-                        }
-                    }
+                    description: newMessage.message
                 });
             }
         });

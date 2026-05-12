@@ -2,6 +2,7 @@ import { Router } from "express";
 import { body, validationResult } from "express-validator";
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import PushDevice from "../models/PushDevice.js";
 import { redis } from "../startup/redis.js";
 import { issueToken } from "../middleware/auth.js";
 import { issueOtp, OTP_LENGTH, verifyOtpValue } from "../lib/otpService.js";
@@ -181,7 +182,23 @@ router.post(
   }
 );
 
-router.post("/logout", (req, res) => {
+router.post("/logout", async (req, res) => {
+  try {
+    const tok = req.cookies?.token;
+    if (tok) {
+      const jwt = (await import("jsonwebtoken")).default;
+      const p = jwt.verify(tok, process.env.JWT_SECRET || "dev_secret_change_me");
+      if (p?.sub) {
+        // Deactivate push devices on logout
+        await PushDevice.updateMany(
+          { recipientId: p.sub, recipientRole: "user" },
+          { $set: { isActive: false, lastError: "Logged out" } }
+        );
+      }
+    }
+  } catch (err) {
+    console.error("[User Logout] Push cleanup failed:", err.message);
+  }
   res.clearCookie("token").json({ success: true });
 });
 

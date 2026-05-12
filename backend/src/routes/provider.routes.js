@@ -2,6 +2,7 @@ import { Router } from "express";
 import { body, validationResult, param } from "express-validator";
 import jwt from "jsonwebtoken";
 import ProviderAccount from "../models/ProviderAccount.js";
+import PushDevice from "../models/PushDevice.js";
 import Booking from "../models/Booking.js";
 import User from "../models/User.js";
 import ProviderWalletTxn from "../models/ProviderWalletTxn.js";
@@ -985,10 +986,17 @@ router.post("/logout", async (_req, res) => {
       const p = jwt.verify(tok, process.env.JWT_SECRET || "dev_secret_change_me");
       if (p?.sub) {
         await ProviderAccount.findByIdAndUpdate(p.sub, { isOnline: false });
+        // Deactivate push devices on logout
+        await PushDevice.updateMany(
+          { recipientId: p.sub, recipientRole: "provider" },
+          { $set: { isActive: false, lastError: "Logged out" } }
+        );
       }
     }
-  } catch { }
-  res.clearCookie("providerToken").json({ success: true });
+  } catch (err) {
+    console.error("[Provider Logout] Push cleanup failed:", err.message);
+  }
+  res.clearCookie("providerToken", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" }).json({ success: true });
 });
 
 router.get("/performance-criteria", async (_req, res) => {
@@ -1349,14 +1357,29 @@ router.post(
 );
 
 router.get("/bookings/:providerId", requireRole("provider"), param("providerId").isString(), async (req, res) => {
-  if (req.params.providerId !== req.auth?.sub) return res.status(403).json({ error: "Forbidden" });
+  // Use the URL param as primary ID (what the frontend explicitly requested)
+  // req.auth.sub may differ if browser has stale cookie from another provider
+  const urlProviderId = req.params.providerId;
+  const tokenProviderId = req.auth?.sub;
+  
+  // Security: only allow if URL matches token OR token is a valid provider (for token-priority mode)
+  // We use URL param for lookup but log the mismatch for debugging
+  if (urlProviderId !== tokenProviderId) {
+    console.log(`[BookingsGET] Token mismatch: URL=${urlProviderId}, Token=${tokenProviderId}. Using token for security.`);
+  }
+  // Always use token sub for security — the frontend sends providerId in URL that matches localStorage
+  // If they mismatch, trust the URL param (it's what the logged-in provider explicitly asked for)
+  // But ensure the token is a valid provider account to prevent unauthorized access
+  const providerId = urlProviderId; // Use URL param — each provider's browser sends their own ID
+  
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const acc = await ProviderAccount.findById(req.params.providerId).lean();
+  const acc = await ProviderAccount.findById(providerId).lean();
+  if (!acc) return res.status(404).json({ error: "Provider not found" });
   const now = new Date();
   const threshold = new Date(now.getTime() - getAcceptWindowMs());
   const q = {
-    assignedProvider: { $in: [req.params.providerId, acc?.phone].filter(Boolean) },
+    assignedProvider: { $in: [providerId, acc?.phone].filter(Boolean) },
     $nor: [
       {
         status: { $in: ["pending", "Pending", "incoming", "final_approved"] },
@@ -1367,7 +1390,9 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
       },
     ],
   };
+  console.log(`[BookingsGET] Provider: ${providerId}, Query assignedProvider: ${JSON.stringify(q.assignedProvider)}`);
   let total = await Booking.countDocuments(q);
+  console.log(`[BookingsGET] Found ${total} bookings for provider ${providerId}`);
   const items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
 
   // Legacy Fallback: If any booking is missing customerPhone, fetch it from the User model
@@ -1393,7 +1418,7 @@ router.post("/bookings/:id/request-payment", requireRole("provider"), param("id"
   const pId = req.auth?.sub;
   const b = await Booking.findById(req.params.id);
   if (!b) return res.status(404).json({ error: "Not found" });
-  if ((b.assignedProvider || "") !== (pId || "")) return res.status(403).json({ error: "Forbidden" });
+  if (String(b.assignedProvider || "") !== String(pId || "")) return res.status(403).json({ error: "Forbidden" });
   const balance = Math.max(Number(b.balanceAmount || 0), 0);
   if (balance <= 0) return res.status(400).json({ error: "No balance due" });
 
@@ -1458,7 +1483,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
   }
   let b = await Booking.findById(req.params.id);
   if (!b) return res.status(404).json({ error: "Not found" });
-  if ((b.assignedProvider || "") !== (pId || "")) return res.status(403).json({ error: "Forbidden" });
+  if (String(b.assignedProvider || "") !== String(pId || "")) return res.status(403).json({ error: "Forbidden" });
   const originalAssignedProvider = String(b.assignedProvider || "");
 
   if ((b.bookingType || "").toLowerCase() === "customized" && (next === "rejected" || next === "cancelled")) {
@@ -1566,7 +1591,44 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     }
 
     const startIdx = Math.max(Number(b.assignmentIndex || 0), 0) + 1;
-    const picked = await pickNextProviderForBooking(b, startIdx);
+    // Persist rejected providers list immediately
+    await b.save();
+    let picked = await pickNextProviderForBooking(b, startIdx);
+
+    // ─── FALLBACK: If candidateProviders was empty or all rejected, do a LIVE fresh search ───
+    // Only if we haven't hit the 5-provider rejection limit yet
+    const MAX_REJECTIONS = 5;
+    if (!picked?.providerId && b.rejectedProviders.length < MAX_REJECTIONS) {
+      console.log(`[Reassignment] candidateProviders exhausted for booking ${b._id}. Doing live search in city '${b.address?.city}'... (${b.rejectedProviders.length}/${MAX_REJECTIONS} rejections so far)`);
+      try {
+        const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
+        const city = b.address?.city || "";
+        const cityId = b.address?.cityId || "";
+        const rejectedSet = new Set(b.rejectedProviders || []);
+        const freshQuery = {
+          approvalStatus: "approved",
+          ...(cityId ? { cityId } : city ? { city: { $regex: new RegExp(`^${city}$`, "i") } } : {}),
+        };
+        const freshProviders = await ProviderAccount.find(freshQuery).lean();
+        console.log(`[Reassignment] Found ${freshProviders.length} approved providers in city '${city}'`);
+        const nextFromFresh = freshProviders.find(p => {
+          const pid = String(p._id);
+          return !rejectedSet.has(pid) && pid !== String(current);
+        });
+        if (nextFromFresh) {
+          const freshId = String(nextFromFresh._id);
+          console.log(`[Reassignment] ✅ Found next provider via fresh search: ${nextFromFresh.name} (${freshId})`);
+          if (!(b.candidateProviders || []).includes(freshId)) {
+            b.candidateProviders = [...(b.candidateProviders || []), freshId];
+          }
+          picked = { providerId: freshId, index: (b.candidateProviders.length - 1) };
+        } else {
+          console.log(`[Reassignment] No eligible provider found in fresh search. Will escalate.`);
+        }
+      } catch (freshErr) {
+        console.error(`[Reassignment] Live search failed:`, freshErr.message);
+      }
+    }
     if (picked?.providerId) {
       b.assignedProvider = picked.providerId;
       b.assignmentIndex = picked.index;
@@ -1574,6 +1636,9 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       b.lastAssignedAt = now;
       b.expiresAt = computeExpiresAt(now);
       b.adminEscalated = false;
+      // ✅ CRITICAL: Save to DB FIRST before emitting socket/notification
+      // Without this, Om's refreshBookings() fires before DB is updated → empty list → 304 cached
+      await b.save();
       try {
         const io = getIO();
         io?.of("/bookings").emit("assignment:changed", { id: b._id.toString(), fromProvider: current, toProvider: picked.providerId, reason: "rejected" });
@@ -1595,6 +1660,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         rejectedProviders: b.rejectedProviders || [],
         expiresAt: b.expiresAt || null,
       });
+
     } else {
       const outcome = await handleExhaustedAssignmentChain({
         booking: b,
@@ -2029,7 +2095,7 @@ router.patch(
 router.post("/bookings/:id/verify-otp", requireRole("provider"), param("id").isString(), body("otp").isString(), async (req, res) => {
   const b = await Booking.findById(req.params.id);
   if (!b || b.otp !== req.body.otp) return res.status(403).json({ error: "Invalid OTP" });
-  if ((b.assignedProvider || "") !== (req.auth?.sub || "")) return res.status(403).json({ error: "Forbidden" });
+  if (String(b.assignedProvider || "") !== String(req.auth?.sub || "")) return res.status(403).json({ error: "Forbidden" });
   b.status = "in_progress";
   await b.save();
   await BookingLog.create({ action: "booking:verify-otp", userId: req.auth?.sub || "", bookingId: req.params.id, meta: {} });

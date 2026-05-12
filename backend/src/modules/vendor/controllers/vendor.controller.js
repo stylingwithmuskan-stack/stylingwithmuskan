@@ -7,6 +7,7 @@ import SOSAlert from "../../../models/SOSAlert.js";
 import User from "../../../models/User.js";
 import CustomEnquiry from "../../../models/CustomEnquiry.js";
 import ProviderWalletTxn from "../../../models/ProviderWalletTxn.js";
+import PushDevice from "../../../models/PushDevice.js";
 import { CommissionSettings, BookingSettings } from "../../../models/Settings.js";
 import { issueRoleToken } from "../../../middleware/roles.js";
 import { redis } from "../../../startup/redis.js";
@@ -388,7 +389,23 @@ export async function deleteAccount(req, res) {
   }
 }
 
-export async function logout(_req, res) {
+export async function logout(req, res) {
+  try {
+    const tok = req.cookies?.vendorToken;
+    if (tok) {
+      const jwt = (await import("jsonwebtoken")).default;
+      const p = jwt.verify(tok, process.env.JWT_SECRET || "dev_secret_change_me");
+      if (p?.sub) {
+        // Deactivate push devices on logout
+        await PushDevice.updateMany(
+          { recipientId: p.sub, recipientRole: "vendor" },
+          { $set: { isActive: false, lastError: "Logged out" } }
+        );
+      }
+    }
+  } catch (err) {
+    console.error("[Vendor Logout] Push cleanup failed:", err.message);
+  }
   res.clearCookie("vendorToken").json({ success: true });
 }
 
@@ -536,6 +553,10 @@ export async function updateProviderStatus(req, res) {
     updates.approvalStatus = status || "pending_vendor";
   }
 
+  const current = await ProviderAccount.findById(req.params.id).select("approvalStatus").lean();
+  if (!current) return res.status(404).json({ error: "Provider not found" });
+  const prevStatus = String(current.approvalStatus || "").trim().toLowerCase();
+
   const p = await ProviderAccount.findByIdAndUpdate(
     req.params.id,
     updates,
@@ -549,15 +570,15 @@ export async function updateProviderStatus(req, res) {
           ? "provider_rejected"
           : "provider_vendor_approved";
       const title = status === "approved"
-        ? "Vendor Approved"
+        ? (prevStatus === "blocked" ? "Account Unblocked" : "Vendor Approved")
         : status === "rejected"
           ? "Vendor Rejected"
-          : "Status Updated";
+          : status === "blocked" ? "Account Blocked" : "Status Updated";
       const msg = status === "approved"
-        ? "Your profile is approved by vendor and sent for admin review."
+        ? (prevStatus === "blocked" ? "Your account has been unblocked by vendor." : "Your profile is approved by vendor and sent for admin review.")
         : status === "rejected"
           ? "Your profile was rejected by vendor."
-          : `Your status was updated to ${status}.`;
+          : status === "blocked" ? "Your account has been blocked by vendor." : `Your status was updated to ${status}.`;
       await notify({
         recipientId: p._id.toString(),
         recipientRole: "provider",

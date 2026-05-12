@@ -105,7 +105,10 @@ export async function updateBookingStatus(req, res) {
         if (!b.rejectedProviders.includes(pId)) b.rejectedProviders.push(pId);
 
         const candidates = b.candidateProviders || [];
-        const nextProviderId = candidates.find(id => !b.rejectedProviders.includes(id));
+        // Max 5 providers trial limit as requested by user
+        const nextProviderId = b.rejectedProviders.length < 5 
+          ? candidates.find(id => !b.rejectedProviders.includes(id)) 
+          : null;
 
         if (nextProviderId) {
           b.assignedProvider = nextProviderId;
@@ -124,10 +127,13 @@ export async function updateBookingStatus(req, res) {
         } else {
           b.status = "unassigned";
           b.assignedProvider = "";
+          b.vendorEscalated = true;
+          b.vendorEscalatedAt = new Date();
           await b.save();
 
-          await notifyAdminAndVendor("auto_assignment_failed", city);
-          await BookingLog.create({ action: "booking:status", userId: pId, bookingId, meta: { status: "rejected", subType: "no_more_candidates" } });
+          const reason = b.rejectedProviders.length >= 5 ? "max_rejections_reached" : "auto_assignment_failed";
+          await notifyAdminAndVendor(reason, city);
+          await BookingLog.create({ action: "booking:status", userId: pId, bookingId, meta: { status: "rejected", subType: reason } });
           return res.json({ booking: b });
         }
       }

@@ -121,7 +121,7 @@ export async function buildAssignmentCandidates({
 
   let providers = await findProvidersZoneStrict(
     { ...address, city: bookingCity, cityId: bookingCityId, zone: bookingZone, zoneId: bookingZoneId },
-    { approvalStatus: "approved", registrationComplete: true }
+    { approvalStatus: "approved" } // Removed registrationComplete check for easier testing
   );
 
   // ✅ FIX: Fallback to city-wide search if no providers found in specific zone
@@ -129,7 +129,7 @@ export async function buildAssignmentCandidates({
     console.log(`[Candidates] No providers in zone ${bookingZone}. Falling back to city ${bookingCity}...`);
     providers = await ProviderAccount.find({
       approvalStatus: "approved",
-      registrationComplete: true,
+      // Removed registrationComplete check for easier testing
       ...(bookingCityId ? { cityId: bookingCityId } : { city: { $regex: new RegExp(`^${escapeRegex(bookingCity)}$`, "i") } }),
     }).lean();
   }

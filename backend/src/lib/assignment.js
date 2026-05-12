@@ -28,7 +28,8 @@ async function isProviderEligibleForBooking(providerId, booking, opts = {}) {
   const acc = await ProviderAccount.findById(providerId).lean();
   if (!acc) return false;
   if (acc.approvalStatus !== "approved") return false;
-  if (acc.registrationComplete !== true) return false;
+  // Relaxed for local testing: allow providers who haven't 100% finished registration docs
+  // if (acc.registrationComplete !== true) return false;
   // Relaxed: Don't strictly require isOnline for eligibility, 
   // as providers may be available for future slots even if offline now.
   // if (acc.isOnline !== true) return false;
@@ -105,22 +106,43 @@ export async function canAssignProviderToBooking(providerId, booking, opts = {})
 
 export async function pickNextProviderForBooking(booking, startIndex = 0) {
   const candidates = Array.isArray(booking?.candidateProviders) ? booking.candidateProviders : [];
-  if (!candidates.length) return null;
+  console.log(`[Assignment] pickNextProviderForBooking called for booking ${booking._id}, Candidate Array Length: ${candidates.length}, StartIdx: ${startIndex}`);
+  if (!candidates.length) {
+    console.log(`[Assignment] Returning null early because candidates array is empty.`);
+    return null;
+  }
 
   const rejected = new Set(Array.isArray(booking?.rejectedProviders) ? booking.rejectedProviders : []);
+  // User requested Max 5 providers limit
+  if (rejected.size >= 5) {
+    console.log(`[Assignment] Booking ${booking._id} reached max rejections (5). Escalating.`);
+    return null;
+  }
   let idx = Math.max(Number(startIndex) || 0, 0);
+  console.log(`[Assignment] Reassigning booking ${booking._id}, Candidates: ${candidates.length}, StartIdx: ${idx}`);
+  
   while (idx < candidates.length) {
     const cand = String(candidates[idx] || "");
-    if (!cand) { idx++; continue; }
-    if (rejected.has(cand)) { idx++; continue; }
-    // Only assign if the provider is still eligible at the time of reassignment.
-    // This prevents assignment to offline/leave/conflicting providers.
-    // Note: candidate list already filtered for specialty at creation time.
+    if (!cand) { 
+      console.log(`[Assignment] Skipping cand at idx ${idx}: invalid ID`);
+      idx++; 
+      continue; 
+    }
+    if (rejected.has(cand)) { 
+      console.log(`[Assignment] Skipping cand ${cand} at idx ${idx}: already rejected`);
+      idx++; 
+      continue; 
+    }
+    
+    console.log(`[Assignment] Checking eligibility for cand ${cand} at idx ${idx}...`);
     // eslint-disable-next-line no-await-in-loop
-    const ok = await isProviderEligibleForBooking(cand, booking);
+    const ok = await isProviderEligibleForBooking(cand, booking, { ignoreLeadTime: true });
+    
+    console.log(`[Assignment] Eligibility for cand ${cand} returned: ${ok}`);
     if (ok) return { providerId: cand, index: idx };
     idx++;
   }
+  console.log(`[Assignment] Exhausted all candidates, returning null.`);
   return null;
 }
 

@@ -24,8 +24,8 @@ export function requireRole(role) {
           ? cookies.vendorToken
           : null;
       const candidates = [];
-      if (preferred) candidates.push(preferred);
       if (headerToken) candidates.push(headerToken);
+      if (preferred) candidates.push(preferred);
       const order = ["adminToken", "vendorToken", "providerToken", "token"];
       for (const k of order) {
         const t = cookies[k];

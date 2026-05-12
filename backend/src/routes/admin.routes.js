@@ -3,6 +3,7 @@ import { body, validationResult, param } from "express-validator";
 import Vendor from "../models/Vendor.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import Booking from "../models/Booking.js";
+import PushDevice from "../models/PushDevice.js";
 import Coupon from "../models/Coupon.js";
 import SOSAlert from "../models/SOSAlert.js";
 import { ReferralSettings, CommissionSettings, BookingSettings, PerformanceSettings, SystemSettings, StatusSettings } from "../models/Settings.js";
@@ -62,7 +63,23 @@ router.post(
   }
 );
 
-router.post("/logout", (req, res) => {
+router.post("/logout", async (req, res) => {
+  try {
+    const tok = req.cookies?.adminToken;
+    if (tok) {
+      const jwt = (await import("jsonwebtoken")).default;
+      const p = jwt.verify(tok, process.env.JWT_SECRET || "dev_secret_change_me");
+      if (p?.sub) {
+        // Deactivate push devices on logout
+        await PushDevice.updateMany(
+          { recipientId: p.sub, recipientRole: "admin" },
+          { $set: { isActive: false, lastError: "Logged out" } }
+        );
+      }
+    }
+  } catch (err) {
+    console.error("[Admin Logout] Push cleanup failed:", err.message);
+  }
   res.clearCookie("adminToken").json({ success: true });
 });
 
@@ -444,9 +461,11 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
       await notify({
         recipientId: p._id.toString(),
         recipientRole: "provider",
-        title: status === "approved" ? "Admin Approved" : status === "rejected" ? "Admin Rejected" : "Status Updated",
+        title: status === "approved" ? (prevStatus === "blocked" ? "Account Unblocked" : "Admin Approved") : status === "blocked" ? "Account Blocked" : status === "rejected" ? "Admin Rejected" : "Status Updated",
         message: status === "approved"
-          ? "Your profile has been approved by admin."
+          ? (prevStatus === "blocked" ? "Your account has been unblocked by admin." : "Your profile has been approved by admin.")
+          : status === "blocked"
+          ? "Your account has been blocked by admin."
           : status === "rejected"
           ? "Your profile was rejected by admin."
           : `Your status was updated to ${status}.`,
