@@ -843,10 +843,12 @@ router.post("/spotlights",
     res.status(201).json({ spotlight: doc });
   }
 );
-router.put("/spotlights/:id", requireRole("admin"), param("id").isString(), async (req, res) => {
+router.put("/spotlights/:id?", requireRole("admin"), async (req, res) => {
+  const id = req.params.id || req.body.id;
+  if (!id) return res.status(400).json({ error: "ID is required" });
   if (req.body.poster) req.body.poster = await uploadBase64Image(req.body.poster, "spotlights");
   const doc = await Spotlight.findOneAndUpdate(
-    { id: req.params.id },
+    { id },
     { ...req.body, priority: Number(req.body.priority || 1), startAt: req.body.startAt ? new Date(req.body.startAt) : null, endAt: req.body.endAt ? new Date(req.body.endAt) : null },
     { new: true }
   );
@@ -885,10 +887,12 @@ router.post("/gallery",
     res.status(201).json({ gallery: doc });
   }
 );
-router.put("/gallery/:id", requireRole("admin"), param("id").isString(), async (req, res) => {
+router.put("/gallery/:id?", requireRole("admin"), async (req, res) => {
+  const id = req.params.id || req.body.id;
+  if (!id) return res.status(400).json({ error: "ID is required" });
   if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "gallery");
   const doc = await GalleryItem.findOneAndUpdate(
-    { id: req.params.id },
+    { id },
     { ...req.body, priority: Number(req.body.priority || 1) },
     { new: true }
   );
@@ -919,10 +923,12 @@ router.post("/testimonials",
     res.status(201).json({ testimonial: doc });
   }
 );
-router.put("/testimonials/:id", requireRole("admin"), param("id").isString(), async (req, res) => {
+router.put("/testimonials/:id?", requireRole("admin"), async (req, res) => {
+  const id = req.params.id || req.body.id;
+  if (!id) return res.status(400).json({ error: "ID is required" });
   if (req.body.image) req.body.image = await uploadBase64Image(req.body.image, "testimonials");
   const doc = await Testimonial.findOneAndUpdate(
-    { id: req.params.id },
+    { id },
     { ...req.body, priority: Number(req.body.priority || 1) },
     { new: true }
   );
@@ -958,7 +964,7 @@ router.get("/commission", requireRole("admin"), async (_req, res) => {
   res.json({ settings: s || { rate: 15, minPayout: 500, dateFormat: "PPP" } });
 });
 
-router.put("/commission", requireRole("admin"), body("rate").isNumeric(), body("minPayout").isNumeric(), body("dateFormat").optional().isString(), async (req, res) => {
+router.put("/commission", requireRole("admin"), body("rate").isFloat({ min: 0 }), body("minPayout").isFloat({ min: 0 }), body("dateFormat").optional().isString(), async (req, res) => {
   const s = await CommissionSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
   res.json({ settings: s });
 });
@@ -1129,9 +1135,33 @@ router.get("/system-settings", async (_req, res) => {
   res.json({ settings: s || { menSectionEnabled: false, availableRoles: ["user", "provider", "vendor"] } });
 });
 
-router.put("/system-settings", requireRole("admin"), body("menSectionEnabled").isBoolean(), body("availableRoles").optional().isArray(), async (req, res) => {
-  const s = await SystemSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
-  res.json({ settings: s });
+router.put("/system-settings", 
+  requireRole("admin"), 
+  body("menSectionEnabled").isBoolean(), 
+  body("availableRoles").optional().isArray(), 
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { menSectionEnabled, availableRoles } = req.body;
+      const updates = { menSectionEnabled };
+      if (availableRoles) updates.availableRoles = availableRoles;
+
+      const s = await SystemSettings.findOneAndUpdate(
+        {}, 
+        { $set: updates }, 
+        { upsert: true, new: true, runValidators: true }
+      );
+      
+      console.log("[Admin] System settings updated:", updates);
+      res.json({ settings: s });
+    } catch (error) {
+      console.error("[Admin] Error updating system settings:", error);
+      res.status(500).json({ error: "Failed to update system settings" });
+    }
 });
 
 // ───── CITIES & ZONES ─────

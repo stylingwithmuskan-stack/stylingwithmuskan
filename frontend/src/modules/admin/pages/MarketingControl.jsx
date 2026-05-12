@@ -60,11 +60,14 @@ export default function MarketingControl() {
         message: "",
         link: "",
         icon: "",
+        image: "",
     });
     const [broadcastHistory, setBroadcastHistory] = useState([]);
     const [subscriptionPlans, setSubscriptionPlans] = useState([]);
     const [cities, setCities] = useState([]);
     const [broadcasting, setBroadcasting] = useState(false);
+    const [broadcastIconPreview, setBroadcastIconPreview] = useState(null);
+    const [broadcastImagePreview, setBroadcastImagePreview] = useState(null);
 
     const takenPriorities = useMemo(() => 
         banners.filter(b => b.id !== editingBanner?.id).map(b => Number(b.priority)),
@@ -227,6 +230,28 @@ export default function MarketingControl() {
 
     const updateBannerForm = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
     const updateBroadcastForm = (k, v) => setBroadcastForm((prev) => ({ ...prev, [k]: v }));
+    
+    const handleBroadcastIconSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setBroadcastIconPreview(reader.result);
+            updateBroadcastForm("icon", reader.result);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleBroadcastImageSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setBroadcastImagePreview(reader.result);
+            updateBroadcastForm("image", reader.result);
+        };
+        reader.readAsDataURL(file);
+    };
 
     const toggleRole = (role) => {
         setBroadcastForm((prev) => {
@@ -248,6 +273,7 @@ export default function MarketingControl() {
                 subscriptionStatus: broadcastForm.subscriptionStatus || undefined,
                 link: broadcastForm.link || undefined,
                 icon: broadcastForm.icon || undefined,
+                image: broadcastForm.image || undefined,
             });
             setBroadcastForm({
                 roles: ["user"],
@@ -258,7 +284,10 @@ export default function MarketingControl() {
                 message: "",
                 link: "",
                 icon: "",
+                image: "",
             });
+            setBroadcastIconPreview(null);
+            setBroadcastImagePreview(null);
             await loadPushMeta();
         } finally {
             setBroadcasting(false);
@@ -596,9 +625,47 @@ export default function MarketingControl() {
                                         <Label className="text-xs font-bold">Click Link</Label>
                                         <Input value={broadcastForm.link} onChange={(e) => updateBroadcastForm("link", e.target.value)} placeholder="/notifications" className="rounded-xl h-10 bg-muted/30" />
                                     </div>
+                                    
                                     <div className="space-y-2">
-                                        <Label className="text-xs font-bold">Icon URL</Label>
-                                        <Input value={broadcastForm.icon} onChange={(e) => updateBroadcastForm("icon", e.target.value)} placeholder="Optional icon URL" className="rounded-xl h-10 bg-muted/30" />
+                                        <Label className="text-xs font-bold flex items-center gap-1.5">
+                                            <BellRing className="h-3.5 w-3.5 text-primary" />
+                                            Icon URL (Small)
+                                        </Label>
+                                        <div className="flex gap-2">
+                                            <Input value={broadcastForm.icon.startsWith('data:') ? 'Image Uploaded' : broadcastForm.icon} onChange={(e) => { updateBroadcastForm("icon", e.target.value); setBroadcastIconPreview(null); }} placeholder="URL or Upload" className="rounded-xl h-10 bg-muted/30 flex-1" />
+                                            <div className="relative">
+                                                <input type="file" accept="image/*" onChange={handleBroadcastIconSelect} className="hidden" id="broadcast-icon-upload" />
+                                                <label htmlFor="broadcast-icon-upload" className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary cursor-pointer transition-all border border-primary/20">
+                                                    <Upload className="h-4 w-4" />
+                                                </label>
+                                            </div>
+                                        </div>
+                                        {broadcastIconPreview && (
+                                            <div className="mt-2 w-12 h-12 rounded-lg overflow-hidden border border-border/50">
+                                                <img src={broadcastIconPreview} alt="Icon Preview" className="w-full h-full object-cover" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label className="text-xs font-bold flex items-center gap-1.5">
+                                            <Image className="h-3.5 w-3.5 text-primary" />
+                                            Image URL (Large Photo)
+                                        </Label>
+                                        <div className="flex gap-2">
+                                            <Input value={broadcastForm.image.startsWith('data:') ? 'Image Uploaded' : broadcastForm.image} onChange={(e) => { updateBroadcastForm("image", e.target.value); setBroadcastImagePreview(null); }} placeholder="URL or Upload" className="rounded-xl h-10 bg-muted/30 flex-1" />
+                                            <div className="relative">
+                                                <input type="file" accept="image/*" onChange={handleBroadcastImageSelect} className="hidden" id="broadcast-image-upload" />
+                                                <label htmlFor="broadcast-image-upload" className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary cursor-pointer transition-all border border-primary/20">
+                                                    <Upload className="h-4 w-4" />
+                                                </label>
+                                            </div>
+                                        </div>
+                                        {broadcastImagePreview && (
+                                            <div className="mt-2 rounded-lg overflow-hidden border border-border/50 max-h-32">
+                                                <img src={broadcastImagePreview} alt="Large Preview" className="w-full h-32 object-cover" />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

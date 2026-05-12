@@ -191,6 +191,17 @@ const NotificationsPage = () => {
                                 <CheckCircle2 className="w-4 h-4 xs:hidden" />
                             </Button>
                         )}
+                        {notifications.length > 0 && !isSelectMode && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleDeleteAll}
+                                className="text-[9px] sm:text-[10px] h-9 font-black uppercase tracking-widest text-red-500 hover:bg-red-50 px-2 sm:px-4 rounded-xl flex items-center"
+                            >
+                                <span className="hidden xs:inline">Clear All</span>
+                                <Trash2 className="w-4 h-4 xs:hidden" />
+                            </Button>
+                        )}
                         {notifications.length > 0 && (
                             <Button
                                 variant={isSelectMode ? "destructive" : "ghost"}
@@ -344,8 +355,19 @@ const NotificationsPage = () => {
                                                 )}
                                             </div>
                                         ) : (
-                                            <div className="mt-1 w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-background border border-border/50 flex items-center justify-center flex-shrink-0 shadow-sm transition-transform group-hover:scale-110">
-                                                {getIcon(n.type)}
+                                            <div className="mt-1 w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-background border border-border/50 flex items-center justify-center flex-shrink-0 shadow-sm transition-transform group-hover:scale-110 overflow-hidden">
+                                                {n.icon ? (
+                                                    n.icon.trim().startsWith('<') ? (
+                                                        <div 
+                                                            className="w-full h-full flex items-center justify-center [&>svg]:w-6 [&>svg]:h-6 [&>i]:text-xl"
+                                                            dangerouslySetInnerHTML={{ __html: n.icon }} 
+                                                        />
+                                                    ) : (
+                                                        <img src={n.icon} alt="" className="w-full h-full object-cover" />
+                                                    )
+                                                ) : (
+                                                    getIcon(n.type)
+                                                )}
                                             </div>
                                         )}
                                         
@@ -369,6 +391,12 @@ const NotificationsPage = () => {
                                             <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-3 sm:mb-4 line-clamp-2">
                                                 {n.message}
                                             </p>
+                                            
+                                            {n.image && (
+                                                <div className="mb-4 rounded-2xl overflow-hidden border border-border/50 bg-accent/5 max-w-sm">
+                                                    <img src={n.image} alt="" className="w-full max-h-64 object-contain" />
+                                                </div>
+                                            )}
                                             
                                             <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
                                                 <div className="flex items-center gap-1">

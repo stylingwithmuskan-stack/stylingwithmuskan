@@ -16,6 +16,8 @@ const NotificationSchema = new mongoose.Schema(
       // Common types for all modules
     },
     meta: { type: Object, default: {} },
+    icon: { type: String, default: null },
+    image: { type: String, default: null },
     sound: { type: String, default: null },
     link: { type: String, default: "/notifications" },
     delivery: {

@@ -58,6 +58,7 @@ export default function GalleryManagement() {
         const maxPriority = items.length > 0 ? Math.max(...items.map(i => Number(i.priority || 0))) : 0;
         setForm({ ...initialForm, id: `${Date.now()}`, priority: maxPriority + 1 });
         setShowForm(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     const openEdit = (item) => {
@@ -70,6 +71,7 @@ export default function GalleryManagement() {
             isActive: item.isActive !== false,
         });
         setShowForm(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     const handleImageUpload = async (event) => {
@@ -95,6 +97,13 @@ export default function GalleryManagement() {
             toast.error("ID, title aur image required hai");
             return;
         }
+
+        const duplicatePriority = items.find(item => Number(item.priority) === Number(form.priority) && item.id !== editingId);
+        if (duplicatePriority) {
+            toast.error(`Priority ${form.priority} is already used by "${duplicatePriority.title}". Please use a unique priority.`);
+            return;
+        }
+
         setSaving(true);
         const payload = {
             id: form.id.trim(),
@@ -174,8 +183,11 @@ export default function GalleryManagement() {
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold">Priority</Label>
+                                <Label className="text-xs font-bold">Priority (Unique)</Label>
                                 <Input type="number" min={1} value={form.priority} onChange={(e) => updateForm("priority", Number(e.target.value || 1))} className="rounded-xl h-10 bg-muted/30" />
+                                {items.some(item => Number(item.priority) === Number(form.priority) && item.id !== editingId) && (
+                                    <p className="text-[10px] text-red-500 font-bold">Priority already in use!</p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-bold">Status</Label>
@@ -215,7 +227,7 @@ export default function GalleryManagement() {
                     </Card>
                 ) : (
                     sortedItems.map((item) => (
-                        <Card key={item.id} className="border-border/50 shadow-none overflow-hidden">
+                        <Card key={item._id || item.id} className="border-border/50 shadow-none overflow-hidden">
                             <CardContent className="p-4 space-y-3">
                                 <div className="flex items-start justify-between gap-2">
                                     <div>

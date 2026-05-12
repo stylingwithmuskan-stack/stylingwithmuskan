@@ -397,6 +397,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
       return {
         title: safeMeta.title || titleCase(type) || "Special Update",
         message: safeMeta.message || "You have a new update from Styling With Muskan.",
+        image: safeMeta.image || null,
         sound: "notification",
       };
 
@@ -439,6 +440,7 @@ export async function notify({
   title,
   message,
   link,
+  icon,
   meta = {},
   emit = true,
   respectProviderQuietHours = true,
@@ -467,6 +469,8 @@ export async function notify({
     type,
     link: link || buildNotificationLink({ recipientRole, type, meta: safeMeta }),
     meta: dedupeKey ? { ...safeMeta, dedupeKey } : safeMeta,
+    icon: icon || meta?.icon || null,
+    image: meta?.image || templated?.image || null,
     sound: meta?.sound || templated?.sound || null,
   };
   const notification = await Notification.create({

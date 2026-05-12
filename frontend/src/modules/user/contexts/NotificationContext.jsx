@@ -47,17 +47,21 @@ export const NotificationProvider = ({ children, role }) => {
     const user = userContext?.user;
 
     const activeRole = useMemo(() => {
-        // Priority 1: Check logged-in contexts (most reliable)
+        const path = location?.pathname || "";
+        
+        // 1. Explicit Path Context (Highest Priority)
+        if (path.startsWith("/provider")) return "provider";
+        if (path.startsWith("/vender") || path.startsWith("/vendor")) return "vendor";
+        if (path.startsWith("/admin")) return "admin";
+
+        // 2. User Context (Default for main site)
+        if (user?._id || user?.id) return "user";
+
+        // 3. Fallback to other logged in roles
         if (provider?._id || provider?.id) return "provider";
         if (vendor?._id || vendor?.id) return "vendor";
         if (admin?._id || admin?.id) return "admin";
-        if (user?._id || user?.id) return "user";
 
-        // Priority 2: Fallback to URL path for unauthenticated states (if any)
-        const path = location?.pathname || "";
-        if (path.startsWith("/provider")) return "provider";
-        if (path.startsWith("/vender")) return "vendor";
-        if (path.startsWith("/admin")) return "admin";
         return "user";
     }, [location?.pathname, provider, vendor, admin, user]);
 

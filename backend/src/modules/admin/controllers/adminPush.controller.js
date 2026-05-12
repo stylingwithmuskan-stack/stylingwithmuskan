@@ -4,6 +4,7 @@ import Vendor from "../../../models/Vendor.js";
 import UserSubscription from "../../../models/UserSubscription.js";
 import PushBroadcast from "../../../models/PushBroadcast.js";
 import { notify } from "../../../lib/notify.js";
+import { uploadBase64Image } from "../../../startup/cloudinary.js";
 
 async function getActiveSubscriptionUserIds({ userType, planId = "", status = "" }) {
   const now = new Date();
@@ -93,6 +94,7 @@ export async function broadcast(req, res) {
       message = "",
       link = "/notifications",
       icon = "",
+      image = "",
     } = req.body || {};
 
     if (!title || !message || !Array.isArray(roles) || roles.length === 0) {
@@ -100,12 +102,18 @@ export async function broadcast(req, res) {
     }
 
     const audience = await collectAudience({ roles, city, subscriptionPlanId, subscriptionStatus });
+    
+    // Process base64 images if present
+    const finalIcon = await uploadBase64Image(icon, "marketing-icons");
+    const finalImage = await uploadBase64Image(image, "marketing-images");
+
     const history = await PushBroadcast.create({
       createdBy: String(req.auth?.sub || "ADMIN001"),
       title,
       message,
       link,
-      icon,
+      icon: finalIcon,
+      image: finalImage,
       filters: {
         roles,
         city,
@@ -131,7 +139,8 @@ export async function broadcast(req, res) {
         meta: {
           title,
           message,
-          icon,
+          icon: finalIcon,
+          image: finalImage,
           broadcastId: history._id.toString(),
           filters: history.filters,
         },

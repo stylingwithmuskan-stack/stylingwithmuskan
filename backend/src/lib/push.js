@@ -152,12 +152,14 @@ export function buildFCMPayload(notification) {
   const body = String(notification.message || "").slice(0, 200);
   const link = normalizeLink(notification.link);
   const sound = notification.sound || "default";
+  const imageUrl = notification.image || null;
   const isUrgent = ["ringtone", "emergency", "alert", "success"].includes(sound);
 
   return {
     notification: { 
         title, 
-        body
+        body,
+        ...(imageUrl ? { imageUrl } : {})
     },
     android: {
       priority: "high",
@@ -169,6 +171,7 @@ export function buildFCMPayload(notification) {
         priority: "max",
         visibility: "public",
         notification_priority: "PRIORITY_HIGH",
+        ...(imageUrl ? { imageUrl } : {})
       },
     },
     apns: {
@@ -177,7 +180,11 @@ export function buildFCMPayload(notification) {
           sound: sound === "default" ? "default" : `${sound}.caf`,
           badge: 1,
           critical: isUrgent,
+          "mutable-content": imageUrl ? 1 : 0,
         },
+      },
+      fcm_options: {
+        ...(imageUrl ? { image: imageUrl } : {})
       },
       headers: {
         "apns-priority": "10",
@@ -187,6 +194,7 @@ export function buildFCMPayload(notification) {
       notification: {
         icon: "/logo.png",
         badge: "/logo.png",
+        image: imageUrl || undefined,
         vibrate: isUrgent ? [300, 100, 300, 100, 300, 100, 300] : [200, 100, 200],
         requireInteraction: isUrgent,
         silent: false,
@@ -204,6 +212,7 @@ export function buildFCMPayload(notification) {
       type: String(notification.type),
       role: String(notification.recipientRole),
       sound: String(sound),
+      image: imageUrl || "",
       click_action: "FLUTTER_NOTIFICATION_CLICK", 
     },
   };

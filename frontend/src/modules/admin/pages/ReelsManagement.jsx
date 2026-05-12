@@ -61,6 +61,7 @@ export default function ReelsManagement() {
         const maxPriority = reels.length > 0 ? Math.max(...reels.map(r => Number(r.priority || 0))) : 0;
         setForm({ ...initialForm, id: `${Date.now()}`, priority: maxPriority + 1 });
         setShowForm(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     const openEdit = (item) => {
@@ -76,6 +77,7 @@ export default function ReelsManagement() {
             isActive: item.isActive !== false,
         });
         setShowForm(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     const handleVideoUpload = async (event) => {
@@ -101,6 +103,13 @@ export default function ReelsManagement() {
             toast.error("ID, title aur video required hai");
             return;
         }
+
+        const duplicatePriority = reels.find(r => Number(r.priority) === Number(form.priority) && r.id !== editingId);
+        if (duplicatePriority) {
+            toast.error(`Priority ${form.priority} is already used by "${duplicatePriority.title}". Please use a unique priority.`);
+            return;
+        }
+
         setSaving(true);
         const payload = {
             id: form.id.trim(),
@@ -194,9 +203,12 @@ export default function ReelsManagement() {
                                 <Label className="text-xs font-bold">Poster URL</Label>
                                 <Input value={form.poster} onChange={(e) => updateForm("poster", e.target.value)} placeholder="https://..." className="rounded-xl h-10 bg-muted/30" />
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-bold">Priority</Label>
+                             <div className="space-y-2">
+                                <Label className="text-xs font-bold">Priority (Unique)</Label>
                                 <Input type="number" min={1} value={form.priority} onChange={(e) => updateForm("priority", Number(e.target.value || 1))} className="rounded-xl h-10 bg-muted/30" />
+                                {reels.some(r => Number(r.priority) === Number(form.priority) && r.id !== editingId) && (
+                                    <p className="text-[10px] text-red-500 font-bold">Priority already in use!</p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-bold">Status</Label>
@@ -236,7 +248,7 @@ export default function ReelsManagement() {
                     </Card>
                 ) : (
                     sortedReels.map((reel) => (
-                        <Card key={reel.id} className="border-border/50 shadow-none overflow-hidden">
+                        <Card key={reel._id || reel.id} className="border-border/50 shadow-none overflow-hidden">
                             <CardContent className="p-4 space-y-3">
                                 <div className="flex items-start justify-between gap-2">
                                     <div>

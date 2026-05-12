@@ -7,6 +7,7 @@ const PushBroadcastSchema = new mongoose.Schema(
     message: { type: String, required: true },
     link: { type: String, default: "/notifications" },
     icon: { type: String, default: "" },
+    image: { type: String, default: "" },
     filters: {
       roles: { type: [String], default: [] },
       city: { type: String, default: "" },

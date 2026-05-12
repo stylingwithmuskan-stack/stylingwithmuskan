@@ -19,6 +19,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
         markAllAsRead,
         markAsRead,
         deleteNotification,
+        deleteAllNotifications,
         fetchNotifications,
         pushSupported,
         pushPermission,
@@ -80,10 +81,12 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
         const bookingId = meta.bookingId || meta.id;
         const enquiryId = meta.enquiryId;
 
-        let path = null;
+        // Determine role for navigation logic (prefer notification's intended role)
+        const targetRole = n.recipientRole || activeRole;
 
         // 1. Build a specific path if meta data exists (Prioritize over n.link)
-        if (activeRole === "user") {
+        let path = null;
+        if (targetRole === "user") {
             if (bookingId) {
                 path = `/bookings?id=${bookingId}`;
             } else if (enquiryId) {
@@ -91,7 +94,7 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
             } else if (type.startsWith("payment_") || type.includes("payment")) {
                 path = "/payment";
             }
-        } else if (activeRole === "provider") {
+        } else if (targetRole === "provider") {
             if (bookingId) {
                 path = `/provider/booking/${bookingId}`;
             } else if (type === "zone_added") {
@@ -101,10 +104,10 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
             } else if (type === "sos_alert") {
                 path = "/provider/sos";
             }
-        } else if (activeRole === "vendor") {
+        } else if (targetRole === "vendor") {
             if (type === "sos_alert") path = "/vender/sos";
             else if (bookingId) path = `/vender/bookings?search=${bookingId}`;
-        } else if (activeRole === "admin") {
+        } else if (targetRole === "admin") {
             if (type === "sos_alert") path = "/admin/sos";
             else if (type === "leave_requested") path = "/admin/service-providers";
             else if (bookingId) path = `/admin/bookings?search=${bookingId}`;
@@ -116,10 +119,10 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
         }
 
         if (!path) {
-            if (activeRole === "user") path = "/notifications";
-            else if (activeRole === "provider") path = "/provider/notifications";
-            else if (activeRole === "vendor") path = "/vender/notifications";
-            else if (activeRole === "admin") path = "/admin/notifications";
+            if (targetRole === "user") path = "/notifications";
+            else if (targetRole === "provider") path = "/provider/notifications";
+            else if (targetRole === "vendor") path = "/vender/notifications";
+            else if (targetRole === "admin") path = "/admin/notifications";
         }
 
         if (path) {
@@ -162,13 +165,35 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                             )}
                         </h3>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-1">
+                        {unreadCount > 0 && (
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={markAllAsRead}
+                                className="h-8 px-2 text-[10px] font-black uppercase tracking-tighter text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-full"
+                            >
+                                Read All
+                            </Button>
+                        )}
+                        {unreadNotifications.length > 0 && (
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => {
+                                    if (window.confirm("Clear all unread notifications?")) deleteAllNotifications();
+                                }}
+                                className="h-8 px-2 text-[10px] font-black uppercase tracking-tighter text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full"
+                            >
+                                Clear
+                            </Button>
+                        )}
                         <Button 
                             variant="ghost" 
                             size="icon" 
                             onClick={() => fetchNotifications()} 
                             disabled={loading}
-                            className={cn("h-8 w-8 rounded-full", loading && "bg-accent/10")}
+                            className={cn("h-8 w-8 rounded-full", loading && "bg-accent/10 ml-1")}
                         >
                             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin text-primary")} />
                         </Button>
@@ -237,8 +262,19 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                                     >
                                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary group-hover:w-1.5 transition-all" />
                                         <div className="flex gap-4">
-                                            <div className="mt-1 w-8 h-8 rounded-xl bg-background border border-border flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform">
-                                                {getIcon(n.type)}
+                                            <div className="mt-1 w-8 h-8 rounded-xl bg-background border border-border flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform overflow-hidden">
+                                                {n.icon ? (
+                                                    n.icon.trim().startsWith('<') ? (
+                                                        <div 
+                                                            className="w-full h-full flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4 [&>i]:text-sm"
+                                                            dangerouslySetInnerHTML={{ __html: n.icon }} 
+                                                        />
+                                                    ) : (
+                                                        <img src={n.icon} alt="" className="w-full h-full object-cover" />
+                                                    )
+                                                ) : (
+                                                    getIcon(n.type)
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-[13px] font-black leading-tight mb-1 text-foreground group-hover:text-primary transition-colors">
@@ -247,6 +283,11 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
                                                 <p className="text-[11px] text-muted-foreground leading-relaxed mb-2 line-clamp-2">
                                                     {n.message}
                                                 </p>
+                                                {n.image && (
+                                                    <div className="mb-2 rounded-xl overflow-hidden border border-border/50">
+                                                        <img src={n.image} alt="" className="w-full h-24 object-cover" />
+                                                    </div>
+                                                )}
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
                                                         {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}

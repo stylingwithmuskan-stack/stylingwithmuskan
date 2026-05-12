@@ -16,6 +16,7 @@ export default function SystemSettings() {
     const [systemSettings, setSystemSettings] = useState({ menSectionEnabled: false, availableRoles: ["user", "provider", "vendor"] });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [newRoleInput, setNewRoleInput] = useState("");
 
     useEffect(() => {
         loadSettings();
@@ -31,7 +32,15 @@ export default function SystemSettings() {
             ]);
             if (status) setStatusSettings(status);
             if (commission) setCommissionSettings(commission);
-            if (system) setSystemSettings(system);
+            if (system) {
+                setSystemSettings({
+                    ...system,
+                    menSectionEnabled: system.menSectionEnabled ?? false,
+                    availableRoles: system.availableRoles && system.availableRoles.length > 0 
+                        ? system.availableRoles 
+                        : ["user", "provider", "vendor"]
+                });
+            }
         } catch (err) {
             console.error("Failed to load settings:", err);
             toast.error("Failed to load system settings");
@@ -67,9 +76,17 @@ export default function SystemSettings() {
     const handleSaveSystem = async () => {
         setSaving(true);
         try {
-            await updateSystemSettings(systemSettings);
+            // Sanitize payload to only include fields expected by the backend
+            const payload = {
+                menSectionEnabled: !!systemSettings.menSectionEnabled,
+                availableRoles: (systemSettings.availableRoles && systemSettings.availableRoles.length > 0) 
+                    ? systemSettings.availableRoles 
+                    : ["user", "provider", "vendor"]
+            };
+            await updateSystemSettings(payload);
             toast.success("Platform configuration updated successfully");
         } catch (err) {
+            console.error("Failed to update system settings:", err);
             toast.error("Failed to update platform configuration");
         } finally {
             setSaving(false);
@@ -232,8 +249,9 @@ export default function SystemSettings() {
                                 </Label>
                                 <Input 
                                     type="number" 
+                                    min="0"
                                     value={commissionSettings.rate} 
-                                    onChange={e => setCommissionSettings({ ...commissionSettings, rate: parseFloat(e.target.value) || 0 })} 
+                                    onChange={e => setCommissionSettings({ ...commissionSettings, rate: Math.max(0, parseFloat(e.target.value) || 0) })} 
                                     className="h-12 rounded-xl bg-muted/30 font-black text-lg"
                                 />
                                 <p className="text-[10px] text-muted-foreground font-medium">Platform charge on every completed booking.</p>
@@ -302,37 +320,70 @@ export default function SystemSettings() {
                                 <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                                     Target Roles Management <Info className="h-3 w-3" />
                                 </Label>
-                                <div className="flex flex-wrap gap-2">
-                                    {(systemSettings.availableRoles || []).map((role, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 bg-muted/50 border border-border/50 rounded-xl px-3 py-1.5 transition-all hover:border-primary/30">
-                                            <span className="text-xs font-bold capitalize">{role}</span>
-                                            <button 
-                                                onClick={() => {
-                                                    const newRoles = systemSettings.availableRoles.filter((_, i) => i !== idx);
-                                                    setSystemSettings({ ...systemSettings, availableRoles: newRoles });
-                                                }}
-                                                className="text-muted-foreground hover:text-red-500 transition-colors"
-                                            >
-                                                <X className="h-3.5 w-3.5" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                    <button 
-                                        onClick={() => {
-                                            const role = prompt("Enter new role name (e.g. franchise, rider):");
-                                            if (role && role.trim()) {
-                                                const r = role.trim().toLowerCase();
-                                                if (!systemSettings.availableRoles.includes(r)) {
-                                                    setSystemSettings({ ...systemSettings, availableRoles: [...systemSettings.availableRoles, r] });
+                                
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex gap-2">
+                                        <Input 
+                                            value={newRoleInput} 
+                                            onChange={(e) => setNewRoleInput(e.target.value)} 
+                                            placeholder="Enter role (e.g. franchise)" 
+                                            className="h-10 rounded-xl bg-muted/30 text-sm flex-1"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    if (newRoleInput.trim()) {
+                                                        const r = newRoleInput.trim().toLowerCase();
+                                                        const currentRoles = systemSettings.availableRoles || ["user", "provider", "vendor"];
+                                                        if (!currentRoles.includes(r)) {
+                                                            setSystemSettings({ ...systemSettings, availableRoles: [...currentRoles, r] });
+                                                            setNewRoleInput("");
+                                                        } else {
+                                                            toast.error("Role already exists");
+                                                        }
+                                                    }
                                                 }
-                                            }
-                                        }}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 border-dashed border-border hover:border-primary/30 hover:bg-primary/5 transition-all text-xs font-bold text-muted-foreground hover:text-primary"
-                                    >
-                                        <Plus className="h-3.5 w-3.5" /> Add New Role
-                                    </button>
+                                            }}
+                                        />
+                                        <Button 
+                                            type="button"
+                                            onClick={() => {
+                                                if (newRoleInput.trim()) {
+                                                    const r = newRoleInput.trim().toLowerCase();
+                                                    const currentRoles = systemSettings.availableRoles || ["user", "provider", "vendor"];
+                                                    if (!currentRoles.includes(r)) {
+                                                        setSystemSettings({ ...systemSettings, availableRoles: [...currentRoles, r] });
+                                                        setNewRoleInput("");
+                                                    } else {
+                                                        toast.error("Role already exists");
+                                                    }
+                                                }
+                                            }}
+                                            className="h-10 px-4 rounded-xl font-bold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                                        >
+                                            <Plus className="h-4 w-4 mr-1.5" /> Add
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {(systemSettings.availableRoles || []).map((role, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 bg-muted/50 border border-border/50 rounded-xl px-3 py-1.5 group hover:border-primary/30 transition-all">
+                                                <span className="text-xs font-bold capitalize">{role}</span>
+                                                <button 
+                                                    onClick={() => {
+                                                        const currentRoles = systemSettings.availableRoles || ["user", "provider", "vendor"];
+                                                        const newRoles = currentRoles.filter((_, i) => i !== idx);
+                                                        setSystemSettings({ ...systemSettings, availableRoles: newRoles });
+                                                    }}
+                                                    className="text-muted-foreground hover:text-destructive transition-colors"
+                                                    title="Remove role"
+                                                >
+                                                    <X className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground font-medium">Roles added here will appear in the Push Notification target list.</p>
+                                <p className="text-[10px] text-muted-foreground font-medium">Roles added here will appear in the Push Notification target list. Don't forget to click "Save Platform Config" below.</p>
                             </div>
 
                             <div className="pt-4 border-t border-border/30">
