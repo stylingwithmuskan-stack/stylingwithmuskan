@@ -146,6 +146,80 @@ export async function pickNextProviderForBooking(booking, startIndex = 0) {
   return null;
 }
 
+/**
+ * Higher-level wrapper to find next candidate and actually update/notify them.
+ * Used for custom bookings "Force Create" and auto-reassignment scenarios.
+ */
+export async function findNextCandidate(bookingId) {
+    const Booking = (await import("../models/Booking.js")).default;
+    const { buildAssignmentCandidates } = await import("./assignmentCandidates.js");
+    const { resolveBookingSettings } = await import("./settings.js");
+    
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return null;
+
+    // Build candidates if missing or empty
+    if (!booking.candidateProviders || booking.candidateProviders.length === 0) {
+        console.log(`[Assignment] Building candidates for booking ${bookingId}...`);
+        const settings = await resolveBookingSettings();
+        const { candidateProviders } = await buildAssignmentCandidates({
+            address: booking.address,
+            slot: booking.slot,
+            items: booking.services || booking.items || [],
+            settings,
+            customerId: booking.customerId?.toString(),
+            useCache: false,
+            ignoreLeadTime: true // ✅ Force Create should ignore lead time
+        });
+        booking.candidateProviders = candidateProviders;
+        await booking.save();
+        console.log(`[Assignment] Found ${candidateProviders.length} candidates for booking ${bookingId}: ${candidateProviders.join(', ')}`);
+    }
+
+    const now = new Date();
+    const picked = await pickNextProviderForBooking(booking, 0);
+
+    if (picked?.providerId) {
+        booking.assignedProvider = picked.providerId;
+        booking.assignmentIndex = picked.index;
+        booking.status = "pending";
+        booking.lastAssignedAt = now;
+        booking.expiresAt = computeExpiresAt(now);
+        booking.adminEscalated = false;
+
+        await booking.save();
+
+        try {
+            const io = getIO();
+            io?.of("/bookings").emit("status:update", { id: booking._id.toString(), status: "pending" });
+            io?.of("/bookings").to(booking._id.toString()).emit("booking:update", { id: booking._id.toString() });
+        } catch (err) {}
+
+        try {
+            await notify({
+                recipientId: picked.providerId,
+                recipientRole: "provider",
+                type: "booking_assigned",
+                meta: { bookingId: booking._id.toString() },
+                respectProviderQuietHours: true,
+            });
+        } catch (err) {}
+
+        return picked.providerId;
+    } else {
+        // No providers found? Escalate to admin/vendor
+        console.log(`[Assignment] No candidates found for booking ${bookingId}. Escalating.`);
+        const { handleExhaustedAssignmentChain } = await import("./assignment.js");
+        await handleExhaustedAssignmentChain({
+            booking,
+            now,
+            escalationReason: "no candidates found on initial search",
+        });
+        await booking.save();
+        return null;
+    }
+}
+
 const EXHAUSTED_CHAIN_VENDOR_WINDOW_MS = 10 * 60 * 1000;
 
 function getBookingCityInfo(booking) {

@@ -383,6 +383,56 @@ router.get("/leaves", requireRole("provider"), async (req, res) => {
   res.json({ leaves: items });
 });
 
+router.get("/feedback", requireRole("provider"), async (req, res) => {
+  try {
+    const providerId = req.auth.sub;
+    const Feedback = (await import("../models/Feedback.js")).default;
+    const items = await Feedback.find({ 
+      providerId: providerId,
+      status: "active" 
+    }).sort({ createdAt: -1 }).lean();
+    res.json({ feedback: items });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch feedback" });
+  }
+});
+
+router.post("/check-update", requireRole("provider"), async (req, res) => {
+  try {
+    const providerId = req.auth.sub;
+    const { currentVersion } = req.body;
+    
+    const office = await OfficeSettings.findOne().lean();
+    const latestVersion = office?.appVersion || "v2.1.0";
+    
+    const isUpdateAvailable = latestVersion !== currentVersion;
+    
+    // Trigger real-time Firebase Push Notification
+    await notify({
+      recipientId: providerId,
+      recipientRole: "provider",
+      type: "marketing_campaign",
+      title: isUpdateAvailable ? "🚀 Update Available!" : "✅ App Up to Date",
+      message: isUpdateAvailable 
+        ? `A new version (${latestVersion}) is ready. Click to refresh and update your app.`
+        : `You are already using the latest version (${currentVersion}) of Styling With Muskan.`,
+      link: "/provider/profile",
+      emit: true,
+      respectProviderQuietHours: false
+    });
+
+    res.json({ 
+      success: true, 
+      isUpdateAvailable, 
+      latestVersion,
+      message: isUpdateAvailable ? "Update notification sent!" : "App is up to date!"
+    });
+  } catch (error) {
+    console.error("[Provider] Update check error:", error);
+    res.status(500).json({ error: "Failed to process update check" });
+  }
+});
+
 router.post(
   "/leaves",
   requireRole("provider"),
@@ -1486,7 +1536,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
   if (String(b.assignedProvider || "") !== String(pId || "")) return res.status(403).json({ error: "Forbidden" });
   const originalAssignedProvider = String(b.assignedProvider || "");
 
-  if ((b.bookingType || "").toLowerCase() === "customized" && (next === "rejected" || next === "cancelled")) {
+  if ((b.bookingType || "").toLowerCase() === "customized" && next === "cancelled") {
     return res.status(403).json({ error: "Customized bookings cannot be cancelled by provider." });
   }
 

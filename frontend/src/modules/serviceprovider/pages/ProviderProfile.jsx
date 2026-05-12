@@ -596,6 +596,40 @@ export default function ProviderProfile() {
                             </Link>
                         );
                     }
+                    
+                    if (item.label === "Check for updates") {
+                        return (
+                            <button
+                                key={index}
+                                onClick={async () => {
+                                    const toastId = toast.loading("Checking for updates...");
+                                    try {
+                                        const currentVersion = "v2.1.0";
+                                        const res = await api.provider.checkUpdate(currentVersion);
+                                        
+                                        if (res.isUpdateAvailable) {
+                                            toast.success(`Update Available (${res.latestVersion})! Notification sent.`, { id: toastId });
+                                            setTimeout(() => window.location.reload(true), 2500);
+                                        } else {
+                                            toast.info("Your app is up to date! Notification sent.", { id: toastId });
+                                        }
+                                    } catch (err) {
+                                        toast.error("Failed to check for updates", { id: toastId });
+                                    }
+                                }}
+                                className="w-full flex items-center justify-between py-3.5 px-6 border-b border-gray-50 active:bg-gray-50 transition-colors text-left"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <Icon className="h-6 w-6 text-gray-700 stroke-[1.5px] " />
+                                    <div className="flex flex-col">
+                                        <span className="text-[17px] font-semibold tracking-tight text-gray-800">{item.label}</span>
+                                        <span className="text-[11px] font-bold text-gray-400 -mt-1">{item.version}</span>
+                                    </div>
+                                </div>
+                            </button>
+                        );
+                    }
+
                     return (
                         <Link
                             key={index}

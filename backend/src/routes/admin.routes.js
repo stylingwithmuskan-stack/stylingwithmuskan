@@ -322,9 +322,10 @@ router.patch("/leaves/:id/approve", requireRole("admin"), async (req, res) => {
 });
 
 // ───── CUSTOM ENQUIRIES ─────
-router.get("/custom-enquiries", requireRole("admin"), AdminController.listCustomEnquiries);
-router.patch("/custom-enquiries/:id/price-quote", requireRole("admin"), AdminController.customEnquiryPriceQuote);
-router.patch("/custom-enquiries/:id/final-approve", requireRole("admin"), AdminController.customEnquiryFinalApprove);
+// Moved to BookingsController section below (line 1070+)
+// router.get("/custom-enquiries", requireRole("admin"), AdminController.listCustomEnquiries);
+// router.patch("/custom-enquiries/:id/price-quote", requireRole("admin"), AdminController.customEnquiryPriceQuote);
+// router.patch("/custom-enquiries/:id/final-approve", requireRole("admin"), AdminController.customEnquiryFinalApprove);
 
 router.patch("/leaves/:id/reject", requireRole("admin"), async (req, res) => {
   const item = await LeaveRequest.findByIdAndUpdate(req.params.id, { status: "rejected" }, { new: true });

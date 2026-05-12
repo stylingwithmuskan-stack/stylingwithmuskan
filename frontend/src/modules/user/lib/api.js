@@ -412,6 +412,11 @@ export const api = {
     },
     credits: (phone) => request(`/provider/credits/${phone}`),
     bookings: (providerId) => request(`/provider/bookings/${providerId}`),
+    getFeedback: () => request("/provider/feedback"),
+    checkUpdate: (currentVersion) => request("/provider/check-update", {
+      method: "POST",
+      body: JSON.stringify({ currentVersion })
+    }),
     updateBookingStatus: (id, status, payload = {}) => request(`/provider/bookings/${id}/status`, { method: "PATCH", body: { status, ...payload } }),
     activateManualAssignment: (id) => request(`/provider/bookings/${id}/activate-manual-assignment`, { method: "PATCH" }),
     verifyBookingOtp: (id, otp) => request(`/provider/bookings/${id}/verify-otp`, { method: "POST", body: { otp } }),

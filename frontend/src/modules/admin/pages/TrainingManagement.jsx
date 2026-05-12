@@ -144,9 +144,24 @@ export default function TrainingManagement() {
                     </h1>
                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest mt-1">Admin Content Control Panel</p>
                 </div>
-                <Button onClick={() => handleOpenModal()} className="rounded-xl h-12 px-6 font-bold shadow-lg shadow-primary/20 gap-2">
+                <button 
+                    type="button"
+                    id="add-training-btn"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log("Add training button clicked");
+                        handleOpenModal();
+                    }} 
+                    className="rounded-xl h-12 px-6 font-bold bg-blue-600 text-white shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer relative z-[9999] hover:bg-blue-700 transition-all active:scale-95"
+                    style={{ 
+                        pointerEvents: 'all',
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none'
+                    }}
+                >
                     <Plus className="h-4 w-4" /> Add Training Module
-                </Button>
+                </button>
             </div>
 
             {/* Filters & Search */}
@@ -225,187 +240,142 @@ export default function TrainingManagement() {
             </div>
 
             {/* Modal */}
-            <AnimatePresence>
-                {isModalOpen && createPortal(
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-10">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" />
-                        <motion.div 
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }} 
-                            animate={{ scale: 1, opacity: 1, y: 0 }} 
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-2xl bg-background rounded-[32px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-                        >
-                            <div className="p-6 border-b flex items-center justify-between">
-                                <h2 className="text-xl font-black">{editingVideo ? "Edit Training" : "New Training Module"}</h2>
-                                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-muted rounded-full transition-colors"><X className="h-5 w-5" /></button>
-                            </div>
-                            
-                            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 hide-scrollbar">
-                                <div className="space-y-4">
+            {isModalOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div 
+                        className="absolute inset-0 bg-black/90 backdrop-blur-md" 
+                        onClick={() => setIsModalOpen(false)} 
+                    />
+                    <div className="relative w-full max-w-2xl bg-slate-950 border border-slate-800 rounded-[32px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col z-[10000]">
+                        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                            <h2 className="text-xl font-black text-white">{editingVideo ? "Edit Training" : "New Training Module"}</h2>
+                            <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-900 rounded-full transition-colors">
+                                <X className="h-5 w-5 text-slate-400" />
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Video Title *</label>
+                                    <Input 
+                                        value={formData.title} 
+                                        onChange={e => setFormData({...formData, title: e.target.value})} 
+                                        placeholder="Enter descriptive title" 
+                                        className="h-12 rounded-xl border-slate-800 bg-slate-900 text-white placeholder:text-slate-600 focus:ring-primary/20"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Video Title *</label>
+                                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Category</label>
+                                        <select 
+                                            value={formData.category} 
+                                            onChange={e => setFormData({...formData, category: e.target.value})}
+                                            className="w-full h-12 px-4 rounded-xl bg-slate-900 border border-slate-800 text-white outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold appearance-none"
+                                        >
+                                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Difficulty</label>
+                                        <select 
+                                            value={formData.difficulty} 
+                                            onChange={e => setFormData({...formData, difficulty: e.target.value})}
+                                            className="w-full h-12 px-4 rounded-xl bg-slate-900 border border-slate-800 text-white outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold appearance-none"
+                                        >
+                                            {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Duration (min:sec)</label>
                                         <Input 
-                                            value={formData.title} 
-                                            onChange={e => setFormData({...formData, title: e.target.value})} 
-                                            placeholder="Enter descriptive title" 
-                                            className="h-12 rounded-xl"
+                                            value={formData.duration} 
+                                            onChange={e => setFormData({...formData, duration: e.target.value})} 
+                                            placeholder="e.g. 15:30" 
+                                            className="h-12 rounded-xl border-slate-800 bg-slate-900 text-white placeholder:text-slate-600 focus:ring-primary/20"
                                         />
                                     </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Category</label>
-                                            <select 
-                                                value={formData.category} 
-                                                onChange={e => setFormData({...formData, category: e.target.value})}
-                                                className="w-full h-12 px-4 rounded-xl bg-card border border-border outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold appearance-none"
-                                            >
-                                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Difficulty</label>
-                                            <select 
-                                                value={formData.difficulty} 
-                                                onChange={e => setFormData({...formData, difficulty: e.target.value})}
-                                                className="w-full h-12 px-4 rounded-xl bg-card border border-border outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold appearance-none"
-                                            >
-                                                {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Duration (min:sec)</label>
-                                            <Input 
-                                                value={formData.duration} 
-                                                onChange={e => setFormData({...formData, duration: e.target.value})} 
-                                                placeholder="e.g. 15:30" 
-                                                className="h-12 rounded-xl"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Status Tag</label>
-                                            <select 
-                                                value={formData.status} 
-                                                onChange={e => setFormData({...formData, status: e.target.value})}
-                                                className="w-full h-12 px-4 rounded-xl bg-card border border-border outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold appearance-none"
-                                            >
-                                                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Thumbnail *</label>
-                                        <div className="flex flex-col gap-4">
-                                            <div className="flex gap-4 items-center">
-                                                <div 
-                                                    onClick={() => document.getElementById("thumbnail-upload").click()}
-                                                    className="flex-1 h-32 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer group relative overflow-hidden"
-                                                >
-                                                    {formData.thumbnail ? (
-                                                        <>
-                                                            <img src={formData.thumbnail} className="w-full h-full object-cover" />
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                                                <Camera className="h-6 w-6 text-white" />
-                                                            </div>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                                <Camera className="h-5 w-5 text-primary" />
-                                                            </div>
-                                                            <span className="text-[10px] font-bold text-muted-foreground text-center px-10">Click or Drag to upload<br/>Professional Thumbnail</span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                                <input 
-                                                    id="thumbnail-upload"
-                                                    type="file" 
-                                                    className="hidden" 
-                                                    accept="image/*"
-                                                    onChange={async (e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (!file) return;
-                                                        
-                                                        const loadingToast = toast.loading("Uploading image...");
-                                                        try {
-                                                            const res = await api.admin.uploadTrainingThumbnail(file);
-                                                            if (res.url) {
-                                                                setFormData({ ...formData, thumbnail: res.url });
-                                                                toast.success("Image uploaded", { id: loadingToast });
-                                                            }
-                                                        } catch (err) {
-                                                            toast.error("Upload failed", { id: loadingToast });
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                            
-                                            <div className="flex gap-2">
-                                                <Input 
-                                                    value={formData.thumbnail} 
-                                                    onChange={e => setFormData({...formData, thumbnail: e.target.value})} 
-                                                    placeholder="...or paste image URL directly" 
-                                                    className="h-9 rounded-xl text-[10px] bg-card/30"
-                                                />
-                                                {formData.thumbnail && (
-                                                    <Button 
-                                                        type="button" 
-                                                        variant="ghost" 
-                                                        size="sm"
-                                                        onClick={() => setFormData({ ...formData, thumbnail: "" })}
-                                                        className="h-9 rounded-xl text-xs text-destructive hover:bg-destructive/10"
-                                                    >
-                                                        Clear
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
+                                        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Status Tag</label>
+                                        <select 
+                                            value={formData.status} 
+                                            onChange={e => setFormData({...formData, status: e.target.value})}
+                                            className="w-full h-12 px-4 rounded-xl bg-slate-900 border border-slate-800 text-white outline-none focus:ring-2 focus:ring-primary/20 text-sm font-bold appearance-none"
+                                        >
+                                            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
                                     </div>
+                                </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Video Link (YouTube/Vimeo)</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Thumbnail *</label>
+                                    <div className="flex flex-col gap-3">
+                                        <div 
+                                            onClick={() => document.getElementById("thumbnail-upload").click()}
+                                            className="h-32 rounded-2xl border-2 border-dashed border-slate-800 bg-slate-900/50 hover:border-primary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer relative overflow-hidden group"
+                                        >
+                                            {formData.thumbnail ? (
+                                                <img src={formData.thumbnail} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <>
+                                                    <Camera className="h-6 w-6 text-slate-700 group-hover:text-primary transition-colors" />
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Click to upload image</span>
+                                                </>
+                                            )}
+                                        </div>
+                                        <input id="thumbnail-upload" type="file" className="hidden" accept="image/*" onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            const loadingToast = toast.loading("Uploading...");
+                                            try {
+                                                const res = await api.admin.uploadTrainingThumbnail(file);
+                                                if (res.url) {
+                                                    setFormData({ ...formData, thumbnail: res.url });
+                                                    toast.success("Uploaded", { id: loadingToast });
+                                                }
+                                            } catch (err) { toast.error("Failed", { id: loadingToast }); }
+                                        }} />
                                         <Input 
-                                            value={formData.videoUrl} 
-                                            onChange={e => setFormData({...formData, videoUrl: e.target.value})} 
-                                            placeholder="https://youtube.com/..." 
-                                            className="h-12 rounded-xl"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Provider Name</label>
-                                        <Input 
-                                            value={formData.provider} 
-                                            onChange={e => setFormData({...formData, provider: e.target.value})} 
-                                            placeholder="SWM Academy, Senior Artist, etc." 
-                                            className="h-12 rounded-xl"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Description</label>
-                                        <textarea 
-                                            value={formData.description} 
-                                            onChange={e => setFormData({...formData, description: e.target.value})} 
-                                            rows={3} 
-                                            className="w-full p-4 rounded-xl bg-card border border-border outline-none focus:ring-2 focus:ring-primary/20 text-sm font-medium resize-none"
-                                            placeholder="Explain what the professional will learn in this module..."
+                                            value={formData.thumbnail} 
+                                            onChange={e => setFormData({...formData, thumbnail: e.target.value})} 
+                                            placeholder="...or paste image URL" 
+                                            className="h-9 rounded-xl text-xs border-slate-800 bg-slate-900 text-slate-300 placeholder:text-slate-700"
                                         />
                                     </div>
                                 </div>
-                                <Button type="submit" className="w-full h-14 rounded-2xl text-base font-black gap-2">
-                                    <Save className="h-5 w-5" /> {editingVideo ? "Save Changes" : "Publish Training"}
-                                </Button>
-                            </form>
-                        </motion.div>
-                    </div>,
-                    document.body
-                )}
-            </AnimatePresence>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Video Link (YouTube/Vimeo)</label>
+                                    <Input 
+                                        value={formData.videoUrl} 
+                                        onChange={e => setFormData({...formData, videoUrl: e.target.value})} 
+                                        placeholder="Enter video URL" 
+                                        className="h-12 rounded-xl border-slate-800 bg-slate-900 text-white placeholder:text-slate-600 focus:ring-primary/20"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Description</label>
+                                    <textarea 
+                                        value={formData.description} 
+                                        onChange={e => setFormData({...formData, description: e.target.value})} 
+                                        rows={3} 
+                                        className="w-full p-4 rounded-xl bg-slate-900 border border-slate-800 text-white outline-none focus:ring-2 focus:ring-primary/20 text-sm font-medium resize-none placeholder:text-slate-700"
+                                        placeholder="Explain module details..."
+                                    />
+                                </div>
+                            </div>
+                            <Button type="submit" className="w-full h-14 rounded-2xl text-base font-black gap-2 mt-4 shadow-lg shadow-primary/20">
+                                <Save className="h-5 w-5" /> {editingVideo ? "Save Changes" : "Publish Training"}
+                            </Button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

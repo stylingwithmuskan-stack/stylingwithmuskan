@@ -75,6 +75,7 @@ const LiveMap = ({
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [eta, setEta] = useState(null);
   const [distance, setDistance] = useState(null);
+  const [polylinePath, setPolylinePath] = useState(null);
   const [routeError, setRouteError] = useState(null);
   const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
@@ -162,6 +163,7 @@ const LiveMap = ({
 
                 // Decode Polyline and Draw
                 const path = window.google.maps.geometry.encoding.decodePath(route.polyline.encodedPolyline);
+                setPolylinePath(path);
                 
                 if (!routePolyline.current) {
                     routePolyline.current = new window.google.maps.Polyline({
@@ -183,8 +185,6 @@ const LiveMap = ({
             })
             .catch(err => {
                 console.error("Route Fetch Error:", err);
-                // If it's a service disabled error, don't show a blocking UI error to the provider
-                // as they can't do anything about it. Just show markers without the route.
                 if (err.message?.includes("Routes API has not been used") || err.message?.includes("disabled")) {
                     setRouteError("Maps config issue: Enable Routes API in Google Console");
                 } else {
@@ -284,6 +284,7 @@ const LiveMap = ({
                     bikeIconUrl={bikeIconUrl}
                     eta={eta}
                     distance={distance}
+                    polylinePath={polylinePath}
                     showSOS={showSOS}
                     onSOS={onSOS}
                     handleRecenter={handleRecenter}
@@ -300,7 +301,7 @@ const LiveMap = ({
                         <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Live Arrival Estimate</p>
                         <div className="flex items-baseline gap-2">
                             <span className="text-3xl font-black text-gray-900">{eta || "--"}</span>
-                            <span className="text-sm font-bold text-gray-400 capitalize">{distance || ""} away</span>
+                            <span className="text-sm font-bold text-gray-400 capitalize">{distance ? `${distance} away` : ""}</span>
                         </div>
                     </div>
                     
@@ -328,6 +329,7 @@ const LiveMapContent = ({
     bikeIconUrl, 
     eta, 
     distance,
+    polylinePath,
     showSOS,
     onSOS,
     handleRecenter,
@@ -377,33 +379,31 @@ const LiveMapContent = ({
                 zIndex: 200
             });
         }
+    }, [ready, bikeIconUrl]); // Static markers init
 
-        // Draw Route via Routes API
-        if (userLocation && providerLocation && apiKey) {
-            fetchRoute(apiKey, providerLocation, userLocation)
-                .then(data => {
-                    const route = data.routes?.[0];
-                    if (!route) return;
+    // Update markers and polyline when data changes
+    useEffect(() => {
+        if (!mapInstance.current) return;
+        
+        if (userLocation && userMarker.current) userMarker.current.setPosition(userLocation);
+        if (providerLocation && providerMarker.current) providerMarker.current.setPosition(providerLocation);
 
-                    const path = window.google.maps.geometry.encoding.decodePath(route.polyline.encodedPolyline);
-                    
-                    if (routePolyline.current) routePolyline.current.setMap(null);
-                    routePolyline.current = new window.google.maps.Polyline({
-                        path,
-                        geodesic: true,
-                        strokeColor: "#3b82f6",
-                        strokeOpacity: 0.8,
-                        strokeWeight: 8,
-                        map: mapInstance.current,
-                    });
+        if (polylinePath) {
+            if (routePolyline.current) routePolyline.current.setMap(null);
+            routePolyline.current = new window.google.maps.Polyline({
+                path: polylinePath,
+                geodesic: true,
+                strokeColor: "#3b82f6",
+                strokeOpacity: 0.8,
+                strokeWeight: 8,
+                map: mapInstance.current,
+            });
 
-                    const bounds = new window.google.maps.LatLngBounds();
-                    path.forEach(pt => bounds.extend(pt));
-                    mapInstance.current.fitBounds(bounds, { top: 100, bottom: 100, left: 100, right: 100 });
-                })
-                .catch(console.error);
+            const bounds = new window.google.maps.LatLngBounds();
+            polylinePath.forEach(pt => bounds.extend(pt));
+            mapInstance.current.fitBounds(bounds, { top: 100, bottom: 100, left: 100, right: 100 });
         }
-    }, [userLocation, providerLocation, bikeIconUrl, apiKey]);
+    }, [userLocation, providerLocation, polylinePath]);
 
     return (
         <div className="w-full h-full relative">
@@ -433,14 +433,17 @@ const LiveMapContent = ({
 
             {/* Overlays */}
             <div className="absolute top-6 left-6 flex flex-col gap-3">
-                {eta && (
+                {(eta || distance) && (
                     <div className="bg-white px-5 py-3 rounded-2xl shadow-2xl border border-gray-100 flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
                             <Navigation className="w-5 h-5 fill-blue-600 animate-pulse" />
                         </div>
                         <div>
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Live Arrival Proximity</p>
-                            <p className="text-xl font-black text-gray-900 leading-none">{eta}</p>
+                            <div className="flex items-baseline gap-2">
+                                <p className="text-xl font-black text-gray-900 leading-none">{eta || "--"}</p>
+                                <p className="text-[11px] font-bold text-gray-400 tracking-tight">{distance || ""}</p>
+                            </div>
                         </div>
                     </div>
                 )}

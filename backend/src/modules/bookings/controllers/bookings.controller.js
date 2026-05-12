@@ -1065,45 +1065,59 @@ export async function adminFinalApprove(req, res) {
   const createBookingNow = req.body?.createBooking !== false;
   let booking = null;
   if (createBookingNow) {
-    // Convert to a normal booking with quoted items
-    const items = (enq.quote?.items || enq.items || []);
-    const total = (enq.quote?.totalAmount ?? items.reduce((s, it) => s + (Number(it.price) * (it.quantity || 1)), 0));
-    booking = await Booking.create({
-      customerId: enq.userId,
-      customerName: enq.name || "",
-      customerPhone: enq.phone || "",
-      services: items.map(it => ({ 
-        name: it.name, 
-        price: Number(it.price) || 0, 
-        duration: "60", // Default duration
-        category: it.category || it.categoryName || "", 
-        serviceType: it.serviceType || "" 
-      })),
-      totalAmount: total,
-      prepaidAmount: Number(enq.quote?.prebookAmount) || 0,
-      balanceAmount: total - (Number(enq.quote?.prebookAmount) || 0),
-      address: {
-        houseNo: enq.address?.houseNo || "",
-        area: enq.address?.area || "",
-        landmark: enq.address?.landmark || "",
-        city: enq.address?.city || "",
-        cityId: enq.address?.cityId || "",
-        zone: enq.address?.zone || "",
-        zoneId: enq.address?.zoneId || "",
-        lat: enq.address?.lat ?? null,
-        lng: enq.address?.lng ?? null,
-      },
-      slot: { 
-        date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10), 
-        time: enq.scheduledAt?.timeSlot || "10:00" 
-      },
-      bookingType: "customized",
-      status: "pending", // Set to pending so it appears in provider flows
-      assignedProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
-      maintainProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
-      teamMembers: Array.isArray(req.body?.teamMembers) ? req.body.teamMembers : (Array.isArray(enq.teamMembers) ? enq.teamMembers : []),
-    });
-    enq.bookingId = booking._id.toString();
+    const items = (enq.quote?.items?.length > 0 ? enq.quote.items : (enq.items?.length > 0 ? enq.items : []));
+    const total = (enq.quote?.totalAmount || items.reduce((s, it) => s + (Number(it.price) * (it.quantity || 1)), 0));
+    
+    console.log(`[ForceCreate] Processing Enquiry: ${enq._id}. Items count: ${items.length}, Total: ${total}`);
+
+    const bookingUser = await User.findById(enq.userId);
+    const primaryAddress = (bookingUser?.addresses && bookingUser.addresses[0]) || {};
+
+    try {
+      booking = await Booking.create({
+        customerId: enq.userId,
+        customerName: enq.name || bookingUser?.name || "Customer",
+        customerPhone: enq.phone || bookingUser?.phone || "",
+        services: items.map(it => ({ 
+          name: it.name, 
+          price: Number(it.price) || 0, 
+          duration: "60", 
+          category: it.category || it.categoryName || "", 
+          serviceType: it.serviceType || "" 
+        })),
+        totalAmount: total,
+        prepaidAmount: Number(enq.quote?.prebookAmount) || 0,
+        balanceAmount: total - (Number(enq.quote?.prebookAmount) || 0),
+        address: {
+          houseNo: enq.address?.houseNo || primaryAddress.houseNo || "",
+          area: enq.address?.area || primaryAddress.area || "",
+          landmark: enq.address?.landmark || primaryAddress.landmark || "",
+          city: enq.address?.city || primaryAddress.city || "",
+          cityId: enq.address?.cityId || primaryAddress.cityId || "",
+          zone: enq.address?.zone || primaryAddress.zone || "",
+          zoneId: enq.address?.zoneId || primaryAddress.zoneId || "",
+          lat: enq.address?.lat ?? primaryAddress.lat ?? null,
+          lng: enq.address?.lng ?? primaryAddress.lng ?? null,
+        },
+        cityId: enq.address?.cityId || primaryAddress.cityId || "",
+        zoneId: enq.address?.zoneId || primaryAddress.zoneId || "",
+        slot: { 
+          date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10), 
+          time: enq.scheduledAt?.timeSlot || "10:00" 
+        },
+        bookingType: "customized",
+        status: "pending",
+        assignedProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
+        maintainProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
+        teamMembers: Array.isArray(req.body?.teamMembers) ? req.body.teamMembers : (Array.isArray(enq.teamMembers) ? enq.teamMembers : []),
+      });
+
+      console.log(`[ForceCreate] ✅ Booking Created Successfully: ${booking._id}`);
+      enq.bookingId = booking._id.toString();
+    } catch (createErr) {
+      console.error(`[ForceCreate] ❌ Booking Creation FAILED for Enquiry ${enq._id}:`, createErr.message);
+      return res.status(500).json({ error: "Failed to create booking record: " + createErr.message });
+    }
 
     // Create notification for the assigned provider
     if (booking.assignedProvider) {
@@ -1116,6 +1130,14 @@ export async function adminFinalApprove(req, res) {
           respectProviderQuietHours: true,
         });
       } catch {}
+    } else {
+      // If no provider is manually assigned, trigger the automated assignment flow immediately
+      try {
+        const { findNextCandidate } = await import("../../../lib/assignment.js");
+        await findNextCandidate(booking._id.toString());
+      } catch (err) {
+        console.error("[ForceCreate] Failed to trigger auto-assignment:", err);
+      }
     }
   }
   enq.status = "final_approved";
