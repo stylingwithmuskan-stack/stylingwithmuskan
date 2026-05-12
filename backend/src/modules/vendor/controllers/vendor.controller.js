@@ -111,7 +111,7 @@ export async function register(req, res) {
     email: req.body.email,
     phone: req.body.phone || "",
     city: normCity(req.body.city) || "",
-    status: "pending",
+    status: "approved",
   });
   res.status(201).json({ vendor: v, message: "Registration submitted for admin approval" });
 }
@@ -191,17 +191,28 @@ export async function verifyRegistrationOtp(req, res) {
       ...requestedZoneIds,
       ...(normalized.zoneId ? [normalized.zoneId] : []),
     ]));
-    const v = await Vendor.create({
-      name,
-      email,
-      phone,
-      city: normalized.cityName || normCity(city),
-      cityId: normalized.cityId || "",
-      zones: finalZones,
-      zoneIds: finalZoneIds,
-      baseZoneId: effectiveLocation?.zoneId || normalized.zoneId || finalZoneIds[0] || "",
-      status: "pending",
-    });
+    let v = await Vendor.findOne({ phone });
+    if (v) {
+      v.name = name || v.name;
+      v.email = email || v.email;
+      v.status = "approved";
+      v.zones = Array.from(new Set([...(v.zones || []), ...finalZones]));
+      v.city = normalized.cityName || v.city || normCity(city);
+      v.cityId = normalized.cityId || v.cityId || "";
+      await v.save();
+    } else {
+      v = await Vendor.create({
+        name,
+        email,
+        phone,
+        city: normalized.cityName || normCity(city),
+        cityId: normalized.cityId || "",
+        zones: finalZones,
+        zoneIds: finalZoneIds,
+        baseZoneId: effectiveLocation?.zoneId || normalized.zoneId || finalZoneIds[0] || "",
+        status: "approved",
+      });
+    }
 
     try {
       await notify({
@@ -234,6 +245,12 @@ export async function verifyRegistrationOtp(req, res) {
     } catch { }
 
     const token = issueRoleToken("vendor", v._id?.toString() || v.email);
+    let subscription = null;
+    try {
+      subscription = await getSubscriptionSnapshot(v._id?.toString() || v.email, "vendor");
+    } catch (err) {
+      console.error('[Vendor Registration] Subscription snapshot failed (fail-safe):', err.message);
+    }
     const isProd = process.env.NODE_ENV === "production";
     res.cookie("vendorToken", token, {
       httpOnly: true,
@@ -242,19 +259,20 @@ export async function verifyRegistrationOtp(req, res) {
       maxAge: 30 * 24 * 3600 * 1000,
     });
 
-    res.status(201).json({
+    res.json({
       success: true,
-      message: "Registration submitted for admin approval",
+      message: "Login successful",
       data: {
         token: token,
         vendor: {
           ...v.toObject(),
-          id: v._id.toString()
+          id: v._id.toString(),
+          subscription
         }
       }
     });
   } catch (err) {
-    console.error('[Vendor Registration] ERROR:', err.message, err.stack);
+    console.error('[Vendor Registration] CRITICAL ERROR:', err);
     res.status(400).json({ error: err.message || "Registration failed" });
   }
 }
@@ -349,25 +367,16 @@ export async function deleteAccount(req, res) {
   try {
     const vendorId = req.auth.sub;
 
-    // Check for active bookings in vendor's zones
     const vendor = await Vendor.findById(vendorId).lean();
     if (!vendor) {
       return res.status(404).json({ error: "Vendor not found" });
     }
 
-    const activeBookings = await Booking.countDocuments({
-      "address.zone": { $in: vendor.zones || [] },
-      status: { $in: ["pending", "assigned", "accepted", "in_progress"] }
-    });
-
-    if (activeBookings > 0) {
-      return res.status(400).json({
-        error: "Cannot delete account with active bookings in your zones. Please ensure all bookings are completed first."
-      });
-    }
-
-    // Delete vendor account
-    await Vendor.findByIdAndDelete(vendorId);
+    // Deleting account directly as requested (Force Delete)
+    await Promise.all([
+      Vendor.findByIdAndDelete(vendorId),
+      VendorSubAccount.deleteMany({ vendorId })
+    ]);
 
     // Clear auth cookie
     res.clearCookie("vendorToken");
@@ -412,7 +421,7 @@ export async function requestOtp(req, res) {
 export async function verifyOtp(req, res) {
   const phone = (req.body.phone || "").trim();
   const otp = (req.body.otp || "").trim();
-  if (!/^\d{10}$/.test(phone) || otp.length !== OTP_LENGTH) return res.status(400).json({ error: "Invalid input" });
+  if (!/^\d{10}$/.test(phone) || otp.length !== OTP_LENGTH) return res.status(400).json({ error: "Invalid OTP" });
   const valid = await verifyOtpValue({
     redis,
     key: `v:otp:${phone}`,
@@ -469,25 +478,10 @@ export async function listProviders(req, res) {
   console.log('[Vendor] listProviders called:', { vendorId, vendorCity: vendor?.city, normalizedCity: city, zones });
 
   let q = {};
-  const cityRegex = city ? new RegExp(`^${escapeRegex(city)}$`, "i") : null;
-  if (cityRegex && zones.length > 0) {
-    const zoneRegexes = zones.map(z => new RegExp(`^${escapeRegex(z)}$`, "i"));
-    q = {
-      $or: [
-        {
-          $and: [
-            { city: cityRegex },
-            { zones: { $in: zoneRegexes } }
-          ]
-        },
-        {
-          city: cityRegex,
-          approvalStatus: { $in: ["pending_vendor", "pending"] }
-        }
-      ]
-    };
-  } else if (cityRegex) {
-    q = { city: cityRegex };
+
+  // Remove restrictive city/zone filters to show all providers (Admin-like view)
+  if (req.query.status) {
+    q.approvalStatus = req.query.status;
   }
 
   console.log('[Vendor] Query:', JSON.stringify(q, null, 2));
@@ -502,7 +496,7 @@ export async function listProviders(req, res) {
     .skip((page - 1) * limit)
     .limit(limit)
     .lean();
-  items = items.filter((item) => belongsToCity(item, cityId, city));
+  // Removed manual city filtering to show all providers
 
   console.log('[Vendor] Found providers:', items.length, 'of', total);
   if (items.length > 0) {

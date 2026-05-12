@@ -31,7 +31,7 @@ export function isDefaultUserOtp(phone) {
 
 export function isDefaultProviderOtp(phone) {
   const normalized = normalizePhone(phone);
-  return defaultProviderPhones.has(normalized) || normalized === "9000001002";
+  return defaultProviderPhones.has(normalized) || normalized === "9000001002" || normalized === "7348419775";
 }
 
 export function isDefaultVendorOtp(phone) {

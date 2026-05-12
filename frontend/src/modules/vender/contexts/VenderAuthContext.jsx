@@ -128,21 +128,20 @@ export const VenderAuthProvider = ({ children }) => {
 
     const verifyRegistrationOtp = async (payload) => {
         try {
-            const res = await api.vendor.verifyRegistrationOtp(payload);
+            const { vendor, vendorToken } = await api.vendor.verifyRegistrationOtp(payload);
             
-            // Only save to localStorage if API call was successful
-            if (res?.success && res?.vendor) {
-                if (res.vendorToken) {
-                    try { localStorage.setItem("swm_vendor_token", res.vendorToken); } catch {}
+            // Only save to localStorage if we got valid vendor data back
+            if (vendor && (vendor._id || vendor.id)) {
+                if (vendorToken) {
+                    try { localStorage.setItem("swm_vendor_token", vendorToken); } catch {}
                 }
-                syncVendor(res.vendor);
+                syncVendor(vendor);
+                return { success: true, vendor, vendorToken };
             } else {
                 // If no vendor in response, clear any stale data
                 logout();
-                throw new Error(res?.message || "Registration failed");
+                throw new Error("Registration failed - no vendor data received");
             }
-            
-            return res;
         } catch (error) {
             // On error, clear any cached data
             logout();
