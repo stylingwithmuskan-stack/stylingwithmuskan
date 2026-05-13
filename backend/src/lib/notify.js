@@ -488,8 +488,8 @@ export async function notify({
       if (!io) {
         console.warn("[Notify] Socket IO instance not found!");
       } else {
-        // Global notification list refresh
-        io.of("/bookings").emit("new_notification", {
+        // ✅ FIX: Use targeted room emission instead of global broadcast to prevent data leakage/noise
+        io.of("/bookings").to(String(recipientId)).emit("new_notification", {
           recipientId: String(recipientId),
           notification,
         });

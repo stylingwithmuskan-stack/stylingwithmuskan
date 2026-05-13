@@ -38,6 +38,11 @@ export function initSocket(httpServer) {
         next(new Error("Unauthorized"));
       }
     }).on("connection", (socket) => {
+      // ✅ FIX: Automatically join a room named after the user's ID for targeted notifications
+      const userId = String(socket.data.userId);
+      socket.join(userId);
+      console.log(`[Socket] User ${userId} joined their private notification room`);
+
       socket.on("join:booking", async (payload) => {
         try {
           const bookingId = String(payload?.bookingId || "").trim();
