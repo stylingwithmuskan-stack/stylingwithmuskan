@@ -19,19 +19,39 @@ const ADMIN_KEY = "swm_admin";
 const TOKEN_KEY = "swm_admin_token";
 
 export const AdminAuthProvider = ({ children }) => {
-    const [admin, setAdmin] = useState(null);
+    const [admin, setAdminState] = useState(() => {
+        try {
+            const sessionRaw = sessionStorage.getItem(ADMIN_KEY);
+            if (sessionRaw) return JSON.parse(sessionRaw);
+            const localRaw = safeStorage.getItem(ADMIN_KEY);
+            if (localRaw) {
+                const parsed = JSON.parse(localRaw);
+                sessionStorage.setItem(ADMIN_KEY, localRaw);
+                return parsed;
+            }
+            return null;
+        } catch { return null; }
+    });
+    const setAdmin = (a) => {
+        setAdminState(a);
+        try {
+            if (a) {
+                const raw = JSON.stringify(a);
+                sessionStorage.setItem(ADMIN_KEY, raw);
+                safeStorage.setItem(ADMIN_KEY, raw);
+            } else {
+                sessionStorage.removeItem(ADMIN_KEY);
+                safeStorage.removeItem(ADMIN_KEY);
+            }
+        } catch {}
+    };
+
     const [hydrated, setHydrated] = useState(false);
 
     const isLoggedIn = !!admin;
 
     useEffect(() => {
-        try {
-            const raw = safeStorage.getItem(ADMIN_KEY);
-            if (raw) {
-                const saved = JSON.parse(raw);
-                if (saved && typeof saved === "object") setAdmin(saved);
-            }
-        } catch {}
+        // Initial state set in useState initializer
         setHydrated(true);
     }, []);
 
@@ -45,12 +65,19 @@ export const AdminAuthProvider = ({ children }) => {
         return () => window.removeEventListener("swm-api-401", handle401);
     }, []);
 
-    const [adminToken, setAdminTokenState] = useState(() => safeStorage.getItem(TOKEN_KEY) || "");
+    const [adminToken, setAdminTokenState] = useState(() => {
+        return sessionStorage.getItem(TOKEN_KEY) || safeStorage.getItem(TOKEN_KEY) || "";
+    });
     const setAdminToken = (token) => {
         setAdminTokenState(token || "");
         try {
-            if (token) safeStorage.setItem(TOKEN_KEY, token);
-            else safeStorage.removeItem(TOKEN_KEY);
+            if (token) {
+                sessionStorage.setItem(TOKEN_KEY, token);
+                safeStorage.setItem(TOKEN_KEY, token);
+            } else {
+                sessionStorage.removeItem(TOKEN_KEY);
+                safeStorage.removeItem(TOKEN_KEY);
+            }
         } catch {}
     };
 
@@ -61,7 +88,6 @@ export const AdminAuthProvider = ({ children }) => {
                 setAdminToken(adminToken);
             }
             setAdmin(admin);
-            try { safeStorage.setItem(ADMIN_KEY, JSON.stringify(admin)); } catch {}
             return { success: true };
         } catch (e) {
             const msg = e?.message || "Login failed";

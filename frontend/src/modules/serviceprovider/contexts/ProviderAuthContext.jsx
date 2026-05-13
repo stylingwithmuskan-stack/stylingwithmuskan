@@ -17,24 +17,48 @@ const TOKEN_KEY = "swm_provider_token";
 export const ProviderAuthProvider = ({ children }) => {
     const [provider, setProviderState] = useState(() => {
         try {
-            const raw = safeStorage.getItem(STORAGE_KEY);
-            return raw ? JSON.parse(raw) : null;
+            // Priority 1: sessionStorage (Tab-specific, survives refresh)
+            const sessionRaw = sessionStorage.getItem(STORAGE_KEY);
+            if (sessionRaw) return JSON.parse(sessionRaw);
+            
+            // Priority 2: localStorage (Cross-tab persistence, for new tabs)
+            const localRaw = safeStorage.getItem(STORAGE_KEY);
+            if (localRaw) {
+                const parsed = JSON.parse(localRaw);
+                // Copy to sessionStorage to "lock" it to this tab
+                sessionStorage.setItem(STORAGE_KEY, localRaw);
+                return parsed;
+            }
+            return null;
         } catch { return null; }
     });
     const [hydrated, setHydrated] = useState(true); // Set to true immediately since we read in initializer
     const setProvider = (p) => {
         setProviderState(p);
         try {
-            if (p) safeStorage.setItem(STORAGE_KEY, JSON.stringify(p));
-            else safeStorage.removeItem(STORAGE_KEY);
+            if (p) {
+                const raw = JSON.stringify(p);
+                sessionStorage.setItem(STORAGE_KEY, raw);
+                safeStorage.setItem(STORAGE_KEY, raw);
+            } else {
+                sessionStorage.removeItem(STORAGE_KEY);
+                safeStorage.removeItem(STORAGE_KEY);
+            }
         } catch {}
     };
-    const [providerToken, setProviderTokenState] = useState(() => safeStorage.getItem(TOKEN_KEY) || "");
+    const [providerToken, setProviderTokenState] = useState(() => {
+        return sessionStorage.getItem(TOKEN_KEY) || safeStorage.getItem(TOKEN_KEY) || "";
+    });
     const setProviderToken = (token) => {
         setProviderTokenState(token || "");
         try {
-            if (token) safeStorage.setItem(TOKEN_KEY, token);
-            else safeStorage.removeItem(TOKEN_KEY);
+            if (token) {
+                sessionStorage.setItem(TOKEN_KEY, token);
+                safeStorage.setItem(TOKEN_KEY, token);
+            } else {
+                sessionStorage.removeItem(TOKEN_KEY);
+                safeStorage.removeItem(TOKEN_KEY);
+            }
         } catch {}
     };
     useEffect(() => {
