@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/modules/user/lib/api";
-import { safeSessionStorage as safeStorage } from "@/modules/user/lib/safeSessionStorage";
+import { safeStorage } from "@/modules/user/lib/safeStorage";
 
 export const VenderAuthContext = createContext(undefined);
 
@@ -11,6 +11,7 @@ export const useVenderAuth = () => {
 };
 
 const STORAGE_KEY = "swm_vendor";
+const TOKEN_KEY = "swm_vendor_token";
 
 export const VenderAuthProvider = ({ children }) => {
     const [vendor, setVendor] = useState(null);
@@ -18,14 +19,14 @@ export const VenderAuthProvider = ({ children }) => {
     const syncVendor = (nextVendor) => {
         setVendor(nextVendor);
         try {
-            if (nextVendor) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(nextVendor));
-            else sessionStorage.removeItem(STORAGE_KEY);
+            if (nextVendor) safeStorage.setItem(STORAGE_KEY, JSON.stringify(nextVendor));
+            else safeStorage.removeItem(STORAGE_KEY);
         } catch {}
     };
 
     useEffect(() => {
         try {
-            const raw = sessionStorage.getItem(STORAGE_KEY);
+            const raw = safeStorage.getItem(STORAGE_KEY);
             if (raw) setVendor(JSON.parse(raw));
         } catch {}
         setHydrated(true);
@@ -46,6 +47,15 @@ export const VenderAuthProvider = ({ children }) => {
         return () => window.removeEventListener("swm-api-401", handle401);
     }, []);
 
+    const [vendorToken, setVendorTokenState] = useState(() => safeStorage.getItem(TOKEN_KEY) || "");
+    const setVendorToken = (token) => {
+        setVendorTokenState(token || "");
+        try {
+            if (token) safeStorage.setItem(TOKEN_KEY, token);
+            else safeStorage.removeItem(TOKEN_KEY);
+        } catch {}
+    };
+
     const isLoggedIn = !!vendor;
     const isApproved = vendor?.status === "approved";
 
@@ -56,7 +66,7 @@ export const VenderAuthProvider = ({ children }) => {
             // Only save if we got valid vendor data back
             if (vendor && (vendor._id || vendor.id)) {
                 if (vendorToken) {
-                    try { sessionStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+                    setVendorToken(vendorToken);
                 }
                 syncVendor(vendor);
                 
@@ -84,7 +94,7 @@ export const VenderAuthProvider = ({ children }) => {
             // Only save if we got valid vendor data back
             if (vendor && (vendor._id || vendor.id)) {
                 if (vendorToken) {
-                    try { sessionStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+                    setVendorToken(vendorToken);
                 }
                 syncVendor(vendor);
                 
@@ -109,7 +119,7 @@ export const VenderAuthProvider = ({ children }) => {
             // Only save if we got valid vendor data back
             if (vendor && (vendor._id || vendor.id)) {
                 if (vendorToken) {
-                    try { sessionStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+                    setVendorToken(vendorToken);
                 }
                 syncVendor(vendor);
                 return { success: true };
@@ -134,7 +144,7 @@ export const VenderAuthProvider = ({ children }) => {
             // Only save to localStorage if we got valid vendor data back
             if (vendor && (vendor._id || vendor.id)) {
                 if (vendorToken) {
-                    try { sessionStorage.setItem("swm_vendor_token", vendorToken); } catch {}
+                    setVendorToken(vendorToken);
                 }
                 syncVendor(vendor);
                 return { success: true, vendor, vendorToken };
@@ -152,9 +162,10 @@ export const VenderAuthProvider = ({ children }) => {
 
     const logout = () => {
         setVendor(null);
+        setVendorToken("");
         try { 
-            sessionStorage.removeItem(STORAGE_KEY);
-            sessionStorage.removeItem("swm_vendor_token");
+            safeStorage.removeItem(STORAGE_KEY);
+            safeStorage.removeItem(TOKEN_KEY);
         } catch {}
         api.vendor.logout();
     };
@@ -283,6 +294,8 @@ export const VenderAuthProvider = ({ children }) => {
             requestZones,
             getProviderRankings,
             refreshVendor,
+            vendorToken,
+            setVendorToken,
         }}>
             {children}
         </VenderAuthContext.Provider>

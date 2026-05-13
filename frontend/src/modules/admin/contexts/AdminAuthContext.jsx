@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
+import { safeStorage } from "@/modules/user/lib/safeStorage";
 
 export const AdminAuthContext = createContext(null);
 
@@ -15,6 +16,7 @@ export const useAdminAuth = () => {
 };
 
 const ADMIN_KEY = "swm_admin";
+const TOKEN_KEY = "swm_admin_token";
 
 export const AdminAuthProvider = ({ children }) => {
     const [admin, setAdmin] = useState(null);
@@ -24,7 +26,7 @@ export const AdminAuthProvider = ({ children }) => {
 
     useEffect(() => {
         try {
-            const raw = sessionStorage.getItem(ADMIN_KEY);
+            const raw = safeStorage.getItem(ADMIN_KEY);
             if (raw) {
                 const saved = JSON.parse(raw);
                 if (saved && typeof saved === "object") setAdmin(saved);
@@ -43,14 +45,23 @@ export const AdminAuthProvider = ({ children }) => {
         return () => window.removeEventListener("swm-api-401", handle401);
     }, []);
 
+    const [adminToken, setAdminTokenState] = useState(() => safeStorage.getItem(TOKEN_KEY) || "");
+    const setAdminToken = (token) => {
+        setAdminTokenState(token || "");
+        try {
+            if (token) safeStorage.setItem(TOKEN_KEY, token);
+            else safeStorage.removeItem(TOKEN_KEY);
+        } catch {}
+    };
+
     const login = async (email, password) => {
         try {
             const { admin, adminToken } = await api.admin.login(email, password);
             if (adminToken) {
-                try { sessionStorage.setItem("swm_admin_token", adminToken); } catch {}
+                setAdminToken(adminToken);
             }
             setAdmin(admin);
-            try { sessionStorage.setItem(ADMIN_KEY, JSON.stringify(admin)); } catch {}
+            try { safeStorage.setItem(ADMIN_KEY, JSON.stringify(admin)); } catch {}
             return { success: true };
         } catch (e) {
             const msg = e?.message || "Login failed";
@@ -60,9 +71,10 @@ export const AdminAuthProvider = ({ children }) => {
 
     const logout = () => {
         setAdmin(null);
+        setAdminToken("");
         try { 
-            sessionStorage.removeItem(ADMIN_KEY);
-            sessionStorage.removeItem("swm_admin_token");
+            safeStorage.removeItem(ADMIN_KEY);
+            safeStorage.removeItem(TOKEN_KEY);
         } catch {}
         api.admin.logout();
     };
@@ -297,7 +309,7 @@ export const AdminAuthProvider = ({ children }) => {
 
     return (
         <AdminAuthContext.Provider value={{
-            admin, isLoggedIn, hydrated, login, logout,
+            admin, isLoggedIn, hydrated, login, logout, adminToken, setAdminToken,
             getAllVendors, updateVendorStatus,
             approveVendorZones, rejectVendorZones,
             getAllCustomers,

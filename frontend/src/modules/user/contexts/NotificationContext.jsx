@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
-import { safeStorage } from "@/modules/user/lib/safeStorage";
+import { safeSessionStorage } from "@/modules/user/lib/safeSessionStorage";
 import { io } from "socket.io-client";
 import { ProviderAuthContext } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { VenderAuthContext } from "@/modules/vender/contexts/VenderAuthContext";
@@ -65,17 +65,17 @@ export const NotificationProvider = ({ children, role }) => {
         return "user";
     }, [location?.pathname, provider, vendor, admin, user]);
 
+    const providerToken = providerContext?.providerToken || "";
+    const vendorToken = vendorContext?.vendorToken || "";
+    const adminToken = adminContext?.adminToken || "";
+    const userToken = userContext?.token || ""; // Assuming AuthContext exposes token
+
     const activeToken = useMemo(() => {
-        try {
-            // Get tokens from safeStorage directly based on detected role
-            if (activeRole === "provider") return safeStorage.getItem("swm_provider_token") || "";
-            if (activeRole === "vendor") return safeStorage.getItem("swm_vendor_token") || "";
-            if (activeRole === "admin") return safeStorage.getItem("swm_admin_token") || "";
-            return safeStorage.getItem("swm_token") || "";
-        } catch {
-            return "";
-        }
-    }, [activeRole]);
+        if (activeRole === "provider") return providerToken;
+        if (activeRole === "vendor") return vendorToken;
+        if (activeRole === "admin") return adminToken;
+        return userToken;
+    }, [activeRole, providerToken, vendorToken, adminToken, userToken]);
 
     const [userInteracted, setUserInteracted] = useState(false);
     const lastSoundPlayedRef = useRef(0);

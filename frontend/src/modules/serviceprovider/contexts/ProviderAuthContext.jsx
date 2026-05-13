@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/modules/user/lib/api";
-import { safeSessionStorage as safeStorage } from "@/modules/user/lib/safeSessionStorage";
+import { safeStorage } from "@/modules/user/lib/safeStorage";
 import { initPushNotifications, unregisterPush } from "@/services/pushNotificationService";
 
 export const ProviderAuthContext = createContext(undefined);
@@ -17,7 +17,7 @@ const TOKEN_KEY = "swm_provider_token";
 export const ProviderAuthProvider = ({ children }) => {
     const [provider, setProviderState] = useState(() => {
         try {
-            const raw = sessionStorage.getItem(STORAGE_KEY);
+            const raw = safeStorage.getItem(STORAGE_KEY);
             return raw ? JSON.parse(raw) : null;
         } catch { return null; }
     });
@@ -25,11 +25,13 @@ export const ProviderAuthProvider = ({ children }) => {
     const setProvider = (p) => {
         setProviderState(p);
         try {
-            if (p) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(p));
-            else sessionStorage.removeItem(STORAGE_KEY);
+            if (p) safeStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+            else safeStorage.removeItem(STORAGE_KEY);
         } catch {}
     };
+    const [providerToken, setProviderTokenState] = useState(() => safeStorage.getItem(TOKEN_KEY) || "");
     const setProviderToken = (token) => {
+        setProviderTokenState(token || "");
         try {
             if (token) safeStorage.setItem(TOKEN_KEY, token);
             else safeStorage.removeItem(TOKEN_KEY);
@@ -234,7 +236,7 @@ export const ProviderAuthProvider = ({ children }) => {
             api.provider.logout();
             
             // Critical: Clear everything and redirect to login to reset all contexts/sockets
-            sessionStorage.removeItem(STORAGE_KEY);
+            safeStorage.removeItem(STORAGE_KEY);
             safeStorage.removeItem(TOKEN_KEY);
             
             window.location.href = "/provider/login";
@@ -290,6 +292,8 @@ export const ProviderAuthProvider = ({ children }) => {
             upgradeToPro,
             refreshProvider,
             requestZones,
+            providerToken,
+            setProviderToken,
         }}>
             {children}
         </ProviderAuthContext.Provider>
