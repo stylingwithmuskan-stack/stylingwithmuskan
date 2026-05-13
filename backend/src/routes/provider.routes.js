@@ -1415,12 +1415,10 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
   // Security: only allow if URL matches token OR token is a valid provider (for token-priority mode)
   // We use URL param for lookup but log the mismatch for debugging
   if (urlProviderId !== tokenProviderId) {
-    console.log(`[BookingsGET] Token mismatch: URL=${urlProviderId}, Token=${tokenProviderId}. Using token for security.`);
+    console.warn(`[BookingsGET] Security Warning: URL ID (${urlProviderId}) !== Token ID (${tokenProviderId}). Forcing Token ID for security.`);
   }
-  // Always use token sub for security — the frontend sends providerId in URL that matches localStorage
-  // If they mismatch, trust the URL param (it's what the logged-in provider explicitly asked for)
-  // But ensure the token is a valid provider account to prevent unauthorized access
-  const providerId = urlProviderId; // Use URL param — each provider's browser sends their own ID
+  // Always use token sub for security to prevent ID-harvesting/unauthorized access
+  const providerId = tokenProviderId; 
   
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);

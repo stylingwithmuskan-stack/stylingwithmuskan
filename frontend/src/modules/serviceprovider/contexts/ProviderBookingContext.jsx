@@ -47,6 +47,9 @@ export const ProviderBookingProvider = ({ children }) => {
 
     const refreshBookings = useCallback(async () => {
         try {
+            const isProviderPath = window.location.pathname.startsWith("/provider");
+            if (!isProviderPath) return;
+
             let pid = providerId;
             if (!pid && provider?.phone) {
                 const { provider: fresh } = await api.provider.me(provider.phone);
@@ -67,6 +70,9 @@ export const ProviderBookingProvider = ({ children }) => {
     }, [normalizeBooking, providerId, provider?.phone]);
 
     useEffect(() => {
+        const isProviderPath = window.location.pathname.startsWith("/provider");
+        if (!isProviderPath) return;
+
         let cancelled = false;
         (async () => {
             try {
@@ -94,12 +100,14 @@ export const ProviderBookingProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        if (!providerId && !provider?.phone) return;
+        const isProviderPath = window.location.pathname.startsWith("/provider");
+        if (!providerId || !isProviderPath) return;
+        
         const interval = setInterval(() => {
             refreshBookings();
         }, 30000);
         return () => clearInterval(interval);
-    }, [providerId, provider?.phone, refreshBookings]);
+    }, [providerId, refreshBookings]);
 
 
 

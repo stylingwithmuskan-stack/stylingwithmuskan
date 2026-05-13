@@ -10,7 +10,7 @@ import { computeAvailableSlots } from "./availability.js";
 import { DEFAULT_TIME_SLOTS, isIsoDate, parseDurationToMinutes, slotLabelToLocalDateTime } from "./slots.js";
 import { resolveBookingSettings } from "./settings.js";
 import { isoDateToLocalEnd, isoDateToLocalStart } from "./isoDateTime.js";
-import { notify } from "./notify.js";
+import { notify, notifyMany } from "./notify.js";
 import { processSmartRefund } from "./refund.service.js";
 import { getIO } from "../startup/socket.js";
 
@@ -367,22 +367,38 @@ export async function handleExhaustedAssignmentChain({
     });
 
     try {
-      // ✅ BROAD SEARCH: Find any vendor in the city (ignoring strict casing/whitespace)
+      const searchCity = city.trim();
+      console.log(`[Escalation] Searching for vendors in city: "${searchCity}"`);
+      
       const vendors = await Vendor.find({
-        city: new RegExp(city.trim(), "i"),
+        city: new RegExp(searchCity, "i"),
         status: "approved"
       }).lean();
 
-      if (vendors.length > 0) {
-        const vendorIds = vendors.map(v => v._id.toString());
+      console.log(`[Escalation] Found ${vendors.length} approved vendors.`);
+
+      if (vendors.length > 0 || vendor) {
+        const vendorIds = Array.from(new Set([
+          ...vendors.map(v => v._id.toString()),
+          ...(vendor ? [vendor._id.toString()] : [])
+        ])).filter(Boolean);
+        
+        console.log(`[Escalation] 🔔 NOTIFYING VENDORS: Role=vendor, IDs=[${vendorIds.join(", ")}], Type=NEW_ORDER`);
+        
         await notifyMany(vendorIds, {
           recipientRole: "vendor",
           type: "NEW_ORDER",
           meta: { bookingId: booking._id.toString(), city, reason: escalationReason },
         });
-        console.log(`[Escalation] Notifications sent to ${vendors.length} vendors in ${city}`);
       } else {
-        console.warn(`[Escalation] NO APPROVED VENDORS FOUND for city: "${city}"`);
+        console.warn(`[Escalation] ❌ NO APPROVED VENDORS FOUND for city: "${city}". FORCING GLOBAL BROADCAST. Role=vendor`);
+        // Fail-safe: Broadcast to ALL vendors if city-specific ones are missing
+        await notify({
+          recipientId: "GLOBAL_VENDOR_FALLBACK",
+          recipientRole: "vendor",
+          type: "NEW_ORDER",
+          meta: { bookingId: booking._id.toString(), city, reason: "fallback_broadcast" },
+        });
       }
       await notify({
         recipientId: "ADMIN001",
@@ -395,7 +411,9 @@ export async function handleExhaustedAssignmentChain({
           reason: vendor ? "escalated to vendor" : "no vendor found",
         },
       });
-    } catch { }
+    } catch (err) {
+      console.error("[Escalation] ❌ Notification chain failed:", err.message);
+    }
 
     return {
       kind: "vendor_escalation",
@@ -450,7 +468,9 @@ export async function handleExhaustedAssignmentChain({
       type: "booking_cancelled",
       meta: { bookingId: booking._id.toString(), city, reason: "no provider accepted before service window" },
     });
-  } catch { }
+  } catch (err) {
+    console.error("[AutoCancel] ❌ Notification chain failed:", err.message);
+  }
 
   return {
     kind: "auto_cancel",

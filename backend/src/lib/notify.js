@@ -488,13 +488,15 @@ export async function notify({
       if (!io) {
         console.warn("[Notify] Socket IO instance not found!");
       } else {
-        // ✅ HYBRID FIX: Reverting to broadcast within the namespace but targeting roles to ensure delivery
-        // If room-based delivery (to user ID) fails, broadcast ensures the notification reaches the client.
-        io.of("/bookings").emit("new_notification", {
+        // Targeted delivery to the user's private room (joined in socket.js)
+        const targetRoom = String(recipientId) === "GLOBAL_VENDOR_FALLBACK" ? "role:vendor" : String(recipientId);
+        io.of("/bookings").to(targetRoom).emit("new_notification", {
           recipientId: String(recipientId),
+          recipientRole,
+          type,
           notification,
         });
-        console.log(`[Notify] Role-based broadcast successful to /bookings for ${recipientId}`);
+        console.log(`[Notify] Socket emitted to room: ${targetRoom} (Target: ${recipientId}, Role: ${recipientRole})`);
       }
 
       // Targeted room update for real-time status tracking in modals
