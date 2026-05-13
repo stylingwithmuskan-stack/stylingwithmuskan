@@ -9,6 +9,7 @@ import { AuthContext } from "@/modules/user/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
 import { setupForegroundHandler } from "@/services/pushNotificationService";
 import { playFlutterSound, isFlutterWebView } from "@/utils/flutterBridge";
+import { toast } from "sonner";
 
 const SOUND_FILES = {
     ringtone: "/sounds/ringtone.mp3",
@@ -235,6 +236,12 @@ export const NotificationProvider = ({ children, role }) => {
                 console.log("[NotificationContext] Match found! Updating UI and playing sound.");
                 setNotifications((prev) => insertUniqueNotification(prev, payload.notification));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));
+
+                // Show real-time toast
+                toast(payload.notification?.title || "New Notification", {
+                    description: payload.notification?.message,
+                    duration: 5000,
+                });
 
                 if (payload.notification?.sound) {
                     playNotificationSound(payload.notification.sound);
