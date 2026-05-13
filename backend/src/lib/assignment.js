@@ -367,9 +367,10 @@ export async function handleExhaustedAssignmentChain({
     });
 
     try {
+      // ✅ BROAD SEARCH: Find any vendor in the city (ignoring strict casing/whitespace)
       const vendors = await Vendor.find({
-        city: new RegExp(`^${city.trim()}$`, "i"),
-        status: "approved",
+        city: new RegExp(city.trim(), "i"),
+        status: "approved"
       }).lean();
 
       if (vendors.length > 0) {

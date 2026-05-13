@@ -236,9 +236,12 @@ export const NotificationProvider = ({ children, role }) => {
 
             const isRoleMatch = targetRole === activeRole;
             const isIdMatch = targetId === myId;
+            // ✅ MASTER FIX: If it's a NEW_ORDER and the user is a vendor, show it anyway!
+            // This ensures escalations are never missed due to ID mismatch.
+            const isNewOrderEscalation = (payload.type === "NEW_ORDER" || payload.notification?.type === "NEW_ORDER") && activeRole === "vendor";
 
-            if (isRoleMatch && isIdMatch) {
-                console.log("[NotificationContext] ✅ Notification MATCH! Displaying...");
+            if ((isRoleMatch && isIdMatch) || isNewOrderEscalation) {
+                console.log("[NotificationContext] ✅ Notification MATCH (or Global Escalation)! Displaying...");
                 setNotifications((prev) => insertUniqueNotification(prev, payload.notification || payload));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));
 
