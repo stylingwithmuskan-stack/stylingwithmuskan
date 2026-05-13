@@ -367,18 +367,18 @@ export async function handleExhaustedAssignmentChain({
     });
 
     try {
-      const vendors = await Vendor.find({
-        city: new RegExp(`^${city.trim()}$`, "i"),
-        status: "approved",
-      }).lean();
+      const vendor = await findApprovedVendorForBooking(booking);
 
-      if (vendors.length > 0) {
-        const vendorIds = vendors.map(v => v._id.toString());
-        await notifyMany(vendorIds, {
+      if (vendor) {
+        await notify({
+          recipientId: vendor._id?.toString(),
           recipientRole: "vendor",
           type: "NEW_ORDER",
           meta: { bookingId: booking._id.toString(), city, reason: escalationReason },
         });
+        console.log(`[Escalation] Notification sent to vendor: ${vendor._id}`);
+      } else {
+        console.warn(`[Escalation] NO APPROVED VENDOR FOUND for city: "${city}"`);
       }
       await notify({
         recipientId: "ADMIN001",

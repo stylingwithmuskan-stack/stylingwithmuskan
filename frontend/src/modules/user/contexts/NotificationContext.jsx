@@ -226,28 +226,32 @@ export const NotificationProvider = ({ children, role }) => {
 
         socket.on("new_notification", (payload) => {
             console.log("[NotificationContext] Received new_notification:", payload);
-            const targetId = String(payload.recipientId);
-            const myId = String(currentUserId);
-            const targetRole = payload?.notification?.recipientRole || payload?.recipientRole;
+            
+            const targetId = String(payload.recipientId || payload.notification?.recipientId || "");
+            const targetRole = String(payload.recipientRole || payload.notification?.recipientRole || "");
+            const myId = String(currentUserId || "");
+            
+            console.log(`[NotificationContext] Role Match Check: TargetRole=${targetRole}, ActiveRole=${activeRole}`);
+            console.log(`[NotificationContext] ID Match Check: TargetID=${targetId}, MyID=${myId}`);
 
-            console.log(`[NotificationContext] ID Check: Target=${targetId}, MyId=${myId}, Roles: TargetRole=${targetRole}, ActiveRole=${activeRole}`);
+            const isRoleMatch = targetRole === activeRole;
+            const isIdMatch = targetId === myId;
 
-            if (targetId === myId && (!targetRole || targetRole === activeRole)) {
-                console.log("[NotificationContext] Match found! Updating UI and playing sound.");
-                setNotifications((prev) => insertUniqueNotification(prev, payload.notification));
+            if (isRoleMatch && isIdMatch) {
+                console.log("[NotificationContext] ✅ Notification MATCH! Displaying...");
+                setNotifications((prev) => insertUniqueNotification(prev, payload.notification || payload));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));
 
-                // Show real-time toast
-                toast(payload.notification?.title || "New Notification", {
-                    description: payload.notification?.message,
+                toast(payload.notification?.title || payload.title || "New Notification", {
+                    description: payload.notification?.message || payload.message,
                     duration: 5000,
                 });
 
-                if (payload.notification?.sound) {
-                    playNotificationSound(payload.notification.sound);
+                if (payload.notification?.sound || payload.sound) {
+                    playNotificationSound(payload.notification?.sound || payload.sound);
                 }
             } else {
-                console.warn("[NotificationContext] Notification ignored (ID or Role mismatch)");
+                console.warn(`[NotificationContext] ❌ Ignored: ${!isRoleMatch ? "Role Mismatch" : "ID Mismatch"}`);
             }
         });
 
