@@ -113,31 +113,33 @@ export async function pickNextProviderForBooking(booking, startIndex = 0) {
   }
 
   const rejected = new Set(Array.isArray(booking?.rejectedProviders) ? booking.rejectedProviders : []);
-  // User requested Max 5 providers limit
-  if (rejected.size >= 5) {
-    console.log(`[Assignment] Booking ${booking._id} reached max rejections (5). Escalating.`);
+  console.log(`[DEBUG_ASSIGN] Booking: ${booking._id}, Rejected Count: ${rejected.size}`);
+
+  // User requested Max 5 providers limit (Now 1)
+  if (rejected.size >= 1) {
+    console.log(`[DEBUG_ASSIGN] Reached limit (1). Returning NULL to escalate.`);
     return null;
   }
   let idx = Math.max(Number(startIndex) || 0, 0);
-  console.log(`[Assignment] Reassigning booking ${booking._id}, Candidates: ${candidates.length}, StartIdx: ${idx}`);
-  
+  console.log(`[DEBUG_ASSIGN] Attempting to find next candidate from Index: ${idx}`);
+
   while (idx < candidates.length) {
     const cand = String(candidates[idx] || "");
-    if (!cand) { 
+    if (!cand) {
       console.log(`[Assignment] Skipping cand at idx ${idx}: invalid ID`);
-      idx++; 
-      continue; 
+      idx++;
+      continue;
     }
-    if (rejected.has(cand)) { 
+    if (rejected.has(cand)) {
       console.log(`[Assignment] Skipping cand ${cand} at idx ${idx}: already rejected`);
-      idx++; 
-      continue; 
+      idx++;
+      continue;
     }
-    
+
     console.log(`[Assignment] Checking eligibility for cand ${cand} at idx ${idx}...`);
     // eslint-disable-next-line no-await-in-loop
     const ok = await isProviderEligibleForBooking(cand, booking, { ignoreLeadTime: true });
-    
+
     console.log(`[Assignment] Eligibility for cand ${cand} returned: ${ok}`);
     if (ok) return { providerId: cand, index: idx };
     idx++;
@@ -151,73 +153,73 @@ export async function pickNextProviderForBooking(booking, startIndex = 0) {
  * Used for custom bookings "Force Create" and auto-reassignment scenarios.
  */
 export async function findNextCandidate(bookingId) {
-    const Booking = (await import("../models/Booking.js")).default;
-    const { buildAssignmentCandidates } = await import("./assignmentCandidates.js");
-    const { resolveBookingSettings } = await import("./settings.js");
-    
-    const booking = await Booking.findById(bookingId);
-    if (!booking) return null;
+  const Booking = (await import("../models/Booking.js")).default;
+  const { buildAssignmentCandidates } = await import("./assignmentCandidates.js");
+  const { resolveBookingSettings } = await import("./settings.js");
 
-    // Build candidates if missing or empty
-    if (!booking.candidateProviders || booking.candidateProviders.length === 0) {
-        console.log(`[Assignment] Building candidates for booking ${bookingId}...`);
-        const settings = await resolveBookingSettings();
-        const { candidateProviders } = await buildAssignmentCandidates({
-            address: booking.address,
-            slot: booking.slot,
-            items: booking.services || booking.items || [],
-            settings,
-            customerId: booking.customerId?.toString(),
-            useCache: false,
-            ignoreLeadTime: true // ✅ Force Create should ignore lead time
-        });
-        booking.candidateProviders = candidateProviders;
-        await booking.save();
-        console.log(`[Assignment] Found ${candidateProviders.length} candidates for booking ${bookingId}: ${candidateProviders.join(', ')}`);
-    }
+  const booking = await Booking.findById(bookingId);
+  if (!booking) return null;
 
-    const now = new Date();
-    const picked = await pickNextProviderForBooking(booking, 0);
+  // Build candidates if missing or empty
+  if (!booking.candidateProviders || booking.candidateProviders.length === 0) {
+    console.log(`[Assignment] Building candidates for booking ${bookingId}...`);
+    const settings = await resolveBookingSettings();
+    const { candidateProviders } = await buildAssignmentCandidates({
+      address: booking.address,
+      slot: booking.slot,
+      items: booking.services || booking.items || [],
+      settings,
+      customerId: booking.customerId?.toString(),
+      useCache: false,
+      ignoreLeadTime: true // ✅ Force Create should ignore lead time
+    });
+    booking.candidateProviders = candidateProviders;
+    await booking.save();
+    console.log(`[Assignment] Found ${candidateProviders.length} candidates for booking ${bookingId}: ${candidateProviders.join(', ')}`);
+  }
 
-    if (picked?.providerId) {
-        booking.assignedProvider = picked.providerId;
-        booking.assignmentIndex = picked.index;
-        booking.status = "pending";
-        booking.lastAssignedAt = now;
-        booking.expiresAt = computeExpiresAt(now);
-        booking.adminEscalated = false;
+  const now = new Date();
+  const picked = await pickNextProviderForBooking(booking, 0);
 
-        await booking.save();
+  if (picked?.providerId) {
+    booking.assignedProvider = picked.providerId;
+    booking.assignmentIndex = picked.index;
+    booking.status = "pending";
+    booking.lastAssignedAt = now;
+    booking.expiresAt = computeExpiresAt(now);
+    booking.adminEscalated = false;
 
-        try {
-            const io = getIO();
-            io?.of("/bookings").emit("status:update", { id: booking._id.toString(), status: "pending" });
-            io?.of("/bookings").to(booking._id.toString()).emit("booking:update", { id: booking._id.toString() });
-        } catch (err) {}
+    await booking.save();
 
-        try {
-            await notify({
-                recipientId: picked.providerId,
-                recipientRole: "provider",
-                type: "booking_assigned",
-                meta: { bookingId: booking._id.toString() },
-                respectProviderQuietHours: true,
-            });
-        } catch (err) {}
+    try {
+      const io = getIO();
+      io?.of("/bookings").emit("status:update", { id: booking._id.toString(), status: "pending" });
+      io?.of("/bookings").to(booking._id.toString()).emit("booking:update", { id: booking._id.toString() });
+    } catch (err) { }
 
-        return picked.providerId;
-    } else {
-        // No providers found? Escalate to admin/vendor
-        console.log(`[Assignment] No candidates found for booking ${bookingId}. Escalating.`);
-        const { handleExhaustedAssignmentChain } = await import("./assignment.js");
-        await handleExhaustedAssignmentChain({
-            booking,
-            now,
-            escalationReason: "no candidates found on initial search",
-        });
-        await booking.save();
-        return null;
-    }
+    try {
+      await notify({
+        recipientId: picked.providerId,
+        recipientRole: "provider",
+        type: "booking_assigned",
+        meta: { bookingId: booking._id.toString() },
+        respectProviderQuietHours: true,
+      });
+    } catch (err) { }
+
+    return picked.providerId;
+  } else {
+    // No providers found? Escalate to admin/vendor
+    console.log(`[Assignment] No candidates found for booking ${bookingId}. Escalating.`);
+    const { handleExhaustedAssignmentChain } = await import("./assignment.js");
+    await handleExhaustedAssignmentChain({
+      booking,
+      now,
+      escalationReason: "no candidates found on initial search",
+    });
+    await booking.save();
+    return null;
+  }
 }
 
 const EXHAUSTED_CHAIN_VENDOR_WINDOW_MS = 10 * 60 * 1000;
@@ -282,7 +284,7 @@ async function refundProviderCommissionIfNeeded(booking, providerId, reason = "s
       meta: { bookingId: booking._id.toString(), amount: Number(booking.commissionAmount || 0) },
       respectProviderQuietHours: true,
     });
-  } catch {}
+  } catch { }
   return true;
 }
 
@@ -332,7 +334,7 @@ function emitExhaustedAssignmentEvents({ bookingId, fromProvider = "", kind }) {
       id: bookingId,
       status: kind === "auto_cancel" ? "cancelled" : "pending",
     });
-  } catch {}
+  } catch { }
 }
 
 export async function handleExhaustedAssignmentChain({
@@ -384,7 +386,7 @@ export async function handleExhaustedAssignmentChain({
           reason: vendor ? "escalated to vendor" : "no vendor found",
         },
       });
-    } catch {}
+    } catch { }
 
     return {
       kind: "vendor_escalation",
@@ -439,7 +441,7 @@ export async function handleExhaustedAssignmentChain({
       type: "booking_cancelled",
       meta: { bookingId: booking._id.toString(), city, reason: "no provider accepted before service window" },
     });
-  } catch {}
+  } catch { }
 
   return {
     kind: "auto_cancel",

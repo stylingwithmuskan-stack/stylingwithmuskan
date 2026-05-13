@@ -324,10 +324,13 @@ export const ProviderBookingProvider = ({ children }) => {
 
     const rejectBooking = useCallback(async (id) => {
         stopRingtone(); // Stop ringtone when provider takes action
+        // Optimistic update: remove from local state immediately
+        setBookings(prev => prev.filter(b => (b.id || b._id) !== id));
         try {
             const { booking } = await api.provider.updateBookingStatus(id, "rejected");
             const normalized = normalizeBooking(booking);
-            setBookings(prev => prev.map(b => b._id === normalized._id ? normalized : b));
+            // Update with server data (in case it didn't actually disappear or status changed)
+            setBookings(prev => prev.map(b => (b.id || b._id) === normalized.id ? normalized : b));
         } catch (e) {
             refreshBookings();
             alert(e?.message || "Failed to reject");

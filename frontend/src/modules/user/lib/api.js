@@ -1,4 +1,5 @@
 import { safeStorage } from "@/modules/user/lib/safeStorage";
+import { safeSessionStorage } from "@/modules/user/lib/safeSessionStorage";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://stylingwithmuskan.in/api";
 export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://stylingwithmuskan.in/api";
@@ -14,7 +15,7 @@ function getToken() {
 
 function getProviderToken() {
   try {
-    return safeStorage.getItem("swm_provider_token") || "";
+    return safeSessionStorage.getItem("swm_provider_token") || "";
   } catch {
     return "";
   }
@@ -22,7 +23,7 @@ function getProviderToken() {
 
 function getAdminToken() {
   try {
-    return safeStorage.getItem("swm_admin_token") || "";
+    return safeSessionStorage.getItem("swm_admin_token") || "";
   } catch {
     return "";
   }
@@ -30,7 +31,7 @@ function getAdminToken() {
 
 function getVendorToken() {
   try {
-    return safeStorage.getItem("swm_vendor_token") || "";
+    return safeSessionStorage.getItem("swm_vendor_token") || "";
   } catch {
     return "";
   }
@@ -45,9 +46,9 @@ function getTokenByRole(role) {
 
 function clearTokenByRole(role) {
   try {
-    if (role === "provider") safeStorage.removeItem("swm_provider_token");
-    else if (role === "vendor") safeStorage.removeItem("swm_vendor_token");
-    else if (role === "admin") safeStorage.removeItem("swm_admin_token");
+    if (role === "provider") safeSessionStorage.removeItem("swm_provider_token");
+    else if (role === "vendor") safeSessionStorage.removeItem("swm_vendor_token");
+    else if (role === "admin") safeSessionStorage.removeItem("swm_admin_token");
     else setToken("");
   } catch {}
 }

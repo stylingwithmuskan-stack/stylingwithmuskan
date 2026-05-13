@@ -168,30 +168,33 @@ function PushNotificationManager() {
 
   // Provider push
   useEffect(() => {
-    const token = localStorage.getItem("swm_provider_token");
+    const token = sessionStorage.getItem("swm_provider_token");
     if (providerCtx?.isLoggedIn && token) {
       initPushNotifications(token, "provider");
     } else if (!providerCtx?.isLoggedIn) {
+      const token = sessionStorage.getItem("swm_provider_token");
       unregisterPush(token, "provider");
     }
   }, [providerCtx?.isLoggedIn]);
 
   // Vendor push
   useEffect(() => {
-    const token = localStorage.getItem("swm_vendor_token");
+    const token = sessionStorage.getItem("swm_vendor_token");
     if (vendorCtx?.isLoggedIn && token) {
       initPushNotifications(token, "vendor");
     } else if (!vendorCtx?.isLoggedIn) {
+      const token = sessionStorage.getItem("swm_vendor_token");
       unregisterPush(token, "vendor");
     }
   }, [vendorCtx?.isLoggedIn]);
 
   // Admin push
   useEffect(() => {
-    const token = localStorage.getItem("swm_admin_token");
+    const token = sessionStorage.getItem("swm_admin_token");
     if (adminCtx?.isLoggedIn && token) {
       initPushNotifications(token, "admin");
     } else if (!adminCtx?.isLoggedIn) {
+      const token = sessionStorage.getItem("swm_admin_token");
       unregisterPush(token, "admin");
     }
   }, [adminCtx?.isLoggedIn]);

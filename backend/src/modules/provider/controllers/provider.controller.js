@@ -45,11 +45,11 @@ export async function updateBookingStatus(req, res) {
 
         if (cityName) {
           console.log(`[Notification] Searching vendor for city: ${cityName}`);
-          const vendor = await Vendor.findOne({ 
-            city: { $regex: new RegExp(`^${cityName}$`, "i") }, 
-            status: "approved" 
+          const vendor = await Vendor.findOne({
+            city: { $regex: new RegExp(`^${cityName}$`, "i") },
+            status: "approved"
           }).lean();
-          
+
           if (vendor) {
             console.log(`[Notification] Creating vendor notification for: ${vendor._id}`);
             await notify({
@@ -105,10 +105,15 @@ export async function updateBookingStatus(req, res) {
         if (!b.rejectedProviders.includes(pId)) b.rejectedProviders.push(pId);
 
         const candidates = b.candidateProviders || [];
-        // Max 5 providers trial limit as requested by user
-        const nextProviderId = b.rejectedProviders.length < 5 
+        console.log(`[DEBUG_REJECT] Current Rejected Count: ${b.rejectedProviders.length}`);
+        console.log(`[DEBUG_REJECT] Candidates Available: ${candidates.length}`);
+
+        // Max 1 provider trial limit (Escalate after 1st rejection)
+        const nextProviderId = b.rejectedProviders.length < 1 
           ? candidates.find(id => !b.rejectedProviders.includes(id)) 
           : null;
+
+        console.log(`[DEBUG_REJECT] Next Provider ID Determined: ${nextProviderId || "NULL (Escalating to Vendor)"}`);
 
         if (nextProviderId) {
           b.assignedProvider = nextProviderId;
@@ -125,15 +130,13 @@ export async function updateBookingStatus(req, res) {
           await BookingLog.create({ action: "booking:status", userId: pId, bookingId, meta: { status: "rejected", subType: "reassigned", nextProviderId } });
           return res.json({ booking: b });
         } else {
-          b.status = "unassigned";
-          b.assignedProvider = "";
-          b.vendorEscalated = true;
-          b.vendorEscalatedAt = new Date();
-          await b.save();
-
-          const reason = b.rejectedProviders.length >= 5 ? "max_rejections_reached" : "auto_assignment_failed";
-          await notifyAdminAndVendor(reason, city);
-          await BookingLog.create({ action: "booking:status", userId: pId, bookingId, meta: { status: "rejected", subType: reason } });
+          const { handleExhaustedAssignmentChain } = await import("../../../lib/assignment.js");
+          await handleExhaustedAssignmentChain({
+            booking: b,
+            now: new Date(),
+            fromProvider: pId,
+            escalationReason: "max_rejections_reached"
+          });
           return res.json({ booking: b });
         }
       }
@@ -150,9 +153,9 @@ export async function updateBookingStatus(req, res) {
 
       // If more than 2 hours in the future, block it
       if (diffHours > 2) {
-        return res.status(400).json({ 
-          error: "Too Early", 
-          message: `This booking is scheduled for ${b.slot.date} at ${b.slot.time}. You can only start travelling within 2 hours of the scheduled time.` 
+        return res.status(400).json({
+          error: "Too Early",
+          message: `This booking is scheduled for ${b.slot.date} at ${b.slot.time}. You can only start travelling within 2 hours of the scheduled time.`
         });
       }
     }

@@ -831,7 +831,7 @@ export async function listBookings(req, res) {
   // Vendor escalation logic
   orConditions.push({
     vendorEscalated: true,
-    assignedProvider: "",
+    assignedProvider: { $in: ["", null] },
     "address.city": new RegExp(`^${escapeRegex(city)}`, "i")
   });
 

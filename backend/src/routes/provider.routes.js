@@ -1645,39 +1645,10 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     await b.save();
     let picked = await pickNextProviderForBooking(b, startIdx);
 
-    // ─── FALLBACK: If candidateProviders was empty or all rejected, do a LIVE fresh search ───
-    // Only if we haven't hit the 5-provider rejection limit yet
-    const MAX_REJECTIONS = 5;
+    // Max 1 provider trial limit (Escalate after 1st rejection)
+    const MAX_REJECTIONS = 1;
     if (!picked?.providerId && b.rejectedProviders.length < MAX_REJECTIONS) {
-      console.log(`[Reassignment] candidateProviders exhausted for booking ${b._id}. Doing live search in city '${b.address?.city}'... (${b.rejectedProviders.length}/${MAX_REJECTIONS} rejections so far)`);
-      try {
-        const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
-        const city = b.address?.city || "";
-        const cityId = b.address?.cityId || "";
-        const rejectedSet = new Set(b.rejectedProviders || []);
-        const freshQuery = {
-          approvalStatus: "approved",
-          ...(cityId ? { cityId } : city ? { city: { $regex: new RegExp(`^${city}$`, "i") } } : {}),
-        };
-        const freshProviders = await ProviderAccount.find(freshQuery).lean();
-        console.log(`[Reassignment] Found ${freshProviders.length} approved providers in city '${city}'`);
-        const nextFromFresh = freshProviders.find(p => {
-          const pid = String(p._id);
-          return !rejectedSet.has(pid) && pid !== String(current);
-        });
-        if (nextFromFresh) {
-          const freshId = String(nextFromFresh._id);
-          console.log(`[Reassignment] ✅ Found next provider via fresh search: ${nextFromFresh.name} (${freshId})`);
-          if (!(b.candidateProviders || []).includes(freshId)) {
-            b.candidateProviders = [...(b.candidateProviders || []), freshId];
-          }
-          picked = { providerId: freshId, index: (b.candidateProviders.length - 1) };
-        } else {
-          console.log(`[Reassignment] No eligible provider found in fresh search. Will escalate.`);
-        }
-      } catch (freshErr) {
-        console.error(`[Reassignment] Live search failed:`, freshErr.message);
-      }
+      // Fallback search removed to enforce strict 1-rejection limit.
     }
     if (picked?.providerId) {
       b.assignedProvider = picked.providerId;

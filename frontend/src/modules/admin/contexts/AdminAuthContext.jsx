@@ -24,7 +24,7 @@ export const AdminAuthProvider = ({ children }) => {
 
     useEffect(() => {
         try {
-            const raw = localStorage.getItem(ADMIN_KEY);
+            const raw = sessionStorage.getItem(ADMIN_KEY);
             if (raw) {
                 const saved = JSON.parse(raw);
                 if (saved && typeof saved === "object") setAdmin(saved);
@@ -47,10 +47,10 @@ export const AdminAuthProvider = ({ children }) => {
         try {
             const { admin, adminToken } = await api.admin.login(email, password);
             if (adminToken) {
-                try { localStorage.setItem("swm_admin_token", adminToken); } catch {}
+                try { sessionStorage.setItem("swm_admin_token", adminToken); } catch {}
             }
             setAdmin(admin);
-            try { localStorage.setItem(ADMIN_KEY, JSON.stringify(admin)); } catch {}
+            try { sessionStorage.setItem(ADMIN_KEY, JSON.stringify(admin)); } catch {}
             return { success: true };
         } catch (e) {
             const msg = e?.message || "Login failed";
@@ -61,8 +61,8 @@ export const AdminAuthProvider = ({ children }) => {
     const logout = () => {
         setAdmin(null);
         try { 
-            localStorage.removeItem(ADMIN_KEY);
-            localStorage.removeItem("swm_admin_token");
+            sessionStorage.removeItem(ADMIN_KEY);
+            sessionStorage.removeItem("swm_admin_token");
         } catch {}
         api.admin.logout();
     };
