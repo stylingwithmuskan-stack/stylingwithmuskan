@@ -371,7 +371,7 @@ export async function handleExhaustedAssignmentChain({
         await notify({
           recipientId: vendor._id?.toString(),
           recipientRole: "vendor",
-          type: "booking_escalated",
+          type: "NEW_ORDER",
           meta: { bookingId: booking._id.toString(), city, reason: escalationReason },
         });
       }

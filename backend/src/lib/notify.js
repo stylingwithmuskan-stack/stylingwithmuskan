@@ -12,6 +12,7 @@ const TYPE_ALIASES = {
   booking_alert: "booking_escalated",
   reassignment: "booking_reassigned",
   reminder: "reminder",
+  NEW_ORDER: "booking_escalated",
 };
 
 const CANONICAL_TYPES = new Set([
@@ -145,7 +146,7 @@ function normalizeType(type, meta = {}) {
   const raw = String(type || "").trim();
   const alias = TYPE_ALIASES[raw];
   if (alias) return alias;
-  if (raw.startsWith("booking_") && raw !== "booking_created" && raw !== "booking_assigned" && raw !== "booking_reassigned" && raw !== "booking_status" && raw !== "booking_cancelled") {
+  if (raw.startsWith("booking_") && raw !== "booking_created" && raw !== "booking_assigned" && raw !== "booking_reassigned" && raw !== "booking_status" && raw !== "booking_cancelled" && raw !== "booking_escalated") {
     if (!meta.status) {
       meta.status = raw.slice("booking_".length);
     }
@@ -240,7 +241,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
       };
     case "booking_escalated":
       return {
-        title: "Booking Escalated",
+        title: "New Order",
         message: `${aBooking}${cityText} needs attention${reasonHuman ? `: ${reasonHuman}` : "."}`,
         sound: "emergency",
       };
