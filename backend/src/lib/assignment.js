@@ -222,7 +222,7 @@ export async function findNextCandidate(bookingId) {
   }
 }
 
-const EXHAUSTED_CHAIN_VENDOR_WINDOW_MS = 10 * 60 * 1000;
+const EXHAUSTED_CHAIN_VENDOR_WINDOW_MS = 15 * 60 * 1000;
 
 function getBookingCityInfo(booking) {
   return {

@@ -49,10 +49,9 @@ export function startCron() {
     try {
       const now = new Date();
       const officeSettings = await OfficeSettings.findOne().lean();
-      const bufferMin = Math.max(Number(officeSettings?.bufferMinutes || 30), 0);
-      const criticalThresholdMinutes = 60 + bufferMin; // e.g., 90 mins
-
-      // Find bookings that are 'provider_cancelled' (waiting for vendor) but have hit the critical threshold
+      // Auto-expire if within threshold (default 15 minutes)
+      const threshold = Math.max(Number(process.env.BOOKING_AUTO_CANCEL_THRESHOLD_MINUTES || 15), 0);
+      
       const pendingReassignments = await Booking.find({
         status: "provider_cancelled"
       });
@@ -63,7 +62,12 @@ export function startCron() {
 
         const diffMins = (bookingTime.getTime() - now.getTime()) / (1000 * 60);
 
-        if (diffMins < criticalThresholdMinutes) {
+        // ✅ FIX: Reduced aggressive 90-minute auto-cancel for provider_cancelled bookings.
+        // We now respect the global 15-minute threshold instead of a hard 90-minute limit.
+        const effectiveThreshold = 15; 
+
+        if (diffMins < effectiveThreshold) {
+          console.log(`[Cron] Auto-cancelling provider_cancelled booking ${b._id}. Diff: ${diffMins}m, Threshold: ${effectiveThreshold}m`);
           // Scenario 3: Assignment Deadline Hit -> Auto Cancel + Notify User
           b.status = "cancelled";
           b.cancelledBy = "system";
