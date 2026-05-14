@@ -75,20 +75,18 @@ export default function ProviderFeedback() {
     });
 
     return (
-        <div className="flex flex-1 w-full flex-col gap-6 pt-4 md:pt-0 pb-20">
-            {/* Header */}
-            <div className="flex items-center gap-3">
-                <button
-                    onClick={() => navigate(-1)}
-                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                    <h1 className="text-xl font-black tracking-tight">Customer Feedback</h1>
-                    <p className="text-sm text-muted-foreground font-medium">Your reviews and ratings from customers</p>
+        <div className="flex flex-col min-h-screen bg-white pb-20">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                        <ArrowLeft className="h-5 w-5 text-violet-700" />
+                    </button>
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">Feedback</h2>
                 </div>
             </div>
+
+            <div className="flex flex-1 w-full flex-col gap-6 p-4 md:px-6 mt-2">
 
             {/* Stats Grid */}
             {stats && (
@@ -244,6 +242,7 @@ export default function ProviderFeedback() {
                         </Button>
                     </div>
                 )}
+            </div>
             </div>
         </div>
     );

@@ -50,15 +50,15 @@ const ProviderContactUsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      <div className="sticky top-0 z-30 bg-white border-b border-slate-100 px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button 
-          onClick={() => navigate(-1)} 
-          className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-90"
-        >
-          <ArrowLeft className="w-5 h-5 text-slate-900" />
-        </button>
-        <h1 className="text-lg font-black text-slate-900 tracking-tight">Contact Us</h1>
+    <div className="min-h-screen bg-white pb-24">
+      {/* Premium Header - Recent Activity Style */}
+      <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+            <ArrowLeft className="h-5 w-5 text-violet-700" />
+          </button>
+          <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">Contact Us</h2>
+        </div>
       </div>
 
       <div className="px-4 max-w-2xl mx-auto mt-8 space-y-4">

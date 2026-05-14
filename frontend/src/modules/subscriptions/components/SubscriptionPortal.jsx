@@ -215,29 +215,32 @@ export default function SubscriptionPortal({
   };
 
   return (
-    <div className="space-y-5 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Title section - only show if not in user role (who has its own header) */}
+    <div className="flex flex-col min-h-screen bg-white pb-20">
+      {/* Premium Header - Standardized Provider Style */}
       {role !== "user" && (
-        <div className="flex flex-col gap-2 sm:gap-3">
-          <div className="flex items-start gap-3">
-            <button 
-                onClick={() => navigate(-1)} 
-                className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors mt-0.5"
-            >
-                <ArrowLeft className="w-5 h-5" />
+        <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+              <ArrowLeft className="h-5 w-5 text-violet-700" />
             </button>
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-                <Icon className="h-5 w-5 md:h-6 md:w-6" />
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Icon className="h-4.5 w-4.5" />
               </div>
-              <div className="pt-1">
-                <h1 className="text-xl md:text-2xl font-black tracking-tight line-clamp-1">{title}</h1>
-                <p className="text-[11px] md:text-sm text-muted-foreground font-medium">{subtitle}</p>
+              <div>
+                <h1 className="text-lg font-black text-slate-900 tracking-tight leading-none">{title}</h1>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <div className="flex flex-1 w-full flex-col gap-5 sm:gap-6 p-4 md:px-6 mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {subtitle && (
+          <p className="text-sm text-muted-foreground text-center max-w-2xl mx-auto leading-relaxed mb-2 px-4">
+            {subtitle}
+          </p>
+        )}
 
       {/* Current Status - Only show when plans are available */}
       {!isLoading && plans.length > 0 && (
@@ -592,6 +595,7 @@ export default function SubscriptionPortal({
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }

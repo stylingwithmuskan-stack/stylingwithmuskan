@@ -24,6 +24,32 @@ const AdminLayout = () => {
         return () => document.documentElement.classList.remove("theme-admin");
     }, []);
 
+    useEffect(() => {
+        if (sidebarOpen) {
+            document.body.style.overflow = "hidden";
+            document.body.style.position = "fixed";
+            document.body.style.width = "100%";
+            document.body.style.height = "100%";
+            document.documentElement.style.overflow = "hidden";
+            document.documentElement.style.overscrollBehavior = "none";
+        } else {
+            document.body.style.overflow = "";
+            document.body.style.position = "";
+            document.body.style.width = "";
+            document.body.style.height = "";
+            document.documentElement.style.overflow = "";
+            document.documentElement.style.overscrollBehavior = "";
+        }
+        return () => {
+            document.body.style.overflow = "";
+            document.body.style.position = "";
+            document.body.style.width = "";
+            document.body.style.height = "";
+            document.documentElement.style.overflow = "";
+            document.documentElement.style.overscrollBehavior = "";
+        };
+    }, [sidebarOpen]);
+
     if (!hydrated) {
         return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading…</div>;
     }

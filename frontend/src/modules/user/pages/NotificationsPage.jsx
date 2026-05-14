@@ -149,17 +149,28 @@ const NotificationsPage = () => {
     return (
         <div className="min-h-screen bg-white md:bg-slate-50/30">
             {/* Sticky Header */}
-            <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-100 shadow-sm safe-top">
-                <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div className={cn(
+                "sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b transition-all safe-top",
+                activeRole === "provider" ? "px-4 py-3 border-slate-100 shadow-none" : "max-w-3xl mx-auto px-4 py-3 border-slate-100 shadow-sm"
+            )}>
+                <div className={cn("flex items-center justify-between gap-3", activeRole !== "provider" && "max-w-3xl mx-auto")}>
                     <div className="flex items-center gap-3 min-w-0">
                         <button
                             onClick={() => navigate(-1)}
-                            className="w-10 h-10 shrink-0 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-90 transition-all border border-slate-200/50"
+                            className={cn(
+                                "shrink-0 transition-all active:scale-95 group flex items-center justify-center",
+                                activeRole === "provider" 
+                                    ? "p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full" 
+                                    : "w-10 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/50 text-slate-600"
+                            )}
                         >
-                            <ArrowLeft className="w-5 h-5" />
+                            <ArrowLeft className={cn("w-5 h-5", activeRole === "provider" ? "text-violet-700" : "")} />
                         </button>
                         <div className="min-w-0 flex-1">
-                            <h1 className="text-base sm:text-xl font-black text-slate-900 uppercase tracking-tight truncate leading-tight">Inbox</h1>
+                            <h1 className={cn(
+                                "uppercase tracking-tight truncate leading-tight",
+                                activeRole === "provider" ? "text-lg font-black text-slate-900" : "text-base sm:text-xl font-black text-slate-900"
+                            )}>Inbox</h1>
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="h-1.2 w-1.2 sm:h-1.5 sm:w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                                 <p className="text-[9px] sm:text-[10px] font-bold text-emerald-600 uppercase tracking-widest truncate">{unreadCount} New alerts</p>

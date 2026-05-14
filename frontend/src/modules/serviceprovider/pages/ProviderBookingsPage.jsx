@@ -228,15 +228,15 @@ const ProviderBookingsPage = () => {
                                 cancelledBookings;
 
     return (
-        <div className="flex flex-col gap-4 pt-2 md:pt-0 w-full max-w-4xl mx-auto h-full">
-            <div className="flex items-center gap-4 px-2 md:px-0">
-                <button 
-                    onClick={() => navigate(-1)} 
-                    className="p-2 rounded-full bg-white shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors"
-                >
-                    <ChevronLeft className="w-5 h-5 text-gray-600" />
-                </button>
-                <h1 className="text-xl font-black tracking-tight text-gray-900">Bookings</h1>
+        <div className="flex flex-col w-full h-full">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                        <ChevronLeft className="h-5 w-5 text-violet-700" />
+                    </button>
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">Bookings</h2>
+                </div>
             </div>
 
             {/* Horizontal scrollable tabs container */}

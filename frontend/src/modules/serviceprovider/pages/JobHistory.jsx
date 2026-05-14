@@ -86,23 +86,25 @@ export default function JobHistory() {
     };
 
     return (
-        <div className="flex flex-col bg-white min-h-screen -m-4 md:m-0 overflow-hidden">
-            {/* Header matching screenshot */}
-            <div className="p-4 flex items-center justify-between border-b bg-white">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="p-1 hover:bg-gray-100 rounded-full">
-                        <ChevronLeft className="h-6 w-6" />
-                    </button>
-                    <h2 className="text-xl font-bold">Job history</h2>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="bg-gray-50 rounded-lg px-3 py-1.5 flex items-center gap-2 border">
-                        <span className="font-bold text-sm">54</span>
-                        <Wallet className="h-4 w-4 text-gray-600" />
+        <div className="flex flex-col bg-white min-h-screen">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                            <ChevronLeft className="h-5 w-5 text-violet-700" />
+                        </button>
+                        <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">Job History</h2>
                     </div>
-                    <div className="relative p-1.5 bg-gray-50 border rounded-lg">
-                        <Bell className="h-5 w-5 text-gray-600" />
-                        <span className="absolute top-0 right-0 h-4 w-4 bg-purple-600 text-white text-[10px] rounded-full flex items-center justify-center border-2 border-white">2</span>
+                    <div className="flex items-center gap-2">
+                        <div className="bg-slate-50 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 border border-slate-100 shadow-sm">
+                            <span className="font-black text-xs text-slate-700">54</span>
+                            <Wallet className="h-3.5 w-3.5 text-slate-500" />
+                        </div>
+                        <div className="relative p-2 bg-slate-50 border border-slate-100 rounded-xl shadow-sm">
+                            <Bell className="h-4 w-4 text-slate-600" />
+                            <span className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-violet-600 text-white text-[8px] font-black rounded-full flex items-center justify-center border border-white">2</span>
+                        </div>
                     </div>
                 </div>
             </div>

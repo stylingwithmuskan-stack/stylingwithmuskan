@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Sparkles, Zap, CheckCircle2, Crown, BadgeCheck, AlertCircle, TrendingUp, Clock, CreditCard, Package, Frown } from "lucide-react";
+import { Shield, Sparkles, Zap, CheckCircle2, Crown, BadgeCheck, AlertCircle, TrendingUp, Clock, CreditCard, Package, Frown, ChevronLeft } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { toast } from "sonner";
@@ -108,19 +108,18 @@ export default function ProviderSubscription() {
     };
 
     return (
-        <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto pb-20 bg-background text-foreground transition-colors">
-            <div className="flex items-center gap-3 px-4 md:px-0 pt-4 md:pt-0">
-                <button onClick={() => navigate(-1)} className="md:hidden w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200">
-                    <span className="sr-only">Back</span>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-                </button>
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
-                        <Crown className="w-6 h-6 lg:w-8 lg:h-8 text-amber-500" /> SWM Pro Partner
-                    </h1>
-                    <p className="text-sm text-muted-foreground font-medium mt-1">Supercharge your beauty career with premium benefits.</p>
+        <div className="flex flex-col min-h-screen bg-white pb-20">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                        <ChevronLeft className="h-5 w-5 text-violet-700" />
+                    </button>
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">SWM Pro Partner</h2>
                 </div>
             </div>
+
+            <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto mt-6 px-4 md:px-0">
 
             {isPro && (
                 <motion.div

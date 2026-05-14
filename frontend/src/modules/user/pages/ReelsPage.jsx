@@ -179,13 +179,24 @@ const ReelsPage = () => {
             <AnimatePresence>
                 {showDownloadToast && (
                     <motion.div
-                        initial={{ opacity: 0, y: -50 }}
-                        animate={{ opacity: 1, y: 20 }}
-                        exit={{ opacity: 0, y: -50 }}
-                        className="fixed top-12 left-1/2 -translate-x-1/2 z-[60] bg-white text-black px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-border"
+                        initial={{ opacity: 0, y: -100, x: "-50%", scale: 0.8 }}
+                        animate={{ 
+                            opacity: 1, 
+                            y: 20, 
+                            x: "-50%", 
+                            scale: 1,
+                            transition: { type: "spring", stiffness: 300, damping: 25 }
+                        }}
+                        exit={{ opacity: 0, y: -20, x: "-50%", scale: 0.95 }}
+                        className="fixed top-8 left-1/2 z-[100] w-[90%] max-w-[320px] bg-white/95 backdrop-blur-xl px-4 py-3 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-3 border border-white/20 ring-1 ring-black/5"
                     >
-                        <CheckCircle2 className="w-5 h-5 text-green-500" />
-                        <span className="text-sm font-bold">Reel Downloaded successfully!</span>
+                        <div className="w-10 h-10 rounded-2xl bg-green-50 flex items-center justify-center shrink-0 shadow-inner">
+                            <CheckCircle2 className="w-6 h-6 text-green-500" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[13px] font-black text-slate-900 leading-tight">Success!</span>
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tighter">Reel saved to gallery</span>
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -248,15 +259,15 @@ const ReelsPage = () => {
                                                 initial={{ opacity: 0, scale: 0.9, x: 20 }}
                                                 animate={{ opacity: 1, scale: 1, x: 0 }}
                                                 exit={{ opacity: 0, scale: 0.9, x: 20 }}
-                                                className="absolute bottom-14 right-0 w-48 bg-white/95 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/20"
+                                                className="absolute bottom-14 right-0 w-40 bg-white/95 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/20"
                                             >
                                                 <button
                                                     onClick={() => handleDownload(reel)}
                                                     disabled={isDownloading}
-                                                    className="w-full px-4 py-4 flex items-center gap-3 hover:bg-primary/10 transition-colors text-black border-b border-border/50"
+                                                    className="w-full px-3 py-3 flex items-center gap-2.5 hover:bg-primary/10 transition-colors text-black border-b border-border/50"
                                                 >
-                                                    <Download className={`w-5 h-5 ${isDownloading ? 'animate-bounce' : ''}`} />
-                                                    <span className="text-sm font-bold">{isDownloading ? 'Downloading...' : 'Download Reel'}</span>
+                                                    <Download className={`w-4 h-4 ${isDownloading ? 'animate-bounce' : ''}`} />
+                                                    <span className="text-xs font-bold">{isDownloading ? 'Downloading...' : 'Download Reel'}</span>
                                                 </button>
                                                 <button
                                                     onClick={() => {
@@ -266,10 +277,10 @@ const ReelsPage = () => {
                                                         window.open(whatsappUrl, '_blank');
                                                         setIsMenuOpen(null);
                                                     }}
-                                                    className="w-full px-4 py-4 flex items-center gap-3 hover:bg-primary/10 transition-colors text-black"
+                                                    className="w-full px-3 py-3 flex items-center gap-2.5 hover:bg-primary/10 transition-colors text-black"
                                                 >
-                                                    <Share2 className="w-5 h-5 text-green-600" />
-                                                    <span className="text-sm font-bold">Share on WhatsApp</span>
+                                                    <Share2 className="w-4 h-4 text-green-600" />
+                                                    <span className="text-xs font-bold">Share on WhatsApp</span>
                                                 </button>
                                             </motion.div>
                                         )}
@@ -279,15 +290,17 @@ const ReelsPage = () => {
 
                             {/* Bottom Content Info */}
                             <div className="absolute left-4 right-20 bottom-8 z-30 pointer-events-none">
-                                <motion.div 
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    className="inline-flex items-center rounded-full bg-primary/20 backdrop-blur-md px-3 py-1 border border-primary/30 mb-3"
-                                >
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-primary">
-                                        {reel.category}
-                                    </span>
-                                </motion.div>
+                                {reel.category && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className="inline-flex items-center rounded-full bg-primary/20 backdrop-blur-md px-3 py-1 border border-primary/30 mb-3"
+                                    >
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                                            {reel.category}
+                                        </span>
+                                    </motion.div>
+                                )}
                                 <h3 className="text-lg font-black text-white line-clamp-1 mb-1 drop-shadow-lg uppercase tracking-tight">
                                     {reel.title}
                                 </h3>
@@ -298,23 +311,7 @@ const ReelsPage = () => {
                                 )}
                             </div>
 
-                            {/* Top Progress Lines */}
-                            <div className="absolute top-20 left-0 right-0 px-4 z-30 lg:hidden">
-                                <div className="flex gap-1.5">
-                                    {reelsData.map((_, idx) => (
-                                        <div
-                                            key={idx}
-                                            className={`h-1 flex-1 rounded-full overflow-hidden transition-all duration-300 ${
-                                                idx === currentIndex
-                                                    ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]"
-                                                    : idx < currentIndex
-                                                    ? "bg-white/40"
-                                                    : "bg-white/10"
-                                            }`}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
+
                         </div>
                     </div>
                 ))}

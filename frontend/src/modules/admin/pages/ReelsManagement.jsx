@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Clapperboard, Plus, Save, Trash2, Upload, Video } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
@@ -29,6 +29,8 @@ export default function ReelsManagement() {
     const [form, setForm] = useState(initialForm);
     const [editingId, setEditingId] = useState("");
     const videoInputRef = useRef(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteTargetId, setDeleteTargetId] = useState(null);
 
     const sortedReels = useMemo(
         () => [...reels].sort((a, b) => (Number(a.priority || 0) - Number(b.priority || 0))),
@@ -136,14 +138,22 @@ export default function ReelsManagement() {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Reel delete karna hai?")) return;
+    const handleDelete = (id) => {
+        setDeleteTargetId(id);
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTargetId) return;
         try {
-            await api.admin.deleteSpotlight(id);
-            toast.success("Reel deleted");
+            await api.admin.deleteSpotlight(deleteTargetId);
+            toast.success("Reel deleted successfully");
             await load();
         } catch (e) {
             toast.error(e?.message || "Delete failed");
+        } finally {
+            setShowDeleteConfirm(false);
+            setDeleteTargetId(null);
         }
     };
 
@@ -273,6 +283,49 @@ export default function ReelsManagement() {
                     ))
                 )}
             </div>
+
+            {/* Redesigned Delete Confirmation Modal */}
+            <AnimatePresence>
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="bg-white rounded-[32px] p-8 max-w-sm w-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/20"
+                        >
+                            <div className="flex flex-col items-center text-center">
+                                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-6 shadow-inner ring-4 ring-red-50/50">
+                                    <Trash2 className="w-8 h-8 text-red-600" />
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">Delete Reel?</h3>
+                                <p className="text-sm text-slate-500 font-bold leading-relaxed mb-8">
+                                    Are you sure you want to remove this reel? This action will permanently delete the content and cannot be undone.
+                                </p>
+                            </div>
+                            
+                            <div className="flex flex-col gap-3">
+                                <Button
+                                    onClick={confirmDelete}
+                                    className="w-full h-14 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-base shadow-lg shadow-red-100 transition-all active:scale-[0.98]"
+                                >
+                                    Delete Permanently
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        setShowDeleteConfirm(false);
+                                        setDeleteTargetId(null);
+                                    }}
+                                    className="w-full h-12 rounded-2xl font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all"
+                                >
+                                    Keep it for now
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

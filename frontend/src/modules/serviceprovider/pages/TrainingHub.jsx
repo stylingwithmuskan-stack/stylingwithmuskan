@@ -137,19 +137,22 @@ export default function TrainingHub() {
     if (isLoading) return <div className="p-8 text-center font-bold">Loading Training Hub...</div>;
 
     return (
-        <div className="flex flex-col bg-slate-50 min-h-screen -m-4 md:m-0 pb-20">
-            {/* Premium Header */}
-            <div className="bg-white px-6 py-8 border-b border-slate-200">
-                <div className="flex items-start gap-4 mb-6">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors border border-slate-100 mt-1">
-                        <ChevronLeft className="h-5 w-5 text-slate-600" />
+        <div className="flex flex-col bg-white min-h-screen pb-20">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                        <ChevronLeft className="h-5 w-5 text-violet-700" />
                     </button>
-                    <div>
-                        <h2 className="text-xl font-black font-display tracking-tight text-slate-900 flex items-center gap-2">
-                            <GraduationCap className="h-6 w-6 text-purple-600" /> Learning Portal
-                        </h2>
-                        <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-0.5">Professional Certification Hub</p>
-                    </div>
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">Training Hub</h2>
+                </div>
+            </div>
+
+            <div className="bg-white px-6 pb-4 border-b border-slate-200">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="h-px flex-1 bg-slate-100"></div>
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Learning Portal</span>
+                    <div className="h-px flex-1 bg-slate-100"></div>
                 </div>
 
                 {/* Stats Row */}
