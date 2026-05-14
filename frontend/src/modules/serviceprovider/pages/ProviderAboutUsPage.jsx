@@ -20,12 +20,15 @@ const ProviderAboutUsPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-30 bg-white border-b border-border px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <h1 className="text-lg font-semibold">About Us</h1>
+    <div className="min-h-screen bg-white pb-24">
+      {/* Premium Header - Recent Activity Style */}
+      <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+            <ArrowLeft className="h-5 w-5 text-violet-700" />
+          </button>
+          <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">About Us</h2>
+        </div>
       </div>
 
       <div className="px-4 max-w-2xl mx-auto mt-10 space-y-12">

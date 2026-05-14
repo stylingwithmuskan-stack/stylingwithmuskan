@@ -65,6 +65,7 @@ import LeadCreditManager from "@/modules/serviceprovider/pages/LeadCreditManager
 import AvailabilityCalendar from "@/modules/serviceprovider/pages/AvailabilityCalendar";
 import PerformanceDashboard from "@/modules/serviceprovider/pages/PerformanceDashboard";
 import ProviderProfile from "@/modules/serviceprovider/pages/ProviderProfile";
+import ProviderReferralPage from "@/modules/serviceprovider/pages/ProviderReferralPage";
 import ProviderSubscriptionPage from "@/modules/serviceprovider/pages/ProviderSubscriptionPage";
 import AdminFinanceSuite from "@/modules/serviceprovider/pages/AdminFinanceSuite";
 import JobHistory from "@/modules/serviceprovider/pages/JobHistory";
@@ -307,6 +308,7 @@ const App = () => {
                                   <Route path="notifications" element={<NotificationsPage />} />
                                   <Route path="activity" element={<ProviderActivityPage />} />
                                   <Route path="feedback" element={<ProviderFeedback />} />
+                                  <Route path="referral" element={<ProviderReferralPage />} />
                                 </Route>
 
                                 {/* Vendor Module */}

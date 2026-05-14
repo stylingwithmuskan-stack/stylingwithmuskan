@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronLeft, Phone, Send, CheckCircle2, Loader2, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Button } from "@/modules/user/components/ui/button";
 import { api } from "@/modules/user/lib/api";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
@@ -25,6 +26,17 @@ export default function SWMSupport() {
             setMessages(msgs || []);
         } catch (err) {
             console.error("[Support] Failed to fetch messages:", err);
+            if (err.status === 403 || err.data?.code === "ACCOUNT_RESTRICTED") {
+                toast.error("Account is blocked or not approved", {
+                    id: "account-restricted-support",
+                    duration: 5000,
+                });
+                // If blocked, we might want to stop polling to avoid spamming
+                if (pollRef.current) {
+                    clearInterval(pollRef.current);
+                    pollRef.current = null;
+                }
+            }
         } finally {
             setLoading(false);
         }
@@ -77,6 +89,14 @@ export default function SWMSupport() {
             // Remove temp message on error
             setMessages((prev) => prev.filter((m) => m._id !== tempMsg._id));
             setMessage(text); // Restore the message for retry
+
+            if (err.status === 403 || err.data?.code === "ACCOUNT_RESTRICTED") {
+                toast.error("Account is blocked or not approved", {
+                    id: "account-restricted-support",
+                });
+            } else {
+                toast.error("Failed to send message");
+            }
         } finally {
             setSending(false);
         }
@@ -115,25 +135,24 @@ export default function SWMSupport() {
     }, {});
 
     return (
-        <div className="flex flex-col h-screen bg-slate-50 -m-4 md:m-0">
-            {/* Header */}
-            <div className="bg-white p-4 pt-10 flex items-center justify-between border-b border-gray-100 shadow-sm sticky top-0 z-10">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                        <ChevronLeft className="h-6 w-6 text-slate-900" />
-                    </button>
-                    <div>
-                        <h1 className="text-lg font-bold text-slate-900">SWM Support</h1>
-                        <p className="text-[10px] text-green-600 font-bold">● Online</p>
+        <div className="flex flex-col h-screen bg-white">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                            <ChevronLeft className="h-5 w-5 text-violet-700" />
+                        </button>
+                        <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">Support</h2>
                     </div>
+                    <Button 
+                        variant="outline" 
+                        onClick={() => window.location.href = `tel:+91${import.meta.env.VITE_SUPPORT_PHONE || "8349764176"}`}
+                        className="h-9 px-3 rounded-xl border-slate-200 text-[10px] font-black gap-1.5 hover:bg-slate-900 hover:text-white transition-all shadow-sm shrink-0"
+                    >
+                        <Phone className="w-3.5 h-3.5" /> CALL NOW
+                    </Button>
                 </div>
-                <Button 
-                    variant="outline" 
-                    onClick={() => window.location.href = `tel:+91${import.meta.env.VITE_SUPPORT_PHONE || "8349764176"}`}
-                    className="rounded-full border-slate-200 text-slate-700 font-bold gap-2 text-xs"
-                >
-                    <Phone className="h-3.5 w-3.5" /> Call
-                </Button>
             </div>
 
             {/* Chat Area */}
@@ -204,7 +223,7 @@ export default function SWMSupport() {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-white border-t border-slate-100 pb-8">
+            <div className="p-4 bg-white border-t border-slate-100 pb-4">
                 <form onSubmit={handleSubmit} className="relative">
                     <input
                         type="text"

@@ -535,30 +535,32 @@ const ProviderBookingDetailPage = () => {
             </AnimatePresence>
 
             {/* Header */}
-            <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+            <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center justify-between transition-all">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
-                        <ArrowLeft className="w-5 h-5" />
+                    <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                        <ArrowLeft className="w-5 h-5 text-violet-700" />
                     </button>
                     <div>
-                        <h1 className="font-black text-sm tracking-tight text-gray-900">{booking.customerName || "Customer"}</h1>
-                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest">{booking.bookingType} &bull; #{String(bookingId || "").slice(-6).toUpperCase()}</p>
+                        <h2 className="font-black text-sm tracking-tight text-gray-900 leading-none">{booking.customerName || "Customer"}</h2>
+                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mt-1">{booking.bookingType} &bull; #{String(bookingId || "").slice(-6).toUpperCase()}</p>
                     </div>
                 </div>
-                <span className={`px-2.5 py-1 text-[9px] font-black uppercase rounded-md tracking-widest ${booking.status === 'in_progress' ? 'bg-amber-100 text-amber-700' : booking.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
-                    {booking.status?.replace("_", " ") || ""}
-                </span>
-                
-                {/* Chat Button in Header */}
-                {["accepted", "travelling", "arrived", "in_progress", "payment", "documentation", "completed"].includes(booking?.status?.toLowerCase()) && (
-                    <button 
-                        onClick={() => setShowChat(true)}
-                        className="ml-2 w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 hover:bg-purple-100 transition-colors relative"
-                    >
-                        <MessageSquare className="w-5 h-5" />
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full border border-white shadow-sm" />
-                    </button>
-                )}
+                <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 text-[9px] font-black uppercase rounded-md tracking-widest ${booking.status === 'in_progress' ? 'bg-amber-100 text-amber-700' : booking.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
+                        {booking.status?.replace("_", " ") || ""}
+                    </span>
+                    
+                    {/* Chat Button in Header */}
+                    {["accepted", "travelling", "arrived", "in_progress", "payment", "documentation", "completed"].includes(booking?.status?.toLowerCase()) && (
+                        <button 
+                            onClick={() => setShowChat(true)}
+                            className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 hover:bg-purple-100 transition-colors relative"
+                        >
+                            <MessageSquare className="w-4 h-4" />
+                            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-green-500 rounded-full border border-white shadow-sm" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="max-w-xl mx-auto px-4 py-6 space-y-4">

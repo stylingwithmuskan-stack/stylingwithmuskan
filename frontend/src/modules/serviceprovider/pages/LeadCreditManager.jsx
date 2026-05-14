@@ -275,19 +275,18 @@ export default function LeadCreditManager() {
     };
 
     return (
-        <div className="flex flex-1 w-full flex-col gap-6 py-4 md:p-0">
-            <div className="px-4 flex items-start gap-3">
-                <button 
-                    onClick={() => navigate(-1)} 
-                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors mt-0.5"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                    <h1 className="text-xl font-bold tracking-tight">Credits & Leads</h1>
-                    <p className="text-muted-foreground text-sm">Manage your wallet balance and review transactions.</p>
+        <div className="flex flex-col min-h-screen bg-white pb-20">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                        <ArrowLeft className="h-5 w-5 text-violet-700" />
+                    </button>
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">Credits & Leads</h2>
                 </div>
             </div>
+
+            <div className="flex flex-1 w-full flex-col gap-6 p-4 md:px-6 mt-2">
 
             <div className="grid gap-6 md:grid-cols-[1fr_2fr] px-2">
                 <Card className="h-max bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-background">
@@ -340,6 +339,7 @@ export default function LeadCreditManager() {
             </div>
 
             <RechargeModal isOpen={isRechargeModalOpen} onClose={() => setIsRechargeModalOpen(false)} onRechargeSuccess={refresh} />
+        </div>
         </div>
     );
 }

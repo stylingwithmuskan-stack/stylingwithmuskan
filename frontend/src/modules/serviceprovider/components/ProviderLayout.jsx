@@ -39,7 +39,21 @@ const ProviderLayout = () => {
     '/provider/availability', 
     '/provider/credits',
     '/provider/bookings',
-    '/provider/performance'
+    '/provider/performance',
+    '/provider/support',
+    '/provider/referral',
+    '/provider/training',
+    '/provider/hub',
+    '/provider/subscription',
+    '/provider/sos',
+    '/provider/about-us',
+    '/provider/contact-us',
+    '/provider/privacy-policy',
+    '/provider/terms-conditions',
+    '/provider/feedback',
+    '/provider/history',
+    '/provider/shop',
+    '/provider/tickets'
   ];
   const isFullWidthPage = noPaddingPages.includes(location.pathname) || 
                           location.pathname.startsWith('/provider/booking/');

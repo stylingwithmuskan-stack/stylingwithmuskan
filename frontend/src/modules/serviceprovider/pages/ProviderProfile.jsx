@@ -61,7 +61,7 @@ const menuItems = [
     { icon: Map, label: "My Hub", path: "/provider/hub" },
     { icon: Wallet, label: "Credits", path: "/provider/credits" },
     { icon: GraduationCap, label: "Training", path: "/provider/training" },
-    { icon: UserPlus, label: "Invite a friend with stylingwithmuskan", path: "/provider/profile" },
+    { icon: UserPlus, label: "Invite a friend to stylingwithmuskan", path: "/provider/referral" },
     { icon: LifeBuoy, label: "stylingwithmuskan support", path: "/provider/support" },
     { icon: Info, label: "About Us", path: "/provider/about-us" },
     { icon: Phone, label: "Contact Us", path: "/provider/contact-us" },
@@ -263,16 +263,16 @@ export default function ProviderProfile() {
     return (
         <div className="flex flex-1 w-full flex-col bg-white min-h-screen">
             {/* Top Header Section */}
-            <div className="py-2 border-b border-gray-100">
-                <div className="px-6 flex justify-between items-center">
-                <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                        <h1 className="text-base font-bold tracking-tight text-gray-900">{name}</h1>
-                        <div className="flex items-center gap-1 text-xs font-bold text-gray-600">
-                            <Star className="h-3 w-3 fill-gray-600" />
-                            <span>{(summary?.provider?.rating ?? safeProvider.rating ?? 0).toFixed ? (summary?.provider?.rating ?? safeProvider.rating ?? 0).toFixed(2) : summary?.provider?.rating ?? safeProvider.rating ?? 0}</span>
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex justify-between items-center">
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-lg font-black tracking-tight text-slate-900 leading-none">{name}</h1>
+                            <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase">
+                                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                <span>{(summary?.provider?.rating ?? safeProvider.rating ?? 0).toFixed ? (summary?.provider?.rating ?? safeProvider.rating ?? 0).toFixed(2) : summary?.provider?.rating ?? safeProvider.rating ?? 0}</span>
+                            </div>
                         </div>
-                    </div>
 
                     <div className="mt-0.5">
                         {/* Profile Details Dialog */}
@@ -400,61 +400,14 @@ export default function ProviderProfile() {
                                                             <DialogTitle>Request New Category</DialogTitle>
                                                         </DialogHeader>
                                                         <div className="py-4 space-y-4">
-                                                            <div className="space-y-2">
-                                                                <Label>Select Category</Label>
-                                                                <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2">
-                                                                    {(() => {
-                                                                        const [cats, setCats] = useState([]);
-                                                                        const [loading, setLoading] = useState(true);
-                                                                        useEffect(() => {
-                                                                            api.content.serviceTypes().then(res => {
-                                                                                setCats(res.data || []);
-                                                                                setLoading(false);
-                                                                            }).catch(() => setLoading(false));
-                                                                        }, []);
-                                                                        
-                                                                        if (loading) return <div className="text-center py-4"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>;
-                                                                        
-                                                                        const myCategories = safeProvider.documents?.primaryCategory || [];
-                                                                        const current = providerDetails.category;
-                                                                        
-                                                                        return (cats || []).map(c => (
-                                                                            <Button 
-                                                                                key={c._id || c.id} 
-                                                                                variant="outline" 
-                                                                                className="justify-start h-12 font-bold"
-                                                                                onClick={async () => {
-                                                                                    const isApproved = (safeProvider.pendingCategoryRequests || []).some(r => r.categoryName === c.label && r.status === 'approved');
-                                                                                    const isPending = (safeProvider.pendingCategoryRequests || []).some(r => r.categoryName === c.label && r.status === 'pending');
-
-                                                                                    if (isApproved) {
-                                                                                        toast.error(`You are already approved for the ${c.label} category.`);
-                                                                                        return;
-                                                                                    }
-                                                                                    if (isPending) {
-                                                                                        toast.error(`You have already requested the ${c.label} category. Please wait for approval.`);
-                                                                                        return;
-                                                                                    }
-
-                                                                                    try {
-                                                                                        const res = await api.provider.requestCategory({
-                                                                                            currentCategory: current || "N/A",
-                                                                                            requestedCategory: c.label
-                                                                                        });
-                                                                                        toast.success(`Request for ${c.label} sent!`);
-                                                                                        if (res.provider) setProvider(res.provider);
-                                                                                        setIsDialogOpen(false);
-                                                                                    } catch (err) {
-                                                                                        toast.error(err.message || "Failed to send request");
-                                                                                    }
-                                                                                }}
-                                                                            >
-                                                                                {c.label}
-                                                                            </Button>
-                                                                        ));
-                                                                    })()}
-                                                                </div>
-                                                            </div>
+                                                                <CategoryRequestList 
+                                                                    safeProvider={safeProvider} 
+                                                                    currentCategory={providerDetails.category}
+                                                                    onComplete={(newProvider) => {
+                                                                        if (newProvider) setProvider(newProvider);
+                                                                        setIsDialogOpen(false);
+                                                                    }}
+                                                                />
                                                         </div>
                                                     </DialogContent>
                                                 </Dialog>
@@ -765,3 +718,83 @@ export default function ProviderProfile() {
         </div>
     );
 }
+
+const CategoryRequestList = ({ safeProvider, currentCategory, onComplete }) => {
+    const [cats, setCats] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+        api.content.serviceTypes().then(res => {
+            if (!cancelled) {
+                setCats(res.data || []);
+                setLoading(false);
+            }
+        }).catch(() => {
+            if (!cancelled) setLoading(false);
+        });
+        return () => { cancelled = true; };
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="h-8 w-8 text-violet-600 animate-spin" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Loading categories...</span>
+            </div>
+        );
+    }
+
+    const availableToRequest = (cats || []).filter(c => {
+        // Exclude categories already approved or pending
+        const isApproved = (safeProvider.pendingCategoryRequests || []).some(r => r.categoryName === c.label && r.status === 'approved');
+        const isPending = (safeProvider.pendingCategoryRequests || []).some(r => r.categoryName === c.label && r.status === 'pending');
+        return !isApproved && !isPending;
+    });
+
+    if (availableToRequest.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-10 px-4 bg-slate-50 rounded-[24px] border border-dashed border-slate-200">
+                <div className="h-12 w-12 rounded-full bg-green-50 flex items-center justify-center mb-3">
+                    <Check className="h-6 w-6 text-green-500" />
+                </div>
+                <p className="text-sm font-black text-slate-900">All categories selected!</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center mt-1 px-4 leading-relaxed">
+                    You have already requested or been approved for all available service categories.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-2.5">
+            <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Select New Category</Label>
+            <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                {availableToRequest.map(c => (
+                    <Button 
+                        key={c._id || c.id} 
+                        variant="outline" 
+                        className="justify-start h-14 font-bold rounded-2xl border-slate-100 hover:border-violet-200 hover:bg-violet-50/50 transition-all group px-4"
+                        onClick={async () => {
+                            try {
+                                const res = await api.provider.requestCategory({
+                                    currentCategory: currentCategory || "N/A",
+                                    requestedCategory: c.label
+                                });
+                                toast.success(`Request for ${c.label} sent!`);
+                                onComplete(res.provider);
+                            } catch (err) {
+                                toast.error(err.message || "Failed to send request");
+                            }
+                        }}
+                    >
+                        <div className="h-8 w-8 rounded-xl bg-slate-50 flex items-center justify-center mr-3 group-hover:bg-white transition-colors">
+                            <Plus className="h-4 w-4 text-slate-400 group-hover:text-violet-600" />
+                        </div>
+                        <span className="text-sm font-black tracking-tight">{c.label}</span>
+                    </Button>
+                ))}
+            </div>
+        </div>
+    );
+};

@@ -102,19 +102,18 @@ export default function PerformanceDashboard() {
     const isPaused = (metrics.rating < (performanceCriteria?.minRatingThreshold || 4.5) && metrics.rating > 0) || !metrics.isActive;
 
     return (
-        <div className="flex flex-1 w-full flex-col gap-6 pt-4 md:pt-0">
-            <div className="flex items-start gap-3">
-                <button
-                    onClick={() => navigate(-1)}
-                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors mt-0.5"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                    <h1 className="text-base sm:text-lg md:text-xl font-bold tracking-tight">Performance & Compliance</h1>
-                    <p className="text-muted-foreground">Track your metrics and ensure adherence to UC standards.</p>
+        <div className="flex flex-col min-h-screen bg-white pb-20">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                        <ArrowLeft className="h-5 w-5 text-violet-700" />
+                    </button>
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">Performance</h2>
                 </div>
             </div>
+
+            <div className="flex flex-1 w-full flex-col gap-6 p-4 md:px-6 mt-2">
 
             {isPaused && (
                 <div className="rounded-2xl border bg-destructive/10 text-destructive border-destructive/20 p-3 sm:p-4 flex gap-3 sm:gap-4 items-start shadow-sm">
@@ -372,8 +371,9 @@ export default function PerformanceDashboard() {
                             </div>
                         </CardContent>
                     </Card>
+                </div>
 
-                    {/* Top 5 Professionals in Area */}
+                {/* Top 5 Professionals in Area */}
                     <Card className="shadow-md border-slate-100 mt-6 overflow-hidden bg-white rounded-3xl">
                         <CardHeader className="pb-4 pt-6 px-6">
                             <div className="flex items-center justify-between">

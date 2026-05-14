@@ -294,17 +294,27 @@ export default function AvailabilityCalendar() {
             toast.error("You are on approved leave for this date");
             return;
         }
-        const locked = timeSlots.filter((s) => isSlotLocked(s));
-        if (locked.length > 0) {
-            toast.error("Some slots are locked (within 4 hours). Edit future slots only.");
+
+        const next = { ...currentDaySlots };
+        let changedCount = 0;
+
+        timeSlots.forEach((slot) => {
+            // Only toggle slots that aren't locked (past or within 4h cutoff)
+            if (!isSlotLocked(slot)) {
+                if (next[slot] !== val) {
+                    next[slot] = val;
+                    changedCount++;
+                }
+            }
+        });
+
+        if (changedCount === 0) {
+            toast.info("No slots available to change (all future slots are already set or past slots are locked)");
             return;
         }
-        const next = timeSlots.reduce((acc, slot) => {
-            acc[slot] = val;
-            return acc;
-        }, {});
+
         setDateSlots(prev => ({ ...prev, [selectedDate]: next }));
-        toast.success(`Turned ${val ? 'ON' : 'OFF'} all slots for this day`);
+        toast.success(`Turned ${val ? 'ON' : 'OFF'} ${changedCount} available slots`);
         await saveSlots(selectedDate, next);
     };
 
@@ -371,27 +381,28 @@ export default function AvailabilityCalendar() {
     const totalHours = Object.values(currentDaySlots).filter(Boolean).length;
 
     return (
-        <div className="bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-50 via-background to-background min-h-screen pb-32 overflow-y-auto -m-4 md:m-0">
-            <div className="max-w-6xl mx-auto px-2 sm:px-6 space-y-6">
-
-                {/* Header - Beautician Style */}
-                <div className="flex items-center justify-between gap-2 sm:gap-4 mb-8 pt-8 min-w-0 pr-2 sm:pr-0">
-                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                        <button 
-                            onClick={() => navigate(-1)} 
-                            className="p-2 rounded-full bg-white/80 hover:bg-white shadow-sm border border-slate-100 transition-colors shrink-0"
-                        >
-                            <ChevronLeft className="w-5 h-5 text-slate-600" />
+        <div className="bg-white min-h-screen pb-32 overflow-y-auto">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-30 transition-all">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                            <ChevronLeft className="h-5 w-5 text-violet-700" />
                         </button>
-                        <div className="space-y-0.5 min-w-0 flex-1">
-                            <h1 className="text-[14px] sm:text-lg md:text-xl font-black text-slate-900 tracking-tighter whitespace-nowrap">Schedule & Availability</h1>
-                            <p className="text-[8px] sm:text-[10px] text-slate-400 font-black uppercase tracking-widest truncate">Configure your service hours</p>
+                        <div>
+                            <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">Schedule & Availability</h2>
                         </div>
                     </div>
-                    <Button onClick={() => setShowLeaveModal(true)} variant="outline" className="h-9 px-3 sm:px-6 rounded-2xl border-slate-200 text-[11px] sm:text-xs font-black gap-1.5 hover:bg-slate-900 hover:text-white transition-all shadow-sm shrink-0">
-                        <Plane className="w-3.5 h-3.5" /> <span className="hidden sm:inline">REQUEST LEAVE</span><span className="sm:hidden">LEAVE</span>
+                    <Button onClick={() => setShowLeaveModal(true)} variant="outline" className="h-9 px-3 rounded-xl border-slate-200 text-[10px] font-black gap-1.5 hover:bg-slate-900 hover:text-white transition-all shadow-sm shrink-0">
+                        <Plane className="w-3.5 h-3.5" /> LEAVE
                     </Button>
                 </div>
+            </div>
+
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6 mt-6">
+                <p className="text-sm text-muted-foreground text-center max-w-2xl mx-auto leading-relaxed mb-2 px-4">
+                    Configure your service hours and manage your availability slots to maximize your booking potential.
+                </p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* Left Column: Calendar & History */}
@@ -522,7 +533,7 @@ export default function AvailabilityCalendar() {
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle className="text-xl font-black">Enable All Slots?</AlertDialogTitle>
                                                     <AlertDialogDescription className="text-slate-500 font-medium">
-                                                        This will mark you as available for all 16 time slots on {format(new Date(selectedDate), "PPP")}.
+                                                        This will mark you as available for all 32 time slots on {format(new Date(selectedDate), "PPP")}. Locked or past slots will remain unchanged.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter className="gap-2">
@@ -541,7 +552,7 @@ export default function AvailabilityCalendar() {
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle className="text-xl font-black">Disable All Slots?</AlertDialogTitle>
                                                     <AlertDialogDescription className="text-slate-500 font-medium">
-                                                        This will mark you as unavailable for the entire day. Any active leads for this day may be reassigned.
+                                                        This will mark you as unavailable for all future available time slots today. Locked or past slots will remain unchanged. Any active leads for this day may be reassigned.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter className="gap-2">

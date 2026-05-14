@@ -176,23 +176,16 @@ export default function MyHub() {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50">
-            {/* Custom Tab Header */}
-            <div className="bg-white pt-6 md:pt-10 sticky top-0 z-10 shadow-sm">
-                <div className="px-6 flex items-center justify-between mb-4">
-                    <button 
-                        onClick={() => navigate(-1)} 
-                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
+        <div className="flex flex-col min-h-screen bg-white pb-20">
+            {/* Premium Header - Recent Activity Style */}
+            <div className="bg-white px-4 py-3 border-b border-slate-100 sticky top-0 z-20 transition-all">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(-1)} className="p-2.5 bg-violet-100 hover:bg-violet-200 rounded-full transition-all active:scale-95 group">
+                        <ArrowLeft className="h-5 w-5 text-violet-700" />
                     </button>
-                    <h1 className="text-lg font-black text-slate-900 tracking-tight">Current Zone</h1>
-                    <div className="w-9" /> {/* Spacer */}
-                </div>
-
-                <div className="flex border-b border-slate-100">
-                    <div className="px-6 py-3 border-b-4 border-slate-900 font-black text-sm text-slate-900 tracking-tight">
-                        {hubName}
+                    <div>
+                        <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">My Hub</h2>
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-1">{hubName}</p>
                     </div>
                 </div>
             </div>
