@@ -236,6 +236,40 @@ router.post(
         b.paymentOrder = { id: "", amount: 0, currency: "INR", receipt: "", createdAt: null };
         b.paymentId = payment_id;
         b.onlineAmountPaid = (b.onlineAmountPaid || 0) + amount;
+
+        // NEW: Deduct from wallet if applicable
+        if (b.walletAmountUsed > 0) {
+          const u = await User.findById(req.user._id);
+          if (u) {
+            if (!u.wallet) u.wallet = { balance: 0, transactions: [] };
+            // Ensure we don't double deduct (check if already in paymentSources)
+            const alreadyPaidByWallet = (b.paymentSources || []).some(ps => ps.source === "wallet");
+            if (!alreadyPaidByWallet) {
+              u.wallet.balance = Math.max((u.wallet.balance || 0) - b.walletAmountUsed, 0);
+              u.wallet.transactions.unshift({
+                title: "Paid for Booking (Partial)",
+                amount: -b.walletAmountUsed,
+                type: "debit",
+                balanceAfter: u.wallet.balance,
+                description: `Partial payment for booking ${b._id}`,
+                at: new Date()
+              });
+              await u.save();
+              
+              if (!b.paymentSources) b.paymentSources = [];
+              b.paymentSources.push({
+                source: "wallet",
+                amount: b.walletAmountUsed,
+                paidAt: new Date()
+              });
+              
+              b.prepaidAmount = (b.prepaidAmount || 0) + b.walletAmountUsed;
+              b.balanceAmount = Math.max((b.totalAmount || 0) - (b.prepaidAmount || 0), 0);
+              b.paymentStatus = b.balanceAmount > 0 ? "Partially Paid" : "Fully Paid";
+            }
+          }
+        }
+
         await b.save();
         await BookingLog.create({ action: "booking:payment-update", userId: req.user._id.toString(), bookingId: b._id.toString(), meta: { amount, source: "razorpay", paymentId: payment_id } });
 
