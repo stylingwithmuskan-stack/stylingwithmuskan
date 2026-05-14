@@ -17,7 +17,7 @@ import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import { OfficeSettings } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, defaultSlotsMap, isIsoDate, normalizeSlotsPayload, slotLabelToLocalDateTime, slotsMapToAvailableSlots, parseDurationToMinutes } from "../lib/slots.js";
 import { daysBetweenInclusive, isoDateRangeIncludesWeekend, isoDateToLocalEnd, isoDateToLocalStart, toIsoDateFromAny } from "../lib/isoDateTime.js";
-import { computeExpiresAt, getAcceptWindowMs, handleExhaustedAssignmentChain, pickNextProviderForBooking } from "../lib/assignment.js";
+import { computeExpiresAt, getAcceptWindowMs, handleExhaustedAssignmentChain, pickNextProviderForBooking, refundProviderCommissionIfNeeded } from "../lib/assignment.js";
 import { BookingSettings, CommissionSettings, PerformanceSettings } from "../models/Settings.js";
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../config.js";
@@ -1568,6 +1568,9 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     const startIdx = Math.max(Number(b.assignmentIndex || 0), 0) + 1;
     const picked = await pickNextProviderForBooking(b, startIdx);
     if (picked?.providerId) {
+      // Refund current provider if they were charged (e.g. manual assignment)
+      await refundProviderCommissionIfNeeded(b, current, "accept_expired");
+
       b.assignedProvider = picked.providerId;
       b.assignmentIndex = picked.index;
       b.status = "pending";
@@ -1652,9 +1655,17 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
 
       const { findNextCandidate } = await import("../lib/assignment.js");
       const nextId = await findNextCandidate(b._id);
-      if (nextId) return res.json({ booking: await Booking.findById(b._id) });
+      if (nextId) {
+        // Refund current provider if they were charged (e.g. manual assignment)
+        // This is necessary because findNextCandidate will set a new assignedProvider
+        await refundProviderCommissionIfNeeded(b, current, "rejected_retry");
+        return res.json({ booking: await Booking.findById(b._id) });
+      }
     }
     if (picked?.providerId) {
+      // Refund current provider if they were charged (e.g. manual assignment)
+      await refundProviderCommissionIfNeeded(b, current, "rejected");
+
       b.assignedProvider = picked.providerId;
       b.assignmentIndex = picked.index;
       b.status = "pending";

@@ -259,7 +259,7 @@ export function getExhaustedAssignmentDisposition(booking, now = new Date()) {
   };
 }
 
-async function refundProviderCommissionIfNeeded(booking, providerId, reason = "system_auto_cancel") {
+export async function refundProviderCommissionIfNeeded(booking, providerId, reason = "system_auto_cancel") {
   if (!providerId || !booking?.commissionChargedAt || booking?.commissionRefundedAt || Number(booking?.commissionAmount || 0) <= 0) {
     return false;
   }
@@ -267,12 +267,17 @@ async function refundProviderCommissionIfNeeded(booking, providerId, reason = "s
   if (!acc) return false;
   acc.credits = Number(acc.credits || 0) + Number(booking.commissionAmount || 0);
   await acc.save();
+  
+  const refundedAmount = Number(booking.commissionAmount || 0);
   booking.commissionRefundedAt = new Date();
+  booking.commissionChargedAt = null; // Clear so next provider can be charged
+  booking.commissionAmount = 0;
+
   await ProviderWalletTxn.create({
     providerId,
     bookingId: booking._id.toString(),
     type: "commission_refund",
-    amount: Number(booking.commissionAmount || 0),
+    amount: refundedAmount,
     balanceAfter: acc.credits,
     meta: { reason },
   });
@@ -358,6 +363,10 @@ export async function handleExhaustedAssignmentChain({
     booking.adminEscalated = !vendor;
     booking.status = "pending";
     booking.expiresAt = null;
+    
+    // Refund previous provider if they were charged (e.g. manual assignment)
+    await refundProviderCommissionIfNeeded(booking, previousProvider, "vendor_escalation");
+    
     await booking.save();
 
     emitExhaustedAssignmentEvents({

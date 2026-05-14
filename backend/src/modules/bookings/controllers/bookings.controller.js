@@ -13,7 +13,7 @@ import User from "../../../models/User.js";
 import Feedback from "../../../models/Feedback.js";
 import { DEFAULT_TIME_SLOTS, slotLabelToLocalDateTime, parseSlotLabelToHM, parseDurationToMinutes, isTimeInWindow } from "../../../lib/slots.js";
 import { isIsoDate } from "../../../lib/isoDateTime.js";
-import { computeExpiresAt, pickNextProviderForBooking } from "../../../lib/assignment.js";
+import { computeExpiresAt, pickNextProviderForBooking, refundProviderCommissionIfNeeded } from "../../../lib/assignment.js";
 import { resolveBookingSettings } from "../../../lib/settings.js";
 import { resolveServiceLocation } from "../../../lib/locationResolution.js";
 import Razorpay from "razorpay";
@@ -1235,6 +1235,11 @@ export async function cancel(req, res) {
     } catch (err) {
       console.error(`[Cancel] Failed to credit provider compensation:`, err);
     }
+  }
+
+  // Refund commission if it was charged (e.g. manual assignment or accepted booking)
+  if (booking.assignedProvider) {
+    await refundProviderCommissionIfNeeded(booking, booking.assignedProvider, "customer_cancellation");
   }
 
   await booking.save();
