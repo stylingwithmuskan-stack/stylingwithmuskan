@@ -96,7 +96,7 @@ const BookingsPage = () => {
             if (status === "quote_expired") return { ...enq, statusLabel: "Quote Expired", displayPhase: "expired" };
             return { ...enq, statusLabel: "Under Review", displayPhase: "pending" };
         })
-        .filter(enq => !["service_confirmed", "service_completed"].includes((enq.status || "").toLowerCase()));
+        .filter(enq => !["service_completed"].includes((enq.status || "").toLowerCase()));
 
     useEffect(() => {
         const checkAutoFeedback = () => {
@@ -738,41 +738,9 @@ const BookingsPage = () => {
                                                 <span className="text-primary hover:underline cursor-pointer mt-0.5 text-[10px] font-bold">Support Help</span>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button 
-                                                    onClick={async () => {
-                                                        try {
-                                                            await rejectCustomEnquiry(enq._id || enq.id);
-                                                            toast.success("Request rejected.");
-                                                        } catch (e) {
-                                                            toast.error(e?.message || "Failed to reject request");
-                                                        }
-                                                    }}
-                                                    className="px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-colors"
-                                                >
-                                                    Reject
-                                                </button>
-                                                <button 
-                                                    onClick={async () => {
-                                                        try {
-                                                            const expiryAt = enq.quote?.expiryAt ? new Date(enq.quote.expiryAt) : null;
-                                                            if (expiryAt && !Number.isNaN(expiryAt.getTime()) && expiryAt.getTime() < Date.now()) {
-                                                                toast.error("This quote has expired. Please request a new quote.");
-                                                                return;
-                                                            }
-                                                            if (!(enq.quote?.totalAmount > 0 || enq.quote?.prebookAmount > 0)) {
-                                                                toast.error("Quote not ready yet. Please wait for admin approval.");
-                                                                return;
-                                                            }
-                                                            await acceptCustomEnquiry(enq._id || enq.id);
-                                                            toast.success("Quote accepted. Please pay the advance.");
-                                                        } catch (e) {
-                                                            toast.error(e?.message || "Failed to accept request");
-                                                        }
-                                                    }}
-                                                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity shadow-sm shadow-primary/20"
-                                                >
-                                                    Accept
-                                                </button>
+                                                <span className="text-[10px] font-black uppercase text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
+                                                    Under Review
+                                                </span>
                                             </div>
                                         </div>
                                     ) : null}

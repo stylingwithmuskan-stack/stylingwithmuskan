@@ -181,6 +181,35 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
     const totalSelectedCount = formData.selectedServices.reduce((acc, s) => acc + s.quantity, 0);
 
     const TIME_SLOTS = ["09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"];
+    
+    const availableTimeSlots = useMemo(() => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        
+        if (formData.date !== today) return TIME_SLOTS;
+
+        // For today, filter past slots
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+
+        return TIME_SLOTS.filter(slot => {
+            // Parse "09:00 AM" to hours/minutes
+            const [time, period] = slot.split(" ");
+            let [hours, minutes] = time.split(":").map(Number);
+            
+            if (period === "PM" && hours !== 12) hours += 12;
+            if (period === "AM" && hours === 12) hours = 0;
+
+            // If slot is earlier than current hour, hide it
+            // Add a small buffer (e.g. current hour + 1) to be safe
+            if (hours > currentHour) return true;
+            if (hours === currentHour && minutes > currentMinute + 30) return true;
+            return false;
+        });
+    }, [formData.date]);
 
     return (
         <AnimatePresence>
@@ -369,7 +398,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                     className={`w-full h-12 px-3 rounded-xl bg-accent/50 text-xs font-bold border-2 ${errors.timeSlot ? "border-destructive" : "border-transparent"}`}
                                                 >
                                                     <option value="">Select Time</option>
-                                                    {TIME_SLOTS.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    {availableTimeSlots.map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
                                             </div>
                                         </div>

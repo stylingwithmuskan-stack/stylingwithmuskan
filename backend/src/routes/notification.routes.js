@@ -111,10 +111,18 @@ router.post("/push/register", flexibleAuth, async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // AUTO-CLEANUP: Deactivate any other entries with the SAME fcmToken for this user
+    // AUTO-CLEANUP: Deactivate this fcmToken for ANY OTHER user/role combination
+    // This ensures that if a new user logs in on the same device, the previous user stops receiving pushes.
     await PushDevice.updateMany(
-      { recipientId, recipientRole, fcmToken, deviceKey: { $ne: deviceKey } },
-      { $set: { isActive: false, lastError: "Duplicate token replaced" } }
+      { 
+        fcmToken, 
+        $or: [
+          { recipientId: { $ne: recipientId } },
+          { recipientRole: { $ne: recipientRole } },
+          { deviceKey: { $ne: deviceKey } }
+        ]
+      },
+      { $set: { isActive: false, lastError: "Token transferred to another session/user" } }
     );
 
     res.json({

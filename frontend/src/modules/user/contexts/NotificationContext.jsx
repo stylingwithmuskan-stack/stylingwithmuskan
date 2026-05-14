@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
-import { safeStorage } from "@/modules/user/lib/safeStorage";
+import { safeSessionStorage } from "@/modules/user/lib/safeSessionStorage";
 import { io } from "socket.io-client";
 import { ProviderAuthContext } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
 import { VenderAuthContext } from "@/modules/vender/contexts/VenderAuthContext";
@@ -9,6 +9,7 @@ import { AuthContext } from "@/modules/user/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
 import { setupForegroundHandler } from "@/services/pushNotificationService";
 import { playFlutterSound, isFlutterWebView } from "@/utils/flutterBridge";
+import { toast } from "sonner";
 
 const SOUND_FILES = {
     ringtone: "/sounds/ringtone.mp3",
@@ -48,7 +49,7 @@ export const NotificationProvider = ({ children, role }) => {
 
     const activeRole = useMemo(() => {
         const path = location?.pathname || "";
-        
+
         // 1. Explicit Path Context (Highest Priority)
         if (path.startsWith("/provider")) return "provider";
         if (path.startsWith("/vender") || path.startsWith("/vendor")) return "vendor";
@@ -65,17 +66,17 @@ export const NotificationProvider = ({ children, role }) => {
         return "user";
     }, [location?.pathname, provider, vendor, admin, user]);
 
+    const providerToken = providerContext?.providerToken || "";
+    const vendorToken = vendorContext?.vendorToken || "";
+    const adminToken = adminContext?.adminToken || "";
+    const userToken = userContext?.token || ""; // Assuming AuthContext exposes token
+
     const activeToken = useMemo(() => {
-        try {
-            // Get tokens from safeStorage directly based on detected role
-            if (activeRole === "provider") return safeStorage.getItem("swm_provider_token") || "";
-            if (activeRole === "vendor") return safeStorage.getItem("swm_vendor_token") || "";
-            if (activeRole === "admin") return safeStorage.getItem("swm_admin_token") || "";
-            return safeStorage.getItem("swm_token") || "";
-        } catch {
-            return "";
-        }
-    }, [activeRole]);
+        if (activeRole === "provider") return providerToken;
+        if (activeRole === "vendor") return vendorToken;
+        if (activeRole === "admin") return adminToken;
+        return userToken;
+    }, [activeRole, providerToken, vendorToken, adminToken, userToken]);
 
     const [userInteracted, setUserInteracted] = useState(false);
     const lastSoundPlayedRef = useRef(0);
@@ -120,7 +121,7 @@ export const NotificationProvider = ({ children, role }) => {
                 window.__swm_active_ringtone__.currentTime = 0;
                 window.__swm_active_ringtone__ = null;
             }
-        } catch {}
+        } catch { }
     }, []);
 
     const playNotificationSound = useCallback(async (soundKey = "notification") => {
@@ -147,7 +148,7 @@ export const NotificationProvider = ({ children, role }) => {
             stopActiveSound();
             const audioPath = SOUND_FILES[soundKey] || SOUND_FILES.notification;
             const audio = new Audio(audioPath);
-            
+
             audioRef.current = audio;
             if (soundKey === "ringtone" || soundKey === "emergency") {
                 audio.loop = true;
@@ -164,7 +165,7 @@ export const NotificationProvider = ({ children, role }) => {
                     console.error("[NotificationContext] Autoplay blocked or audio failed:", error);
                 });
             }
-            
+
             return audio;
         } catch (err) {
             console.error("[NotificationContext] Audio error:", err);
@@ -191,7 +192,7 @@ export const NotificationProvider = ({ children, role }) => {
     useEffect(() => {
         // Expose to window for testing
         window.__DEBUG_PLAY_SOUND__ = playNotificationSound;
-        
+
         console.log(`[NotificationContext] Init Effect. Role: ${activeRole}, User: ${currentUserId}, HasToken: ${!!activeToken}`);
 
         // Auto-initialize push notifications on mount if token exists
@@ -202,7 +203,7 @@ export const NotificationProvider = ({ children, role }) => {
                 });
             });
         }
-        
+
         if (!currentUserId || !activeToken) {
             console.log("[NotificationContext] Skipping socket connection (missing user or token)");
             return;
@@ -224,23 +225,61 @@ export const NotificationProvider = ({ children, role }) => {
         });
 
         socket.on("new_notification", (payload) => {
+            console.log("[NotificationContext] 📥 RAW SOCKET DATA:", JSON.stringify(payload));
             console.log("[NotificationContext] Received new_notification:", payload);
-            const targetId = String(payload.recipientId);
-            const myId = String(currentUserId);
-            const targetRole = payload?.notification?.recipientRole || payload?.recipientRole;
 
-            console.log(`[NotificationContext] ID Check: Target=${targetId}, MyId=${myId}, Roles: TargetRole=${targetRole}, ActiveRole=${activeRole}`);
+            const targetId = String(payload.recipientId || payload.notification?.recipientId || "");
+            const targetRole = String(payload.recipientRole || payload.notification?.recipientRole || "");
+            const type = String(payload.type || payload.notification?.type || "");
+            const myId = String(currentUserId || "");
 
-            if (targetId === myId && (!targetRole || targetRole === activeRole)) {
-                console.log("[NotificationContext] Match found! Updating UI and playing sound.");
-                setNotifications((prev) => insertUniqueNotification(prev, payload.notification));
+            console.log(`[NotificationContext] 🔍 CHECKING: TargetRole=${targetRole} | ActiveRole=${activeRole}`);
+            console.log(`[NotificationContext] 🔍 CHECKING: TargetID=${targetId} | MyID=${myId}`);
+
+            const isRoleMatch = targetRole === activeRole;
+            const isIdMatch = targetId === myId;
+            const isNewOrderEscalation = type === "NEW_ORDER" && activeRole === "vendor";
+
+            console.log(`[NotificationContext] Evaluation: RoleMatch=${isRoleMatch}, IdMatch=${isIdMatch}, Escalation=${isNewOrderEscalation}`);
+
+            if (isNewOrderEscalation || (isRoleMatch && isIdMatch)) {
+                console.log(`[NotificationContext] ✅ SUCCESS: Role Match=${isRoleMatch}, ID Match=${isIdMatch}, Escalation=${isNewOrderEscalation}`);
+                setNotifications((prev) => insertUniqueNotification(prev, payload.notification || payload));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));
 
-                if (payload.notification?.sound) {
-                    playNotificationSound(payload.notification.sound);
+                toast(payload.notification?.title || payload.title || "New Notification", {
+                    description: payload.notification?.message || payload.message,
+                    duration: 10000, // Extended duration for NEW_ORDER
+                });
+
+                // ✅ TRIGGER NATIVE BROWSER NOTIFICATION
+                if ("Notification" in window && Notification.permission === "granted") {
+                    const nativeTitle = payload.notification?.title || payload.title || "New Order";
+                    const nativeOptions = {
+                        body: payload.notification?.message || payload.message || "A new order needs attention.",
+                        icon: "/logo.png",
+                        requireInteraction: true, // Keep it visible until dismissed
+                        tag: "new-order-escalation", // Deduplicate
+                        silent: false
+                    };
+                    
+                    try {
+                        const notif = new Notification(nativeTitle, nativeOptions);
+                        notif.onclick = () => {
+                            window.focus();
+                            const link = payload.notification?.link || payload.link || "/vender/bookings";
+                            navigate(link);
+                        };
+                    } catch (err) {
+                        console.error("[NotificationContext] Native notification failed:", err);
+                    }
+                }
+
+                if (payload.notification?.sound || payload.sound) {
+                    playNotificationSound(payload.notification?.sound || payload.sound);
                 }
             } else {
-                console.warn("[NotificationContext] Notification ignored (ID or Role mismatch)");
+                console.warn("[NotificationContext] ❌ Ignored: Role or ID Mismatch", { targetRole, activeRole, targetId, myId, type });
             }
         });
 

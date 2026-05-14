@@ -17,7 +17,7 @@ import ProviderDayAvailability from "../models/ProviderDayAvailability.js";
 import { OfficeSettings } from "../models/Content.js";
 import { DEFAULT_TIME_SLOTS, defaultSlotsMap, isIsoDate, normalizeSlotsPayload, slotLabelToLocalDateTime, slotsMapToAvailableSlots, parseDurationToMinutes } from "../lib/slots.js";
 import { daysBetweenInclusive, isoDateRangeIncludesWeekend, isoDateToLocalEnd, isoDateToLocalStart, toIsoDateFromAny } from "../lib/isoDateTime.js";
-import { computeExpiresAt, getAcceptWindowMs, handleExhaustedAssignmentChain, pickNextProviderForBooking } from "../lib/assignment.js";
+import { computeExpiresAt, getAcceptWindowMs, handleExhaustedAssignmentChain, pickNextProviderForBooking, refundProviderCommissionIfNeeded } from "../lib/assignment.js";
 import { BookingSettings, CommissionSettings, PerformanceSettings } from "../models/Settings.js";
 import Razorpay from "razorpay";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "../config.js";
@@ -35,6 +35,8 @@ import {
   getSubscriptionSnapshot,
   recordVendorPerformanceCommission,
 } from "../lib/subscriptions.js";
+
+import { calculateRefundPolicy } from "../lib/refund.service.js";
 
 const router = Router();
 
@@ -381,6 +383,56 @@ router.get("/leaves", requireRole("provider"), async (req, res) => {
   const pId = req.auth.sub;
   const items = await LeaveRequest.find({ providerId: pId }).sort({ createdAt: -1 }).lean();
   res.json({ leaves: items });
+});
+
+router.get("/feedback", requireRole("provider"), async (req, res) => {
+  try {
+    const providerId = req.auth.sub;
+    const Feedback = (await import("../models/Feedback.js")).default;
+    const items = await Feedback.find({ 
+      providerId: providerId,
+      status: "active" 
+    }).sort({ createdAt: -1 }).lean();
+    res.json({ feedback: items });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch feedback" });
+  }
+});
+
+router.post("/check-update", requireRole("provider"), async (req, res) => {
+  try {
+    const providerId = req.auth.sub;
+    const { currentVersion } = req.body;
+    
+    const office = await OfficeSettings.findOne().lean();
+    const latestVersion = office?.appVersion || "v2.1.0";
+    
+    const isUpdateAvailable = latestVersion !== currentVersion;
+    
+    // Trigger real-time Firebase Push Notification
+    await notify({
+      recipientId: providerId,
+      recipientRole: "provider",
+      type: "marketing_campaign",
+      title: isUpdateAvailable ? "🚀 Update Available!" : "✅ App Up to Date",
+      message: isUpdateAvailable 
+        ? `A new version (${latestVersion}) is ready. Click to refresh and update your app.`
+        : `You are already using the latest version (${currentVersion}) of Styling With Muskan.`,
+      link: "/provider/profile",
+      emit: true,
+      respectProviderQuietHours: false
+    });
+
+    res.json({ 
+      success: true, 
+      isUpdateAvailable, 
+      latestVersion,
+      message: isUpdateAvailable ? "Update notification sent!" : "App is up to date!"
+    });
+  } catch (error) {
+    console.error("[Provider] Update check error:", error);
+    res.status(500).json({ error: "Failed to process update check" });
+  }
 });
 
 router.post(
@@ -1365,12 +1417,10 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
   // Security: only allow if URL matches token OR token is a valid provider (for token-priority mode)
   // We use URL param for lookup but log the mismatch for debugging
   if (urlProviderId !== tokenProviderId) {
-    console.log(`[BookingsGET] Token mismatch: URL=${urlProviderId}, Token=${tokenProviderId}. Using token for security.`);
+    console.warn(`[BookingsGET] Security Warning: URL ID (${urlProviderId}) !== Token ID (${tokenProviderId}). Forcing Token ID for security.`);
   }
-  // Always use token sub for security — the frontend sends providerId in URL that matches localStorage
-  // If they mismatch, trust the URL param (it's what the logged-in provider explicitly asked for)
-  // But ensure the token is a valid provider account to prevent unauthorized access
-  const providerId = urlProviderId; // Use URL param — each provider's browser sends their own ID
+  // Always use token sub for security to prevent ID-harvesting/unauthorized access
+  const providerId = tokenProviderId; 
   
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
@@ -1486,7 +1536,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
   if (String(b.assignedProvider || "") !== String(pId || "")) return res.status(403).json({ error: "Forbidden" });
   const originalAssignedProvider = String(b.assignedProvider || "");
 
-  if ((b.bookingType || "").toLowerCase() === "customized" && (next === "rejected" || next === "cancelled")) {
+  if ((b.bookingType || "").toLowerCase() === "customized" && next === "cancelled") {
     return res.status(403).json({ error: "Customized bookings cannot be cancelled by provider." });
   }
 
@@ -1520,6 +1570,9 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     const startIdx = Math.max(Number(b.assignmentIndex || 0), 0) + 1;
     const picked = await pickNextProviderForBooking(b, startIdx);
     if (picked?.providerId) {
+      // Refund current provider if they were charged (e.g. manual assignment)
+      await refundProviderCommissionIfNeeded(b, current, "accept_expired");
+
       b.assignedProvider = picked.providerId;
       b.assignmentIndex = picked.index;
       b.status = "pending";
@@ -1595,41 +1648,26 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     await b.save();
     let picked = await pickNextProviderForBooking(b, startIdx);
 
-    // ─── FALLBACK: If candidateProviders was empty or all rejected, do a LIVE fresh search ───
-    // Only if we haven't hit the 5-provider rejection limit yet
+    // Max 5 provider trial limit (Escalate after 5th rejection)
     const MAX_REJECTIONS = 5;
     if (!picked?.providerId && b.rejectedProviders.length < MAX_REJECTIONS) {
-      console.log(`[Reassignment] candidateProviders exhausted for booking ${b._id}. Doing live search in city '${b.address?.city}'... (${b.rejectedProviders.length}/${MAX_REJECTIONS} rejections so far)`);
-      try {
-        const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
-        const city = b.address?.city || "";
-        const cityId = b.address?.cityId || "";
-        const rejectedSet = new Set(b.rejectedProviders || []);
-        const freshQuery = {
-          approvalStatus: "approved",
-          ...(cityId ? { cityId } : city ? { city: { $regex: new RegExp(`^${city}$`, "i") } } : {}),
-        };
-        const freshProviders = await ProviderAccount.find(freshQuery).lean();
-        console.log(`[Reassignment] Found ${freshProviders.length} approved providers in city '${city}'`);
-        const nextFromFresh = freshProviders.find(p => {
-          const pid = String(p._id);
-          return !rejectedSet.has(pid) && pid !== String(current);
-        });
-        if (nextFromFresh) {
-          const freshId = String(nextFromFresh._id);
-          console.log(`[Reassignment] ✅ Found next provider via fresh search: ${nextFromFresh.name} (${freshId})`);
-          if (!(b.candidateProviders || []).includes(freshId)) {
-            b.candidateProviders = [...(b.candidateProviders || []), freshId];
-          }
-          picked = { providerId: freshId, index: (b.candidateProviders.length - 1) };
-        } else {
-          console.log(`[Reassignment] No eligible provider found in fresh search. Will escalate.`);
-        }
-      } catch (freshErr) {
-        console.error(`[Reassignment] Live search failed:`, freshErr.message);
+      console.log(`[DEBUG_REJECT] Candidates exhausted but below limit (5). Clearing and re-searching...`);
+      // MUST save the cleared list to DB so findNextCandidate fetches a fresh state
+      await Booking.updateOne({ _id: b._id }, { $set: { candidateProviders: [] } });
+
+      const { findNextCandidate } = await import("../lib/assignment.js");
+      const nextId = await findNextCandidate(b._id);
+      if (nextId) {
+        // Refund current provider if they were charged (e.g. manual assignment)
+        // This is necessary because findNextCandidate will set a new assignedProvider
+        await refundProviderCommissionIfNeeded(b, current, "rejected_retry");
+        return res.json({ booking: await Booking.findById(b._id) });
       }
     }
     if (picked?.providerId) {
+      // Refund current provider if they were charged (e.g. manual assignment)
+      await refundProviderCommissionIfNeeded(b, current, "rejected");
+
       b.assignedProvider = picked.providerId;
       b.assignmentIndex = picked.index;
       b.status = "pending";

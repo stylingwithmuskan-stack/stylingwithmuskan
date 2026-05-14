@@ -19,7 +19,7 @@ import { getMarketingCreditsBalance, getSubscriptionSnapshot } from "../../../li
 import ProviderDayAvailability from "../../../models/ProviderDayAvailability.js";
 import { defaultSlotsMap } from "../../../lib/slots.js";
 import { OfficeSettings } from "../../../models/Content.js";
-import { canAssignProviderToBooking } from "../../../lib/assignment.js";
+import { canAssignProviderToBooking, refundProviderCommissionIfNeeded } from "../../../lib/assignment.js";
 import { invalidateProviderSlots } from "../../../lib/availability.js";
 import { belongsToCity, ensureCityAndZoneNames, locationOutOfZoneMessage, resolveServiceLocation } from "../../../lib/locationResolution.js";
 import { providerMatchesAllServiceIds } from "../../../lib/serviceMatching.js";
@@ -828,12 +828,6 @@ export async function listBookings(req, res) {
     orConditions.push({ assignedProvider: { $in: providerIds } });
   }
 
-  // Vendor escalation logic
-  orConditions.push({
-    vendorEscalated: true,
-    assignedProvider: "",
-    "address.city": new RegExp(`^${escapeRegex(city)}`, "i")
-  });
 
   // 2. By Address Match (Zone or City)
   if (zones.length > 0) {
@@ -999,20 +993,26 @@ export async function assignBooking(req, res) {
   }
   required = Math.max(required, 0);
 
-  // Check if commission not already charged
+  const previousProviderId = String(existing.assignedProvider || "").trim();
+  const previousStatus = existing.status;
+
+  // Refund previous provider if they were charged
+  if (previousProviderId && previousProviderId !== providerId) {
+    await refundProviderCommissionIfNeeded(existing, previousProviderId, "vendor_reassignment");
+  }
+
+  // Recalculate 'required' after refund because refundProviderCommissionIfNeeded might have cleared existing.commissionAmount
+  // Actually, we already calculated 'required' above (lines 984-994).
+  // If commission was refunded, existing.commissionChargedAt is now null, so the next block will charge the new provider.
+
+  // Check if commission not already charged (or just refunded)
   if (!existing.commissionChargedAt && required > 0) {
     const hasBalance = Number(provider.credits || 0) >= required;
-
     if (hasBalance) {
-      // Deduct commission from provider's wallet
       provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
       await provider.save();
-
-      // Update booking with commission details
       existing.commissionAmount = required;
       existing.commissionChargedAt = new Date();
-
-      // Create wallet transaction record
       await ProviderWalletTxn.create({
         providerId: provider._id.toString(),
         bookingId: existing._id.toString(),
@@ -1021,8 +1021,6 @@ export async function assignBooking(req, res) {
         balanceAfter: provider.credits,
         meta: { rate, totalAmount, source: "vendor_assignment" },
       });
-
-      // Notify provider about commission deduction
       try {
         await notify({
           recipientId: providerId,
@@ -1033,14 +1031,11 @@ export async function assignBooking(req, res) {
         });
       } catch { }
     } else {
-      // Low balance: Assign but leave commissionChargedAt as null for manual activation
       existing.commissionAmount = required;
       existing.commissionChargedAt = null;
     }
   }
 
-  const previousProviderId = String(existing.assignedProvider || "").trim();
-  const previousStatus = existing.status;
   existing.assignedProvider = providerId;
   existing.status = "accepted";
   existing.lastAssignedAt = now;
@@ -1186,35 +1181,11 @@ export async function reassignBooking(req, res) {
   // Handle commission for reassignment
   if (required > 0) {
     // If previous provider had commission charged, refund it first
-    if (existing.commissionChargedAt && previousProviderId && previousProviderId !== providerId) {
-      const prevProvider = await ProviderAccount.findById(previousProviderId);
-      if (prevProvider && existing.commissionAmount > 0) {
-        prevProvider.credits = Number(prevProvider.credits || 0) + existing.commissionAmount;
-        await prevProvider.save();
-
-        await ProviderWalletTxn.create({
-          providerId: previousProviderId,
-          bookingId: existing._id.toString(),
-          type: "commission_refund",
-          amount: existing.commissionAmount,
-          balanceAfter: prevProvider.credits,
-          meta: { reason: "booking_reassigned" },
-        });
-
-        try {
-          await notify({
-            recipientId: previousProviderId,
-            recipientRole: "provider",
-            type: "commission_refund",
-            meta: { bookingId: existing._id.toString(), amount: existing.commissionAmount },
-            respectProviderQuietHours: true,
-          });
-        } catch { }
-      }
+    if (previousProviderId && previousProviderId !== providerId) {
+      await refundProviderCommissionIfNeeded(existing, previousProviderId, "vendor_reassignment");
     }
 
     const hasBalance = Number(provider.credits || 0) >= required;
-
     if (hasBalance) {
       // Deduct commission from new provider's wallet
       provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
@@ -1360,11 +1331,18 @@ export async function reassignBooking(req, res) {
 }
 
 export async function expireBooking(req, res) {
-  const b = await Booking.findByIdAndUpdate(
-    req.params.id,
-    { status: "cancelled" },
-    { new: true }
-  );
+  const existing = await Booking.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: "Not found" });
+
+  const previousProviderId = String(existing.assignedProvider || "").trim();
+  
+  // Refund provider if they were charged
+  if (previousProviderId) {
+    await refundProviderCommissionIfNeeded(existing, previousProviderId, "vendor_expiry");
+  }
+
+  existing.status = "cancelled";
+  const b = await existing.save();
 
   // Notify user that booking is cancelled by provider and they should rebook
   try {
@@ -1497,6 +1475,18 @@ export async function assignTeamCustomEnquiry(req, res) {
     required = Math.round(totalAmount * (rate / 100));
   }
   required = Math.max(required, 0);
+  const previousProviderId = String(enq.maintainerProvider || "").trim();
+  if (previousProviderId && previousProviderId !== provider._id.toString()) {
+    // For custom enquiries, we might need to find the related booking if it exists
+    if (enq.bookingId) {
+      const relatedBooking = await Booking.findById(enq.bookingId);
+      if (relatedBooking) {
+        await refundProviderCommissionIfNeeded(relatedBooking, previousProviderId, "custom_enquiry_reassign");
+        await relatedBooking.save();
+      }
+    }
+  }
+
   if (required > 0 && Number(provider.credits || 0) < required) {
     return res.status(409).json({
       error: "Selected service provider does not have sufficient wallet balance to cover the platform commission.",

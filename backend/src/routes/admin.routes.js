@@ -20,7 +20,7 @@ import { Spotlight, GalleryItem, Testimonial } from "../models/SiteContent.js";
 import { City } from "../models/CityZone.js";
 import User from "../models/User.js";
 import * as BookingsController from "../modules/bookings/controllers/bookings.controller.js";
-import { canAssignProviderToBooking, computeExpiresAt } from "../lib/assignment.js";
+import { canAssignProviderToBooking, computeExpiresAt, refundProviderCommissionIfNeeded } from "../lib/assignment.js";
 import { bumpContentVersion } from "../lib/contentCache.js";
 import { notify } from "../lib/notify.js";
 import * as AdminSubscriptionController from "../modules/subscriptions/controllers/adminSubscription.controller.js";
@@ -322,9 +322,10 @@ router.patch("/leaves/:id/approve", requireRole("admin"), async (req, res) => {
 });
 
 // ───── CUSTOM ENQUIRIES ─────
-router.get("/custom-enquiries", requireRole("admin"), AdminController.listCustomEnquiries);
-router.patch("/custom-enquiries/:id/price-quote", requireRole("admin"), AdminController.customEnquiryPriceQuote);
-router.patch("/custom-enquiries/:id/final-approve", requireRole("admin"), AdminController.customEnquiryFinalApprove);
+// Moved to BookingsController section below (line 1070+)
+// router.get("/custom-enquiries", requireRole("admin"), AdminController.listCustomEnquiries);
+// router.patch("/custom-enquiries/:id/price-quote", requireRole("admin"), AdminController.customEnquiryPriceQuote);
+// router.patch("/custom-enquiries/:id/final-approve", requireRole("admin"), AdminController.customEnquiryFinalApprove);
 
 router.patch("/leaves/:id/reject", requireRole("admin"), async (req, res) => {
   const item = await LeaveRequest.findByIdAndUpdate(req.params.id, { status: "rejected" }, { new: true });
@@ -579,31 +580,8 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
 
     if (required > 0) {
       // Refund previous provider if commission was already charged
-      if (existing.commissionChargedAt && previousProviderId && previousProviderId !== providerId) {
-        const prevProvider = await ProviderAccount.findById(previousProviderId);
-        if (prevProvider && existing.commissionAmount > 0) {
-          prevProvider.credits = Number(prevProvider.credits || 0) + existing.commissionAmount;
-          await prevProvider.save();
-
-          await ProviderWalletTxn.create({
-            providerId: previousProviderId,
-            bookingId: existing._id.toString(),
-            type: "commission_refund",
-            amount: existing.commissionAmount,
-            balanceAfter: prevProvider.credits,
-            meta: { reason: "admin_reassignment" },
-          });
-
-          try {
-            await notify({
-              recipientId: previousProviderId,
-              recipientRole: "provider",
-              type: "commission_refund",
-              meta: { bookingId: existing._id.toString(), amount: existing.commissionAmount },
-              respectProviderQuietHours: true,
-            });
-          } catch (notifyErr) {}
-        }
+      if (previousProviderId && previousProviderId !== providerId) {
+        await refundProviderCommissionIfNeeded(existing, previousProviderId, "admin_reassignment");
       }
 
       // Check new provider balance

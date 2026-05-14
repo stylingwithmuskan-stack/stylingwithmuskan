@@ -10,6 +10,7 @@ import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { Input } from "@/modules/user/components/ui/input";
 import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuthContext";
+import { api } from "@/modules/user/lib/api";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
 const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
@@ -20,16 +21,22 @@ export default function ProviderFeedback() {
     const [feedback, setFeedback] = useState([]);
     const [search, setSearch] = useState("");
     const [ratingFilter, setRatingFilter] = useState("all");
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const allFeedback = JSON.parse(localStorage.getItem('muskan-feedback') || '[]');
-        
-        // Filter feedback belonging to this provider
-        const myFeedback = allFeedback.filter(f => 
-            f.providerId === provider?._id || f.providerPhone === provider?.phone
-        );
+        const fetchFeedback = async () => {
+            try {
+                setLoading(true);
+                const res = await api.provider.getFeedback();
+                setFeedback(res.feedback || []);
+            } catch (error) {
+                console.error("Failed to fetch feedback:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        setFeedback(myFeedback.reverse());
+        if (provider) fetchFeedback();
     }, [provider]);
 
     const stats = useMemo(() => {
@@ -158,7 +165,12 @@ export default function ProviderFeedback() {
 
             {/* List */}
             <div className="grid gap-4">
-                {filteredFeedback.length > 0 ? (
+                {loading ? (
+                    <div className="py-20 text-center">
+                        <div className="w-10 h-10 border-4 border-purple-600/20 border-t-purple-600 rounded-full animate-spin mx-auto mb-4" />
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Loading Reviews...</p>
+                    </div>
+                ) : filteredFeedback.length > 0 ? (
                     filteredFeedback.map((fb, idx) => (
                         <motion.div
                             key={fb.id || idx}

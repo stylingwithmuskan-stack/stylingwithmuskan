@@ -121,7 +121,7 @@ export async function buildAssignmentCandidates({
 
   let providers = await findProvidersZoneStrict(
     { ...address, city: bookingCity, cityId: bookingCityId, zone: bookingZone, zoneId: bookingZoneId },
-    { approvalStatus: "approved" } // Removed registrationComplete check for easier testing
+    { approvalStatus: "approved", registrationComplete: false } // Relaxed check for broader discovery
   );
 
   // ✅ FIX: Fallback to city-wide search if no providers found in specific zone

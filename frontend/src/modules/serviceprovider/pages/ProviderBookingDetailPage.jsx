@@ -40,6 +40,7 @@ const ProviderBookingDetailPage = () => {
     const bookingId = booking?.id || booking?._id;
 
     const [otpInput, setOtpInput] = useState(["", "", "", "", "", ""]);
+    const [isUploading, setIsUploading] = useState(false);
     const [otpError, setOtpError] = useState(false);
     const [feedback, setFeedback] = useState("");
     const [showOTP, setShowOTP] = useState(false);
@@ -817,7 +818,7 @@ const ProviderBookingDetailPage = () => {
                                             )}
                                         </div>
                                         
-                                        <div className="bg-gray-50/50 rounded-2xl border border-gray-100 p-3 min-h-[140px] flex flex-col justify-center">
+                                        <div className="bg-gray-50/50 rounded-2xl border border-gray-100 p-3 min-h-[140px] flex flex-col justify-center relative">
                                             {phase.data.length > 0 ? (
                                                 <div className="flex gap-2.5 flex-wrap justify-center sm:justify-start">
                                                     {phase.data.map((img, i) => (
@@ -846,8 +847,15 @@ const ProviderBookingDetailPage = () => {
                                                             onClick={async (e) => {
                                                                 if (isFlutterWebView()) {
                                                                     e.preventDefault();
-                                                                    openFlutterCamera().then(file => {
-                                                                        if (file) phase.addFn(bookingId, [file]);
+                                                                    openFlutterCamera().then(async file => {
+                                                                        if (file) {
+                                                                            setIsUploading(true);
+                                                                            try {
+                                                                                await phase.addFn(bookingId, [file]);
+                                                                            } finally {
+                                                                                setIsUploading(false);
+                                                                            }
+                                                                        }
                                                                     });
                                                                 }
                                                             }}
@@ -858,9 +866,16 @@ const ProviderBookingDetailPage = () => {
                                                                 capture={phase.capture}
                                                                 multiple={phase.isMultiple}
                                                                 className="hidden"
-                                                                onChange={e => {
+                                                                onChange={async e => {
                                                                     const files = Array.from(e.target.files || []);
-                                                                    if (files.length) phase.addFn(bookingId, files);
+                                                                    if (files.length) {
+                                                                        setIsUploading(true);
+                                                                        try {
+                                                                            await phase.addFn(bookingId, files);
+                                                                        } finally {
+                                                                            setIsUploading(false);
+                                                                        }
+                                                                    }
                                                                 }} 
                                                             />
                                                             <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center mb-1">
@@ -878,8 +893,15 @@ const ProviderBookingDetailPage = () => {
                                                         onClick={async (e) => {
                                                             if (isFlutterWebView()) {
                                                                 e.preventDefault();
-                                                                openFlutterCamera().then(file => {
-                                                                    if (file) phase.addFn(bookingId, [file]);
+                                                                openFlutterCamera().then(async file => {
+                                                                    if (file) {
+                                                                        setIsUploading(true);
+                                                                        try {
+                                                                            await phase.addFn(bookingId, [file]);
+                                                                        } finally {
+                                                                            setIsUploading(false);
+                                                                        }
+                                                                    }
                                                                 });
                                                             }
                                                         }}
@@ -890,9 +912,16 @@ const ProviderBookingDetailPage = () => {
                                                             capture={phase.capture}
                                                             multiple={phase.isMultiple}
                                                             className="hidden"
-                                                            onChange={e => {
+                                                            onChange={async e => {
                                                                 const files = Array.from(e.target.files || []);
-                                                                if (files.length) phase.addFn(bookingId, files);
+                                                                if (files.length) {
+                                                                    setIsUploading(true);
+                                                                    try {
+                                                                        await phase.addFn(bookingId, files);
+                                                                    } finally {
+                                                                        setIsUploading(false);
+                                                                    }
+                                                                }
                                                             }} 
                                                         />
                                                         <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -908,6 +937,12 @@ const ProviderBookingDetailPage = () => {
                                                         <span className="text-[9px] font-bold text-gray-400 tracking-wider uppercase">No photos uploaded</span>
                                                     </div>
                                                 )
+                                            )}
+                                            {isUploading && (
+                                                <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center z-20 rounded-2xl">
+                                                    <div className="w-8 h-8 border-4 border-purple-600/20 border-t-purple-600 rounded-full animate-spin mb-2" />
+                                                    <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Uploading...</span>
+                                                </div>
                                             )}
                                         </div>
                                     </div>

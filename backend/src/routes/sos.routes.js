@@ -72,21 +72,27 @@ router.post(
     });
 
     try {
-      // Notify Admin
-      await notify({
-        recipientId: "ADMIN001",
-        recipientRole: "admin",
-        title: "SOS Alert",
-        message: `SOS Alert: ${userName} (${userType})${city ? ` in ${city}` : ""} needs help!`,
-        type: "sos_alert",
-        meta: { 
-          alertId: alert._id?.toString(), 
-          userType, 
-          userId, 
-          userName, 
-          city 
-        },
-      });
+      // Notify All Admins
+      const admins = await User.find({ role: "admin", status: "active" }).select("_id").lean();
+      if (admins.length > 0) {
+        for (const admin of admins) {
+          await notify({
+            recipientId: admin._id?.toString(),
+            recipientRole: "admin",
+            title: "🆘 SOS ALERT RECEIVED",
+            message: `URGENT: ${userName} (${userType})${city ? ` in ${city}` : ""} has triggered an SOS alert!`,
+            type: "sos_alert",
+            meta: { 
+              alertId: alert._id?.toString(), 
+              userType, 
+              userId, 
+              userName, 
+              city,
+              sound: "emergency"
+            },
+          });
+        }
+      }
 
       // If provider, notify their city's vendor
       if (userType === "provider" && city) {

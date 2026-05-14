@@ -182,13 +182,18 @@ export default function PerformanceDashboard() {
                         </div>
 
                         {/* Floating Status Badge mimicking image */}
-                        <div className="absolute -bottom-5 bg-[#334155] backdrop-blur-md text-white rounded-full px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-3 sm:gap-6 shadow-2xl border border-white/10 scale-90 sm:scale-100">
+                        <div className="absolute -bottom-5 bg-[#334155] backdrop-blur-md text-white rounded-full px-4 sm:px-6 py-2.5 sm:py-3 flex items-center gap-3 sm:gap-6 shadow-2xl border border-white/10 scale-90 sm:scale-100 z-20">
                             <AwardIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-300" />
                             <div className="flex flex-col items-center">
                                 <Star className={`h-4 w-4 sm:h-5 sm:w-5 fill-white ${metrics.rating >= (performanceCriteria?.minRatingThreshold || 4.5) ? "text-green-400" : "text-red-400"}`} />
                                 <span className="text-[8px] sm:text-[10px] uppercase font-black mt-0.5 tracking-wider text-center">Min: {performanceCriteria?.minRatingThreshold || 4.5}</span>
                             </div>
-                            <MoreVerticalIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-300" />
+                            <button 
+                                onClick={() => navigate("/provider/feedback")}
+                                className="p-1 hover:bg-white/10 rounded-full transition-colors active:scale-90"
+                            >
+                                <MoreVerticalIcon className="h-4 w-4 sm:h-5 sm:w-5 text-slate-300" />
+                            </button>
                         </div>
                     </div>
                 </div>

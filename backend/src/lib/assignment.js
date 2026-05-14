@@ -10,7 +10,7 @@ import { computeAvailableSlots } from "./availability.js";
 import { DEFAULT_TIME_SLOTS, isIsoDate, parseDurationToMinutes, slotLabelToLocalDateTime } from "./slots.js";
 import { resolveBookingSettings } from "./settings.js";
 import { isoDateToLocalEnd, isoDateToLocalStart } from "./isoDateTime.js";
-import { notify } from "./notify.js";
+import { notify, notifyMany } from "./notify.js";
 import { processSmartRefund } from "./refund.service.js";
 import { getIO } from "../startup/socket.js";
 
@@ -113,31 +113,33 @@ export async function pickNextProviderForBooking(booking, startIndex = 0) {
   }
 
   const rejected = new Set(Array.isArray(booking?.rejectedProviders) ? booking.rejectedProviders : []);
+  console.log(`[DEBUG_ASSIGN] Booking: ${booking._id}, Rejected Count: ${rejected.size}`);
+
   // User requested Max 5 providers limit
   if (rejected.size >= 5) {
-    console.log(`[Assignment] Booking ${booking._id} reached max rejections (5). Escalating.`);
+    console.log(`[DEBUG_ASSIGN] Reached limit (5). Returning NULL to escalate.`);
     return null;
   }
   let idx = Math.max(Number(startIndex) || 0, 0);
-  console.log(`[Assignment] Reassigning booking ${booking._id}, Candidates: ${candidates.length}, StartIdx: ${idx}`);
-  
+  console.log(`[DEBUG_ASSIGN] Attempting to find next candidate from Index: ${idx}`);
+
   while (idx < candidates.length) {
     const cand = String(candidates[idx] || "");
-    if (!cand) { 
+    if (!cand) {
       console.log(`[Assignment] Skipping cand at idx ${idx}: invalid ID`);
-      idx++; 
-      continue; 
+      idx++;
+      continue;
     }
-    if (rejected.has(cand)) { 
+    if (rejected.has(cand)) {
       console.log(`[Assignment] Skipping cand ${cand} at idx ${idx}: already rejected`);
-      idx++; 
-      continue; 
+      idx++;
+      continue;
     }
-    
+
     console.log(`[Assignment] Checking eligibility for cand ${cand} at idx ${idx}...`);
     // eslint-disable-next-line no-await-in-loop
     const ok = await isProviderEligibleForBooking(cand, booking, { ignoreLeadTime: true });
-    
+
     console.log(`[Assignment] Eligibility for cand ${cand} returned: ${ok}`);
     if (ok) return { providerId: cand, index: idx };
     idx++;
@@ -146,7 +148,81 @@ export async function pickNextProviderForBooking(booking, startIndex = 0) {
   return null;
 }
 
-const EXHAUSTED_CHAIN_VENDOR_WINDOW_MS = 10 * 60 * 1000;
+/**
+ * Higher-level wrapper to find next candidate and actually update/notify them.
+ * Used for custom bookings "Force Create" and auto-reassignment scenarios.
+ */
+export async function findNextCandidate(bookingId) {
+  const Booking = (await import("../models/Booking.js")).default;
+  const { buildAssignmentCandidates } = await import("./assignmentCandidates.js");
+  const { resolveBookingSettings } = await import("./settings.js");
+
+  const booking = await Booking.findById(bookingId);
+  if (!booking) return null;
+
+  // Build candidates if missing or empty
+  if (!booking.candidateProviders || booking.candidateProviders.length === 0) {
+    console.log(`[Assignment] No candidates for booking ${bookingId}. Rebuilding...`);
+    const { candidateProviders } = await buildAssignmentCandidates({
+      address: booking.address,
+      slot: booking.slot,
+      items: booking.services || booking.items || [],
+      customerId: booking.customerId,
+      ignoreLeadTime: true, // Emergency replacement should ignore lead time
+      ignoreServiceWindow: true,
+      useCache: false
+    });
+    booking.candidateProviders = candidateProviders;
+    console.log(`[Assignment] Rebuilt list: ${candidateProviders.join(', ')}`);
+  }
+
+  const now = new Date();
+  console.log(`[Assignment] Picking next from candidates for ${bookingId}. Total Rejected: ${booking.rejectedProviders?.length}`);
+  const picked = await pickNextProviderForBooking(booking, 0);
+  console.log(`[Assignment] Picked: ${picked?.providerId || 'NONE'}`);
+
+  if (picked?.providerId) {
+    booking.assignedProvider = picked.providerId;
+    booking.assignmentIndex = picked.index;
+    booking.status = "pending";
+    booking.lastAssignedAt = now;
+    booking.expiresAt = computeExpiresAt(now);
+    booking.adminEscalated = false;
+
+    await booking.save();
+
+    try {
+      const io = getIO();
+      io?.of("/bookings").emit("status:update", { id: booking._id.toString(), status: "pending" });
+      io?.of("/bookings").to(booking._id.toString()).emit("booking:update", { id: booking._id.toString() });
+    } catch (err) { }
+
+    try {
+      await notify({
+        recipientId: picked.providerId,
+        recipientRole: "provider",
+        type: "booking_assigned",
+        meta: { bookingId: booking._id.toString() },
+        respectProviderQuietHours: true,
+      });
+    } catch (err) { }
+
+    return picked.providerId;
+  } else {
+    // No providers found? Escalate to admin/vendor
+    console.log(`[Assignment] No candidates found for booking ${bookingId}. Escalating.`);
+    const { handleExhaustedAssignmentChain } = await import("./assignment.js");
+    await handleExhaustedAssignmentChain({
+      booking,
+      now,
+      escalationReason: "no candidates found on initial search",
+    });
+    await booking.save();
+    return null;
+  }
+}
+
+const EXHAUSTED_CHAIN_VENDOR_WINDOW_MS = 15 * 60 * 1000;
 
 function getBookingCityInfo(booking) {
   return {
@@ -183,7 +259,7 @@ export function getExhaustedAssignmentDisposition(booking, now = new Date()) {
   };
 }
 
-async function refundProviderCommissionIfNeeded(booking, providerId, reason = "system_auto_cancel") {
+export async function refundProviderCommissionIfNeeded(booking, providerId, reason = "system_auto_cancel") {
   if (!providerId || !booking?.commissionChargedAt || booking?.commissionRefundedAt || Number(booking?.commissionAmount || 0) <= 0) {
     return false;
   }
@@ -191,12 +267,17 @@ async function refundProviderCommissionIfNeeded(booking, providerId, reason = "s
   if (!acc) return false;
   acc.credits = Number(acc.credits || 0) + Number(booking.commissionAmount || 0);
   await acc.save();
+  
+  const refundedAmount = Number(booking.commissionAmount || 0);
   booking.commissionRefundedAt = new Date();
+  booking.commissionChargedAt = null; // Clear so next provider can be charged
+  booking.commissionAmount = 0;
+
   await ProviderWalletTxn.create({
     providerId,
     bookingId: booking._id.toString(),
     type: "commission_refund",
-    amount: Number(booking.commissionAmount || 0),
+    amount: refundedAmount,
     balanceAfter: acc.credits,
     meta: { reason },
   });
@@ -208,7 +289,7 @@ async function refundProviderCommissionIfNeeded(booking, providerId, reason = "s
       meta: { bookingId: booking._id.toString(), amount: Number(booking.commissionAmount || 0) },
       respectProviderQuietHours: true,
     });
-  } catch {}
+  } catch { }
   return true;
 }
 
@@ -258,7 +339,7 @@ function emitExhaustedAssignmentEvents({ bookingId, fromProvider = "", kind }) {
       id: bookingId,
       status: kind === "auto_cancel" ? "cancelled" : "pending",
     });
-  } catch {}
+  } catch { }
 }
 
 export async function handleExhaustedAssignmentChain({
@@ -282,6 +363,10 @@ export async function handleExhaustedAssignmentChain({
     booking.adminEscalated = !vendor;
     booking.status = "pending";
     booking.expiresAt = null;
+    
+    // Refund previous provider if they were charged (e.g. manual assignment)
+    await refundProviderCommissionIfNeeded(booking, previousProvider, "vendor_escalation");
+    
     await booking.save();
 
     emitExhaustedAssignmentEvents({
@@ -291,12 +376,37 @@ export async function handleExhaustedAssignmentChain({
     });
 
     try {
-      if (vendor) {
-        await notify({
-          recipientId: vendor._id?.toString(),
+      const searchCity = city.trim();
+      console.log(`[Escalation] Searching for vendors in city: "${searchCity}"`);
+      
+      const vendors = await Vendor.find({
+        city: new RegExp(searchCity, "i"),
+        status: "approved"
+      }).lean();
+
+      console.log(`[Escalation] Found ${vendors.length} approved vendors.`);
+
+      if (vendors.length > 0 || vendor) {
+        const vendorIds = Array.from(new Set([
+          ...vendors.map(v => v._id.toString()),
+          ...(vendor ? [vendor._id.toString()] : [])
+        ])).filter(Boolean);
+        
+        console.log(`[Escalation] 🔔 NOTIFYING VENDORS: Role=vendor, IDs=[${vendorIds.join(", ")}], Type=NEW_ORDER`);
+        
+        await notifyMany(vendorIds, {
           recipientRole: "vendor",
-          type: "booking_escalated",
+          type: "NEW_ORDER",
           meta: { bookingId: booking._id.toString(), city, reason: escalationReason },
+        });
+      } else {
+        console.warn(`[Escalation] ❌ NO APPROVED VENDORS FOUND for city: "${city}". FORCING GLOBAL BROADCAST. Role=vendor`);
+        // Fail-safe: Broadcast to ALL vendors if city-specific ones are missing
+        await notify({
+          recipientId: "GLOBAL_VENDOR_FALLBACK",
+          recipientRole: "vendor",
+          type: "NEW_ORDER",
+          meta: { bookingId: booking._id.toString(), city, reason: "fallback_broadcast" },
         });
       }
       await notify({
@@ -310,7 +420,9 @@ export async function handleExhaustedAssignmentChain({
           reason: vendor ? "escalated to vendor" : "no vendor found",
         },
       });
-    } catch {}
+    } catch (err) {
+      console.error("[Escalation] ❌ Notification chain failed:", err.message);
+    }
 
     return {
       kind: "vendor_escalation",
@@ -365,7 +477,9 @@ export async function handleExhaustedAssignmentChain({
       type: "booking_cancelled",
       meta: { bookingId: booking._id.toString(), city, reason: "no provider accepted before service window" },
     });
-  } catch {}
+  } catch (err) {
+    console.error("[AutoCancel] ❌ Notification chain failed:", err.message);
+  }
 
   return {
     kind: "auto_cancel",

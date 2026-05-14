@@ -33,11 +33,20 @@ export function initSocket(httpServer) {
         if (!token) return next(new Error("Unauthorized"));
         const payload = jwt.verify(token, JWT_SECRET);
         socket.data.userId = payload.sub;
+        socket.data.role = payload.role || "user";
         next();
       } catch {
         next(new Error("Unauthorized"));
       }
     }).on("connection", (socket) => {
+      const userId = String(socket.data.userId);
+      const role = String(socket.data.role || "unknown");
+      
+      socket.join(userId);
+      socket.join(`role:${role}`);
+      
+      console.log(`[Socket] Auth Success: User ${userId} (${role}) joined rooms: [${userId}, role:${role}]`);
+
       socket.on("join:booking", async (payload) => {
         try {
           const bookingId = String(payload?.bookingId || "").trim();

@@ -324,14 +324,20 @@ export default function MyHub() {
                 </div>
 
                 <div className="space-y-2">
-                    <button className="w-full flex items-center justify-between p-5 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group">
+                    <button 
+                        onClick={() => navigate("/provider/support", { state: { subject: "What is a Hub?" } })}
+                        className="w-full flex items-center justify-between p-5 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"
+                    >
                         <span className="text-[17px] font-bold text-slate-800 tracking-tight">What is a Hub?</span>
                         <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-900 transition-colors" />
                     </button>
 
                     <div className="h-px bg-slate-50 mx-4" />
 
-                    <button className="w-full flex items-center justify-between p-5 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group">
+                    <button 
+                        onClick={() => navigate("/provider/support", { state: { subject: "Rebooking leads outside hub" } })}
+                        className="w-full flex items-center justify-between p-5 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group"
+                    >
                         <span className="text-[17px] font-bold text-slate-800 tracking-tight">Getting rebooking leads outside hub</span>
                         <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-900 transition-colors" />
                     </button>

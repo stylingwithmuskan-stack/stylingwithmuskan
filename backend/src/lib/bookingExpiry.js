@@ -33,10 +33,11 @@ export function shouldAutoExpireBooking(booking, now) {
   const diffMs = slotTime.getTime() - now.getTime();
   const diffMinutes = diffMs / (1000 * 60);
 
-  // Auto-expire if within threshold (default 60 minutes)
-  const threshold = Math.max(Number(BOOKING_AUTO_CANCEL_THRESHOLD_MINUTES || 60), 0);
+  // Auto-expire if within threshold (default 15 minutes)
+  const threshold = Math.max(Number(BOOKING_AUTO_CANCEL_THRESHOLD_MINUTES || 15), 0);
   
   if (diffMinutes < threshold && diffMinutes > 0) {
+    console.log(`[Auto-Expiry Check] Booking ${booking._id} is within ${threshold}m window. Diff: ${diffMinutes}m. Action: SHOULD_EXPIRE`);
     return { 
       shouldExpire: true, 
       reason: `slot_time_within_${threshold}_minutes`, 

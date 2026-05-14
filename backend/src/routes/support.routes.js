@@ -4,6 +4,7 @@ import { requireRole, requireAnyRole } from "../middleware/roles.js";
 import SupportChat from "../models/SupportChat.js";
 import ProviderAccount from "../models/ProviderAccount.js";
 import Vendor from "../models/Vendor.js";
+import { notify } from "../lib/notify.js";
 
 const router = Router();
 
@@ -39,6 +40,28 @@ router.post("/chat", requireAnyRole(["provider", "vendor"]), async (req, res) =>
       sender: role,
       message: String(message).trim(),
     });
+
+    // Notify Admins
+    try {
+      const User = mongoose.model("User");
+      const admins = await User.find({ role: "admin", status: "active" }).select("_id").lean();
+      
+      if (admins.length > 0) {
+        for (const admin of admins) {
+          await notify({
+            recipientId: admin._id?.toString(),
+            recipientRole: "admin",
+            type: "marketing_campaign",
+            title: `New Message from ${userData.name || role}`,
+            message: String(message).trim().slice(0, 100),
+            link: `/admin/support?chat=${userId}`,
+            emit: true
+          });
+        }
+      }
+    } catch (notiErr) {
+      console.error("[Support] Admin notification failed:", notiErr.message);
+    }
 
     return res.status(201).json({ chat });
   } catch (err) {
@@ -179,6 +202,22 @@ router.post("/admin/chat/:participantId", requireRole("admin"), async (req, res)
       sender: "admin",
       message: String(message).trim(),
     });
+
+    // Trigger real-time notification
+    try {
+      await notify({
+        recipientId: participantId,
+        recipientRole: lastMsg.participantRole,
+        type: "marketing_campaign", // Use canonical type that allows custom title/message
+        title: "New Message from SWM Admin",
+        message: String(message).trim().slice(0, 100) + (message.length > 100 ? "..." : ""),
+        link: lastMsg.participantRole === "provider" ? "/provider/support" : "/vendor/support",
+        emit: true,
+        respectProviderQuietHours: false // Important messages shouldn't be delayed
+      });
+    } catch (notiErr) {
+      console.error("[Support] Notification failed:", notiErr.message);
+    }
 
     return res.status(201).json({ chat });
   } catch (err) {
