@@ -85,6 +85,7 @@ router.post("/logout", async (req, res) => {
 
 router.get("/vendors", requireRole("admin"), AdminController.listVendors);
 router.get("/customers", requireRole("admin"), AdminController.listCustomers);
+router.patch("/customers/:id/wallet", requireRole("admin"), body("balance").isNumeric(), AdminController.updateCustomerWallet);
 router.get("/metrics/overview", requireRole("admin"), AdminController.metricsOverview);
 router.get("/metrics/revenue-by-month", requireRole("admin"), AdminController.metricsRevenueByMonth);
 router.get("/metrics/customers-by-month", requireRole("admin"), AdminController.metricsCustomersByMonth);

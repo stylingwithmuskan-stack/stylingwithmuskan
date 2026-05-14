@@ -86,7 +86,24 @@ const BookingSummary = () => {
   }, []);
 
   const [useWallet, setUseWallet] = useState(false);
-  const userWalletBalance = Number(user?.wallet?.balance || 0);
+  const [userWalletBalance, setUserWalletBalance] = useState(0);
+
+  // Fetch latest balance on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.me();
+        if (res.user?.wallet) {
+          setUserWalletBalance(Number(res.user.wallet.balance || 0));
+        } else if (res.wallet) {
+          setUserWalletBalance(Number(res.wallet.balance || 0));
+        }
+      } catch (err) {
+        // Fallback to auth context if fetch fails
+        setUserWalletBalance(Number(user?.wallet?.balance || 0));
+      }
+    })();
+  }, [user?._id]);
 
   // Determine effective booking type
   const effectiveBookingType = bookingParam || contextBookingType || "instant";
@@ -338,7 +355,6 @@ const BookingSummary = () => {
       const payload = {
         items,
         slot: selectedSlot,
-        address,
         address,
         bookingType: effectiveBookingType,
         couponCode: couponApplied?.code || undefined,
@@ -834,7 +850,7 @@ const BookingSummary = () => {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Wallet Balance</p>
-                  <p className="text-sm font-bold mt-1 text-foreground">₹{userWalletBalance.toLocaleString()}</p>
+                  <p className="text-sm font-bold mt-1 text-foreground">₹{(userWalletBalance || 0).toLocaleString()}</p>
                 </div>
               </div>
               <Button 

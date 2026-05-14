@@ -689,7 +689,10 @@ export async function create(req, res) {
     fs.appendFileSync(logPath, logMsg);
   } catch (err) {}
   let order = null;
-  const remainingAdvance = Math.max(advanceAmount - walletAmountUsed, 0);
+  // If wallet is used, we treat the remaining TOTAL as the advance to be paid now
+  const remainingAdvance = useWallet 
+    ? Math.max(totals.finalTotal - walletAmountUsed, 0)
+    : Math.max(advanceAmount - walletAmountUsed, 0);
   if (remainingAdvance > 0 && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
     try {
       const rzp = new Razorpay({

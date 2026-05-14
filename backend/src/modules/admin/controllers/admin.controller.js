@@ -382,6 +382,35 @@ export async function listCustomers(req, res) {
   res.json({ customers: items, page, limit, total });
 }
 
+export async function updateCustomerWallet(req, res) {
+  try {
+    const { id } = req.params;
+    const { balance } = req.body;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: "Customer not found" });
+
+    const oldBalance = Number(user.wallet?.balance || 0);
+    const newBalance = Number(balance);
+    const diff = newBalance - oldBalance;
+
+    if (!user.wallet) user.wallet = { balance: 0, transactions: [] };
+    user.wallet.balance = newBalance;
+    user.wallet.transactions.unshift({
+      title: "Admin Adjustment",
+      amount: diff,
+      type: diff >= 0 ? "credit" : "debit",
+      balanceAfter: newBalance,
+      at: new Date(),
+      description: `Balance adjusted by admin from ₹${oldBalance} to ₹${newBalance}`
+    });
+
+    await user.save();
+    res.json({ success: true, balance: newBalance });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update wallet balance" });
+  }
+}
+
 export async function listCoupons(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);

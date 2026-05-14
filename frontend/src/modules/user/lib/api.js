@@ -274,6 +274,7 @@ export const api = {
     setToken("");
     return request("/auth/logout", { method: "POST" });
   },
+  testWalletCredit: () => request("/auth/test-wallet-credit"),
 
   // Customer profile
   activity: () => request("/users/activity"),

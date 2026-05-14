@@ -11,6 +11,7 @@ import { notify } from "../lib/notify.js";
 
 const router = Router();
 
+
 router.post(
   "/request-otp",
   body("phone").isString().matches(/^\d{10}$/),
@@ -307,6 +308,7 @@ router.get("/me", async (req, res) => {
         isPlusMember: subscription.isPlusMember,
         plusExpiry: subscription.currentPeriodEnd,
         plusPlan: subscription.planId,
+        wallet: user.wallet,
       },
     });
   } catch {
