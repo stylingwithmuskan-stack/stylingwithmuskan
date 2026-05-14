@@ -85,6 +85,9 @@ const BookingSummary = () => {
     })();
   }, []);
 
+  const [useWallet, setUseWallet] = useState(false);
+  const userWalletBalance = Number(user?.wallet?.balance || 0);
+
   // Determine effective booking type
   const effectiveBookingType = bookingParam || contextBookingType || "instant";
 
@@ -156,22 +159,26 @@ const BookingSummary = () => {
 
   const passedBookingData = location.state;
   const customAdvanceData = passedBookingData?.customAdvance || customAdvance;
-  const finalTotal = Number(quotePreview?.finalTotal ?? Math.max(displayTotalPrice - combinedDiscount, 0));
+  const finalTotalBeforeWallet = Number(quotePreview?.finalTotal ?? Math.max(displayTotalPrice - combinedDiscount, 0));
+  
+  const walletAmountToUse = useWallet ? Math.min(userWalletBalance, finalTotalBeforeWallet) : 0;
+  const finalTotal = finalTotalBeforeWallet - walletAmountToUse;
 
   // Calculate advance based on passed data or fallback
   // Instant bookings do not require advance payment
-  let advanceAmount = (effectiveBookingType === 'instant') ? 0 : (passedBookingData?.advanceAmount || quotePreview?.advanceAmount || 0);
+  let advanceAmountBeforeWallet = (effectiveBookingType === 'instant') ? 0 : (passedBookingData?.advanceAmount || quotePreview?.advanceAmount || 0);
   
   // Custom enquiry advance: the advance amount IS the custom advance amount
   if (customAdvanceData?.amount > 0) {
-      advanceAmount = Number(customAdvanceData.amount);
+    advanceAmountBeforeWallet = Number(customAdvanceData.amount);
   }
 
   // Safeguard: Advance cannot exceed the final discounted total
-  if (advanceAmount > finalTotal) {
-      advanceAmount = finalTotal;
+  if (advanceAmountBeforeWallet > finalTotalBeforeWallet) {
+    advanceAmountBeforeWallet = finalTotalBeforeWallet;
   }
   
+  const advanceAmount = Math.max(advanceAmountBeforeWallet - walletAmountToUse, 0);
   const remainingAfterAdvance = finalTotal - advanceAmount;
 
   const loadRazorpay = () =>
@@ -332,10 +339,12 @@ const BookingSummary = () => {
         items,
         slot: selectedSlot,
         address,
+        address,
         bookingType: effectiveBookingType,
         couponCode: couponApplied?.code || undefined,
         preferredProviderId: selectedSlot?.provider?.id || selectedSlot?.provider?._id || undefined,
-        allowAutoFallback
+        allowAutoFallback,
+        useWallet: !!useWallet
       };
       
       console.log("[BookingSummary] Calling api.bookings.create with payload:", payload);
@@ -343,6 +352,14 @@ const BookingSummary = () => {
       console.log("[BookingSummary] api.bookings.create SUCCESS. Booking ID:", booking?.id || booking?._id);
       
       const bookingId = booking?.id || booking?._id;
+
+      // If no advance is needed (already paid via wallet), show success immediately
+      if (serverAdvance <= 0) {
+        setIsProcessing(false);
+        setShowSuccess(true);
+        clearCart();
+        return;
+      }
       
       // Direct Razorpay Integration
       const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
@@ -518,7 +535,8 @@ const BookingSummary = () => {
         bookingType: effectiveBookingType,
         couponCode: couponApplied?.code || undefined,
         preferredProviderId: selectedSlot?.provider?.id || selectedSlot?.provider?._id || undefined,
-        allowAutoFallback: false
+        allowAutoFallback: false,
+        useWallet: !!useWallet
       };
 
       const { booking } = await api.bookings.create(payload);
@@ -798,6 +816,42 @@ const BookingSummary = () => {
               <p className="text-[9px] sm:text-[10px] text-muted-foreground font-medium mt-0.5">Join from ₹299/quarter · Save ₹{Math.round(displayTotalPrice * 0.10)} now</p>
             </div>
             <ChevronRight className="w-4 h-4 text-amber-500 shrink-0" />
+          </motion.div>
+        )}
+
+        {/* Wallet Balance */}
+        {userWalletBalance > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ delay: 0.19 }} 
+            className={`rounded-2xl p-4 border transition-all ${useWallet ? 'bg-primary/5 border-primary/30' : 'glass-strong border-border/50'}`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Wallet Balance</p>
+                  <p className="text-sm font-bold mt-1 text-foreground">₹{userWalletBalance.toLocaleString()}</p>
+                </div>
+              </div>
+              <Button 
+                variant={useWallet ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setUseWallet(!useWallet)}
+                className="rounded-xl h-9 text-[10px] font-bold px-4"
+              >
+                {useWallet ? "USE WALLET ✓" : "USE WALLET"}
+              </Button>
+            </div>
+            {useWallet && (
+              <div className="mt-3 pt-3 border-t border-primary/10 flex justify-between items-center">
+                <span className="text-[10px] font-bold text-primary uppercase">Amount to deduct</span>
+                <span className="text-sm font-black text-primary">-₹{walletAmountToUse.toLocaleString()}</span>
+              </div>
+            )}
           </motion.div>
         )}
 

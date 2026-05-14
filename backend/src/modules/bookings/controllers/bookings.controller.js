@@ -594,6 +594,36 @@ export async function create(req, res) {
     } catch {}
   }
 
+  const useWallet = !!req.body.useWallet;
+  let walletAmountUsed = 0;
+  
+  if (useWallet) {
+    const userWalletBalance = Number(req.user.wallet?.balance || 0);
+    if (userWalletBalance > 0) {
+      // We can use up to the final total or the entire balance
+      walletAmountUsed = Math.min(userWalletBalance, totals.finalTotal);
+      
+      if (walletAmountUsed > 0) {
+        // Deduct from user wallet immediately
+        const u = await User.findById(req.user._id);
+        if (u) {
+          if (!u.wallet) u.wallet = { balance: 0, transactions: [] };
+          u.wallet.balance = Math.max((u.wallet.balance || 0) - walletAmountUsed, 0);
+          u.wallet.transactions.unshift({
+            title: "Paid for Booking",
+            amount: -walletAmountUsed,
+            type: "debit",
+            balanceAfter: u.wallet.balance,
+            description: `Payment for booking at ${requestedDate} ${requestedTime}`,
+            at: new Date()
+          });
+          await u.save();
+          console.log(`[WalletPayment] Deducted ₹${walletAmountUsed} from user ${u._id}. New balance: ₹${u.wallet.balance}`);
+        }
+      }
+    }
+  }
+
   const booking = await Booking.create({
     customerId: req.user._id.toString(),
     customerName: req.user.name || "",
@@ -605,13 +635,19 @@ export async function create(req, res) {
     discount: totals.discount,
     discountFundedBy: coupon?.discountBorneBy || customerSubscription.discountFundedBy || "admin",
     convenienceFee: customerSubscription.convenienceFee,
-    prepaidAmount: 0,
-    balanceAmount: totals.finalTotal,
-    paymentStatus: "Pending",
+    walletAmountUsed,
+    prepaidAmount: walletAmountUsed,
+    balanceAmount: Math.max(totals.finalTotal - walletAmountUsed, 0),
+    paymentStatus: walletAmountUsed >= totals.finalTotal ? "Fully Paid" : (walletAmountUsed > 0 ? "Partially Paid" : "Pending"),
     address: safeAddress,
     slot,
     bookingType,
-    status: "payment_pending",
+    status: walletAmountUsed >= totals.finalTotal ? "pending" : "payment_pending",
+    paymentSources: walletAmountUsed > 0 ? [{
+      source: "wallet",
+      amount: walletAmountUsed,
+      paidAt: new Date()
+    }] : [],
     notificationStatus,
     assignedProvider,
     maintainProvider: preferredProviderId || "",
@@ -653,14 +689,15 @@ export async function create(req, res) {
     fs.appendFileSync(logPath, logMsg);
   } catch (err) {}
   let order = null;
-  if (advanceAmount > 0 && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
+  const remainingAdvance = Math.max(advanceAmount - walletAmountUsed, 0);
+  if (remainingAdvance > 0 && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
     try {
       const rzp = new Razorpay({
         key_id: RAZORPAY_KEY_ID,
         key_secret: RAZORPAY_KEY_SECRET,
       });
       order = await rzp.orders.create({
-        amount: Math.round(advanceAmount * 100),
+        amount: Math.round(remainingAdvance * 100),
         currency: "INR",
         receipt: `swm_${booking._id}`,
         notes: { bookingId: booking._id.toString() },
@@ -687,7 +724,7 @@ export async function create(req, res) {
     res.status(201).json({
       booking: enriched,
       totals,
-      advanceAmount,
+      advanceAmount: remainingAdvance,
       order,
     });
   }
