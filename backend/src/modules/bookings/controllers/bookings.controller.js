@@ -606,12 +606,20 @@ export async function create(req, res) {
   }
 
   // Calculate remaining advance
-  const remainingAdvance = useWallet 
-    ? Math.max(totals.finalTotal - walletAmountUsed, 0)
-    : Math.max(advanceAmount - walletAmountUsed, 0);
+  let effectiveAdvance = advanceAmount;
+  // For instant bookings, if wallet is used but doesn't cover the full total, 
+  // we treat the required upfront as the full total to ensure Razorpay opens and status stays payment_pending.
+  if (bookingType === "instant" && walletAmountUsed > 0 && walletAmountUsed < totals.finalTotal) {
+    effectiveAdvance = totals.finalTotal;
+  }
+  const remainingAdvance = Math.max(effectiveAdvance - walletAmountUsed, 0);
+  const isFullPayment = (totals.finalTotal <= walletAmountUsed);
+  const isScheduledAdvancePaid = (bookingType !== "instant" && remainingAdvance === 0);
 
-  // IMMEDIATELY deduct from wallet ONLY if no Razorpay is needed (Full Wallet Pay)
-  if (remainingAdvance === 0 && walletAmountUsed > 0) {
+  // IMMEDIATELY deduct from wallet ONLY if:
+  // 1. It's a full payment (Wallet covers everything)
+  // 2. OR it's a scheduled booking and wallet covers the required advance
+  if ((isFullPayment || isScheduledAdvancePaid) && walletAmountUsed > 0) {
     const u = await User.findById(req.user._id);
     if (u) {
       if (!u.wallet) u.wallet = { balance: 0, transactions: [] };
@@ -641,14 +649,14 @@ export async function create(req, res) {
     discountFundedBy: (coupon?.discountBorneBy || customerSubscription.discountFundedBy || "admin"),
     convenienceFee: customerSubscription.convenienceFee,
     walletAmountUsed,
-    prepaidAmount: (remainingAdvance === 0 ? walletAmountUsed : 0), 
-    balanceAmount: totals.finalTotal - (remainingAdvance === 0 ? walletAmountUsed : 0),
-    paymentStatus: (remainingAdvance === 0 && walletAmountUsed > 0) ? "Fully Paid" : "Pending",
+    prepaidAmount: walletAmountUsed, 
+    balanceAmount: Math.max(totals.finalTotal - walletAmountUsed, 0),
+    paymentStatus: (walletAmountUsed >= totals.finalTotal) ? "Fully Paid" : (walletAmountUsed > 0 ? "Partially Paid" : "Pending"),
     address: safeAddress,
     slot,
     bookingType,
-    status: remainingAdvance > 0 ? "payment_pending" : "pending",
-    paymentSources: (remainingAdvance === 0 && walletAmountUsed > 0) ? [{
+    status: (remainingAdvance > 0) ? "payment_pending" : "pending",
+    paymentSources: (walletAmountUsed > 0) ? [{
       source: "wallet",
       amount: walletAmountUsed,
       paidAt: new Date()

@@ -369,8 +369,9 @@ const BookingSummary = () => {
       
       const bookingId = booking?.id || booking?._id;
 
-      // If no advance is needed (already paid via wallet), show success immediately
-      if (serverAdvance <= 0) {
+      // If no advance is needed (already paid via wallet or scheduled booking logic), show success immediately
+      // But for instant bookings, if we're here, the user wants to PAY NOW, so only skip if wallet covered everything.
+      if (serverAdvance <= 0 && (effectiveBookingType !== 'instant' || walletAmountToUse >= finalTotalBeforeWallet)) {
         setIsProcessing(false);
         setShowSuccess(true);
         clearCart();
