@@ -108,8 +108,8 @@ export async function updateBookingStatus(req, res) {
         console.log(`[DEBUG_REJECT] Current Rejected Count: ${b.rejectedProviders.length}`);
         console.log(`[DEBUG_REJECT] Candidates Available: ${candidates.length}`);
 
-        // Max 1 provider trial limit (Escalate after 1st rejection)
-        const nextProviderId = b.rejectedProviders.length < 1 
+        // Max 5 provider trial limit (Escalate after 5th rejection)
+        const nextProviderId = b.rejectedProviders.length < 5 
           ? candidates.find(id => !b.rejectedProviders.includes(id)) 
           : null;
 
@@ -130,6 +130,20 @@ export async function updateBookingStatus(req, res) {
           await BookingLog.create({ action: "booking:status", userId: pId, bookingId, meta: { status: "rejected", subType: "reassigned", nextProviderId } });
           return res.json({ booking: b });
         } else {
+          // Fallback search: If no more candidates in list but below 5 rejections, search for more
+          if (b.rejectedProviders.length < 5) {
+            console.log(`[DEBUG_REJECT] Candidates exhausted but below limit (5). Clearing and re-searching...`);
+            // MUST save the cleared list to DB so findNextCandidate fetches a fresh state
+            await Booking.updateOne({ _id: bookingId }, { $set: { candidateProviders: [] } });
+            
+            const { findNextCandidate } = await import("../../../lib/assignment.js");
+            const nextId = await findNextCandidate(bookingId);
+            if (nextId) {
+              const freshB = await Booking.findById(bookingId);
+              return res.json({ booking: freshB });
+            }
+          }
+
           const { handleExhaustedAssignmentChain } = await import("../../../lib/assignment.js");
           await handleExhaustedAssignmentChain({
             booking: b,

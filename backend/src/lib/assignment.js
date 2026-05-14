@@ -115,9 +115,9 @@ export async function pickNextProviderForBooking(booking, startIndex = 0) {
   const rejected = new Set(Array.isArray(booking?.rejectedProviders) ? booking.rejectedProviders : []);
   console.log(`[DEBUG_ASSIGN] Booking: ${booking._id}, Rejected Count: ${rejected.size}`);
 
-  // User requested Max 5 providers limit (Now 1)
-  if (rejected.size >= 1) {
-    console.log(`[DEBUG_ASSIGN] Reached limit (1). Returning NULL to escalate.`);
+  // User requested Max 5 providers limit
+  if (rejected.size >= 5) {
+    console.log(`[DEBUG_ASSIGN] Reached limit (5). Returning NULL to escalate.`);
     return null;
   }
   let idx = Math.max(Number(startIndex) || 0, 0);
@@ -162,24 +162,24 @@ export async function findNextCandidate(bookingId) {
 
   // Build candidates if missing or empty
   if (!booking.candidateProviders || booking.candidateProviders.length === 0) {
-    console.log(`[Assignment] Building candidates for booking ${bookingId}...`);
-    const settings = await resolveBookingSettings();
+    console.log(`[Assignment] No candidates for booking ${bookingId}. Rebuilding...`);
     const { candidateProviders } = await buildAssignmentCandidates({
       address: booking.address,
       slot: booking.slot,
       items: booking.services || booking.items || [],
-      settings,
-      customerId: booking.customerId?.toString(),
-      useCache: false,
-      ignoreLeadTime: true // ✅ Force Create should ignore lead time
+      customerId: booking.customerId,
+      ignoreLeadTime: true, // Emergency replacement should ignore lead time
+      ignoreServiceWindow: true,
+      useCache: false
     });
     booking.candidateProviders = candidateProviders;
-    await booking.save();
-    console.log(`[Assignment] Found ${candidateProviders.length} candidates for booking ${bookingId}: ${candidateProviders.join(', ')}`);
+    console.log(`[Assignment] Rebuilt list: ${candidateProviders.join(', ')}`);
   }
 
   const now = new Date();
+  console.log(`[Assignment] Picking next from candidates for ${bookingId}. Total Rejected: ${booking.rejectedProviders?.length}`);
   const picked = await pickNextProviderForBooking(booking, 0);
+  console.log(`[Assignment] Picked: ${picked?.providerId || 'NONE'}`);
 
   if (picked?.providerId) {
     booking.assignedProvider = picked.providerId;

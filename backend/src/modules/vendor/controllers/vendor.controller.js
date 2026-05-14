@@ -828,12 +828,6 @@ export async function listBookings(req, res) {
     orConditions.push({ assignedProvider: { $in: providerIds } });
   }
 
-  // Vendor escalation logic
-  orConditions.push({
-    vendorEscalated: true,
-    assignedProvider: { $in: ["", null] },
-    "address.city": new RegExp(`^${escapeRegex(city)}`, "i")
-  });
 
   // 2. By Address Match (Zone or City)
   if (zones.length > 0) {

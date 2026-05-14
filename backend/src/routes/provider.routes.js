@@ -1643,10 +1643,16 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     await b.save();
     let picked = await pickNextProviderForBooking(b, startIdx);
 
-    // Max 1 provider trial limit (Escalate after 1st rejection)
-    const MAX_REJECTIONS = 1;
+    // Max 5 provider trial limit (Escalate after 5th rejection)
+    const MAX_REJECTIONS = 5;
     if (!picked?.providerId && b.rejectedProviders.length < MAX_REJECTIONS) {
-      // Fallback search removed to enforce strict 1-rejection limit.
+      console.log(`[DEBUG_REJECT] Candidates exhausted but below limit (5). Clearing and re-searching...`);
+      // MUST save the cleared list to DB so findNextCandidate fetches a fresh state
+      await Booking.updateOne({ _id: b._id }, { $set: { candidateProviders: [] } });
+
+      const { findNextCandidate } = await import("../lib/assignment.js");
+      const nextId = await findNextCandidate(b._id);
+      if (nextId) return res.json({ booking: await Booking.findById(b._id) });
     }
     if (picked?.providerId) {
       b.assignedProvider = picked.providerId;
