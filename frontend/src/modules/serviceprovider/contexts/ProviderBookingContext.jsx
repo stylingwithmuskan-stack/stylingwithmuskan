@@ -160,7 +160,7 @@ export const ProviderBookingProvider = ({ children }) => {
     const pendingBookings = myBookings.filter(b => ["pending", "Pending", "final_approved", "payment_pending", "advance_paid", "service_confirmed", "scheduled", "vendor_assigned", "vendor_reassigned", "confirmed"].includes(b.status));
     
     const lapsedBookings = myBookings.filter(b => {
-        const isActiveStatus = ["accepted", "vendor_assigned", "vendor_reassigned"].includes(b.status);
+        const isActiveStatus = ["accepted", "travelling", "arrived", "in_progress"].includes(b.status);
         if (!isActiveStatus) return false;
         return isSlotExpired(b);
     });
@@ -169,7 +169,8 @@ export const ProviderBookingProvider = ({ children }) => {
         // Mandatory jobs stay in "Assigned" tab until they move beyond "accepted" state
         if (b.isMandatory && b.status === "accepted") return false;
         
-        const isActiveStatus = ["accepted", "travelling", "arrived", "in_progress", "payment", "documentation", "pending", "advance_paid", "service_confirmed", "scheduled", "vendor_assigned", "vendor_reassigned", "confirmed"].includes(b.status);
+        // Active statuses are only those where the provider has taken action or is working
+        const isActiveStatus = ["accepted", "travelling", "arrived", "in_progress", "payment", "documentation"].includes(b.status);
         
         // Exclude lapsed bookings from primary active list (only if they haven't started yet)
         const isLapsed = ["accepted"].includes(b.status) && isSlotExpired(b);

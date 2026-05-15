@@ -412,9 +412,13 @@ router.get(
     // Parallelized: Check all providers at once to significantly speed up slot discovery
     const providerSlotResults = await Promise.all(providers.map(async (provider) => {
       const result = await computeAvailableSlots(provider._id?.toString(), date, settings, { requestedDurationMinutes: durationMinutes });
+      const pSlots = result.slots || [];
+      if (pSlots.length === 0) {
+        console.log(`[Slots Debug] Provider ${provider.name} (${provider._id}) has 0 slots. Reason: ${result.reason || "unknown"}`);
+      }
       return { 
         providerId: String(provider._id), 
-        slots: result.slots || [] 
+        slots: pSlots
       };
     }));
 
