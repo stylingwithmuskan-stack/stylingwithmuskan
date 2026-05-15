@@ -95,17 +95,9 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   const provPhoneRaw = String(provDetails?.phone || "").trim();
   const provName = String(provDetails?.name || "").trim();
   
-  // Find ALL provider IDs that share this phone number OR name (special case for Muskan testing)
+  // Use only the specific provider ID for booking checks to ensure independence
   let allRelatedProviderIds = [String(providerId)];
-  const relatedCriteria = [];
-  if (provPhoneRaw) relatedCriteria.push({ phone: provPhoneRaw });
-  if (provName.toLowerCase().includes("muskan")) relatedCriteria.push({ name: new RegExp(provName.trim(), "i") });
-
-  if (relatedCriteria.length > 0) {
-    const relatedAccounts = await ProviderAccount.find({ $or: relatedCriteria }).select("_id name phone").lean();
-    allRelatedProviderIds = [...new Set(relatedAccounts.map(a => String(a._id)))];
-    console.log(`[Availability] Related Accounts for ${provName}: ${allRelatedProviderIds.join(", ")}`);
-  }
+  console.log(`[Availability] Checking bookings for Provider: ${provName} (ID: ${providerId})`);
 
   const phoneVariants = provPhoneRaw ? [
     provPhoneRaw,
@@ -142,12 +134,11 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
 
   const excludeBookingId = opts.excludeBookingId ? String(opts.excludeBookingId) : null;
 
-  // Fetch all active bookings for ANY of the related IDs or phone variants
+  // Fetch all active bookings strictly for this specific provider ID
   const allProviderBookings = await Booking.find({
     $or: [
-      { assignedProvider: { $in: allRelatedProviderIds } },
-      ...allRelatedProviderIds.filter(id => mongoose.isValidObjectId(id)).map(id => ({ assignedProvider: new mongoose.Types.ObjectId(id) })),
-      { assignedProvider: { $in: phoneVariants } }
+      { assignedProvider: String(providerId) },
+      ...(mongoose.isValidObjectId(providerId) ? [{ assignedProvider: new mongoose.Types.ObjectId(providerId) }] : [])
     ],
     status: { $nin: ["cancelled", "rejected", "missed"] },
     ...(excludeBookingId && mongoose.isValidObjectId(excludeBookingId) ? { _id: { $ne: excludeBookingId } } : {}),
