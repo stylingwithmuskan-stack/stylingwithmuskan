@@ -335,25 +335,24 @@ router.get(
     }
 
     let providers = await ProviderAccount.find(q).lean();
-    console.log(`[SLOTS DEBUG] Final Query:`, JSON.stringify(q));
-    console.log(`[SLOTS DEBUG] Providers Found: ${providers.length}`);
+    console.log(`[SLOTS DEBUG] Zone Query Found: ${providers.length} providers`);
 
-    // ✅ FIX: Fallback to city-wide search if no providers found in specific zone
-    if (providers.length === 0 && (q.serviceZoneIds || q.zoneIds || q.baseZoneId || q.$or)) {
-      console.log(`[SLOTS DEBUG] No providers in zone. Falling back to city-wide search...`);
-      const cityQ = { ...baseQ };
-      if (cityIdGuess) cityQ.cityId = cityIdGuess;
-      else if (cityGuess) cityQ.city = new RegExp(`^${escapeRegex(cityGuess)}$`, "i");
-      providers = await ProviderAccount.find(cityQ).lean();
-      console.log(`[SLOTS DEBUG] City-wide search found ${providers.length} providers.`);
-    }
+    // ✅ OPTIMIZATION: Always include other providers from the same city to ensure availability 
+    // if zone-local providers are busy.
+    const cityQ = { ...baseQ };
+    if (cityIdGuess) cityQ.cityId = cityIdGuess;
+    else if (cityGuess) cityQ.city = new RegExp(`^${escapeRegex(cityGuess)}$`, "i");
 
-    // ✅ FINAL FALLBACK (Dev only): If still no providers found, try searching ALL providers (ignoring city/zone)
-    if (providers.length === 0 && process.env.NODE_ENV !== "production") {
-      console.log(`[SLOTS DEBUG] Still no providers. Trying final fallback (any city)...`);
-      providers = await ProviderAccount.find(baseQ).lean();
-      console.log(`[SLOTS DEBUG] Global fallback found ${providers.length} providers.`);
-    }
+    const cityProviders = await ProviderAccount.find(cityQ).lean();
+    
+    // Merge and remove duplicates
+    const allProvidersMap = new Map();
+    providers.forEach(p => allProvidersMap.set(p._id.toString(), p));
+    cityProviders.forEach(p => allProvidersMap.set(p._id.toString(), p));
+    
+    providers = Array.from(allProvidersMap.values());
+    console.log(`[SLOTS DEBUG] Total Providers in City for check: ${providers.length}`);
+
 
     if (providers.length === 0) {
       console.log(`[SLOTS DEBUG] No providers found even after fallbacks. Returning empty slots.`);
@@ -409,18 +408,21 @@ router.get(
     });
 
     const freeProviders = [];
-    for (const provider of providers) {
-      console.log(`[Slots] Checking availability for: ${provider.name} (ID: ${provider._id})`);
+    // Parallelized: Check all providers at once to significantly speed up slot discovery
+    const providerSlotResults = await Promise.all(providers.map(async (provider) => {
       const result = await computeAvailableSlots(provider._id?.toString(), date, settings, { requestedDurationMinutes: durationMinutes });
-      const providerSlots = result.slots || [];
-      if (providerSlots.length > 0) {
-        console.log(`[Slots] ${provider.name} is FREE for ${providerSlots.length} slots.`);
-        for (const slot of providerSlots) {
+      return { 
+        providerId: String(provider._id), 
+        slots: result.slots || [] 
+      };
+    }));
+
+    for (const res of providerSlotResults) {
+      if (res.slots.length > 0) {
+        for (const slot of res.slots) {
           slotMap[slot] = true;
-          candidateProvidersBySlot[slot].push(String(provider._id));
+          candidateProvidersBySlot[slot].push(res.providerId);
         }
-      } else {
-        console.log(`[SLOTS DEBUG] Provider ${provider._id} has NO free slots. result:`, result.reason);
       }
     }
 

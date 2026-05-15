@@ -121,18 +121,24 @@ export async function buildAssignmentCandidates({
 
   let providers = await findProvidersZoneStrict(
     { ...address, city: bookingCity, cityId: bookingCityId, zone: bookingZone, zoneId: bookingZoneId },
-    { approvalStatus: "approved", registrationComplete: false } // Relaxed check for broader discovery
+    { approvalStatus: "approved", registrationComplete: false }
   );
 
-  // ✅ FIX: Fallback to city-wide search if no providers found in specific zone
-  if (providers.length === 0) {
-    console.log(`[Candidates] No providers in zone ${bookingZone}. Falling back to city ${bookingCity}...`);
-    providers = await ProviderAccount.find({
-      approvalStatus: "approved",
-      // Removed registrationComplete check for easier testing
-      ...(bookingCityId ? { cityId: bookingCityId } : { city: { $regex: new RegExp(`^${escapeRegex(bookingCity)}$`, "i") } }),
-    }).lean();
-  }
+  // ✅ OPTIMIZATION: Always include other providers from the same city to ensure availability 
+  // if zone-local providers are busy.
+  const cityProviders = await ProviderAccount.find({
+    approvalStatus: "approved",
+    ...(bookingCityId ? { cityId: bookingCityId } : { city: { $regex: new RegExp(`^${escapeRegex(bookingCity)}$`, "i") } }),
+  }).lean();
+
+  // Merge and remove duplicates
+  const allProvidersMap = new Map();
+  providers.forEach(p => allProvidersMap.set(p._id.toString(), p));
+  cityProviders.forEach(p => allProvidersMap.set(p._id.toString(), p));
+  
+  providers = Array.from(allProvidersMap.values());
+  console.log(`[Candidates] Total providers considered for assignment in ${bookingCity}: ${providers.length}`);
+
 
   // ✅ LENIENT: Specialty filter should be a preference but allow others if list is small
   const matchingProviders = providers.filter((p) => providerMatchesRequestedSpecialties(p, requestedSpecialties));
@@ -183,23 +189,26 @@ export async function buildAssignmentCandidates({
     return avail?.slotMap?.[requestedTime] === true;
   };
 
-  const availabilityChecks = sorted.map(async (s) => {
-    const providerId = s._id?.toString() || s.id;
-    if (!providerId) return null;
-    const isAvailable = await isProviderAvailableAtSlot(providerId);
-    return isAvailable ? providerId : null;
-  });
-
-  const results = await Promise.all(availabilityChecks);
-  const candidates = results.filter((id) => id !== null);
-
+  const candidateProviders = [];
   const configuredLimit = Math.max(Number(resolvedSettings?.providerSearchLimit || 0), 0);
-  // Hard limit to 5 providers for vendor escalation flow
   const MAX_PROVIDERS_BEFORE_VENDOR_ESCALATION = 5;
   const limit = configuredLimit > 0 
     ? Math.min(configuredLimit, MAX_PROVIDERS_BEFORE_VENDOR_ESCALATION) 
     : MAX_PROVIDERS_BEFORE_VENDOR_ESCALATION;
-  const candidateProviders = limit > 0 ? candidates.slice(0, limit) : candidates;
+
+  // Optimized: Check availability sequentially (or in small batches) and STOP once limit is reached.
+  // This avoids checking 100+ providers when we only need 5 candidates.
+  for (const s of sorted) {
+    if (candidateProviders.length >= limit) break;
+    const providerId = s._id?.toString() || s.id;
+    if (!providerId) continue;
+    
+    // eslint-disable-next-line no-await-in-loop
+    const isAvailable = await isProviderAvailableAtSlot(providerId);
+    if (isAvailable) {
+      candidateProviders.push(providerId);
+    }
+  }
 
   return {
     candidateProviders,
