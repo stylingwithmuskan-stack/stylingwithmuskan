@@ -1826,8 +1826,12 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       const refundPolicy = calculateRefundPolicy(b, "provider");
       const penaltyAmount = refundPolicy.providerPenalty;
 
+      // 1. Refund commission if it was charged
+      // We use the helper to ensure commissionRefundedAt is set on the booking
+      await refundProviderCommissionIfNeeded(b, pId, "provider_cancelled");
+
+      // 2. Apply Penalty
       if (penaltyAmount > 0) {
-        const ProviderAccount = (await import("../models/ProviderAccount.js")).default;
         const acc = await ProviderAccount.findById(pId);
         if (acc) {
           acc.credits = Number(acc.credits || 0) - penaltyAmount;
@@ -1853,23 +1857,6 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
               respectProviderQuietHours: true,
             });
           } catch { }
-        }
-      }
-      
-      // Also refund commission if it was charged (so only penalty applies)
-      if (b.commissionChargedAt && b.commissionAmount > 0) {
-        const acc = await ProviderAccount.findById(pId);
-        if (acc) {
-          acc.credits = Number(acc.credits || 0) + b.commissionAmount;
-          await acc.save();
-          await ProviderWalletTxn.create({
-            providerId: pId,
-            bookingId: b._id.toString(),
-            type: "commission_refund",
-            amount: b.commissionAmount,
-            balanceAfter: acc.credits,
-            meta: { title: "Commission Refund (Provider Cancelled)", reason: "penalty_applied" },
-          });
         }
       }
     } catch (err) {

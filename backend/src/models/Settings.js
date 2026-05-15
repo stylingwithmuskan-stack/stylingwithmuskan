@@ -54,6 +54,7 @@ const SystemSettingsSchema = new mongoose.Schema(
   {
     menSectionEnabled: { type: Boolean, default: false },
     availableRoles: { type: [String], default: ["user", "provider", "vendor"] },
+    adminPassword: { type: String, default: "" }, // Dynamic admin password
   },
   { timestamps: true }
 );

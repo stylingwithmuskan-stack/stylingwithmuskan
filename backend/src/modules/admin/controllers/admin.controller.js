@@ -179,6 +179,94 @@ export async function listProviders(req, res) {
       .lean();
   }
 
+  // ✅ ENRICH WITH DYNAMIC STATS (Proper DB calculation)
+  const providerIds = items.map(p => p._id.toString());
+  if (providerIds.length > 0) {
+    try {
+      const statsAgg = await Booking.aggregate([
+        {
+          $match: {
+            $or: [
+              { assignedProvider: { $in: providerIds } },
+              { rejectedProviders: { $in: providerIds } }
+            ]
+          }
+        },
+        {
+          $facet: {
+            completed: [
+              { $match: { status: "completed", assignedProvider: { $in: providerIds } } },
+              {
+                $group: {
+                  _id: "$assignedProvider",
+                  revenue: { $sum: { $ifNull: ["$totalAmount", 0] } },
+                  commission: { $sum: { $ifNull: ["$commissionAmount", 0] } },
+                  count: { $sum: 1 }
+                }
+              }
+            ],
+            cancelled: [
+              { $match: { status: "cancelled", assignedProvider: { $in: providerIds } } },
+              { $group: { _id: "$assignedProvider", count: { $sum: 1 } } }
+            ],
+            accepted: [
+              { 
+                $match: { 
+                  status: { $nin: ["pending", "incoming", "unassigned", "payment_pending"] }, 
+                  assignedProvider: { $in: providerIds }, 
+                  lastAssignedAt: { $ne: null } 
+                } 
+              },
+              {
+                $group: {
+                  _id: "$assignedProvider",
+                  avgAcceptTimeMs: { $avg: { $subtract: ["$updatedAt", "$lastAssignedAt"] } }
+                }
+              }
+            ],
+            missed: [
+              { $unwind: "$rejectedProviders" },
+              { $match: { rejectedProviders: { $in: providerIds } } },
+              { $group: { _id: "$rejectedProviders", count: { $sum: 1 } } }
+            ]
+          }
+        }
+      ]);
+
+      const aggResult = statsAgg[0] || {};
+      const completedMap = new Map((aggResult.completed || []).map(s => [s._id, s]));
+      const cancelledMap = new Map((aggResult.cancelled || []).map(s => [s._id, s.count]));
+      const acceptedMap = new Map((aggResult.accepted || []).map(s => [s._id, s.avgAcceptTimeMs]));
+      const missedMap = new Map((aggResult.missed || []).map(s => [s._id, s.count]));
+
+      items = items.map(p => {
+        const pId = p._id.toString();
+        const comp = completedMap.get(pId) || { revenue: 0, commission: 0, count: 0 };
+        const cancCount = cancelledMap.get(pId) || 0;
+        const missedCount = missedMap.get(pId) || 0;
+        const avgTimeMs = acceptedMap.get(pId) || 0;
+        
+        const totalWorkHistory = comp.count + cancCount;
+        const cancelRate = totalWorkHistory > 0 ? Math.round((cancCount / totalWorkHistory) * 100) : 0;
+        const avgTimeMin = avgTimeMs > 0 ? Math.round(avgTimeMs / (1000 * 60)) : 0;
+
+        return {
+          ...p,
+          dynamicStats: {
+            bookings: comp.count || p.totalJobs || 0,
+            cancelled: `${cancelRate}%`,
+            missed: missedCount,
+            revenue: comp.revenue,
+            commission: comp.commission,
+            acceptTime: avgTimeMin > 0 ? (avgTimeMin > 60 ? `${Math.round(avgTimeMin/60)} hr` : `${avgTimeMin} min`) : "5 min"
+          }
+        };
+      });
+    } catch (err) {
+      console.error("[AdminStats] Aggregation failed:", err.message);
+    }
+  }
+
   res.json({ 
     providers: items, 
     page: effectivePage, 

@@ -37,11 +37,19 @@ router.post(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    
+    // Check database for dynamic password
+    const settings = await SystemSettings.findOne().lean();
+    const dynamicPassword = settings?.adminPassword;
+
     const isDev = (process.env.NODE_ENV || "development") !== "production";
     const defaultEmail = "admin@swm.local";
     const defaultPassword = "admin123";
     const confEmail = (process.env.ADMIN_EMAIL || ADMIN_EMAIL || (isDev ? defaultEmail : "")).trim();
-    const confPassword = (process.env.ADMIN_PASSWORD || ADMIN_PASSWORD || (isDev ? defaultPassword : ""));
+    
+    // Use dynamic password if set, otherwise fallback
+    const confPassword = (dynamicPassword || process.env.ADMIN_PASSWORD || ADMIN_PASSWORD || (isDev ? defaultPassword : ""));
+
     if (!confEmail || !confPassword) {
       return res.status(500).json({ error: "Admin credentials not configured" });
     }

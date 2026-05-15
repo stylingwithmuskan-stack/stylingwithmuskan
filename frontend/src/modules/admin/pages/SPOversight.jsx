@@ -456,12 +456,23 @@ export default function SPOversight() {
     };
 
     const getSPStats = (sp) => {
-        // Use live stats from the database fields
+        // Use live stats from the database fields if provided by backend
+        if (sp.dynamicStats) {
+            return {
+                bookings: sp.dynamicStats.bookings,
+                cancelled: sp.dynamicStats.cancelled,
+                missed: sp.dynamicStats.missed,
+                revenue: sp.dynamicStats.revenue,
+                acceptTime: sp.dynamicStats.acceptTime
+            };
+        }
+
+        // Fallback for older data structure or missing stats
         return {
             bookings: sp.totalJobs || 0,
-            cancelled: "0%", // Cancelled % needs a specialized analytics API for live data
+            cancelled: "0%",
             missed: 0,
-            revenue: "0", // Revenue needs a specialized analytics API for live data
+            revenue: "0",
             acceptTime: "5 min"
         };
     };
@@ -692,7 +703,7 @@ export default function SPOversight() {
                                                         </div>
                                                         <div className="bg-muted/30 p-2 rounded-xl">
                                                             <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Bookings</p>
-                                                            <p className="text-sm font-black mt-0.5 text-blue-500">{sp.totalJobs || 0}</p>
+                                                            <p className="text-sm font-black mt-0.5 text-blue-500">{stats.bookings}</p>
                                                         </div>
                                                         <div className="bg-muted/30 p-2 rounded-xl">
                                                             <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><XCircle className="h-3 w-3" /> Cancelled</p>
@@ -708,7 +719,7 @@ export default function SPOversight() {
                                                         </div>
                                                         <div className="bg-muted/30 p-2 rounded-xl">
                                                             <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Revenue</p>
-                                                            <p className="text-sm font-black mt-0.5 text-green-600">₹{stats.revenue}</p>
+                                                            <p className="text-sm font-black mt-0.5 text-green-600">₹{Number(stats.revenue || 0).toLocaleString('en-IN')}</p>
                                                         </div>
                                                     </div>
                                                 );
