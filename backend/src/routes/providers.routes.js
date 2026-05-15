@@ -311,7 +311,8 @@ router.get(
 
     const baseQ = {
       approvalStatus: "approved",
-      registrationComplete: true
+      // Relaxed for easier discovery
+      registrationComplete: { $in: [true, false] } 
     };
 
 
