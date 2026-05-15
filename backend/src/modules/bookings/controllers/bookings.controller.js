@@ -1222,7 +1222,13 @@ export async function cancel(req, res) {
 
   // Calculate refund policy
   const refundPolicy = calculateRefundPolicy(booking, "customer", subscription);
-  const refundAmount = Math.round((booking.prepaidAmount || 0) * (refundPolicy.refundPercentage / 100));
+  
+  // Ensure advance is non-refundable for pre-bookings
+  const items = bookingServicesToItems(booking.services);
+  const requiredAdvance = await computeAdvanceFromCategories(items, booking.bookingType);
+  const refundableBase = Math.max((booking.prepaidAmount || 0) - requiredAdvance, 0);
+  
+  const refundAmount = Math.round(refundableBase * (refundPolicy.refundPercentage / 100));
   const cancellationCharge = (booking.prepaidAmount || 0) - refundAmount;
 
   console.log(`[Cancel] Booking #${id.slice(-6)}: refundPolicy=${JSON.stringify(refundPolicy)}, refundAmount=₹${refundAmount}, charge=₹${cancellationCharge}`);

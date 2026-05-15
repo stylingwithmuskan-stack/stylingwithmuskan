@@ -66,6 +66,7 @@ const BookingSummary = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [isBusyModalOpen, setIsBusyModalOpen] = useState(false);
+  const [isAdvanceAlertOpen, setIsAdvanceAlertOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [quotePreview, setQuotePreview] = useState(null);
   const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
@@ -337,6 +338,12 @@ const BookingSummary = () => {
         toast.error("Currently this service is not available in your zone.");
         return;
       }
+    }
+    
+    // Advance payment alert logic
+    if (advanceAmount > 0 && !isAdvanceAlertOpen) {
+      setIsAdvanceAlertOpen(true);
+      return;
     }
     
     setIsProcessing(true);
@@ -1017,6 +1024,34 @@ const BookingSummary = () => {
               className="rounded-2xl h-12 bg-primary font-bold"
             >
               Yes, Auto Allocate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Advance Payment Alert */}
+      <AlertDialog open={isAdvanceAlertOpen} onOpenChange={setIsAdvanceAlertOpen}>
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-display font-bold">Advance Payment Required</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground font-medium">
+              Advance Payment <span className="text-primary font-bold">₹{advanceAmount.toLocaleString()}</span> is required to proceed for Pre-booking. Remaining <span className="text-foreground font-bold">₹{remainingAfterAdvance.toLocaleString()}</span> will be paid after service.
+              <br /><br />
+              <span className="text-xs text-destructive font-bold">* Note: Advance payment is non-refundable on cancellation.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-3 sm:gap-0">
+            <AlertDialogCancel className="rounded-2xl h-12 font-bold">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setIsAdvanceAlertOpen(false);
+                handlePay(false);
+              }}
+              className="rounded-2xl h-12 bg-primary font-bold"
+            >
+              Pay Advance
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
