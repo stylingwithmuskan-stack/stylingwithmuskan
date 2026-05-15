@@ -56,7 +56,7 @@ const resolveImageUrl = (path) => {
 };
 
 const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
-    const { selectedSlot, setSelectedSlot, cartItems, setBookingType, activeCheckoutType } = useCart();
+    const { selectedSlot, setSelectedSlot, cartItems, setBookingType, activeCheckoutType, getGroupedItems } = useCart();
     const { gender } = useGenderTheme();
     const { bookingTypeConfig, categories, officeSettings } = useUserModuleData();
 
@@ -114,9 +114,18 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     }, [focusedItems]);
 
     const serviceCategories = useMemo(() => {
-        const ids = (focusedItems || []).map(item => item.category || item.categoryId).filter(Boolean);
+        // More robust extraction checking multiple possible field names
+        let ids = (focusedItems || []).map(item => 
+            item.category || item.categoryId || item._id || item.id
+        ).filter(Boolean);
+
+        // ✅ FIXED: If items in cart have mismatched tags, use the activeCheckoutType as a category fallback
+        if (ids.length === 0 && activeCheckoutType) {
+            ids = [activeCheckoutType];
+        }
+
         return [...new Set(ids)];
-    }, [focusedItems]);
+    }, [focusedItems, activeCheckoutType, getGroupedItems]);
 
     const totalDurationMinutes = useMemo(() => {
         if (!Array.isArray(focusedItems) || focusedItems.length === 0) return 0;
@@ -208,7 +217,8 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
 
             // Pass service IDs so backend can check disabledDates exceptions from DB (source of truth)
             if (focusedItems?.length > 0) {
-                const serviceIds = focusedItems.map(item => item.id).filter(Boolean);
+                // Support both id and _id for service matching
+                const serviceIds = focusedItems.map(item => item.id || item._id).filter(Boolean);
                 if (serviceIds.length > 0) {
                     params.serviceIds = JSON.stringify(serviceIds);
                 }

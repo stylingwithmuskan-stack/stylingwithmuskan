@@ -396,17 +396,15 @@ router.get(
         categoryValues: categories,
         serviceTypeValues: serviceTypes,
       });
-      console.log(`[SLOTS DEBUG] Filtering by specialties:`, Array.from(requestedSpecialties.wantTypes), Array.from(requestedSpecialties.wantCats));
+      console.log(`[SLOTS DEBUG] Filtering by specialties (Types):`, Array.from(requestedSpecialties.wantTypes), Array.from(requestedSpecialties.wantTypeLabels));
+      console.log(`[SLOTS DEBUG] Filtering by specialties (Cats):`, Array.from(requestedSpecialties.wantCats), Array.from(requestedSpecialties.wantCatLabels));
       
-      // ✅ LENIENT: Instead of filtering out, we just prefer matches but allow others if list is small
-      const matchingProviders = providers.filter((provider) =>
+      // ✅ FIXED: Strict filtering. If no providers match the specialty, return empty instead of showing everyone.
+      providers = providers.filter((provider) =>
         providerMatchesRequestedSpecialties(provider, requestedSpecialties)
       );
       
-      if (matchingProviders.length > 0) {
-        providers = matchingProviders;
-      }
-      console.log(`[SLOTS DEBUG] Providers after specialty filter: ${providers.length}`);
+      console.log(`[SLOTS DEBUG] Providers after strict specialty filter: ${providers.length}`);
     }
 
     const slotMap = {};
