@@ -376,11 +376,19 @@ router.get(
       }));
       providers = providerMatches.filter(Boolean);
       
-      // ✅ FAIL-SAFE: If strict filtering removed ALL providers, fallback to city list with LENIENT specialty check
+      // ⚠️ NO FALLBACK: If no provider handles this specific service, return empty slots.
+      // Falling back to unrelated providers (e.g., showing Om for Mehndi) is incorrect.
       if (providers.length === 0) {
-        console.warn(`[SLOTS] Strict filter returned 0 providers. Falling back to base city list with lenient check.`);
-        // Re-fetch city list if needed or just use current providers before strict filter
-        providers = await ProviderAccount.find(q).lean(); 
+        console.warn(`[SLOTS] No providers found for requested services: ${serviceIds.join(", ")}. Returning empty slots.`);
+        return res.json({
+          date,
+          slots: [],
+          slotMap: {},
+          candidateProvidersBySlot: {},
+          city: cityGuess,
+          zoneId: zoneIdGuess,
+          reason: "no_provider_for_service"
+        });
       }
       console.log(`[SLOTS DEBUG] Providers after strict service filter: ${providers.length}`);
     } else if (serviceTypes.length > 0 || categories.length > 0) {

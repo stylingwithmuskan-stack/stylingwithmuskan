@@ -214,10 +214,8 @@ export async function providerMatchesAllServiceIds(provider, requestedServiceIds
     const sInfo = Array.isArray(serviceData) ? serviceData.find(d => d.id === sId) : null;
     if (sInfo && sInfo.category && pCats.has(String(sInfo.category).trim())) return true;
 
-    // C. Fail-Safe: If we can't find service info in DB, we "Fail-Open" ONLY if the provider 
-    // has any category that matches the general request (to avoid blocking bookings during DB blips)
-    if (!sInfo && pCats.size > 0) return true; 
-
+    // C. Strict Fail: If service info not found in DB, provider does NOT match.
+    // "Fail-Open" is removed — it caused unrelated providers (e.g., Om for Mehndi) to be shown.
     return false;
   });
 }
