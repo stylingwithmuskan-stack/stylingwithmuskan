@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { ArrowLeft, Wallet, Plus, History, ChevronRight, TrendingUp } from "lucide-react";
@@ -15,6 +15,7 @@ const formatDate = (d) => {
 
 const WalletPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const { gender } = useGenderTheme();
     const [balance, setBalance] = useState(0);
@@ -187,7 +188,16 @@ const WalletPage = () => {
         <div className="min-h-screen bg-background pb-8">
             {/* Header */}
             <div className="sticky top-0 z-30 glass-strong border-b border-border px-4 py-3 flex items-center gap-3">
-                <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
+                <button 
+                    onClick={() => {
+                        if (window.history.length > 1 && location.key !== "default") {
+                            navigate(-1);
+                        } else {
+                            navigate("/home");
+                        }
+                    }} 
+                    className="w-9 h-9 rounded-full bg-accent flex items-center justify-center active:scale-90 transition-transform"
+                >
                     <ArrowLeft className="w-4 h-4" />
                 </button>
                 <h1 className={`text-lg font-semibold ${gender === "women" ? "font-display" : "font-heading-men"}`}>My Wallet</h1>

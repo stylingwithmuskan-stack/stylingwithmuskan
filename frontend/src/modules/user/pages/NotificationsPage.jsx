@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/modules/user/components/ui/button";
 import { Badge } from "@/modules/user/components/ui/badge";
 import { ScrollArea } from "@/modules/user/components/ui/scroll-area";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/modules/user/lib/utils";
 
 const NotificationsPage = () => {
@@ -29,6 +29,7 @@ const NotificationsPage = () => {
         disablePushNotifications,
     } = useNotifications();
     const navigate = useNavigate();
+    const location = useLocation();
 
     React.useEffect(() => {
         window.scrollTo(0, 0);
@@ -156,7 +157,13 @@ const NotificationsPage = () => {
                 <div className={cn("flex items-center justify-between gap-3", activeRole !== "provider" && "max-w-3xl mx-auto")}>
                     <div className="flex items-center gap-3 min-w-0">
                         <button
-                            onClick={() => navigate(-1)}
+                            onClick={() => {
+                                if (window.history.length > 1 && location.key !== "default") {
+                                    navigate(-1);
+                                } else {
+                                    navigate("/home");
+                                }
+                            }}
                             className={cn(
                                 "shrink-0 transition-all active:scale-95 group flex items-center justify-center",
                                 activeRole === "provider" 

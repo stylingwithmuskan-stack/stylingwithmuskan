@@ -43,6 +43,20 @@ const ExplorePage = () => {
     const [activeType, setActiveType] = useState(typeParam);
     const [activeBooking, setActiveBooking] = useState(bookingParam);
     const [activeCategory, setActiveCategory] = useState(categoryId);
+
+    // 🔥 Initial Sync: Attempt to derive correct Type/Booking from categoryId if categories are already available
+    useEffect(() => {
+        if (categoryId && categories.length > 0) {
+            const cat = categories.find(c => String(c.id) === String(categoryId));
+            if (cat) {
+                if (cat.serviceType && cat.serviceType !== activeType) setActiveType(cat.serviceType);
+                if (cat.bookingType && cat.bookingType !== activeBooking) {
+                    setActiveBooking(cat.bookingType);
+                    setBookingType(cat.bookingType);
+                }
+            }
+        }
+    }, [categoryId, categories, activeType, activeBooking, setBookingType]);
     const [activeFilter, setActiveFilter] = useState("Top Selling");
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isSidebarHovered, setIsSidebarHovered] = useState(false);
@@ -152,15 +166,21 @@ const ExplorePage = () => {
 
     // If activeCategory is not in the filtered list (e.g. after type change), reset it
     useEffect(() => {
-        if (filteredCategories.length > 0) {
+        // Only reset if we have categories and are NOT currently syncing from a landing categoryId
+        if (categories.length > 0 && filteredCategories.length > 0 && !isInitialLoading) {
             const isCurrentValid = filteredCategories.some(c => String(c.id) === String(activeCategory));
-            if (!isCurrentValid) {
+            
+            // Check if we are in the middle of a sync for the current categoryId
+            const urlCat = categories.find(c => String(c.id) === String(categoryId));
+            const isSyncing = urlCat && (urlCat.serviceType !== activeType || urlCat.bookingType !== activeBooking);
+
+            if (!isCurrentValid && !isSyncing) {
                 const firstCat = filteredCategories[0];
                 setActiveCategory(firstCat.id);
                 navigate(`/explore/${firstCat.id}`, { replace: true });
             }
         }
-    }, [filteredCategories, activeCategory, navigate]);
+    }, [filteredCategories, activeCategory, categories, categoryId, activeType, activeBooking, isInitialLoading, navigate]);
 
     const filteredServices = useMemo(() => {
         const source = searchQuery.trim().length >= 2 ? searchResults : services;
@@ -239,13 +259,13 @@ const ExplorePage = () => {
         if (targetCat) {
             setActiveBooking(targetBooking);
             setActiveCategory(targetCat.id);
-            navigate(`/explore/${targetCat.id}`, { replace: true });
+            navigate(`/explore/${targetCat.id}?type=${typeId}&booking=${targetBooking}`, { replace: true });
         }
     };
 
     const handleCategoryChange = (catId) => {
         setActiveCategory(catId);
-        navigate(`/explore/${catId}`, { replace: true });
+        navigate(`/explore/${catId}?type=${activeType}&booking=${activeBooking}`, { replace: true });
     };
     return (
         <div className="min-h-screen bg-background flex flex-col h-screen overflow-hidden">
@@ -381,10 +401,7 @@ const ExplorePage = () => {
                         {filteredCategories.map((cat) => (
                             <button
                                 key={cat.id}
-                                onClick={() => {
-                                    setActiveCategory(cat.id);
-                                    navigate(`/explore/${cat.id}`, { replace: true });
-                                }}
+                                onClick={() => handleCategoryChange(cat.id)}
                                 className={`px-5 py-2.5 rounded-2xl text-[11px] font-bold whitespace-nowrap transition-all border-2 ${activeCategory === cat.id
                                     ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
                                     : "bg-white text-muted-foreground border-border/50 hover:border-primary/30"}`}

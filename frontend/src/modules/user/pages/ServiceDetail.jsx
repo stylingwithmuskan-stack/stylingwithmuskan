@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Star, Clock, ShieldCheck, Plus, Minus,
@@ -21,6 +21,7 @@ import { shareContent, getServicePlaceholder } from "@/modules/user/lib/utils";
 const ServiceDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { gender } = useGenderTheme();
   const { cartItems, addToCart, setIsCartOpen, selectedSlot: globalSlot, setSelectedSlot: setGlobalSlot } = useCart();
   const { isLoggedIn, user } = useAuth();
@@ -216,10 +217,16 @@ const ServiceDetail = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
 
         {/* Top Actions */}
-        <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+        <div className="absolute top-[calc(env(safe-area-inset-top)+1rem)] left-4 right-4 flex items-center justify-between z-50">
           <button
-            onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-full glass flex items-center justify-center backdrop-blur-xl"
+            onClick={() => {
+              if (window.history.length > 1 && location.key !== "default") {
+                navigate(-1);
+              } else {
+                navigate("/home");
+              }
+            }}
+            className="w-10 h-10 rounded-full glass flex items-center justify-center backdrop-blur-xl z-50 shadow-lg active:scale-90 transition-transform"
           >
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>

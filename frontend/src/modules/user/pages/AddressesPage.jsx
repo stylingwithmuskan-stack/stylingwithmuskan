@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { ArrowLeft, MapPin, Home, Briefcase, Plus, MoreVertical, Trash2, Edit2 } from "lucide-react";
@@ -9,6 +9,7 @@ import AddressModal from "@/modules/user/components/salon/AddressModal";
 
 const AddressesPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { gender } = useGenderTheme();
     const { user, deleteAddress } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -41,7 +42,16 @@ const AddressesPage = () => {
         <div className="min-h-screen bg-background pb-8" onClick={() => setOpenMenuId(null)}>
             {/* Header */}
             <div className="sticky top-0 z-30 glass-strong border-b border-border px-4 py-3 flex items-center gap-3">
-                <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
+                <button 
+                    onClick={() => {
+                        if (window.history.length > 1 && location.key !== "default") {
+                            navigate(-1);
+                        } else {
+                            navigate("/home");
+                        }
+                    }} 
+                    className="w-9 h-9 rounded-full bg-accent flex items-center justify-center active:scale-90 transition-transform"
+                >
                     <ArrowLeft className="w-4 h-4" />
                 </button>
                 <h1 className={`text-lg font-semibold ${gender === "women" ? "font-display" : "font-heading-men"}`}>Saved Addresses</h1>

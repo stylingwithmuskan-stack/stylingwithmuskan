@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { ArrowLeft, Gift, Share2, Copy, Trophy, Users, Star } from "lucide-react";
@@ -10,6 +10,7 @@ import { shareContent } from "@/modules/user/lib/utils";
 
 const ReferralPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const { gender } = useGenderTheme();
     const [settings, setSettings] = useState({ referrerBonus: 100, refereeBonus: 50, maxReferrals: 10, isActive: true });
@@ -53,7 +54,16 @@ const ReferralPage = () => {
         <div className="min-h-screen bg-background pb-32">
             {/* Header */}
             <div className="sticky top-0 z-30 glass-strong border-b border-border px-4 py-3 flex items-center gap-3">
-                <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
+                <button 
+                    onClick={() => {
+                        if (window.history.length > 1 && location.key !== "default") {
+                            navigate(-1);
+                        } else {
+                            navigate("/home");
+                        }
+                    }} 
+                    className="w-9 h-9 rounded-full bg-accent flex items-center justify-center active:scale-90 transition-transform"
+                >
                     <ArrowLeft className="w-4 h-4" />
                 </button>
                 <h1 className={`text-lg font-semibold ${gender === "women" ? "font-display" : "font-heading-men"}`}>Refer & Earn</h1>

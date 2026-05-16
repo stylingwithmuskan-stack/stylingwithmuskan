@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { ArrowLeft, MessageSquare, Phone, Mail, ChevronDown, ChevronUp, Search, ExternalLink } from "lucide-react";
 
@@ -15,6 +15,7 @@ const faqs = [
 
 const SupportPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { gender } = useGenderTheme();
     const [openFaq, setOpenFaq] = useState(0);
     const [searchQuery, setSearchQuery] = useState("");
@@ -59,7 +60,16 @@ const SupportPage = () => {
         <div className="min-h-screen bg-background pb-20">
             {/* Header */}
             <div className="sticky top-0 z-30 glass-strong border-b border-border px-4 py-3 flex items-center gap-3">
-                <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-accent flex items-center justify-center hover:bg-black/5 transition-colors">
+                <button 
+                    onClick={() => {
+                        if (window.history.length > 1 && location.key !== "default") {
+                            navigate(-1);
+                        } else {
+                            navigate("/home");
+                        }
+                    }} 
+                    className="w-9 h-9 rounded-full bg-accent flex items-center justify-center hover:bg-black/5 transition-colors active:scale-90"
+                >
                     <ArrowLeft className="w-4 h-4" />
                 </button>
                 <h1 className={`text-lg font-black tracking-tight ${gender === "women" ? "font-display" : "font-heading-men"}`}>Help & Support</h1>
