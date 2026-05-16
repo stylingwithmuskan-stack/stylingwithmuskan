@@ -36,15 +36,32 @@ const ExplorePage = () => {
     
     // Pick the first available service type if 'type' param is missing or defaults to 'skin' which might not exist
     const defaultType = availableServiceTypes.length > 0 ? availableServiceTypes[0].id : "skin";
-    const typeParam = searchParams.get('type') || defaultType;
-    const bookingParam = searchParams.get('booking') || contextBookingType;
+    const typeParam = searchParams.get('type');
+    const bookingParam = searchParams.get('booking');
+
+    // Initialize state intelligently to avoid flickering
+    const [activeType, setActiveType] = useState(() => {
+        if (typeParam) return typeParam;
+        if (categoryId && categories.length > 0) {
+            const cat = categories.find(c => String(c.id) === String(categoryId));
+            if (cat?.serviceType) return cat.serviceType;
+        }
+        return defaultType;
+    });
+
+    const [activeBooking, setActiveBooking] = useState(() => {
+        if (bookingParam) return bookingParam;
+        if (categoryId && categories.length > 0) {
+            const cat = categories.find(c => String(c.id) === String(categoryId));
+            if (cat?.bookingType) return cat.bookingType;
+        }
+        return contextBookingType;
+    });
 
     const [searchQuery, setSearchQuery] = useState(queryParam);
-    const [activeType, setActiveType] = useState(typeParam);
-    const [activeBooking, setActiveBooking] = useState(bookingParam);
     const [activeCategory, setActiveCategory] = useState(categoryId);
 
-    // 🔥 Initial Sync: Attempt to derive correct Type/Booking from categoryId if categories are already available
+    // Keep state in sync if categories load late
     useEffect(() => {
         if (categoryId && categories.length > 0) {
             const cat = categories.find(c => String(c.id) === String(categoryId));
@@ -56,7 +73,7 @@ const ExplorePage = () => {
                 }
             }
         }
-    }, [categoryId, categories, activeType, activeBooking, setBookingType]);
+    }, [categoryId, categories, setBookingType]);
     const [activeFilter, setActiveFilter] = useState("Top Selling");
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isSidebarHovered, setIsSidebarHovered] = useState(false);
