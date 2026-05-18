@@ -520,7 +520,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                             <div className="grid grid-cols-4 gap-2">
                                 {slotsLoading && (
                                     <div className="col-span-4 flex flex-col items-center justify-center py-6">
-                                        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                                        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-3"></div>
                                         <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
                                             Loading available slots...
                                         </p>
