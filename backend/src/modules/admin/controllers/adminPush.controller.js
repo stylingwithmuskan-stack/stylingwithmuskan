@@ -23,8 +23,12 @@ async function collectAudience({ roles = [], city = "", subscriptionPlanId = "",
   const normalizedRoles = (Array.isArray(roles) ? roles : [roles]).map((role) => String(role || "").trim()).filter(Boolean);
   const recipients = [];
 
+  const cleanCity = String(city || "").trim();
+  const isAllCities = !cleanCity || cleanCity.toLowerCase() === "all cities";
+  const cityFilter = isAllCities ? null : { $regex: new RegExp(`^${cleanCity}$`, "i") };
+
   if (normalizedRoles.includes("user")) {
-    const users = await User.find(city ? { "addresses.city": { $regex: new RegExp(`^${city}$`, "i") } } : {})
+    const users = await User.find(cityFilter ? { "addresses.city": cityFilter } : {})
       .select("_id")
       .lean();
     let allowedIds = null;
@@ -42,7 +46,7 @@ async function collectAudience({ roles = [], city = "", subscriptionPlanId = "",
   }
 
   if (normalizedRoles.includes("provider")) {
-    const providers = await ProviderAccount.find(city ? { city: { $regex: new RegExp(`^${city}$`, "i") } } : {})
+    const providers = await ProviderAccount.find(cityFilter ? { city: cityFilter } : {})
       .select("_id")
       .lean();
     let allowedIds = null;
@@ -60,7 +64,7 @@ async function collectAudience({ roles = [], city = "", subscriptionPlanId = "",
   }
 
   if (normalizedRoles.includes("vendor")) {
-    const vendors = await Vendor.find(city ? { city: { $regex: new RegExp(`^${city}$`, "i") } } : {})
+    const vendors = await Vendor.find(cityFilter ? { city: cityFilter } : {})
       .select("_id")
       .lean();
     let allowedIds = null;
