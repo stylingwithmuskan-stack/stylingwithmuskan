@@ -1205,6 +1205,14 @@ export default function BookingManagement() {
                                                     <Clock className="h-3.5 w-3.5 text-primary" /> {detailModal.slot?.time}, {detailModal.slot?.date}
                                                 </span>
                                             </div>
+                                            {detailModal.otp && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs font-bold text-muted-foreground">Start OTP</span>
+                                                    <span className="text-xs font-black tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-lg">
+                                                        {detailModal.otp}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 

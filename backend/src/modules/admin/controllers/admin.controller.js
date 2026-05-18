@@ -325,7 +325,7 @@ export async function listBookings(req, res) {
   // Execute main queries in parallel
   const [items, total, statsTotal, statsActive, statsPending, statsUnassigned, statsQueued] = await Promise.all([
     Booking.find(query)
-      .select("id customerId customerName customerPhone totalAmount discountPrice slot address status serviceType bookingType createdAt assignedProvider maintainProvider maintainerProvider teamMembers notificationStatus services imagesApproved prepaidAmount balanceAmount paymentStatus eventType categoryName")
+      .select("id customerId customerName customerPhone totalAmount discountPrice slot address status serviceType bookingType createdAt assignedProvider maintainProvider maintainerProvider teamMembers notificationStatus services imagesApproved prepaidAmount balanceAmount paymentStatus eventType categoryName otp")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
