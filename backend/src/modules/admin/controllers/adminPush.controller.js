@@ -4,6 +4,7 @@ import Vendor from "../../../models/Vendor.js";
 import UserSubscription from "../../../models/UserSubscription.js";
 import PushBroadcast from "../../../models/PushBroadcast.js";
 import { notify } from "../../../lib/notify.js";
+import mongoose from "mongoose";
 import { uploadBase64Image } from "../../../startup/cloudinary.js";
 
 async function getActiveSubscriptionUserIds({ userType, planId = "", status = "" }) {
@@ -122,46 +123,66 @@ export async function broadcast(req, res) {
       },
       stats: {
         targeted: audience.length,
+        notificationsCreated: audience.length,
+        pushSent: 0,
+        pushFailed: 0,
       },
     });
 
-    let notificationsCreated = 0;
-    let pushSent = 0;
-    for (const recipient of audience) {
-      // eslint-disable-next-line no-await-in-loop
-      const created = await notify({
-        recipientId: recipient.recipientId,
-        recipientRole: recipient.recipientRole,
-        type: "marketing_campaign",
-        title,
-        message,
-        link,
-        meta: {
-          title,
-          message,
-          icon: finalIcon,
-          image: finalImage,
-          broadcastId: history._id.toString(),
-          filters: history.filters,
-        },
-      });
-      if (created) {
-        notificationsCreated += 1;
-        if (created.delivery?.push?.status === "sent") {
-          pushSent += 1;
+    // Start background task to send notifications and later update history stats
+    (async () => {
+      try {
+        let createdCount = 0;
+        for (const recipient of audience) {
+          const created = await notify({
+            recipientId: recipient.recipientId,
+            recipientRole: recipient.recipientRole,
+            type: "marketing_campaign",
+            title,
+            message,
+            link,
+            meta: {
+              title,
+              message,
+              icon: finalIcon,
+              image: finalImage,
+              broadcastId: history._id.toString(),
+              filters: history.filters,
+            },
+          });
+          if (created) createdCount++;
         }
-      }
-    }
 
-    history.stats.notificationsCreated = notificationsCreated;
-    history.stats.pushSent = pushSent;
-    await history.save();
+        // Wait a tiny bit (2 seconds) to allow Firebase Admin calls in notify to resolve
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Dynamically count sent/failed notifications for this broadcast ID
+        const [sent, failed] = await Promise.all([
+          mongoose.model("Notification").countDocuments({
+            "meta.broadcastId": history._id.toString(),
+            "delivery.push.status": "sent",
+          }),
+          mongoose.model("Notification").countDocuments({
+            "meta.broadcastId": history._id.toString(),
+            "delivery.push.status": "failed",
+          }),
+        ]);
+
+        history.stats.notificationsCreated = createdCount;
+        history.stats.pushSent = sent;
+        history.stats.pushFailed = failed;
+        await history.save();
+        console.log(`[push] Broadcast campaign ${history._id} completed: targeted=${audience.length}, created=${createdCount}, sent=${sent}, failed=${failed}`);
+      } catch (err) {
+        console.error("[push] Async broadcast error:", err.message);
+      }
+    })();
 
     res.json({
       success: true,
       history,
       targeted: audience.length,
-      notificationsCreated,
+      notificationsCreated: audience.length,
     });
   } catch (error) {
     res.status(500).json({ error: error.message || "Unable to send broadcast" });
@@ -171,7 +192,43 @@ export async function broadcast(req, res) {
 export async function history(_req, res) {
   try {
     const items = await PushBroadcast.find().sort({ createdAt: -1 }).limit(50).lean();
-    res.json({ broadcasts: items });
+    
+    // Dynamically query real-time counts from Notification model for absolute accuracy
+    const broadcastIds = items.map((item) => String(item._id));
+    
+    const liveStats = await mongoose.model("Notification").aggregate([
+      { $match: { "meta.broadcastId": { $in: broadcastIds } } },
+      {
+        $group: {
+          _id: "$meta.broadcastId",
+          sent: {
+            $sum: { $cond: [{ $eq: ["$delivery.push.status", "sent"] }, 1, 0] }
+          },
+          failed: {
+            $sum: { $cond: [{ $eq: ["$delivery.push.status", "failed"] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+    
+    const statsMap = new Map(liveStats.map((s) => [String(s._id), s]));
+    
+    const updatedItems = items.map((item) => {
+      const live = statsMap.get(String(item._id));
+      if (live) {
+        return {
+          ...item,
+          stats: {
+            ...item.stats,
+            pushSent: live.sent,
+            pushFailed: live.failed
+          }
+        };
+      }
+      return item;
+    });
+
+    res.json({ broadcasts: updatedItems });
   } catch (error) {
     res.status(500).json({ error: error.message || "Unable to load broadcast history" });
   }
