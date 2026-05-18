@@ -103,7 +103,7 @@ export default function MarketingControl() {
             setBroadcastHistory(Array.isArray(history) ? history : []);
             setSubscriptionPlans(Array.isArray(plans) ? plans : []);
             setCities(Array.isArray(cityList) ? cityList : []);
-            if (sys?.availableRoles) setRoleOptions(sys.availableRoles);
+            if (Array.isArray(sys?.availableRoles) && sys.availableRoles.length > 0) setRoleOptions(sys.availableRoles);
         } catch {
             setBroadcastHistory([]);
             setSubscriptionPlans([]);
