@@ -113,7 +113,8 @@ function addMonths({ year, month }, delta) {
 function cityPredicate(city) {
   const c = normalizeCity(city);
   if (!c) return {};
-  return { $or: [{ "address.city": c }, { "address.area": c }, { "address.zone": c }] };
+  const regex = new RegExp("^" + c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i");
+  return { $or: [{ "address.city": regex }, { "address.area": regex }, { "address.zone": regex }] };
 }
 
 export async function listVendors(req, res) {
@@ -539,11 +540,21 @@ export async function metricsOverview(req, res) {
     bookingMatch.createdAt = { $gte: start, $lt: end };
   }
 
-  const [vendorCount, totalSPs, activeSPs, pendingSPs, commissionSettings, bookingAgg, sosCount] = await Promise.all([
-    Vendor.countDocuments(city ? { city } : {}),
-    ProviderAccount.countDocuments({ registrationComplete: true, ...(city ? { city } : {}) }),
-    ProviderAccount.countDocuments({ registrationComplete: true, approvalStatus: "approved", ...(city ? { city } : {}) }),
-    ProviderAccount.countDocuments({ registrationComplete: true, approvalStatus: "pending", ...(city ? { city } : {}) }),
+  // Case-insensitive regex for city filter queries on Vendors and ProviderAccounts
+  const cityQuery = city ? { city: new RegExp("^" + city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i") } : {};
+
+  // Case-insensitive regex for city filter queries on Users (via their addresses)
+  const userCityQuery = city ? { "addresses.city": new RegExp("^" + city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i") } : {};
+  let userQuery = { ...userCityQuery };
+  if (!isOverall) {
+    userQuery.createdAt = { $gte: start, $lt: end };
+  }
+
+  const [vendorCount, totalSPs, activeSPs, pendingSPs, commissionSettings, bookingAgg, sosCount, activeZones, customerCount] = await Promise.all([
+    Vendor.countDocuments(cityQuery),
+    ProviderAccount.countDocuments({ registrationComplete: true, ...cityQuery }),
+    ProviderAccount.countDocuments({ registrationComplete: true, approvalStatus: "approved", ...cityQuery }),
+    ProviderAccount.countDocuments({ registrationComplete: true, approvalStatus: "pending", ...cityQuery }),
     CommissionSettings.findOne().lean(),
     Booking.aggregate([
       { $match: bookingMatch },
@@ -560,11 +571,6 @@ export async function metricsOverview(req, res) {
           ],
           cancelled: [
             { $match: { status: { $in: ["cancelled", "rejected"] } } },
-            { $count: "count" },
-          ],
-          customers: [
-            { $match: { customerId: { $ne: null } } },
-            { $group: { _id: "$customerId" } },
             { $count: "count" },
           ],
           zones: [
@@ -594,6 +600,23 @@ export async function metricsOverview(req, res) {
       },
     ]),
     SOSAlert.countDocuments({ status: { $ne: "resolved" } }),
+    // Fetch active zones
+    (async () => {
+      try {
+        if (city) {
+          const cityDoc = await City.findOne({ name: new RegExp("^" + city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i") }).lean();
+          if (cityDoc) {
+            return await Zone.find({ city: cityDoc._id, status: "active" }).lean();
+          }
+          return [];
+        }
+        return await Zone.find({ status: "active" }).lean();
+      } catch (err) {
+        console.error("[metricsOverview] Failed to fetch active zones:", err.message);
+        return [];
+      }
+    })(),
+    User.countDocuments(userQuery)
   ]);
 
   const f = (Array.isArray(bookingAgg) && bookingAgg[0]) ? bookingAgg[0] : {};
@@ -601,8 +624,50 @@ export async function metricsOverview(req, res) {
   const activeBookings = Number(f?.active?.[0]?.count || 0);
   const totalRevenue = Number(f?.completedRevenue?.[0]?.revenue || 0);
   const cancelledCount = Number(f?.cancelled?.[0]?.count || 0);
-  const customerCount = Number(f?.customers?.[0]?.count || 0);
-  const zones = Array.isArray(f?.zones) ? f.zones.map((z) => [z._id, z.count]) : [];
+
+  // Map and combine zones case-insensitively using activeZones
+  const processedZonesMap = new Map();
+  if (activeZones && activeZones.length > 0) {
+    const activeZoneMap = new Map();
+    activeZones.forEach(z => {
+      if (z.name) {
+        activeZoneMap.set(z.name.toLowerCase().trim(), z.name.trim());
+      }
+    });
+
+    // Initialize all active zones with 0 count
+    for (const officialName of activeZoneMap.values()) {
+      processedZonesMap.set(officialName, 0);
+    }
+
+    if (Array.isArray(f?.zones)) {
+      f.zones.forEach(z => {
+        const rawZone = String(z._id || "").toLowerCase().trim();
+        if (activeZoneMap.has(rawZone)) {
+          const officialName = activeZoneMap.get(rawZone);
+          processedZonesMap.set(officialName, (processedZonesMap.get(officialName) || 0) + z.count);
+        }
+      });
+    }
+  } else {
+    // Fallback: combine raw zones case-insensitively if activeZones list is empty or fails
+    if (Array.isArray(f?.zones)) {
+      const rawToDisplay = new Map(); // lowercase -> original case
+      f.zones.forEach(z => {
+        const name = String(z._id || "").trim();
+        if (!name) return;
+        const lower = name.toLowerCase();
+        if (!rawToDisplay.has(lower)) {
+          rawToDisplay.set(lower, name);
+        }
+        const officialName = rawToDisplay.get(lower);
+        processedZonesMap.set(officialName, (processedZonesMap.get(officialName) || 0) + z.count);
+      });
+    }
+  }
+
+  const zones = Array.from(processedZonesMap.entries())
+    .sort((a, b) => b[1] - a[1]);
 
   const ratePct = Math.max(0, Number(commissionSettings?.rate ?? 15));
   const commissionEarned = Math.round(totalRevenue * (ratePct / 100));
@@ -614,29 +679,27 @@ export async function metricsOverview(req, res) {
     const { start: prevStart, end: prevEnd } = monthRangeUtc(prevPeriod, tz);
     
     const prevBookingMatch = { ...cityPredicate(city), createdAt: { $gte: prevStart, $lt: prevEnd } };
+    const prevUserQuery = { ...userCityQuery, createdAt: { $gte: prevStart, $lt: prevEnd } };
     
-    const prevAgg = await Booking.aggregate([
-      { $match: prevBookingMatch },
-      {
-        $facet: {
-          totals: [{ $count: "count" }],
-          completedRevenue: [
-            { $match: { status: "completed" } },
-            { $group: { _id: null, revenue: { $sum: { $ifNull: ["$totalAmount", 0] } } } },
-          ],
-          customers: [
-            { $match: { customerId: { $ne: null } } },
-            { $group: { _id: "$customerId" } },
-            { $count: "count" },
-          ],
+    const [prevAgg, prevCustomers] = await Promise.all([
+      Booking.aggregate([
+        { $match: prevBookingMatch },
+        {
+          $facet: {
+            totals: [{ $count: "count" }],
+            completedRevenue: [
+              { $match: { status: "completed" } },
+              { $group: { _id: null, revenue: { $sum: { $ifNull: ["$totalAmount", 0] } } } },
+            ],
+          },
         },
-      },
+      ]),
+      User.countDocuments(prevUserQuery)
     ]);
 
     const p = (Array.isArray(prevAgg) && prevAgg[0]) ? prevAgg[0] : {};
     const prevBookings = Number(p?.totals?.[0]?.count || 0);
     const prevRevenue = Number(p?.completedRevenue?.[0]?.revenue || 0);
-    const prevCustomers = Number(p?.customers?.[0]?.count || 0);
     const prevCommission = Math.round(prevRevenue * (ratePct / 100));
 
     const calcGrowth = (curr, prev) => {
