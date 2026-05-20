@@ -714,6 +714,7 @@ export const api = {
     // System Settings
     getSystemSettings: () => request("/admin/system-settings"),
     updateSystemSettings: (payload) => request("/admin/system-settings", { method: "PUT", body: payload }),
+    sendSystemSettingsOtp: () => request("/admin/system-settings/send-otp", { method: "POST" }),
     getBookingSettings: () => request("/admin/booking-settings"),
     updateBookingSettings: (payload) => request("/admin/booking-settings", { method: "PUT", body: payload }),
 

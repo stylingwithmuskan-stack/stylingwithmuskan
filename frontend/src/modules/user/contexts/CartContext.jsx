@@ -156,6 +156,8 @@ export const CartProvider = ({ children }) => {
     useEffect(() => {
         if (isCartOpen) {
             setIsFloatingSummaryOpen(false);
+        } else {
+            setActiveCheckoutType(null);
         }
     }, [isCartOpen]);
 

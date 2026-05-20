@@ -283,6 +283,7 @@ export const AdminAuthProvider = ({ children }) => {
     const updateStatusSettings = async (settings) => { await api.admin.updateStatusSettings(settings); };
     const getSystemSettings = async () => (await api.admin.getSystemSettings()).settings;
     const updateSystemSettings = async (settings) => { await api.admin.updateSystemSettings(settings); };
+    const sendSystemSettingsOtp = async () => { await api.admin.sendSystemSettingsOtp(); };
 
     // ───── METRICS ─────
     const getMetricsOverview = async (params = {}) => (await api.admin.metricsOverview(params)).overview;
@@ -360,7 +361,7 @@ export const AdminAuthProvider = ({ children }) => {
             getParents, getCategories, getServices,
             getLeaves, approveLeave, rejectLeave,
             getCategoryRequests, approveCategoryRequest, rejectCategoryRequest,
-            getSystemSettings, updateSystemSettings
+            getSystemSettings, updateSystemSettings, sendSystemSettingsOtp
         }}>
 
             {children}

@@ -27,6 +27,8 @@ import * as AdminSubscriptionController from "../modules/subscriptions/controlle
 import * as AdminPushController from "../modules/admin/controllers/adminPush.controller.js";
 import { invalidateProviderSlots, invalidateProviderSlotsForNextDays } from "../lib/availability.js";
 import { bootstrapProviderAvailability } from "../lib/providerAvailabilityBootstrap.js";
+import { redis } from "../startup/redis.js";
+import { sendEmailOtp } from "../lib/emailService.js";
 
 const router = Router();
 
@@ -1141,10 +1143,51 @@ router.get("/system-settings", async (_req, res) => {
   res.json({ settings: s || { menSectionEnabled: false, availableRoles: ["user", "provider", "vendor"] } });
 });
 
+router.post(
+  "/system-settings/send-otp",
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const isDev = (process.env.NODE_ENV !== "production");
+      const defaultEmail = "admin@swm.local";
+      const confEmail = (process.env.ADMIN_EMAIL || ADMIN_EMAIL || (isDev ? defaultEmail : "")).trim();
+
+      if (!confEmail) {
+        return res.status(500).json({ error: "Admin email not configured" });
+      }
+
+      // Generate secure 6-digit OTP
+      const min = 100000;
+      const max = 999999;
+      const otp = String(Math.floor(min + Math.random() * (max - min + 1)));
+
+      const key = "otp:admin:settings";
+      const ttlSeconds = 300; // 5 minutes
+
+      // Store in Redis
+      await redis.set(key, JSON.stringify({ otp, email: confEmail, createdAt: new Date().toISOString() }), { EX: ttlSeconds });
+
+      // Send Email
+      await sendEmailOtp(confEmail, otp);
+
+      res.json({
+        success: true,
+        message: "OTP sent to your registered admin email.",
+        otpPreview: isDev ? otp : "******"
+      });
+    } catch (error) {
+      console.error("[Admin Settings] Send OTP Error:", error);
+      res.status(500).json({ error: "Failed to send OTP" });
+    }
+  }
+);
+
 router.put("/system-settings", 
   requireRole("admin"), 
   body("menSectionEnabled").isBoolean(), 
   body("availableRoles").optional().isArray(), 
+  body("adminPassword").optional().isString(),
+  body("otp").optional().isString(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -1152,9 +1195,31 @@ router.put("/system-settings",
     }
 
     try {
-      const { menSectionEnabled, availableRoles } = req.body;
+      const { menSectionEnabled, availableRoles, adminPassword, otp } = req.body;
       const updates = { menSectionEnabled };
       if (availableRoles) updates.availableRoles = availableRoles;
+
+      // OTP Verification if trying to update password
+      if (adminPassword !== undefined) {
+        if (!otp) {
+          return res.status(400).json({ error: "OTP is required to update admin password." });
+        }
+
+        const key = "otp:admin:settings";
+        const storedRaw = await redis.get(key);
+        if (!storedRaw) {
+          return res.status(400).json({ error: "OTP has expired or was not requested. Please request a new OTP." });
+        }
+
+        const stored = JSON.parse(storedRaw);
+        if (stored.otp !== String(otp).trim()) {
+          return res.status(400).json({ error: "Invalid OTP. Please try again." });
+        }
+
+        // OTP is valid! Save new password and delete OTP token from Redis
+        updates.adminPassword = adminPassword;
+        await redis.del(key);
+      }
 
       const s = await SystemSettings.findOneAndUpdate(
         {}, 
