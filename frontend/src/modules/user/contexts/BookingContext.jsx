@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { io } from "socket.io-client";
 import { AuthContext } from "@/modules/user/contexts/AuthContext";
+import { safeStorage } from "@/modules/user/lib/safeStorage";
 
 const BookingContext = createContext(undefined);
 
@@ -95,7 +96,7 @@ export const BookingProvider = ({ children }) => {
 
   // Socket sync logic separated for reactivity
   useEffect(() => {
-    const token = localStorage.getItem("swm_token");
+    const token = localStorage.getItem("swm_token") || safeStorage.getItem("swm_token");
     if (!token) return;
 
     console.log("[BookingSync] 🔄 Connecting socket for real-time updates...");
@@ -106,15 +107,16 @@ export const BookingProvider = ({ children }) => {
 
     socket.on("connect", () => console.log("[BookingSync] ✅ Socket connected"));
     
-    // Listen for both global status updates and specific booking updates
+    // Listen for global status updates, specific booking updates, and user-specific notifications
     const handleUpdate = (payload) => {
-      console.log("[BookingSync] 🔔 Status update received:", payload);
+      console.log("[BookingSync] 🔔 Status/Notification update received:", payload);
       loadBookings();
       loadEnquiries();
     };
 
     socket.on("status:update", handleUpdate);
     socket.on("booking:update", handleUpdate);
+    socket.on("new_notification", handleUpdate);
 
     return () => {
       socket.disconnect();

@@ -124,6 +124,7 @@ async function enrichMeta(meta = {}) {
       const enquiry = await mongoose.model("CustomEnquiry").findById(safe.enquiryId).lean();
       if (enquiry) {
         safe.serviceName =
+          pickServiceName(enquiry.items) ||
           pickServiceName(enquiry.selectedServices) ||
           pickServiceName(enquiry.services) ||
           enquiry.eventType ||
@@ -344,7 +345,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
       return {
         title: "New Custom Enquiry",
         message: `A new custom enquiry for ${servicePlain} is waiting for quote.`,
-        sound: "alert",
+        sound: "ringtone",
       };
     case "custom_approved":
       return {
@@ -488,8 +489,14 @@ export async function notify({
       if (!io) {
         console.warn("[Notify] Socket IO instance not found!");
       } else {
-        // Targeted delivery to the user's private room (joined in socket.js)
-        const targetRoom = String(recipientId) === "GLOBAL_VENDOR_FALLBACK" ? "role:vendor" : String(recipientId);
+        // Targeted delivery to the user's private room or role-based fallback rooms
+        let targetRoom = String(recipientId);
+        if (targetRoom === "GLOBAL_VENDOR_FALLBACK") {
+          targetRoom = "role:vendor";
+        } else if (targetRoom === "GLOBAL_ADMIN_FALLBACK" || targetRoom === "ADMIN001") {
+          targetRoom = "role:admin";
+        }
+
         io.of("/bookings").to(targetRoom).emit("new_notification", {
           recipientId: String(recipientId),
           recipientRole,

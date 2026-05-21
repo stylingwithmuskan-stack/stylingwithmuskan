@@ -9,6 +9,18 @@ import { JWT_SECRET } from "../config.js";
 
 const router = express.Router();
 
+function getRecipientQuery(recipientId, recipientRole) {
+  let query = { recipientRole };
+  if (recipientRole === "vendor") {
+    query.$or = [{ recipientId }, { recipientId: "GLOBAL_VENDOR_FALLBACK" }];
+  } else if (recipientRole === "admin") {
+    query.$or = [{ recipientId }, { recipientId: "GLOBAL_ADMIN_FALLBACK" }, { recipientId: "ADMIN001" }];
+  } else {
+    query.recipientId = recipientId;
+  }
+  return query;
+}
+
 // Public debug route for testing audio (No Auth required for testing)
 router.get("/test-sound", async (req, res) => {
   try {
@@ -37,11 +49,12 @@ router.get("/", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
-    const notifications = await Notification.find({ recipientId, recipientRole })
+    const baseQuery = getRecipientQuery(recipientId, recipientRole);
+    const notifications = await Notification.find(baseQuery)
       .sort({ createdAt: -1 })
       .limit(50);
     
-    const unreadCount = await Notification.countDocuments({ recipientId, recipientRole, isRead: false });
+    const unreadCount = await Notification.countDocuments({ ...baseQuery, isRead: false });
     
     res.json({ notifications, unreadCount });
   } catch (err) {
@@ -54,7 +67,8 @@ router.put("/read-all", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
-    await Notification.updateMany({ recipientId, recipientRole, isRead: false }, { isRead: true });
+    const baseQuery = getRecipientQuery(recipientId, recipientRole);
+    await Notification.updateMany({ ...baseQuery, isRead: false }, { isRead: true });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -66,8 +80,9 @@ router.patch("/:id/read", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
+    const baseQuery = getRecipientQuery(recipientId, recipientRole);
     const notification = await Notification.findOneAndUpdate(
-      { _id: req.params.id, recipientId, recipientRole },
+      { _id: req.params.id, ...baseQuery },
       { isRead: true },
       { new: true }
     );
@@ -250,7 +265,8 @@ router.delete("/:id", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
-    await Notification.findOneAndDelete({ _id: req.params.id, recipientId, recipientRole });
+    const baseQuery = getRecipientQuery(recipientId, recipientRole);
+    await Notification.findOneAndDelete({ _id: req.params.id, ...baseQuery });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -262,7 +278,8 @@ router.delete("/", flexibleAuth, async (req, res) => {
   try {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
-    await Notification.deleteMany({ recipientId, recipientRole });
+    const baseQuery = getRecipientQuery(recipientId, recipientRole);
+    await Notification.deleteMany(baseQuery);
     res.json({ success: true, message: "All notifications deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -280,10 +297,10 @@ router.post("/delete-multiple", flexibleAuth, async (req, res) => {
       return res.status(400).json({ error: "No IDs provided" });
     }
 
+    const baseQuery = getRecipientQuery(recipientId, recipientRole);
     await Notification.deleteMany({ 
       _id: { $in: ids }, 
-      recipientId, 
-      recipientRole 
+      ...baseQuery 
     });
 
     res.json({ success: true, message: `${ids.length} notifications deleted` });

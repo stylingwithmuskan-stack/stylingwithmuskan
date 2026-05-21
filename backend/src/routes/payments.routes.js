@@ -351,13 +351,49 @@ router.post(
         await enq.save();
       }
       try {
+        // Notify User
         await notify({
           recipientId: req.user._id.toString(),
           recipientRole: "user",
           type: "custom_advance_paid",
           meta: { enquiryId, amount },
         });
-      } catch {}
+
+        // Notify Admin with ringtone sound
+        await notify({
+          recipientId: "ADMIN001",
+          recipientRole: "admin",
+          type: "custom_advance_paid",
+          meta: { enquiryId, amount, sound: "ringtone" },
+        });
+
+        // Notify Vendor with ringtone sound
+        const Vendor = (await import("../models/Vendor.js")).default;
+        const city = String(enq?.address?.city || enq?.address?.area || "").trim();
+        let vendorNotified = false;
+        if (city && city.toLowerCase() !== "n/a") {
+          const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+          if (vendor) {
+            await notify({
+              recipientId: vendor._id?.toString(),
+              recipientRole: "vendor",
+              type: "custom_advance_paid",
+              meta: { enquiryId, amount, city, sound: "ringtone" },
+            });
+            vendorNotified = true;
+          }
+        }
+        if (!vendorNotified) {
+          await notify({
+            recipientId: "GLOBAL_VENDOR_FALLBACK",
+            recipientRole: "vendor",
+            type: "custom_advance_paid",
+            meta: { enquiryId, amount, city: city || "N/A", sound: "ringtone" },
+          });
+        }
+      } catch (err) {
+        console.error("[PaymentsVerifyCustom] Notification failed:", err);
+      }
       return res.json({ success: true });
     }
 

@@ -237,7 +237,7 @@ export const NotificationProvider = ({ children, role }) => {
             console.log(`[NotificationContext] 🔍 CHECKING: TargetID=${targetId} | MyID=${myId}`);
 
             const isRoleMatch = targetRole === activeRole;
-            const isIdMatch = targetId === myId;
+            const isIdMatch = targetId === myId || targetId === "ADMIN001" || targetId.startsWith("GLOBAL_");
             const isNewOrderEscalation = type === "NEW_ORDER" && activeRole === "vendor";
 
             console.log(`[NotificationContext] Evaluation: RoleMatch=${isRoleMatch}, IdMatch=${isIdMatch}, Escalation=${isNewOrderEscalation}`);

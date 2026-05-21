@@ -595,10 +595,10 @@ const BookingDetailsModal = ({ isOpen, onClose, booking, onChat, onCall }) => {
                             {/* Service Items */}
                             <div className="space-y-4">
                                 <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">
-                                    {(booking.bookingType === 'customized' || booking.selectedServices) ? 'Customized Package' : 'Services Booked'}
+                                    {(booking.bookingType === 'customized' || booking.selectedServices || booking.quote?.items || booking.items) ? 'Customized Package' : 'Services Booked'}
                                 </h3>
 
-                                {(booking.bookingType === 'customized' || booking.selectedServices) && (
+                                {(booking.bookingType === 'customized' || booking.selectedServices || booking.quote?.items || booking.items) && (
                                     <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-3">
                                         <div className="flex justify-between items-start">
                                             <div>
@@ -613,11 +613,11 @@ const BookingDetailsModal = ({ isOpen, onClose, booking, onChat, onCall }) => {
                                             )}
                                         </div>
 
-                                        {booking.selectedServices && (
+                                        {(booking.selectedServices || booking.quote?.items || booking.items) && (
                                             <div>
                                                 <p className="text-[10px] font-black uppercase text-purple-600 mb-1.5">Services Requested</p>
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {booking.selectedServices.map((s, idx) => (
+                                                    {(booking.selectedServices || booking.quote?.items || booking.items).map((s, idx) => (
                                                         <span key={idx} className="text-[10px] font-bold px-2 py-1 bg-white border border-purple-200 text-purple-700 rounded-lg shadow-sm">
                                                             {s.name}
                                                         </span>

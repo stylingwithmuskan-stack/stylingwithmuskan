@@ -610,17 +610,17 @@ const BookingsPage = () => {
                                         </div>
                                     </div>
 
-                                    {(enq.categoryName || enq.selectedServices) && (
+                                    {(enq.categoryName || enq.selectedServices || enq.quote?.items || enq.items) && (
                                         <div className="mb-4 p-3 bg-purple-50/50 rounded-2xl border border-purple-100 flex flex-col gap-2">
                                             <div>
                                                 <p className="text-[10px] font-black uppercase text-purple-600 mb-1 flex items-center gap-1"><LayoutGrid className="h-3 w-3" /> Requested Category:</p>
                                                 <p className="text-sm font-bold">{enq.categoryName || enq.serviceType}</p>
                                             </div>
-                                            {enq.selectedServices && (
+                                            {(enq.selectedServices || enq.quote?.items || enq.items) && (
                                                 <div>
                                                     <p className="text-[10px] font-black uppercase text-purple-600 mb-1">Services Breakdown:</p>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {enq.selectedServices.map((s, idx) => (
+                                                        {(enq.selectedServices || enq.quote?.items || enq.items).map((s, idx) => (
                                                             <div key={idx} className="flex items-center gap-1.5 px-2 py-1 bg-white border border-purple-200 text-purple-700 rounded-lg">
                                                                 {(s.image || globalServices?.find(gs => gs.id === s.id)?.image) && (
                                                                     <img 
@@ -679,7 +679,12 @@ const BookingsPage = () => {
                                                             return;
                                                         }
                                                         await acceptCustomEnquiry(enq._id || enq.id);
-                                                        toast.success("Quote accepted. Please pay the advance.");
+                                                        const isZeroAdvance = Number(enq.quote?.prebookAmount || 0) === 0;
+                                                        if (isZeroAdvance) {
+                                                            toast.success("Quote accepted & booking confirmed!");
+                                                        } else {
+                                                            toast.success("Quote accepted. Please pay the advance.");
+                                                        }
                                                     } catch (e) {
                                                         toast.error(e?.message || "Failed to accept quote");
                                                     }
@@ -692,35 +697,56 @@ const BookingsPage = () => {
                                     ) : enq.displayPhase === "payment" ? (
                                         <div className="mt-5 pt-4 border-t border-border/30 flex items-center justify-between gap-3">
                                             <span className="text-[10px] font-bold text-muted-foreground">
-                                                Pay advance to confirm booking.
+                                                {Number(enq.quote?.prebookAmount || 0) === 0 ? "Confirm booking with 0 advance." : "Pay advance to confirm booking."}
                                             </span>
-                                            <button
-                                                onClick={async () => {
-                                                    try {
-                                                        const expiryAt = enq.quote?.expiryAt ? new Date(enq.quote.expiryAt) : null;
-                                                        if (expiryAt && !Number.isNaN(expiryAt.getTime()) && expiryAt.getTime() < Date.now()) {
-                                                            toast.error("This quote has expired. Please request a new quote.");
-                                                            return;
+                                            {Number(enq.quote?.prebookAmount || 0) === 0 ? (
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const expiryAt = enq.quote?.expiryAt ? new Date(enq.quote.expiryAt) : null;
+                                                            if (expiryAt && !Number.isNaN(expiryAt.getTime()) && expiryAt.getTime() < Date.now()) {
+                                                                toast.error("This quote has expired. Please request a new quote.");
+                                                                return;
+                                                            }
+                                                            await payAdvanceForCustomEnquiry(enq._id || enq.id, 0);
+                                                            toast.success("Booking confirmed!");
+                                                        } catch (e) {
+                                                            toast.error(e?.message || "Failed to confirm booking");
                                                         }
-                                                        const amt = Number(enq.quote?.prebookAmount || 0);
-                                                        if (!(amt > 0)) {
-                                                            toast.error("Advance amount not available yet.");
-                                                            return;
+                                                    }}
+                                                    className="px-4 py-2 rounded-xl bg-green-600 text-white text-[10px] font-black uppercase tracking-widest"
+                                                >
+                                                    Confirm Booking
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const expiryAt = enq.quote?.expiryAt ? new Date(enq.quote.expiryAt) : null;
+                                                            if (expiryAt && !Number.isNaN(expiryAt.getTime()) && expiryAt.getTime() < Date.now()) {
+                                                                toast.error("This quote has expired. Please request a new quote.");
+                                                                return;
+                                                            }
+                                                            const amt = Number(enq.quote?.prebookAmount || 0);
+                                                            if (!(amt > 0)) {
+                                                                toast.error("Advance amount not available yet.");
+                                                                return;
+                                                            }
+                                                            addCustomAdvanceToCart(enq, amt);
+                                                            setIsCartOpen(false);
+                                                            navigate("/booking/summary", {
+                                                                state: { type: 'custom', customAdvance: { enquiryId: enq._id || enq.id, amount: amt } }
+                                                            });
+                                                        } catch (e) {
+                                                            toast.error(e?.message || "Failed to start advance payment");
                                                         }
-                                                        addCustomAdvanceToCart(enq, amt);
-                                                        setIsCartOpen(false);
-                                                        navigate("/booking/summary", {
-                                                            state: { type: 'custom', customAdvance: { enquiryId: enq._id || enq.id, amount: amt } }
-                                                        });
-                                                    } catch (e) {
-                                                        toast.error(e?.message || "Failed to start advance payment");
-                                                    }
-                                                }}
-                                                disabled={!(enq.quote?.prebookAmount > 0)}
-                                                className="px-4 py-2 rounded-xl bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-60"
-                                            >
-                                                Pay Advance
-                                            </button>
+                                                    }}
+                                                    disabled={!(enq.quote?.prebookAmount > 0)}
+                                                    className="px-4 py-2 rounded-xl bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-60"
+                                                >
+                                                    Pay Advance
+                                                </button>
+                                            )}
                                         </div>
                                     ) : enq.displayPhase === "expired" ? (
                                         <div className="mt-5 pt-4 border-t border-border/30 flex items-center justify-between gap-3">

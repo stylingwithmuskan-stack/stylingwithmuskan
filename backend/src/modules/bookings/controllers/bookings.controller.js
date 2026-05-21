@@ -958,6 +958,14 @@ export async function track(req, res) {
 export async function createCustomEnquiry(req, res) {
   const { name, phone, eventType, noOfPeople, date, timeSlot, selectedServices, notes, address } = req.body;
   const fallbackAddr = (req.user?.addresses && req.user.addresses[0]) ? req.user.addresses[0] : {};
+
+  const houseNo = (address?.houseNo || fallbackAddr.houseNo || "").trim();
+  const area = (address?.area || fallbackAddr.area || "").trim();
+  const city = (address?.city || fallbackAddr.city || "").trim();
+
+  if (!houseNo || !area || !city) {
+    return res.status(400).json({ error: "Address details (House/Flat No, Area, and City) are mandatory." });
+  }
   const items = (selectedServices || []).map((s) => ({
     id: s.id, name: s.name, category: s.category, serviceType: s.serviceType, quantity: s.quantity || 1, price: Number(s.price) || 0, image: s.image || "",
   }));
@@ -988,8 +996,9 @@ export async function createCustomEnquiry(req, res) {
       type: "custom_quote_submitted",
       meta: { enquiryId: doc._id.toString() },
     });
-    const city = doc.address?.city || doc.address?.area || "";
-    if (city) {
+    const city = String(doc.address?.city || doc.address?.area || "").trim();
+    let vendorNotified = false;
+    if (city && city.toLowerCase() !== "n/a") {
       const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
       if (vendor) {
         await notify({
@@ -998,7 +1007,16 @@ export async function createCustomEnquiry(req, res) {
           type: "custom_quote_submitted",
           meta: { enquiryId: doc._id.toString(), city },
         });
+        vendorNotified = true;
       }
+    }
+    if (!vendorNotified) {
+      await notify({
+        recipientId: "GLOBAL_VENDOR_FALLBACK",
+        recipientRole: "vendor",
+        type: "custom_quote_submitted",
+        meta: { enquiryId: doc._id.toString(), city: city || "N/A" },
+      });
     }
   } catch {}
   res.status(201).json({ enquiry: doc });
@@ -1022,15 +1040,70 @@ export async function userAcceptCustomEnquiry(req, res) {
       return res.status(409).json({ error: "Quote has expired. Please request a new quote.", code: "QUOTE_EXPIRED" });
     }
   }
-  enq.status = "waiting_for_customer_payment";
-  enq.timeline.push({ action: "waiting_for_customer_payment" });
+  const isZeroAdvance = Number(enq.quote?.prebookAmount || 0) === 0;
+  if (isZeroAdvance) {
+    enq.paymentStatus = "paid";
+    enq.prebookAmountPaid = 0;
+    enq.prebookPaidAt = new Date();
+    enq.status = "advance_paid";
+    enq.timeline.push({ action: "advance_paid", meta: { amount: 0 } });
+  } else {
+    enq.status = "waiting_for_customer_payment";
+    enq.timeline.push({ action: "waiting_for_customer_payment" });
+  }
   await enq.save();
+
+  if (isZeroAdvance) {
+    try {
+      // Notify User
+      await notify({
+        recipientId: enq.userId,
+        recipientRole: "user",
+        type: "custom_advance_paid",
+        meta: { enquiryId: enq._id.toString(), amount: 0 },
+      });
+
+      // Notify Admin with ringtone sound
+      await notify({
+        recipientId: "ADMIN001",
+        recipientRole: "admin",
+        type: "custom_advance_paid",
+        meta: { enquiryId: enq._id.toString(), amount: 0, sound: "ringtone" },
+      });
+
+      // Notify Vendor with ringtone sound
+      const city = String(enq.address?.city || enq.address?.area || "").trim();
+      let vendorNotified = false;
+      if (city && city.toLowerCase() !== "n/a") {
+        const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+        if (vendor) {
+          await notify({
+            recipientId: vendor._id?.toString(),
+            recipientRole: "vendor",
+            type: "custom_advance_paid",
+            meta: { enquiryId: enq._id.toString(), amount: 0, city, sound: "ringtone" },
+          });
+          vendorNotified = true;
+        }
+      }
+      if (!vendorNotified) {
+        await notify({
+          recipientId: "GLOBAL_VENDOR_FALLBACK",
+          recipientRole: "vendor",
+          type: "custom_advance_paid",
+          meta: { enquiryId: enq._id.toString(), amount: 0, city: city || "N/A", sound: "ringtone" },
+        });
+      }
+    } catch (err) {
+      console.error("[AcceptEnquiry] Notification failed:", err);
+    }
+  }
+
   res.json({ enquiry: enq });
 }
 
 export async function userMarkCustomAdvancePaid(req, res) {
   const { id } = req.params;
-  const amount = Number(req.body.amount || 0);
   const enq = await CustomEnquiry.findOne({ _id: id, userId: req.user._id.toString() });
   if (!enq) return res.status(404).json({ error: "Not found" });
   if (enq.quote?.expiryAt) {
@@ -1042,13 +1115,58 @@ export async function userMarkCustomAdvancePaid(req, res) {
       return res.status(409).json({ error: "Quote has expired. Please request a new quote.", code: "QUOTE_EXPIRED" });
     }
   }
-  const paid = amount > 0 ? amount : Number(enq.quote?.prebookAmount || 0);
+  const paid = (typeof req.body.amount !== 'undefined' && !isNaN(Number(req.body.amount))) ? Number(req.body.amount) : Number(enq.quote?.prebookAmount || 0);
   enq.paymentStatus = "paid";
   enq.prebookAmountPaid = paid;
   enq.prebookPaidAt = new Date();
   enq.status = "advance_paid";
   enq.timeline.push({ action: "advance_paid", meta: { amount: paid } });
   await enq.save();
+
+  try {
+    // Notify User
+    await notify({
+      recipientId: enq.userId,
+      recipientRole: "user",
+      type: "custom_advance_paid",
+      meta: { enquiryId: enq._id.toString(), amount: paid },
+    });
+
+    // Notify Admin with ringtone sound
+    await notify({
+      recipientId: "ADMIN001",
+      recipientRole: "admin",
+      type: "custom_advance_paid",
+      meta: { enquiryId: enq._id.toString(), amount: paid, sound: "ringtone" },
+    });
+
+    // Notify Vendor with ringtone sound
+    const city = String(enq.address?.city || enq.address?.area || "").trim();
+    let vendorNotified = false;
+    if (city && city.toLowerCase() !== "n/a") {
+      const vendor = await Vendor.findOne({ city: { $regex: new RegExp(`^${city}$`, "i") }, status: "approved" }).lean();
+      if (vendor) {
+        await notify({
+          recipientId: vendor._id?.toString(),
+          recipientRole: "vendor",
+          type: "custom_advance_paid",
+          meta: { enquiryId: enq._id.toString(), amount: paid, city, sound: "ringtone" },
+        });
+        vendorNotified = true;
+      }
+    }
+    if (!vendorNotified) {
+      await notify({
+        recipientId: "GLOBAL_VENDOR_FALLBACK",
+        recipientRole: "vendor",
+        type: "custom_advance_paid",
+        meta: { enquiryId: enq._id.toString(), amount: paid, city: city || "N/A", sound: "ringtone" },
+      });
+    }
+  } catch (err) {
+    console.error("[MarkAdvancePaid] Notification failed:", err);
+  }
+
   res.json({ enquiry: enq });
 }
 
@@ -1105,6 +1223,18 @@ export async function adminPriceQuote(req, res) {
   enq.status = "admin_approved";
   enq.timeline.push({ action: "admin_approved", meta: { totalAmount: enq.quote.totalAmount, discountPrice: enq.quote.discountPrice } });
   await enq.save();
+
+  try {
+    await notify({
+      recipientId: enq.userId,
+      recipientRole: "user",
+      type: "custom_quote_submitted",
+      meta: { enquiryId: enq._id.toString() },
+    });
+  } catch (err) {
+    console.error("[AdminPriceQuote] Failed to notify user:", err);
+  }
+
   res.json({ enquiry: enq });
 }
 

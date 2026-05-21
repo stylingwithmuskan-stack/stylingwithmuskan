@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, User, Phone, PartyPopper, Users, Calendar, Clock, CheckCircle2, Sparkles, LayoutGrid, CheckSquare, Square, Minus, Plus, ShoppingBag, ChevronRight, AlertCircle, Trash2 } from "lucide-react";
+import { X, Send, User, Phone, PartyPopper, Users, Calendar, Clock, CheckCircle2, Sparkles, LayoutGrid, CheckSquare, Square, Minus, Plus, ShoppingBag, ChevronRight, AlertCircle, Trash2, MapPin } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
@@ -19,7 +19,11 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
         date: "",
         timeSlot: "",
         selectedServices: [], // Array of { id, quantity, name, categoryName }
-        notes: ""
+        notes: "",
+        houseNo: "",
+        area: "",
+        landmark: "",
+        city: ""
     });
 
     const [activeCategoryId, setActiveCategoryId] = useState("");
@@ -138,6 +142,9 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
         if (formData.selectedServices.length === 0) newErrors.selectedServices = "Select at least one service";
         if (!formData.date) newErrors.date = "Select date";
         if (!formData.timeSlot) newErrors.timeSlot = "Select time slot";
+        if (!formData.houseNo.trim()) newErrors.houseNo = "House/Flat No. is required";
+        if (!formData.area.trim()) newErrors.area = "Area is required";
+        if (!formData.city.trim()) newErrors.city = "City is required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -157,7 +164,12 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                 timeSlot: formData.timeSlot,
                 selectedServices: formData.selectedServices,
                 notes: formData.notes,
-                address: undefined
+                address: {
+                    houseNo: formData.houseNo,
+                    area: formData.area,
+                    landmark: formData.landmark,
+                    city: formData.city
+                }
             };
             const { enquiry } = await api.bookings.custom.create(payload);
             setLastEnquiry(enquiry);
@@ -171,7 +183,8 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
         setSubmitted(false);
         setFormData({ 
             name: "", phone: "", eventType: "", noOfPeople: "", 
-            date: "", timeSlot: "", selectedServices: [], notes: "" 
+            date: "", timeSlot: "", selectedServices: [], notes: "",
+            houseNo: "", area: "", landmark: "", city: ""
         });
         setErrors({});
         setView("form");
@@ -306,6 +319,13 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                             </div>
                                             
                                             <div>
+                                                <p className="text-[10px] font-black tracking-widest text-muted-foreground uppercase mb-2">Service Address</p>
+                                                <div className="p-2 bg-white/50 rounded-lg text-xs leading-relaxed">
+                                                    <strong>{formData.houseNo}, {formData.area}{formData.landmark ? `, ${formData.landmark}` : ""}, {formData.city}</strong>
+                                                </div>
+                                            </div>
+                                            
+                                            <div>
                                                 <p className="text-[10px] font-black tracking-widest text-muted-foreground uppercase mb-2">Requested Services ({totalSelectedCount})</p>
                                                 <div className="max-h-32 overflow-y-auto pr-2 custom-scrollbar space-y-2">
                                                     {formData.selectedServices.map(s => (
@@ -400,6 +420,55 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                     <option value="">Select Time</option>
                                                     {availableTimeSlots.map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
+                                            </div>
+                                        </div>
+
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2 pt-2">
+                                            <MapPin className="w-4 h-4" /> Address Details
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">House/Flat No.</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.houseNo}
+                                                    onChange={e => handleChange("houseNo", e.target.value)}
+                                                    placeholder="e.g. Flat 101, Phase 2"
+                                                    className={`w-full h-12 px-4 rounded-xl bg-accent/50 text-sm font-bold border-2 ${errors.houseNo ? "border-destructive" : "border-transparent"}`}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">Area / Locality</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.area}
+                                                    onChange={e => handleChange("area", e.target.value)}
+                                                    placeholder="e.g. Sector 15"
+                                                    className={`w-full h-12 px-4 rounded-xl bg-accent/50 text-sm font-bold border-2 ${errors.area ? "border-destructive" : "border-transparent"}`}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">Landmark (Optional)</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.landmark}
+                                                    onChange={e => handleChange("landmark", e.target.value)}
+                                                    placeholder="e.g. Near Central Park"
+                                                    className="w-full h-12 px-4 rounded-xl bg-accent/50 text-sm font-bold border-2 border-transparent"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">City</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.city}
+                                                    onChange={e => handleChange("city", e.target.value)}
+                                                    placeholder="e.g. Mumbai"
+                                                    className={`w-full h-12 px-4 rounded-xl bg-accent/50 text-sm font-bold border-2 ${errors.city ? "border-destructive" : "border-transparent"}`}
+                                                />
                                             </div>
                                         </div>
 

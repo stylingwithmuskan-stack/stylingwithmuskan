@@ -174,7 +174,7 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry }) => {
                     )}
 
                     {/* Service Category & Services */}
-                    {(enquiry.categoryName || enquiry.selectedServices) && (
+                    {(enquiry.categoryName || enquiry.selectedServices || enquiry.quote?.items || enquiry.items) && (
                         <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100">
                             <p className="text-xs font-black uppercase text-purple-600 mb-3 flex items-center gap-1">
                                 <LayoutGrid className="h-4 w-4" /> Service Details
@@ -184,11 +184,11 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry }) => {
                                     <p className="text-xs text-muted-foreground mb-1">Category</p>
                                     <p className="text-sm font-bold">{enquiry.categoryName || enquiry.serviceType}</p>
                                 </div>
-                                {enquiry.selectedServices && enquiry.selectedServices.length > 0 && (
+                                {(enquiry.selectedServices || enquiry.quote?.items || enquiry.items) && (enquiry.selectedServices || enquiry.quote?.items || enquiry.items).length > 0 && (
                                     <div>
                                         <p className="text-xs text-muted-foreground mb-2">Requested Services</p>
                                         <div className="space-y-2">
-                                            {enquiry.selectedServices.map((s, idx) => (
+                                            {(enquiry.selectedServices || enquiry.quote?.items || enquiry.items).map((s, idx) => (
                                                 <div key={idx} className="flex items-center gap-3 p-2 bg-white border border-purple-200 rounded-xl">
                                                     {(s.image || globalServices?.find(gs => gs.id === s.id)?.image) && (
                                                         <img 
