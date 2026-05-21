@@ -54,18 +54,26 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
             document.body.style.top = `-${scrollY}px`;
             document.body.dataset.scrollY = scrollY;
         } else {
-            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
-            document.documentElement.classList.remove("modal-open");
-            document.body.classList.remove("modal-open");
-            document.body.style.top = "";
-            window.scrollTo(0, scrollY);
+            const activeModals = document.querySelectorAll('.swm-modal-active').length;
+            if (activeModals === 0) {
+                const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+                document.documentElement.classList.remove("modal-open");
+                document.body.classList.remove("modal-open");
+                document.body.style.top = "";
+                if (scrollY > 0) window.scrollTo(0, scrollY);
+            }
         }
         return () => {
-            const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
-            document.documentElement.classList.remove("modal-open");
-            document.body.classList.remove("modal-open");
-            document.body.style.top = "";
-            window.scrollTo(0, scrollY);
+            setTimeout(() => {
+                const activeModals = document.querySelectorAll('.swm-modal-active').length;
+                if (activeModals === 0) {
+                    const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+                    document.documentElement.classList.remove("modal-open");
+                    document.body.classList.remove("modal-open");
+                    document.body.style.top = "";
+                    if (scrollY > 0) window.scrollTo(0, scrollY);
+                }
+            }, 100);
         };
     }, [isOpen]);
 
@@ -227,7 +235,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 pt-10 sm:p-8 md:p-12">
+                <div className="fixed inset-0 z-[200] flex items-end sm:items-center sm:justify-center sm:p-8 md:p-12">
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -237,10 +245,11 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                     />
 
                     <motion.div
-                        initial={{ scale: 0.9, opacity: 0, y: 10 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.9, opacity: 0, y: 10 }}
-                        className="relative w-full max-w-lg bg-background rounded-[32px] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden my-auto"
+                        initial={{ opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 40 }}
+                        transition={{ type: "spring", damping: 28, stiffness: 300 }}
+                        className="relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-lg bg-background sm:rounded-[32px] rounded-none shadow-2xl flex flex-col overflow-hidden swm-modal-active"
                     >
                         {/* Header */}
                         <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-background z-10 shrink-0">
@@ -287,7 +296,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                         )}
 
                         {/* Content Area */}
-                        <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar p-6 space-y-5">
+                        <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-8 space-y-5">
                             <AnimatePresence mode="wait">
                                 {submitted ? (
                                     <motion.div
