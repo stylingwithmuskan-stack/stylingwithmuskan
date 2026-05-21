@@ -316,7 +316,15 @@ const ExplorePage = () => {
                         </button>
                         
                         <button
-                            onClick={() => setIsCartOpen(true)}
+                            onClick={() => {
+                                if (!isLoggedIn) {
+                                    navigate('/login');
+                                } else if (totalItems === 0) {
+                                    setIsCartOpen(true);
+                                } else {
+                                    setIsFloatingSummaryOpen(prev => !prev);
+                                }
+                            }}
                             className="w-10 h-10 rounded-2xl bg-accent flex items-center justify-center transition-all hover:bg-primary/10 relative"
                         >
                             <ShoppingBag className="w-4 h-4" />

@@ -174,10 +174,41 @@ const ExpressCheckout = () => {
         }
 
         const finalType = typeId || activeCheckoutType;
+        
+        let finalTotalAmount = displayedTotalPrice;
+        let finalAdvanceAmount = advanceAmount;
+        let finalRemainingAmount = remainingAmount;
+
+        if (finalType) {
+            const finalGroup = groupedItems[finalType];
+            if (finalGroup) {
+                finalTotalAmount = finalGroup.subtotal;
+                
+                // Calculate advance payment for finalType only
+                let typeAdvance = 0;
+                if (bookingType !== 'instant') {
+                    cartItems.forEach(item => {
+                        if (!item) return;
+                        if (item.serviceType !== finalType) return;
+
+                        const category = categories?.find(c => c.id === item.category);
+                        const advancePercent = category?.advancePercentage || 0;
+
+                        if (advancePercent > 0) {
+                            const itemAdvance = Math.round((item.price * item.quantity * advancePercent) / 100);
+                            typeAdvance += itemAdvance;
+                        }
+                    });
+                }
+                finalAdvanceAmount = typeAdvance;
+                finalRemainingAmount = finalTotalAmount - finalAdvanceAmount;
+            }
+        }
+
         const bookingData = {
-            totalAmount: displayedTotalPrice,
-            advanceAmount: advanceAmount,
-            remainingAmount: remainingAmount,
+            totalAmount: finalTotalAmount,
+            advanceAmount: finalAdvanceAmount,
+            remainingAmount: finalRemainingAmount,
             type: finalType,
             bookingParam: bookingType
         };

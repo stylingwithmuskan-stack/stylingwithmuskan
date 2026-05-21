@@ -25,7 +25,7 @@ const Header = () => {
   const { gender } = useGenderTheme();
   const { user, isAddressModalOpen, setIsAddressModalOpen, isLoggedIn } = useAuth();
   const { unreadCount } = useNotifications();
-  const { totalItems, setIsCartOpen } = useCart();
+  const { totalItems, setIsCartOpen, setIsFloatingSummaryOpen } = useCart();
 
   const { wishlistCount } = useWishlist();
   const { services, categories, checkAvailability } = useUserModuleData();
@@ -186,7 +186,15 @@ const Header = () => {
           </button>
 
           <button
-            onClick={() => setIsCartOpen(true)}
+            onClick={() => {
+              if (!isLoggedIn) {
+                navigate('/login');
+              } else if (totalItems === 0) {
+                setIsCartOpen(true);
+              } else {
+                setIsFloatingSummaryOpen(prev => !prev);
+              }
+            }}
             className="hidden lg:flex w-9 h-9 rounded-full bg-accent items-center justify-center relative hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
           >
             <ShoppingBag className="w-4 h-4" />

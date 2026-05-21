@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, User, Phone, PartyPopper, Users, Calendar, Clock, CheckCircle2, Sparkles, LayoutGrid, CheckSquare, Square, Minus, Plus, ShoppingBag, ChevronRight, AlertCircle, Trash2, MapPin } from "lucide-react";
+import { X, Send, User, Phone, PartyPopper, Users, Calendar, Clock, CheckCircle2, Sparkles, LayoutGrid, CheckSquare, Square, Minus, Plus, ShoppingBag, ChevronRight, AlertCircle, Trash2, MapPin, Navigation } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { api } from "@/modules/user/lib/api";
+import { toast } from "sonner";
 
 const EVENT_TYPES = ["Bridal Event", "Birthday Party", "Kitty Party", "Corporate Event", "Festival Gathering", "Engagement", "Other"];
 
@@ -31,6 +32,10 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
     const [submitted, setSubmitted] = useState(false);
     const [errors, setErrors] = useState({});
     const [lastEnquiry, setLastEnquiry] = useState(null);
+    const areaInputRef = useRef(null);
+    const [isLocating, setIsLocating] = useState(false);
+    const [mapsReady, setMapsReady] = useState(false);
+    const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
     // Filter categories by gender
     const filteredCategories = useMemo(() => 
@@ -95,7 +100,117 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
         })();
         return () => { cancelled = true; };
     }, [isOpen, submitted]);
+    useEffect(() => {
+        if (!isOpen || !googleKey) return;
+        if (window.google?.maps?.places) {
+            setMapsReady(true);
+            return;
+        }
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${googleKey}&libraries=places`;
+        script.async = true;
+        script.onload = () => setMapsReady(true);
+        script.onerror = () => setMapsReady(false);
+        document.body.appendChild(script);
+    }, [isOpen, googleKey]);
 
+    useEffect(() => {
+        if (!isOpen || !mapsReady || !areaInputRef.current || !window.google?.maps?.places) return;
+        try {
+            const autocomplete = new window.google.maps.places.Autocomplete(areaInputRef.current, {
+                types: ["geocode"]
+            });
+            autocomplete.setFields(["address_components", "geometry", "formatted_address", "name"]);
+
+            autocomplete.addListener("place_changed", () => {
+                const place = autocomplete.getPlace();
+                if (!place || !place.geometry) return;
+
+                const lat = place.geometry.location.lat();
+                const lng = place.geometry.location.lng();
+                const comp = place.address_components || [];
+                const getComp = (types) => comp.find(c => types.some(t => c.types.includes(t)))?.long_name || "";
+
+                const houseNo = getComp(["street_number", "premise", "subpremise"]);
+                const landmark = getComp(["neighborhood", "sublocality_level_2", "sublocality_level_3"]);
+                const area = place.formatted_address || place.name || "";
+                const city = getComp(["locality", "administrative_area_level_2", "administrative_area_level_1"]);
+
+                setFormData(prev => ({
+                    ...prev,
+                    houseNo: houseNo || prev.houseNo,
+                    landmark: landmark || prev.landmark,
+                    area,
+                    city: city || prev.city
+                }));
+            });
+        } catch {
+            // ignore autocomplete failure
+        }
+    }, [isOpen, mapsReady]);
+
+    const handleGetCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            toast.error("Geolocation is not supported by your browser");
+            return;
+        }
+
+        setIsLocating(true);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                const geocodeAndApply = (results) => {
+                    if (!results || !results[0]) {
+                        toast.error("Unable to detect address automatically. Please enter manually.");
+                        setIsLocating(false);
+                        return;
+                    }
+                    const res = results[0];
+                    const comp = res.address_components || [];
+                    const getComp = (types) => comp.find(c => types.some(t => c.types.includes(t)))?.long_name || "";
+                    const houseNo = getComp(["street_number", "premise", "subpremise"]);
+                    const landmark = getComp(["neighborhood", "sublocality_level_2", "sublocality_level_3"]);
+                    const area = res.formatted_address || res.name || "";
+                    const city = getComp(["locality", "administrative_area_level_2", "administrative_area_level_1"]);
+
+                    setFormData(prev => ({
+                        ...prev,
+                        houseNo: houseNo || prev.houseNo,
+                        landmark: landmark || prev.landmark,
+                        area: area || prev.area,
+                        city: city || prev.city
+                    }));
+                    toast.success("Location captured", {
+                        description: city ? `Detected city: ${city}` : undefined
+                    });
+                    setIsLocating(false);
+                };
+
+                if (window.google?.maps && googleKey) {
+                    const geocoder = new window.google.maps.Geocoder();
+                    geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
+                        if (status === "OK") {
+                            geocodeAndApply(results);
+                        } else {
+                            toast.error("Unable to resolve current location. Please enter manually.");
+                            setIsLocating(false);
+                        }
+                    });
+                } else {
+                    toast.error("Location service unavailable. Please enter manually.");
+                    setIsLocating(false);
+                }
+            },
+            (error) => {
+                setIsLocating(false);
+                toast.error("Unable to retrieve your location", {
+                    description: "Please enter your address manually."
+                });
+                console.error(error);
+            }
+        );
+    };
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
         if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
@@ -141,20 +256,28 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
         }));
     };
 
-    const validate = () => {
+    const validate = (requireServices = true) => {
         const newErrors = {};
         if (!formData.name.trim()) newErrors.name = "Name is required";
         if (!formData.phone.trim() || formData.phone.length < 10) newErrors.phone = "Valid phone number required";
         if (!formData.eventType) newErrors.eventType = "Select event type";
         if (!formData.noOfPeople || parseInt(formData.noOfPeople) < 1) newErrors.noOfPeople = "Valid number of people required";
-        if (formData.selectedServices.length === 0) newErrors.selectedServices = "Select at least one service";
         if (!formData.date) newErrors.date = "Select date";
         if (!formData.timeSlot) newErrors.timeSlot = "Select time slot";
         if (!formData.houseNo.trim()) newErrors.houseNo = "House/Flat No. is required";
         if (!formData.area.trim()) newErrors.area = "Area is required";
         if (!formData.city.trim()) newErrors.city = "City is required";
+        if (requireServices && formData.selectedServices.length === 0) newErrors.selectedServices = "Select at least one service";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    const handleContinueToServices = () => {
+        if (!validate(false)) {
+            setView("form");
+            return;
+        }
+        setView("services");
     };
 
     const handleSubmit = async () => {
@@ -437,9 +560,10 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                         </h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">House/Flat No.</label>
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">House/Flat No. <span className="text-destructive">*</span></label>
                                                 <input
                                                     type="text"
+                                                    required
                                                     value={formData.houseNo}
                                                     onChange={e => handleChange("houseNo", e.target.value)}
                                                     placeholder="e.g. Flat 101, Phase 2"
@@ -447,14 +571,26 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">Area / Locality</label>
-                                                <input
-                                                    type="text"
-                                                    value={formData.area}
-                                                    onChange={e => handleChange("area", e.target.value)}
-                                                    placeholder="e.g. Sector 15"
-                                                    className={`w-full h-12 px-4 rounded-xl bg-accent/50 text-sm font-bold border-2 ${errors.area ? "border-destructive" : "border-transparent"}`}
-                                                />
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">Area / Locality <span className="text-destructive">*</span></label>
+                                                <div className="relative">
+                                                    <input
+                                                        ref={areaInputRef}
+                                                        type="text"
+                                                        required
+                                                        value={formData.area}
+                                                        onChange={e => handleChange("area", e.target.value)}
+                                                        placeholder="e.g. Sector 15"
+                                                        className={`w-full h-12 pr-28 pl-4 rounded-xl bg-accent/50 text-sm font-bold border-2 ${errors.area ? "border-destructive" : "border-transparent"}`}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleGetCurrentLocation}
+                                                        disabled={isLocating}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-bold hover:bg-primary/20 transition-all active:scale-95 disabled:opacity-50"
+                                                    >
+                                                        {isLocating ? "LOCATING..." : "USE CURRENT"}
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -470,9 +606,10 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">City</label>
+                                                <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">City <span className="text-destructive">*</span></label>
                                                 <input
                                                     type="text"
+                                                    required
                                                     value={formData.city}
                                                     onChange={e => handleChange("city", e.target.value)}
                                                     placeholder="e.g. Mumbai"
@@ -482,7 +619,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                         </div>
 
                                         <Button 
-                                            onClick={() => setView("services")}
+                                            onClick={handleContinueToServices}
                                             className="w-full h-14 rounded-2xl bg-black text-white hover:bg-black/90 font-bold gap-2 mt-2"
                                         >
                                             Pick Services <ChevronRight className="w-4 h-4" />

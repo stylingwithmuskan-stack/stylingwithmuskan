@@ -7,7 +7,7 @@ import { VenderAuthContext } from "@/modules/vender/contexts/VenderAuthContext";
 import { AdminAuthContext } from "@/modules/admin/contexts/AdminAuthContext";
 import { AuthContext } from "@/modules/user/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
-import { setupForegroundHandler } from "@/services/pushNotificationService";
+import { setupForegroundHandler, initPushNotifications } from "@/services/pushNotificationService";
 import { playFlutterSound, isFlutterWebView } from "@/utils/flutterBridge";
 import { toast } from "sonner";
 
@@ -197,10 +197,8 @@ export const NotificationProvider = ({ children, role }) => {
 
         // Auto-initialize push notifications on mount if token exists
         if (activeToken && activeRole) {
-            import("@/services/pushNotificationService").then(({ initPushNotifications }) => {
-                initPushNotifications(activeToken, activeRole).catch(err => {
-                    console.error("[NotificationContext] Push init failed on mount:", err);
-                });
+            initPushNotifications(activeToken, activeRole).catch(err => {
+                console.error("[NotificationContext] Push init failed on mount:", err);
             });
         }
 
