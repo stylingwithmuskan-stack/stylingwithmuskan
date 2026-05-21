@@ -27,15 +27,17 @@ export default function VenderDashboard() {
         try {
             if (!hydrated || !isLoggedIn) return;
             setLoading(true);
-            const [sps, bookings, sos, apiStats] = await Promise.all([
+            const [spsRes, bookingsRes, sos, apiStats] = await Promise.all([
                 getServiceProviders(),
                 getAllBookings(),
                 getSOSAlerts(),
                 getStats(),
             ]);
             
-            const sArr = Array.isArray(sps) ? sps : [];
-            const bArr = Array.isArray(bookings) ? bookings : [];
+            // getServiceProviders returns { providers: [...], total: N }
+            const sArr = Array.isArray(spsRes) ? spsRes : (spsRes?.providers || []);
+            // getAllBookings returns { bookings: [...], total: N }
+            const bArr = Array.isArray(bookingsRes) ? bookingsRes : (bookingsRes?.bookings || []);
             const aArr = Array.isArray(sos) ? sos : [];
 
             setStats({
