@@ -991,6 +991,12 @@ export async function createCustomEnquiry(req, res) {
   });
   try {
     await notify({
+      recipientId: req.user._id.toString(),
+      recipientRole: "user",
+      type: "custom_enquiry_created",
+      meta: { enquiryId: doc._id.toString() },
+    });
+    await notify({
       recipientId: "ADMIN001",
       recipientRole: "admin",
       type: "custom_quote_submitted",

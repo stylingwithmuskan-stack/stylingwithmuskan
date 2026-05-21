@@ -39,6 +39,7 @@ const CANONICAL_TYPES = new Set([
   "custom_quote_submitted",
   "custom_approved",
   "custom_advance_paid",
+  "custom_enquiry_created",
   "sos_alert",
   "leave_requested",
   "leave_approved",
@@ -131,6 +132,8 @@ async function enrichMeta(meta = {}) {
           safe.serviceName ||
           "";
         if (!safe.city && enquiry.address?.city) safe.city = enquiry.address.city;
+        if (!safe.time && enquiry.scheduledAt?.timeSlot) safe.time = enquiry.scheduledAt.timeSlot;
+        if (!safe.date && enquiry.scheduledAt?.date) safe.date = enquiry.scheduledAt.date;
       }
     } catch {}
   }
@@ -333,6 +336,12 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         title: "Vendor Rejected",
         message: reasonHuman ? `Your vendor account was rejected: ${reasonHuman}.` : "Your vendor account was rejected.",
         sound: "alert",
+      };
+    case "custom_enquiry_created":
+      return {
+        title: "Custom Booking Requested",
+        message: `Your custom booking request${servicePlain ? ` for ${servicePlain}` : ""} has been submitted successfully for ${safeMeta.date || ""} at ${safeMeta.time || ""}. We will send you a price quote shortly.`,
+        sound: "notification",
       };
     case "custom_quote_submitted":
       if (recipientRole === "user") {
