@@ -48,6 +48,25 @@ const BookingsPage = () => {
     const { providers, services: globalServices, loadCategoryServices } = useUserModuleData();
     const location = useLocation();
 
+    const handleMakeCall = (booking) => {
+        if (!booking) return;
+        let phone = "";
+        if (booking.slot?.provider?.phone) {
+            phone = booking.slot.provider.phone;
+        } else if (booking.teamMembers?.[0]?.phone) {
+            phone = booking.teamMembers[0].phone;
+        } else if (booking.assignedProvider) {
+            const found = providers?.find(p => p.id === booking.assignedProvider || p.phone === booking.assignedProvider || p._id === booking.assignedProvider);
+            if (found?.phone) {
+                phone = found.phone;
+            } else if (/^\d{10}$/.test(booking.assignedProvider) || /^\+\d+$/.test(booking.assignedProvider)) {
+                phone = booking.assignedProvider;
+            }
+        }
+        const finalPhone = phone || "8349764176";
+        window.location.href = `tel:${finalPhone}`;
+    };
+
     // Effect for deep-linking from notifications
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
@@ -439,7 +458,7 @@ const BookingsPage = () => {
                                                                         )}
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => setCallingBooking(booking)}
+                                                                        onClick={() => handleMakeCall(booking)}
                                                                         className="h-10 w-10 rounded-xl border border-primary/20 bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-all active:scale-90"
                                                                     >
                                                                         <Phone className="w-4.5 h-4.5" />
@@ -815,7 +834,7 @@ const BookingsPage = () => {
                             onClose={() => setDetailsBooking(null)}
                             booking={detailsBooking}
                             onChat={() => setChatBooking(detailsBooking)}
-                            onCall={() => setCallingBooking(detailsBooking)}
+                            onCall={() => handleMakeCall(detailsBooking)}
                         />
                     )}
                 </>
