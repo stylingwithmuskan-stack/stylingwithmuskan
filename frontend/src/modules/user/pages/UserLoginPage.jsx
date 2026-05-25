@@ -107,12 +107,6 @@ const UserLoginPage = () => {
     const handleVerify = async (e) => {
         e.preventDefault();
         
-        if (timer <= 0) {
-            setError("OTP has expired. Please resend.");
-            toast.error("OTP has expired. Please resend.");
-            return;
-        }
-
         const code = otp.join("");
         try {
             await loginWithOtp({ phone, otp: code, intent: "login" });
@@ -183,7 +177,7 @@ const UserLoginPage = () => {
                                 </button>
                             )}
                             {error && <p className="text-sm font-semibold text-red-600 text-center">{error}</p>}
-                            <Button type="submit" disabled={otp.some(d => !d) || timer <= 0} className="w-full h-12 rounded-2xl font-bold">
+                            <Button type="submit" className="w-full h-12 rounded-2xl font-bold">
                                 Verify & Login
                             </Button>
                         </motion.form>

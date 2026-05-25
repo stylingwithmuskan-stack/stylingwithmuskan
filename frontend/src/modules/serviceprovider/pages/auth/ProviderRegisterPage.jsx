@@ -1197,7 +1197,7 @@ export default function ProviderRegisterPage() {
                                                     console.error("Geolocation error:", error);
                                                     alert("Permission denied or location unavailable. Please ensure GPS is enabled.");
                                                 },
-                                                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                                                { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
                                             );
                                         }}
                                     >

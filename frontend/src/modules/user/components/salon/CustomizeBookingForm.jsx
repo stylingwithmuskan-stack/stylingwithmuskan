@@ -162,8 +162,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                 const { latitude, longitude } = position.coords;
                 const geocodeAndApply = (results) => {
                     if (!results || !results[0]) {
-                        toast.error("Unable to detect address automatically. Please enter manually.");
-                        setIsLocating(false);
+                        applyFallback();
                         return;
                     }
                     const res = results[0];
@@ -187,19 +186,40 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                     setIsLocating(false);
                 };
 
+                const applyFallback = async () => {
+                    try {
+                        const res = await api.content.resolveLocation({
+                            lat: String(latitude),
+                            lng: String(longitude)
+                        });
+                        const cityName = res?.location?.cityName || "";
+                        setFormData(prev => ({
+                            ...prev,
+                            area: "Current Location",
+                            city: cityName || prev.city
+                        }));
+                        toast.success("Location captured", {
+                            description: cityName ? `Detected city: ${cityName}` : undefined
+                        });
+                    } catch {
+                        setFormData(prev => ({ ...prev, area: "Current Location" }));
+                        toast.success("Location captured");
+                    } finally {
+                        setIsLocating(false);
+                    }
+                };
+
                 if (window.google?.maps && googleKey) {
                     const geocoder = new window.google.maps.Geocoder();
                     geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
                         if (status === "OK") {
                             geocodeAndApply(results);
                         } else {
-                            toast.error("Unable to resolve current location. Please enter manually.");
-                            setIsLocating(false);
+                            applyFallback();
                         }
                     });
                 } else {
-                    toast.error("Location service unavailable. Please enter manually.");
-                    setIsLocating(false);
+                    applyFallback();
                 }
             },
             (error) => {
@@ -208,7 +228,8 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                     description: "Please enter your address manually."
                 });
                 console.error(error);
-            }
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
         );
     };
     const handleChange = (field, value) => {

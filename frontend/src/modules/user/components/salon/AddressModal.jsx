@@ -209,7 +209,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                     const comp = res.address_components || [];
                                     
                                     const getComp = (types) => comp.find(c => types.some(t => c.types.includes(t)))?.long_name || "";
-
+ 
                                     const houseNo = getComp(["street_number", "premise", "subpremise"]);
                                     const landmark = getComp(["neighborhood", "sublocality_level_2", "sublocality_level_3"]);
                                     const area = res.formatted_address;
@@ -252,7 +252,8 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                     description: "Please enter your address manually."
                 });
                 console.error(error);
-            }
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
         );
     };
 

@@ -227,7 +227,7 @@ export default function ProviderLoginPage() {
                                 <Button
                                     className="w-full h-14 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-lg shadow-lg shadow-violet-200"
                                     onClick={handleVerifyOtp}
-                                    disabled={otp.some(d => !d) || isLoading || timer <= 0}
+                                    disabled={isLoading}
                                 >
                                     {isLoading ? <Loader2 className="animate-spin" /> : "Verify & Login"}
                                 </Button>
