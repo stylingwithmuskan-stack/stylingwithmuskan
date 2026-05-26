@@ -199,6 +199,10 @@ export const NotificationProvider = ({ children, role }) => {
         if (activeToken && activeRole) {
             initPushNotifications(activeToken, activeRole).catch(err => {
                 console.error("[NotificationContext] Push init failed on mount:", err);
+                // Retry after 5s — service worker may need time
+                setTimeout(() => initPushNotifications(activeToken, activeRole).catch(e => 
+                    console.error("[NotificationContext] Push retry also failed:", e?.message)
+                ), 5000);
             });
         }
 

@@ -160,12 +160,17 @@ function PushNotificationManager() {
   useEffect(() => {
     const token = localStorage.getItem("swm_token");
     if (userCtx?.isLoggedIn && token) {
-      initPushNotifications(token, "user");
-    } else if (!userCtx?.isLoggedIn) {
+      initPushNotifications(token, "user").catch((err) => {
+        console.error("[PushManager] User push registration failed:", err?.message);
+        // Retry after 5s — service worker may need time to activate
+        setTimeout(() => initPushNotifications(token, "user").catch(e => console.error("[PushManager] User push retry also failed:", e?.message)), 5000);
+      });
+    } else if (!userCtx?.isLoggedIn && !userCtx?.loading) {
+      // Only unregister after auth check is complete (not during initial loading)
       const token = localStorage.getItem("swm_token");
-      unregisterPush(token, "user");
+      if (token) unregisterPush(token, "user");
     }
-  }, [userCtx?.isLoggedIn]);
+  }, [userCtx?.isLoggedIn, userCtx?.loading]);
 
   // Provider push
   useEffect(() => {

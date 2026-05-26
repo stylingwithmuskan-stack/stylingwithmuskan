@@ -284,17 +284,6 @@ router.get("/me", async (req, res) => {
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     const subscription = await getSubscriptionSnapshot(user._id.toString(), "customer");
 
-    try {
-      await notify({
-        recipientId: user._id.toString(),
-        recipientRole: "user",
-        type: "system",
-        title: isNew ? "Welcome to Styling With Muskan" : "Login Successful",
-        message: isNew
-          ? "Your account is created successfully. Welcome aboard!"
-          : "You are logged in successfully.",
-      });
-    } catch {}
     res.json({
       user: {
         _id: user._id,

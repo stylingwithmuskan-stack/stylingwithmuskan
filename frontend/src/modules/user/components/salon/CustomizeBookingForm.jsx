@@ -38,7 +38,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
     const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
     // Filter categories by gender
-    const filteredCategories = useMemo(() => 
+    const filteredCategories = useMemo(() =>
         categories.filter(c => c.gender === gender || !c.gender),
         [categories, gender]
     );
@@ -251,10 +251,10 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                 ...prev,
                 selectedServices: [
                     ...prev.selectedServices,
-                    { 
-                        id: service.id, 
-                        quantity: 1, 
-                        name: service.name, 
+                    {
+                        id: service.id,
+                        quantity: 1,
+                        name: service.name,
                         categoryName: cat?.name || "General",
                         price: service.price,
                         image: service.image
@@ -333,8 +333,8 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
 
     const handleClose = () => {
         setSubmitted(false);
-        setFormData({ 
-            name: "", phone: "", eventType: "", noOfPeople: "", 
+        setFormData({
+            name: "", phone: "", eventType: "", noOfPeople: "",
             date: "", timeSlot: "", selectedServices: [], notes: "",
             houseNo: "", area: "", landmark: "", city: ""
         });
@@ -346,14 +346,14 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
     const totalSelectedCount = formData.selectedServices.reduce((acc, s) => acc + s.quantity, 0);
 
     const TIME_SLOTS = ["09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"];
-    
+
     const availableTimeSlots = useMemo(() => {
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
         const today = `${year}-${month}-${day}`;
-        
+
         if (formData.date !== today) return TIME_SLOTS;
 
         // For today, filter past slots
@@ -364,7 +364,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
             // Parse "09:00 AM" to hours/minutes
             const [time, period] = slot.split(" ");
             let [hours, minutes] = time.split(":").map(Number);
-            
+
             if (period === "PM" && hours !== 12) hours += 12;
             if (period === "AM" && hours === 12) hours = 0;
 
@@ -421,11 +421,10 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                     <button
                                         key={step.id}
                                         onClick={() => setView(step.id)}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${
-                                            view === step.id 
-                                            ? "bg-primary text-primary-foreground shadow-sm" 
-                                            : "text-muted-foreground hover:bg-accent"
-                                        }`}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${view === step.id
+                                                ? "bg-primary text-primary-foreground shadow-sm"
+                                                : "text-muted-foreground hover:bg-accent"
+                                            }`}
                                     >
                                         <step.icon className="w-3.5 h-3.5" />
                                         <span className="text-[10px] font-black uppercase tracking-widest">{step.label}</span>
@@ -461,7 +460,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                         <p className="text-sm text-muted-foreground text-center max-w-xs leading-relaxed font-medium">
                                             Our event manager will call you at <strong>{formData.phone}</strong> within <strong>2-4 hours</strong> with a customized quote according to your bulk requirements.
                                         </p>
-                                        
+
                                         <div className="glass-strong rounded-2xl p-5 w-full border border-border/50 mt-4 space-y-4">
                                             <div>
                                                 <p className="text-[10px] font-black tracking-widest text-muted-foreground uppercase mb-2">Event Info</p>
@@ -470,14 +469,14 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                     <div className="p-2 bg-white/50 rounded-lg"><span className="opacity-60 block">Booking Date</span><strong>{formData.date}</strong></div>
                                                 </div>
                                             </div>
-                                            
+
                                             <div>
                                                 <p className="text-[10px] font-black tracking-widest text-muted-foreground uppercase mb-2">Service Address</p>
                                                 <div className="p-2 bg-white/50 rounded-lg text-xs leading-relaxed">
                                                     <strong>{formData.houseNo}, {formData.area}{formData.landmark ? `, ${formData.landmark}` : ""}, {formData.city}</strong>
                                                 </div>
                                             </div>
-                                            
+
                                             <div>
                                                 <p className="text-[10px] font-black tracking-widest text-muted-foreground uppercase mb-2">Requested Services ({totalSelectedCount})</p>
                                                 <div className="max-h-32 overflow-y-auto pr-2 custom-scrollbar space-y-2">
@@ -500,7 +499,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                         <h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
                                             <User className="w-4 h-4" /> Personal Details
                                         </h3>
-                                        
+
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <label className="text-[10px] font-bold text-muted-foreground uppercase ml-2">Name</label>
@@ -639,7 +638,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                             </div>
                                         </div>
 
-                                        <Button 
+                                        <Button
                                             onClick={handleContinueToServices}
                                             className="w-full h-14 rounded-2xl bg-black text-white hover:bg-black/90 font-bold gap-2 mt-2"
                                         >
@@ -654,11 +653,10 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                 <button
                                                     key={cat.id}
                                                     onClick={() => setActiveCategoryId(cat.id)}
-                                                    className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-tight whitespace-nowrap border-2 transition-all ${
-                                                        activeCategoryId === cat.id 
-                                                        ? "bg-primary border-primary text-primary-foreground shadow-md" 
-                                                        : "bg-white border-border text-muted-foreground hover:border-primary/20"
-                                                    }`}
+                                                    className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-tight whitespace-nowrap border-2 transition-all ${activeCategoryId === cat.id
+                                                            ? "bg-primary border-primary text-primary-foreground shadow-md"
+                                                            : "bg-white border-border text-muted-foreground hover:border-primary/20"
+                                                        }`}
                                                 >
                                                     {cat.name}
                                                 </button>
@@ -670,45 +668,43 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                             {services.filter(s => s.category === activeCategoryId).map(service => {
                                                 const selected = formData.selectedServices.find(s => s.id === service.id);
                                                 return (
-                                                    <div 
+                                                    <div
                                                         key={service.id}
-                                                        className={`p-4 rounded-2xl border-2 transition-all ${
-                                                            selected 
-                                                            ? "bg-primary/5 border-primary shadow-sm" 
-                                                            : "bg-accent/20 border-border/40 hover:border-primary/20"
-                                                        }`}
+                                                        className={`p-4 rounded-2xl border-2 transition-all ${selected
+                                                                ? "bg-primary/5 border-primary shadow-sm"
+                                                                : "bg-accent/20 border-border/40 hover:border-primary/20"
+                                                            }`}
                                                     >
                                                         <div className="flex justify-between items-start gap-4">
                                                             <div className="flex-1" onClick={() => toggleService(service)}>
                                                                 <h4 className="text-sm font-bold leading-tight">{service.name}</h4>
                                                                 <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">{service.description}</p>
                                                             </div>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => toggleService(service)}
-                                                                className={`p-2 rounded-xl transition-colors ${
-                                                                    selected ? "text-primary" : "text-muted-foreground hover:bg-accent"
-                                                                }`}
+                                                                className={`p-2 rounded-xl transition-colors ${selected ? "text-primary" : "text-muted-foreground hover:bg-accent"
+                                                                    }`}
                                                             >
                                                                 {selected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                                                             </button>
                                                         </div>
 
                                                         {selected && (
-                                                            <motion.div 
-                                                                initial={{ opacity: 0, height: 0 }} 
+                                                            <motion.div
+                                                                initial={{ opacity: 0, height: 0 }}
                                                                 animate={{ opacity: 1, height: "auto" }}
                                                                 className="flex items-center justify-between mt-4 pt-4 border-t border-primary/10"
                                                             >
                                                                 <span className="text-[10px] font-black uppercase text-primary">Quantity (People)</span>
                                                                 <div className="flex items-center gap-3">
-                                                                    <button 
+                                                                    <button
                                                                         onClick={() => updateQuantity(service.id, -1)}
                                                                         className="w-8 h-8 rounded-lg bg-white border border-border flex items-center justify-center hover:bg-accent active:scale-95 transition-all text-muted-foreground"
                                                                     >
                                                                         <Minus className="w-3 h-3" />
                                                                     </button>
                                                                     <span className="text-sm font-black w-4 text-center">{selected.quantity}</span>
-                                                                    <button 
+                                                                    <button
                                                                         onClick={() => updateQuantity(service.id, 1)}
                                                                         className="w-8 h-8 rounded-lg bg-white border border-border flex items-center justify-center hover:bg-accent active:scale-95 transition-all text-primary"
                                                                     >
@@ -729,7 +725,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                             </p>
                                         </div>
 
-                                        <Button 
+                                        <Button
                                             disabled={totalSelectedCount === 0}
                                             onClick={() => setView("review")}
                                             className="w-full h-14 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold gap-2"
@@ -756,7 +752,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                             <span className="text-[10px] font-black text-muted-foreground">Qty:</span>
                                                             <span className="text-sm font-black">{s.quantity}</span>
                                                         </div>
-                                                        <button 
+                                                        <button
                                                             onClick={() => toggleService({ id: s.id })}
                                                             className="text-muted-foreground hover:text-destructive transition-colors"
                                                         >
@@ -765,7 +761,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                     </div>
                                                 </div>
                                             ))}
-                                            
+
                                             {formData.selectedServices.length === 0 && (
                                                 <div className="py-12 text-center text-muted-foreground italic flex flex-col items-center gap-2">
                                                     <ShoppingBag className="w-8 h-8 opacity-20" />
@@ -792,7 +788,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                             </p>
                                         </div>
 
-                                        <Button 
+                                        <Button
                                             disabled={formData.selectedServices.length === 0}
                                             onClick={handleSubmit}
                                             className="w-full h-14 rounded-2xl bg-black text-white hover:bg-black/90 font-bold gap-2"
@@ -806,7 +802,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
 
                         {/* Summary Sticky Bar (Only on services view) */}
                         {!submitted && view === "services" && totalSelectedCount > 0 && (
-                            <motion.div 
+                            <motion.div
                                 initial={{ y: 20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 className="px-6 py-4 bg-background border-t border-border flex items-center justify-between"

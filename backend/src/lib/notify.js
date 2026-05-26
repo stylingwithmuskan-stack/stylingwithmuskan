@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Notification from "../models/Notification.js";
 import { getIO } from "../startup/socket.js";
 import { BookingSettings } from "../models/Settings.js";

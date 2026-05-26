@@ -131,7 +131,10 @@ export const AuthProvider = ({ children }) => {
                 setIsLoggedIn(true);
                 // Register FCM token after login
                 const token = safeStorage.getItem("swm_token") || "";
-                if (token) initPushNotifications(token, "user").catch(() => {});
+                if (token) initPushNotifications(token, "user").catch((err) => {
+                    console.error("[Auth] User push registration failed:", err?.message);
+                    setTimeout(() => initPushNotifications(token, "user").catch(() => {}), 5000);
+                });
                 return profileRes;
             }
             
@@ -140,7 +143,10 @@ export const AuthProvider = ({ children }) => {
             setIsLoggedIn(true);
             // Register FCM token after login
             const token = safeStorage.getItem("swm_token") || "";
-            if (token) initPushNotifications(token, "user").catch(() => {});
+            if (token) initPushNotifications(token, "user").catch((err) => {
+                console.error("[Auth] User push registration failed:", err?.message);
+                setTimeout(() => initPushNotifications(token, "user").catch(() => {}), 5000);
+            });
             return res;
         } catch (error) {
             // Clear any stale data on error
@@ -223,7 +229,8 @@ export const AuthProvider = ({ children }) => {
             updateExistingAddress,
             deleteAddress,
             updateProfile,
-            updateAvatar
+            updateAvatar,
+            token: safeStorage.getItem("swm_token") || "",
         }}>
             {children}
         </AuthContext.Provider>
