@@ -140,10 +140,15 @@ export async function buildAssignmentCandidates({
   console.log(`[Candidates] Total providers considered for assignment in ${bookingCity}: ${providers.length}`);
 
 
-  // ✅ LENIENT: Specialty filter should be a preference but allow others if list is small
+  // ✅ STRICT: Specialty filter is now a hard requirement — only assign providers who match the service
   const matchingProviders = providers.filter((p) => providerMatchesRequestedSpecialties(p, requestedSpecialties));
   if (matchingProviders.length > 0) {
     providers = matchingProviders;
+  } else {
+    // No matching providers found — log warning but still use filtered list
+    // This prevents assigning providers who don't offer the requested service at all
+    console.warn(`[Candidates] ⚠️ NO providers match requested specialties. Escalating to vendor/admin instead of assigning unqualified providers.`);
+    providers = []; // Empty list will result in no candidates → triggers vendor escalation
   }
 
   const activeProviderSubs = await UserSubscription.find({

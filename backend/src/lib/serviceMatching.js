@@ -173,10 +173,28 @@ export function providerMatchesRequestedSpecialties(provider, requested = {}) {
 
         if (match) return true;
         
+        // Fallback: Check if provider has the base keyword (e.g., "hair") in their tags.
+        // BUT only match if the provider tag is a broader/parent category that encompasses the target.
+        // A provider with "hair color" should NOT match "hair studio – combo services".
         const base = majorKeywords.find(m => target.includes(m));
         if (base && !isMehndiTarget) {
+          // Strict fallback: provider tag must contain the base keyword AND
+          // either be a generic/parent category (just the keyword alone or with "studio"/"services")
+          // or the target must be a subset of the provider's tag.
           const baseRegex = new RegExp(`\\b${base}\\b`, 'i');
-          const fallbackMatch = providerTags.find(tag => baseRegex.test(tag));
+          const fallbackMatch = providerTags.find(tag => {
+            if (!baseRegex.test(tag)) return false;
+            // If provider tag is just the base keyword (e.g., "hair"), it's a broad match — allow
+            const tagTokens = tokenize(tag);
+            if (tagTokens.length === 1 && tagTokens[0] === base) return true;
+            // If target is contained in the provider tag or vice versa, allow
+            if (tag.includes(target) || target.includes(tag)) return true;
+            // If both share significant tokens beyond just the base keyword, allow
+            const targetTokens = tokenize(target).filter(t => t !== base && !GENERIC_TOKENS.has(t));
+            const providerSpecificTokens = tagTokens.filter(t => t !== base && !GENERIC_TOKENS.has(t));
+            const sharedTokens = targetTokens.filter(t => providerSpecificTokens.includes(t));
+            return sharedTokens.length > 0;
+          });
           if (fallbackMatch) return true;
         }
         return false;
