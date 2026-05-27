@@ -6,6 +6,7 @@ import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { api } from "@/modules/user/lib/api";
 import { toast } from "sonner";
+import LocationPermissionPopup from "./LocationPermissionPopup";
 
 const EVENT_TYPES = ["Bridal Event", "Birthday Party", "Kitty Party", "Corporate Event", "Festival Gathering", "Engagement", "Other"];
 
@@ -34,6 +35,8 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
     const [lastEnquiry, setLastEnquiry] = useState(null);
     const areaInputRef = useRef(null);
     const [isLocating, setIsLocating] = useState(false);
+    const [showLocationPopup, setShowLocationPopup] = useState(false);
+    const [locationErrorType, setLocationErrorType] = useState("denied");
     const [mapsReady, setMapsReady] = useState(false);
     const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
@@ -224,9 +227,20 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
             },
             (error) => {
                 setIsLocating(false);
-                toast.error("Unable to retrieve your location", {
-                    description: "Please enter your address manually."
-                });
+                if (error.code === 1) {
+                    setLocationErrorType("denied");
+                    setShowLocationPopup(true);
+                } else if (error.code === 2) {
+                    setLocationErrorType("unavailable");
+                    setShowLocationPopup(true);
+                } else if (error.code === 3) {
+                    setLocationErrorType("timeout");
+                    setShowLocationPopup(true);
+                } else {
+                    toast.error("Unable to retrieve your location", {
+                        description: "Please enter your address manually."
+                    });
+                }
                 console.error(error);
             },
             { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
@@ -377,6 +391,7 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
     }, [formData.date]);
 
     return (
+    <>
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center sm:justify-center sm:p-8 md:p-12">
@@ -825,6 +840,12 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                 </div>
             )}
         </AnimatePresence>
+        <LocationPermissionPopup
+            isOpen={showLocationPopup}
+            onClose={() => setShowLocationPopup(false)}
+            errorType={locationErrorType}
+        />
+    </>
     );
 };
 

@@ -14,7 +14,8 @@ const UserLoginPage = () => {
     const [step, setStep] = useState(1); // 1: Phone, 2: OTP
     const [phone, setPhone] = useState("");
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-    const [timer, setTimer] = useState(60); // 1 minute
+    const [timer, setTimer] = useState(300); // 5 minutes OTP validity
+    const [resendTimer, setResendTimer] = useState(60); // 1 minute resend cooldown
     const [error, setError] = useState("");
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
@@ -31,6 +32,12 @@ const UserLoginPage = () => {
         if (step === 2 && timer > 0) id = setInterval(() => setTimer(t => t - 1), 1000);
         return () => clearInterval(id);
     }, [step, timer]);
+
+    useEffect(() => {
+        let id;
+        if (step === 2 && resendTimer > 0) id = setInterval(() => setResendTimer(t => t - 1), 1000);
+        return () => clearInterval(id);
+    }, [step, resendTimer]);
 
     const request = async () => {
         setError("");
@@ -52,7 +59,8 @@ const UserLoginPage = () => {
             const res = await api.requestOtp(phone, "login");
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
-            setTimer(60); // Reset to 1 minute
+            setTimer(300); // 5 minutes OTP validity
+            setResendTimer(60); // 1 minute resend cooldown
         } catch (e) {
             setError(e.message || "Failed to send OTP");
         }
@@ -71,8 +79,9 @@ const UserLoginPage = () => {
             // Show success message
             toast.success(res?.message || "OTP sent successfully!");
             
-            // Reset timer to 1 minute
-            setTimer(60);
+            // Reset timer to 5 minutes for OTP validity, 1 minute for resend
+            setTimer(300);
+            setResendTimer(60);
         } catch (e) {
             const errorMsg = e.message || "Failed to resend OTP";
             setError(errorMsg);
@@ -169,8 +178,8 @@ const UserLoginPage = () => {
                                     />
                                 ))}
                             </div>
-                            {timer > 0 ? (
-                                <p className="text-xs text-center text-muted-foreground">Resend in {timer}s</p>
+                            {resendTimer > 0 ? (
+                                <p className="text-xs text-center text-muted-foreground">Resend in {resendTimer}s</p>
                             ) : (
                                 <button type="button" className="text-xs font-bold text-primary hover:underline block mx-auto" onClick={handleResend}>
                                     RESEND OTP

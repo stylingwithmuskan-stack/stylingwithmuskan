@@ -15,7 +15,8 @@ const LoginModal = () => {
     const [name, setName] = useState("");
     const [referralCode, setReferralCode] = useState("");
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-    const [timer, setTimer] = useState(30);
+    const [timer, setTimer] = useState(300);
+    const [resendTimer, setResendTimer] = useState(60);
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
@@ -25,6 +26,14 @@ const LoginModal = () => {
         }
         return () => clearInterval(interval);
     }, [step, timer]);
+
+    useEffect(() => {
+        let interval;
+        if (step === 2 && resendTimer > 0) {
+            interval = setInterval(() => setResendTimer((t) => t - 1), 1000);
+        }
+        return () => clearInterval(interval);
+    }, [step, resendTimer]);
 
     // Reset modal state when closed
     useEffect(() => {
@@ -74,7 +83,8 @@ const LoginModal = () => {
             console.log("[User] request-otp response", res);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
-            setTimer(30);
+            setTimer(300);
+            setResendTimer(60);
         } catch (err) {
             console.error("[User] request-otp error", err);
             alert(err.message || "Failed to send OTP");
@@ -85,7 +95,8 @@ const LoginModal = () => {
             const res = await api.requestOtp(phone, "auto");
             console.log("[User] resend-otp response", res);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
-            setTimer(30);
+            setTimer(300);
+            setResendTimer(60);
             toast.success("OTP sent successfully!");
         } catch (err) {
             console.error("[User] resend-otp error", err);
@@ -260,8 +271,8 @@ const LoginModal = () => {
                                     </div>
 
                                     <div className="text-center">
-                                        {timer > 0 ? (
-                                            <p className="text-xs text-muted-foreground">Resend OTP in {timer}s</p>
+                                        {resendTimer > 0 ? (
+                                            <p className="text-xs text-muted-foreground">Resend OTP in {resendTimer}s</p>
                                         ) : (
                                             <button onClick={handleResend} className="text-xs font-bold text-primary hover:underline">
                                                 RESEND OTP

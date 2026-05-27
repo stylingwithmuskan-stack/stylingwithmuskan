@@ -5,9 +5,12 @@ import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { Button } from "@/modules/user/components/ui/button";
 import { api } from "@/modules/user/lib/api";
 import { toast } from "sonner";
+import LocationPermissionPopup from "./LocationPermissionPopup";
 
 const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
     const { updateAddress, updateExistingAddress } = useAuth();
+    const [showLocationPopup, setShowLocationPopup] = useState(false);
+    const [locationErrorType, setLocationErrorType] = useState("denied");
     const areaInputRef = useRef(null);
     const [address, setAddress] = useState({
         houseNo: "",
@@ -248,9 +251,23 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
             },
             (error) => {
                 setIsLocating(false);
-                toast.error("Unable to retrieve your location", {
-                    description: "Please enter your address manually."
-                });
+                if (error.code === 1) {
+                    // PERMISSION_DENIED
+                    setLocationErrorType("denied");
+                    setShowLocationPopup(true);
+                } else if (error.code === 2) {
+                    // POSITION_UNAVAILABLE
+                    setLocationErrorType("unavailable");
+                    setShowLocationPopup(true);
+                } else if (error.code === 3) {
+                    // TIMEOUT
+                    setLocationErrorType("timeout");
+                    setShowLocationPopup(true);
+                } else {
+                    toast.error("Unable to retrieve your location", {
+                        description: "Please enter your address manually."
+                    });
+                }
                 console.error(error);
             },
             { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
@@ -311,6 +328,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
     };
 
     return (
+    <>
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center sm:justify-center sm:p-8 md:p-12">
@@ -470,6 +488,12 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                 </div>
             )}
         </AnimatePresence>
+        <LocationPermissionPopup
+            isOpen={showLocationPopup}
+            onClose={() => setShowLocationPopup(false)}
+            errorType={locationErrorType}
+        />
+    </>
     );
 };
 

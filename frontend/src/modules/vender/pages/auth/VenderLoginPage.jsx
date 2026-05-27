@@ -15,7 +15,8 @@ export default function VenderLoginPage() {
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [error, setError] = useState("");
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
-    const [timer, setTimer] = useState(60); // 1 minute
+    const [timer, setTimer] = useState(300); // 5 minutes OTP validity
+    const [resendTimer, setResendTimer] = useState(60); // 1 minute resend cooldown
 
     useEffect(() => {
         document.documentElement.classList.remove("theme-women", "theme-men", "theme-beautician", "theme-admin");
@@ -39,6 +40,14 @@ export default function VenderLoginPage() {
         return () => clearInterval(interval);
     }, [step, timer]);
 
+    useEffect(() => {
+        let interval;
+        if (step === 2 && resendTimer > 0) {
+            interval = setInterval(() => setResendTimer(t => t - 1), 1000);
+        }
+        return () => clearInterval(interval);
+    }, [step, resendTimer]);
+
     const handleRequestOtp = async (e) => {
         e.preventDefault();
         setError("");
@@ -54,7 +63,8 @@ export default function VenderLoginPage() {
             const res = await requestOtp(phone);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
-            setTimer(60); // Reset to 1 minute
+            setTimer(300); // 5 minutes OTP validity
+            setResendTimer(60); // 1 minute resend cooldown
         } catch (err) {
             setError(err?.message || "Failed to request OTP");
         }

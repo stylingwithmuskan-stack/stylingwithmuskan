@@ -22,6 +22,7 @@ export default function VenderRegisterPage() {
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
     const [timer, setTimer] = useState(0);
     const [canResend, setCanResend] = useState(false);
+    const [otpExpiryTimer, setOtpExpiryTimer] = useState(300); // 5 minutes OTP validity
     const [errors, setErrors] = useState({});
 
     const validate = () => {
@@ -54,19 +55,28 @@ export default function VenderRegisterPage() {
             interval = setInterval(() => {
                 setTimer(prev => prev - 1);
             }, 1000);
-        } else if (timer === 0) {
+        } else if (timer === 0 && isOtpModalOpen) {
             setCanResend(true);
             clearInterval(interval);
         }
         return () => clearInterval(interval);
     }, [isOtpModalOpen, timer]);
 
+    useEffect(() => {
+        let interval;
+        if (isOtpModalOpen && otpExpiryTimer > 0) {
+            interval = setInterval(() => setOtpExpiryTimer(prev => prev - 1), 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isOtpModalOpen, otpExpiryTimer]);
+
     const handleResendOtp = async () => {
         setLoading(true);
         try {
             const res = await registerRequest(form.phone);
             if (res?.success) {
-                setTimer(30);
+                setTimer(60);
+                setOtpExpiryTimer(300);
                 setCanResend(false);
                 toast.success("OTP resent successfully");
             }
@@ -137,7 +147,8 @@ export default function VenderRegisterPage() {
             const res = await registerRequest(form.phone);
             if (res?.success) {
                 setOtpDeliveryMode(res?.deliveryMode || "sms");
-                setTimer(30);
+                setTimer(60);
+                setOtpExpiryTimer(300);
                 setCanResend(false);
                 setIsOtpModalOpen(true);
                 toast.success(res?.message || "OTP sent to your mobile number");
@@ -156,7 +167,7 @@ export default function VenderRegisterPage() {
         }
 
         // OTP expired — timer ran out
-        if (canResend) {
+        if (otpExpiryTimer <= 0) {
             toast.error("OTP has expired. Please resend.");
             return;
         }
@@ -430,9 +441,9 @@ export default function VenderRegisterPage() {
                             <div className="space-y-4">
                                 <Input type="text" maxLength={6} placeholder="Enter 6-digit OTP" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ""))}
                                     className="text-center text-2xl font-black tracking-[0.5em] h-14 rounded-xl border-2 focus:border-emerald-500" />
-                                <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6 || canResend}
+                                <Button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6 || otpExpiryTimer <= 0}
                                     className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold text-white shadow-lg shadow-emerald-200">
-                                    {loading ? "Verifying..." : canResend ? "OTP Expired — Resend" : "Verify & Submit"}
+                                    {loading ? "Verifying..." : otpExpiryTimer <= 0 ? "OTP Expired — Resend" : "Verify & Submit"}
                                 </Button>
                                 <div className="text-center">
                                     {canResend ? (

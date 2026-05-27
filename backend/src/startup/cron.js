@@ -1,4 +1,5 @@
 import Booking from "../models/Booking.js";
+import User from "../models/User.js";
 import { OfficeSettings } from "../models/Content.js";
 import { BookingSettings } from "../models/Settings.js";
 import CustomEnquiry from "../models/CustomEnquiry.js";
@@ -73,6 +74,25 @@ export function startCron() {
           b.cancelledBy = "system";
           b.cancellationReason = "Auto-cancelled: No replacement found within 90-minute window";
           await b.save();
+
+          // Refund customer's wallet/payment (100% for provider-initiated cancellation)
+          if (b.prepaidAmount > 0) {
+            try {
+              const { processSmartRefund } = await import("../lib/refund.service.js");
+              const customer = await User.findById(b.customerId);
+              if (customer) {
+                const refundResult = await processSmartRefund({
+                  booking: b,
+                  user: customer,
+                  refundAmount: b.prepaidAmount,
+                  reason: "provider_cancellation_auto"
+                });
+                console.log(`[Cron] Customer refund for booking ${b._id}: status=${refundResult.status}, amount=₹${refundResult.totalRefunded}`);
+              }
+            } catch (refundErr) {
+              console.error(`[Cron] Customer refund failed for booking ${b._id}:`, refundErr.message);
+            }
+          }
 
           await BookingLog.create({
             action: "booking:auto-cancel",

@@ -2,7 +2,8 @@ import { getDefaultOtpByRole, isAllowlistedPhone } from "./otpPolicy.js";
 import { sendOtpSms, validateSmsIndiaHubConfig } from "./smsIndiaHub.js";
 
 export const OTP_LENGTH = 6;
-export const OTP_TTL_SECONDS = 60; // 1 minute
+export const OTP_TTL_SECONDS = 300; // 5 minutes — gives user enough time to enter OTP
+export const OTP_RESEND_COOLDOWN_SECONDS = 60; // 1 minute — resend button cooldown
 
 function digitsOnly(value) {
   return String(value || "").replace(/\D/g, "");

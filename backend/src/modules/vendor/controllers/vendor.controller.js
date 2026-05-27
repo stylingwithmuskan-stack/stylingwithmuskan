@@ -831,10 +831,17 @@ export async function listBookings(req, res) {
 
   // 2. By Address Match (Zone or City)
   if (zones.length > 0) {
-    orConditions.push({ "address.area": { $in: zones.map(z => new RegExp(escapeRegex(z), "i")) } });
+    const zoneRegexes = zones.map(z => new RegExp(escapeRegex(z), "i"));
+    orConditions.push({ "address.area": { $in: zoneRegexes } });
+    orConditions.push({ "address.zone": { $in: zoneRegexes } });
   } else {
     orConditions.push({ "address.area": new RegExp(escapeRegex(city), "i") });
     orConditions.push({ "address.city": new RegExp(escapeRegex(city), "i") });
+  }
+
+  // 3. By city match (catch-all for bookings in vendor's city)
+  if (city) {
+    orConditions.push({ "address.city": new RegExp(`^${escapeRegex(city)}$`, "i") });
   }
 
   // Combine conditions with overall city/cityId filter
@@ -846,7 +853,13 @@ export async function listBookings(req, res) {
 
   // Add the strict cityId or text city match to $and condition
   if (cityId) {
-    finalQuery.$and.push({ "address.cityId": cityId });
+    // Match by cityId OR by city name (for bookings that may not have cityId set)
+    finalQuery.$and.push({
+      $or: [
+        { "address.cityId": cityId },
+        { "address.cityId": { $in: ["", null] }, "address.city": new RegExp(`^${escapeRegex(city)}$`, "i") }
+      ]
+    });
   } else {
     // If no cityId, match the city name textually
     finalQuery.$and.push({

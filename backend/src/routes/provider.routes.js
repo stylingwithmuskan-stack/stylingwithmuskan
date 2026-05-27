@@ -36,7 +36,7 @@ import {
   recordVendorPerformanceCommission,
 } from "../lib/subscriptions.js";
 
-import { calculateRefundPolicy } from "../lib/refund.service.js";
+import { calculateRefundPolicy, processSmartRefund } from "../lib/refund.service.js";
 
 const router = Router();
 
@@ -1857,6 +1857,27 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
               respectProviderQuietHours: true,
             });
           } catch { }
+        }
+      }
+
+      // 3. Refund customer's wallet/payment (100% refund for provider cancellation)
+      if (isCritical && b.prepaidAmount > 0) {
+        try {
+          const refundAmount = Math.round((b.prepaidAmount || 0) * (refundPolicy.refundPercentage / 100));
+          if (refundAmount > 0) {
+            const customer = await User.findById(b.customerId);
+            if (customer) {
+              const refundResult = await processSmartRefund({
+                booking: b,
+                user: customer,
+                refundAmount,
+                reason: "provider_cancellation"
+              });
+              console.log(`[ProviderCancel] Customer refund processed: status=${refundResult.status}, amount=₹${refundResult.totalRefunded}`);
+            }
+          }
+        } catch (refundErr) {
+          console.error(`[ProviderCancel] Customer refund failed:`, refundErr.message);
         }
       }
     } catch (err) {

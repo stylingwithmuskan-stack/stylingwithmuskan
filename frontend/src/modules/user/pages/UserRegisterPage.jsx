@@ -21,7 +21,8 @@ const UserRegisterPage = () => {
     const [referralCode, setReferralCode] = useState("");
     const [profileError, setProfileError] = useState("");
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-    const [timer, setTimer] = useState(60); // 1 minute
+    const [timer, setTimer] = useState(300); // 5 minutes OTP validity
+    const [resendTimer, setResendTimer] = useState(60); // 1 minute resend cooldown
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
     useEffect(() => {
@@ -40,6 +41,14 @@ const UserRegisterPage = () => {
         return () => clearInterval(interval);
     }, [step, timer]);
 
+    useEffect(() => {
+        let interval;
+        if (step === 2 && resendTimer > 0) {
+            interval = setInterval(() => setResendTimer((t) => t - 1), 1000);
+        }
+        return () => clearInterval(interval);
+    }, [step, resendTimer]);
+
     const handlePhoneSubmit = async (e) => {
         e.preventDefault();
         if (phone.length !== 10) return;
@@ -55,7 +64,8 @@ const UserRegisterPage = () => {
             console.log("[UserRegister] request-otp response", res);
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
-            setTimer(60); // Reset to 1 minute
+            setTimer(300); // 5 minutes OTP validity
+            setResendTimer(60); // 1 minute resend cooldown
         } catch (err) {
              console.error("[UserRegister] request-otp error", err);
             alert(err.message || "Failed to send OTP");
@@ -119,7 +129,8 @@ const UserRegisterPage = () => {
         try {
             const res = await api.requestOtp(phone, "register");
             setOtpDeliveryMode(res?.deliveryMode || "sms");
-            setTimer(60); // Reset to 1 minute
+            setTimer(300); // 5 minutes OTP validity
+            setResendTimer(60); // 1 minute resend cooldown
             toast.success("OTP sent successfully!");
         } catch (err) {
             console.error("[UserRegister] resend-otp error", err);
@@ -262,8 +273,8 @@ const UserRegisterPage = () => {
                                 </div>
 
                                 <div className="text-center">
-                                    {timer > 0 ? (
-                                        <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest">Resend OTP in <span className="text-primary">{timer}s</span></p>
+                                    {resendTimer > 0 ? (
+                                        <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest">Resend OTP in <span className="text-primary">{resendTimer}s</span></p>
                                     ) : (
                                         <button type="button" onClick={handleResend} className="text-[11px] font-black text-primary uppercase tracking-widest hover:underline decoration-2 underline-offset-4">
                                             RESEND OTP NOW
