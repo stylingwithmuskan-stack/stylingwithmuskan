@@ -59,6 +59,7 @@ export default function VenderBookings() {
     const [loading, setLoading] = useState(false);
     
     const [assignModal, setAssignModal] = useState(null);
+    const [detailModal, setDetailModal] = useState(null);
     const [selectedProvider, setSelectedProvider] = useState("");
     const [selectedTeam, setSelectedTeam] = useState([]);
     const [customPrice, setCustomPrice] = useState(0);
@@ -564,7 +565,7 @@ export default function VenderBookings() {
                     ) : (
                         <motion.div variants={container} initial="hidden" animate="show" className="space-y-3">
                             {filtered.map((booking) => (
-                                <motion.div key={booking.id} variants={item}>
+                                <motion.div key={booking.id} variants={item} onClick={() => setDetailModal(booking)} className="cursor-pointer">
                                     <Card className="shadow-sm hover:shadow-md transition-all duration-200">
                                         <CardContent className="p-3 md:p-5">
                                             <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
@@ -650,12 +651,12 @@ export default function VenderBookings() {
                                                 <div className="flex md:flex-col items-center md:items-end gap-3 md:min-w-[140px]">
                                                     <span className="text-xl font-black text-primary">₹{booking.totalAmount?.toLocaleString()}</span>
                                                     {canShowAction(booking) ? (
-                                                        <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 rounded-lg text-[11px] font-bold gap-1" onClick={() => handleBookingAction(booking)}>
+                                                        <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 rounded-lg text-[11px] font-bold gap-1" onClick={(e) => { e.stopPropagation(); handleBookingAction(booking); }}>
                                                             <Users className="h-3.5 w-3.5" /> 
                                                             {getButtonLabel(booking)}
                                                         </Button>
                                                     ) : booking.status === "quote_submitted" ? (
-                                                        <Badge variant="outline" className="h-8 px-3 rounded-lg bg-blue-50 text-blue-600 border-blue-200 font-bold cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => handleBookingAction(booking)}>Pending Admin ✎</Badge>
+                                                        <Badge variant="outline" className="h-8 px-3 rounded-lg bg-blue-50 text-blue-600 border-blue-200 font-bold cursor-pointer hover:bg-blue-100 transition-colors" onClick={(e) => { e.stopPropagation(); handleBookingAction(booking); }}>Pending Admin ✎</Badge>
                                                     ) : booking.status === "admin_approved" ? (
                                                         <Badge variant="outline" className="h-8 px-3 rounded-lg bg-green-50 text-green-700 border-green-200 font-bold">Pending User</Badge>
                                                     ) : booking.status === "waiting_for_customer_payment" ? (
@@ -1362,6 +1363,135 @@ export default function VenderBookings() {
                                 </Button>
                                 <Button variant="outline" className="h-11 rounded-xl font-bold" onClick={() => setEscalatedAssignModal(null)}>Cancel</Button>
                             </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Booking Detail Modal */}
+            <AnimatePresence>
+                {detailModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={() => setDetailModal(null)} />
+                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                            className="relative w-full max-w-2xl bg-card rounded-[32px] border border-border p-6 md:p-8 space-y-6 shadow-2xl max-h-[92vh] overflow-y-auto scrollbar-hide">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <h3 className="text-xl font-black italic uppercase tracking-tighter">Booking Details</h3>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">ID: #{(detailModal.id || detailModal._id || "").slice(-6)}</p>
+                                </div>
+                                <button onClick={() => setDetailModal(null)} className="w-10 h-10 rounded-full bg-muted flex items-center justify-center transition-colors"><X className="h-5 w-5" /></button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-6">
+                                    <div className="bg-muted/30 rounded-2xl p-4 border border-border/50">
+                                        <h4 className="text-[10px] font-black uppercase text-secondary-foreground/60 tracking-widest mb-3 flex items-center gap-2"><User className="h-3.5 w-3.5" /> Customer Info</h4>
+                                        <div className="space-y-2">
+                                            <p className="text-lg font-black">{detailModal.customerName}</p>
+                                            <p className="text-sm font-bold text-muted-foreground flex items-center gap-2">
+                                                <Phone className="h-4 w-4 text-primary" /> {detailModal.customerPhone || detailModal.phone || "N/A"}
+                                            </p>
+                                            <div className="pt-2 border-t border-border/30 mt-2">
+                                                <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Service Address</p>
+                                                <p className="text-[10px] font-bold text-primary mt-1">
+                                                    {detailModal.address?.houseNo && <span>{detailModal.address.houseNo}, </span>}
+                                                    {detailModal.address?.landmark && <span>{detailModal.address.landmark}, </span>}
+                                                    {detailModal.address?.area}, {detailModal.address?.city}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-muted/30 rounded-2xl p-4 border border-border/50">
+                                        <h4 className="text-[10px] font-black uppercase text-secondary-foreground/60 tracking-widest mb-3 flex items-center gap-2"><Zap className="h-3.5 w-3.5" /> Service Details</h4>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-muted-foreground">Status</span>
+                                                <Badge variant="outline" className={`text-[10px] font-black px-2 py-0.5 ${statusColors[detailModal.status] || ""}`}>
+                                                    {(detailModal.status || "").replace(/_/g, " ")}
+                                                </Badge>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-muted-foreground">Category</span>
+                                                <span className="text-xs font-black">{(detailModal.services?.[0]?.category || detailModal.items?.[0]?.category || detailModal.serviceType || "N/A")}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-muted-foreground">Type</span>
+                                                <Badge variant="outline" className="text-[10px] font-bold bg-blue-50 text-blue-600 border-blue-200">{detailModal.bookingType || "instant"}</Badge>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-muted-foreground">Scheduled</span>
+                                                <span className="text-xs font-black">{detailModal.slot?.time}, {detailModal.slot?.date}</span>
+                                            </div>
+                                            {detailModal.otp && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs font-bold text-muted-foreground">Start OTP</span>
+                                                    <span className="text-sm font-black text-primary">{detailModal.otp}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="bg-primary/5 rounded-2xl p-4 border border-primary/20">
+                                        <h4 className="text-[10px] font-black uppercase text-primary tracking-widest mb-3 flex items-center gap-2"><IndianRupee className="h-3.5 w-3.5" /> Bill Summary</h4>
+                                        <div className="space-y-2">
+                                            {(detailModal.services || detailModal.items || []).map((s, i) => (
+                                                <div key={i} className="flex justify-between items-center">
+                                                    <span className="text-xs font-bold truncate max-w-[60%]">{s.name} x{s.quantity || 1}</span>
+                                                    <span className="text-xs font-black">₹{(s.price * (s.quantity || 1)).toLocaleString()}</span>
+                                                </div>
+                                            ))}
+                                            <div className="border-t border-border/50 pt-2 mt-2 space-y-1">
+                                                <div className="flex justify-between"><span className="text-xs font-bold text-muted-foreground">Total Amount</span><span className="text-xs font-black">₹{detailModal.totalAmount?.toLocaleString()}</span></div>
+                                                {detailModal.discount > 0 && <div className="flex justify-between"><span className="text-xs font-bold text-green-600">Discount</span><span className="text-xs font-black text-green-600">-₹{detailModal.discount?.toLocaleString()}</span></div>}
+                                                <div className="flex justify-between"><span className="text-sm font-black text-primary">Payable</span><span className="text-sm font-black text-primary">₹{((detailModal.totalAmount || 0) - (detailModal.discount || 0)).toLocaleString()}</span></div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs font-bold text-muted-foreground">Payment</span>
+                                                    <Badge variant="outline" className={`text-[9px] font-black ${detailModal.paymentStatus === "Fully Paid" ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{detailModal.paymentStatus || "Pending"}</Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {detailModal.assignedProvider && (
+                                        <div className="bg-muted/30 rounded-2xl p-4 border border-border/50">
+                                            <h4 className="text-[10px] font-black uppercase text-secondary-foreground/60 tracking-widest mb-3 flex items-center gap-2"><Users className="h-3.5 w-3.5" /> Professional Info</h4>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm">
+                                                    {(providers.find(p => (p.id || p._id) === detailModal.assignedProvider)?.name || "P")[0]}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black">{providers.find(p => (p.id || p._id) === detailModal.assignedProvider)?.name || detailModal.assignedProvider}</p>
+                                                    <p className="text-xs text-muted-foreground font-bold">{providers.find(p => (p.id || p._id) === detailModal.assignedProvider)?.phone || ""}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {(detailModal.services || detailModal.items || []).length > 0 && (
+                                <div className="bg-muted/30 rounded-2xl p-4 border border-border/50">
+                                    <h4 className="text-[10px] font-black uppercase text-secondary-foreground/60 tracking-widest mb-3">Services Booked</h4>
+                                    <div className="space-y-2">
+                                        {(detailModal.services || detailModal.items || []).map((s, i) => (
+                                            <div key={i} className="flex items-center gap-3 p-2 bg-card rounded-xl border border-border/30">
+                                                {s.image && <img src={s.image} alt={s.name} className="w-10 h-10 rounded-lg object-cover" />}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-black truncate">{s.name}</p>
+                                                    <p className="text-[10px] text-muted-foreground font-bold">{s.category} • {s.duration}</p>
+                                                </div>
+                                                <span className="text-sm font-black text-primary">₹{s.price?.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <Button variant="outline" className="w-full h-12 rounded-2xl font-bold" onClick={() => setDetailModal(null)}>Close Window</Button>
                         </motion.div>
                     </div>
                 )}
