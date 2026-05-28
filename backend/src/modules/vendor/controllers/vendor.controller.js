@@ -489,7 +489,19 @@ export async function listProviders(req, res) {
   const vendor = await Vendor.findById(vendorId).lean();
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   const city = normCity(vendor?.city) || "";
-  const cityId = String(vendor?.cityId || "").trim();
+  let cityId = String(vendor?.cityId || "").trim();
+  
+  // Dynamic cityId resolution
+  if (!cityId && city) {
+    try {
+      const cityDoc = await City.findOne({ name: new RegExp(`^${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"), status: "active" }).lean();
+      if (cityDoc) {
+        cityId = cityDoc._id.toString();
+        await Vendor.updateOne({ _id: vendorId }, { $set: { cityId } });
+      }
+    } catch {}
+  }
+
   const zones = await getLatestVendorZones(vendor);
 
   console.log('[Vendor] listProviders called:', { vendorId, vendorCity: vendor?.city, normalizedCity: city, zones });
@@ -786,7 +798,22 @@ export async function listBookings(req, res) {
   const vendor = await Vendor.findById(vendorId).lean();
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   const city = normCity(vendor?.city) || "";
-  const cityId = String(vendor?.cityId || "").trim();
+  let cityId = String(vendor?.cityId || "").trim();
+  
+  // Dynamic cityId resolution: if vendor doesn't have cityId, resolve from City collection
+  if (!cityId && city) {
+    try {
+      const cityDoc = await City.findOne({ name: new RegExp(`^${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"), status: "active" }).lean();
+      if (cityDoc) {
+        cityId = cityDoc._id.toString();
+        // Auto-fix: Save cityId to vendor so this lookup isn't needed next time
+        await Vendor.updateOne({ _id: vendorId }, { $set: { cityId } });
+      }
+    } catch (err) {
+      console.error("[VendorBookings] cityId resolution failed:", err.message);
+    }
+  }
+
   const zones = await getLatestVendorZones(vendor);
 
   if (!city && zones.length === 0) {
