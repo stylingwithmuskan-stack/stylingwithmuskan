@@ -491,13 +491,16 @@ export async function listProviders(req, res) {
   const city = normCity(vendor?.city) || "";
   let cityId = String(vendor?.cityId || "").trim();
   
-  // Dynamic cityId resolution
-  if (!cityId && city) {
+  // Dynamic cityId resolution — always verify against cities collection
+  if (city) {
     try {
       const cityDoc = await City.findOne({ name: new RegExp(`^${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"), status: "active" }).lean();
       if (cityDoc) {
-        cityId = cityDoc._id.toString();
-        await Vendor.updateOne({ _id: vendorId }, { $set: { cityId } });
+        const correctCityId = cityDoc._id.toString();
+        if (cityId !== correctCityId) {
+          cityId = correctCityId;
+          await Vendor.updateOne({ _id: vendorId }, { $set: { cityId } });
+        }
       }
     } catch {}
   }
@@ -800,14 +803,17 @@ export async function listBookings(req, res) {
   const city = normCity(vendor?.city) || "";
   let cityId = String(vendor?.cityId || "").trim();
   
-  // Dynamic cityId resolution: if vendor doesn't have cityId, resolve from City collection
-  if (!cityId && city) {
+  // Dynamic cityId resolution: if vendor doesn't have cityId OR has stale one, resolve from City collection
+  if (city) {
     try {
       const cityDoc = await City.findOne({ name: new RegExp(`^${city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"), status: "active" }).lean();
       if (cityDoc) {
-        cityId = cityDoc._id.toString();
-        // Auto-fix: Save cityId to vendor so this lookup isn't needed next time
-        await Vendor.updateOne({ _id: vendorId }, { $set: { cityId } });
+        const correctCityId = cityDoc._id.toString();
+        if (cityId !== correctCityId) {
+          cityId = correctCityId;
+          // Auto-fix: Save correct cityId to vendor
+          await Vendor.updateOne({ _id: vendorId }, { $set: { cityId } });
+        }
       }
     } catch (err) {
       console.error("[VendorBookings] cityId resolution failed:", err.message);
