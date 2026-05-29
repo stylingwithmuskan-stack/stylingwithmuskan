@@ -112,20 +112,8 @@ export const ProviderBookingProvider = ({ children }) => {
 
 
     const isSlotExpired = useCallback((booking) => {
-        if (!booking?.slot?.date || !booking?.slot?.time) return false;
-        try {
-            const scheduledDate = new Date(booking.slot.date);
-            const parts = booking.slot.time.split(' ');
-            if (parts.length !== 2) return false;
-            const [time, period] = parts;
-            let [hours, minutes] = time.split(':').map(Number);
-            if (period === 'PM' && hours !== 12) hours += 12;
-            if (period === 'AM' && hours === 12) hours = 0;
-            scheduledDate.setHours(hours, minutes, 0, 0);
-            return nowMs > scheduledDate.getTime();
-        } catch (e) {
-            return false;
-        }
+        // Disabled — bookings no longer auto-move to missed based on time
+        return false;
     }, [nowMs]);
 
     const isExpiredAssignmentForCurrentProvider = useCallback((booking) => {
