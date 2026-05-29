@@ -205,7 +205,13 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
 const ProviderBookingsPage = () => {
     const navigate = useNavigate();
     const { incomingBookings, pendingBookings, activeBookings, assignedBookings, lapsedBookings, completedBookings, cancelledBookings, acceptBooking, rejectBooking } = useProviderBookings();
-    const [activeTab, setActiveTab] = useState("incoming");
+    const [activeTab, setActiveTab] = useState(() => {
+        try { return sessionStorage.getItem("provider_bookings_tab") || "incoming"; } catch { return "incoming"; }
+    });
+
+    useEffect(() => {
+        try { sessionStorage.setItem("provider_bookings_tab", activeTab); } catch {}
+    }, [activeTab]);
 
     const tabs = [
         { id: "incoming", label: "New", count: incomingBookings.length },
