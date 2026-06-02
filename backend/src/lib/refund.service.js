@@ -64,42 +64,9 @@ export function calculateRefundPolicy(booking, cancelledBy, subscription = null)
   
   // Customer cancellation - based on status and timing
   if (cancelledBy === "customer") {
-    // Status-based adjustments
-    if (status === "travelling" || status === "accepted" || status === "arrived") {
-      // Base refund reduced after acceptance
-      if (hoursUntilBooking > 48) refundPercentage = 50;
-      else if (hoursUntilBooking > 24) refundPercentage = 45;
-      else if (hoursUntilBooking > 12) refundPercentage = 37.5;
-      else if (hoursUntilBooking > 6) refundPercentage = 25;
-      else if (hoursUntilBooking > 2) refundPercentage = 12.5;
-      else refundPercentage = 0;
-      
-      // Fixed 20% compensation for provider as requested
-      providerCompensation = Math.round((booking.totalAmount || 0) * 0.2);
-    } else {
-      // Pending/incoming status - standard policy
-      if (hoursUntilBooking > 48) refundPercentage = 100;
-      else if (hoursUntilBooking > 24) refundPercentage = 90;
-      else if (hoursUntilBooking > 12) refundPercentage = 75;
-      else if (hoursUntilBooking > 6) refundPercentage = 50;
-      else if (hoursUntilBooking > 2) refundPercentage = 25;
-      else refundPercentage = 0;
-    }
-    
-    // Apply subscription benefits
-    if (subscription?.isPlusMember) {
-      const freeWindow = subscription.freeCancellationWindowHours || 0;
-      if (hoursUntilBooking > freeWindow) {
-        refundPercentage = 100;
-        providerCompensation = 0;
-      } else {
-        // Reduce charges by subscription benefit
-        const chargeReduction = subscription.billingCycle === "annual" ? 0.75 : 0.5;
-        const cancellationCharge = 100 - refundPercentage;
-        const reducedCharge = cancellationCharge * (1 - chargeReduction);
-        refundPercentage = 100 - reducedCharge;
-      }
-    }
+    // 100% refund for all customer cancellations as requested (no cancellation charges)
+    refundPercentage = 100;
+    providerCompensation = 0;
   }
   
   const cancellationCharge = 100 - refundPercentage;
