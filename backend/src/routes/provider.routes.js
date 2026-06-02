@@ -1830,35 +1830,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
       // We use the helper to ensure commissionRefundedAt is set on the booking
       await refundProviderCommissionIfNeeded(b, pId, "provider_cancelled");
 
-      // 2. Apply Penalty
-      if (penaltyAmount > 0) {
-        const acc = await ProviderAccount.findById(pId);
-        if (acc) {
-          acc.credits = Number(acc.credits || 0) - penaltyAmount;
-          await acc.save();
-          
-          await ProviderWalletTxn.create({
-            providerId: pId,
-            bookingId: b._id.toString(),
-            type: "penalty",
-            amount: -penaltyAmount,
-            balanceAfter: acc.credits,
-            meta: { title: "Cancellation Penalty (20%)", reason: "cancelled_by_provider" },
-          });
-
-          console.log(`[ProviderCancel] Deducted ₹${penaltyAmount} penalty from provider ${pId}`);
-          
-          try {
-            await notify({
-              recipientId: pId,
-              recipientRole: "provider",
-              type: "penalty",
-              meta: { bookingId: b._id.toString(), amount: penaltyAmount, reason: "cancellation_penalty" },
-              respectProviderQuietHours: true,
-            });
-          } catch { }
-        }
-      }
+      // 2. Apply Penalty logic removed as per request
 
       // 3. Refund customer's wallet/payment (100% refund for provider cancellation)
       if (isCritical && b.prepaidAmount > 0) {
