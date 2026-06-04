@@ -92,19 +92,37 @@ export const NotificationProvider = ({ children, role }) => {
 
     // Audio context "warm up" to bypass browser autoplay policies
     useEffect(() => {
-        const handleInteraction = () => {
+        const unlockAudio = () => {
+            try {
+                // Play a tiny silent audio snippet to unlock browser audio engine
+                const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
+                silentAudio.volume = 0.01;
+                const promise = silentAudio.play();
+                if (promise !== undefined) {
+                    promise.then(() => {
+                        console.log("[NotificationContext] 🎉 Audio engine unlocked!");
+                    }).catch(err => {
+                        console.log("[NotificationContext] Audio unlock failed:", err);
+                    });
+                }
+            } catch (e) {
+                console.log("[NotificationContext] Audio unlock error:", e);
+            }
+            
             setUserInteracted(true);
-            window.removeEventListener("click", handleInteraction);
-            window.removeEventListener("touchstart", handleInteraction);
-            window.removeEventListener("keydown", handleInteraction);
+            window.removeEventListener("click", unlockAudio);
+            window.removeEventListener("touchstart", unlockAudio);
+            window.removeEventListener("keydown", unlockAudio);
         };
-        window.addEventListener("click", handleInteraction);
-        window.addEventListener("touchstart", handleInteraction);
-        window.addEventListener("keydown", handleInteraction);
+
+        window.addEventListener("click", unlockAudio);
+        window.addEventListener("touchstart", unlockAudio);
+        window.addEventListener("keydown", unlockAudio);
+
         return () => {
-            window.removeEventListener("click", handleInteraction);
-            window.removeEventListener("touchstart", handleInteraction);
-            window.removeEventListener("keydown", handleInteraction);
+            window.removeEventListener("click", unlockAudio);
+            window.removeEventListener("touchstart", unlockAudio);
+            window.removeEventListener("keydown", unlockAudio);
         };
     }, []);
 
