@@ -55,6 +55,17 @@ async function isProviderEligibleForBooking(providerId, booking, opts = {}) {
     if (leave) return false;
   }
 
+  const requiredCommission = Number(booking.commissionAmount || 0);
+  if (requiredCommission > 0 && Number(acc.credits || 0) < requiredCommission) {
+    try {
+      const { getIO } = await import("../startup/socket.js");
+      const io = getIO();
+      io?.of("/bookings").emit("provider:low_balance_skipped", { providerId: String(providerId) });
+    } catch(e) {}
+    console.log(`[Assignment Debug] Provider ${providerId} skipped due to low balance (Credits: ${acc.credits}, Required: ${requiredCommission})`);
+    return false;
+  }
+
   const requestedDurationMinutes = getBookingRequestedDurationMinutes(booking);
   const settings = await loadAssignmentSettings();
   const avail = await computeAvailableSlots(providerId, date, settings, {

@@ -147,10 +147,8 @@ export const ProviderBookingProvider = ({ children }) => {
     const incomingBookings = myBookings.filter(b => ["incoming", "pending", "Pending", "final_approved", "payment_pending", "advance_paid", "service_confirmed", "scheduled", "vendor_assigned", "vendor_reassigned", "confirmed"].includes(b.status));
     const pendingBookings = myBookings.filter(b => ["pending", "Pending", "final_approved", "payment_pending", "advance_paid", "service_confirmed", "scheduled", "vendor_assigned", "vendor_reassigned", "confirmed"].includes(b.status));
     
-    const lapsedBookings = myBookings.filter(b => {
-        const isActiveStatus = ["accepted", "travelling", "arrived", "in_progress"].includes(b.status);
-        if (!isActiveStatus) return false;
-        return isSlotExpired(b);
+    const lapsedBookings = bookings.filter(b => {
+        return b.rejectedProviders && b.rejectedProviders.includes(providerId);
     });
 
     const activeBookings = myBookings.filter(b => {
@@ -199,6 +197,15 @@ export const ProviderBookingProvider = ({ children }) => {
                 console.log("[ProviderBookings] 🔔 New notification received, refreshing bookings...");
                 // Sound is handled by NotificationContext (single source of truth)
                 refreshBookings();
+            }
+        });
+
+        socket.on("provider:low_balance_skipped", (payload) => {
+            if (String(payload.providerId) === String(providerId)) {
+                toast.error("You missed a new booking because your wallet balance is too low. Please recharge your wallet to receive new bookings.", {
+                    duration: 10000,
+                    position: "top-center"
+                });
             }
         });
 

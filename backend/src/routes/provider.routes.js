@@ -1428,8 +1428,12 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
   if (!acc) return res.status(404).json({ error: "Provider not found" });
   const now = new Date();
   const threshold = new Date(now.getTime() - getAcceptWindowMs());
+  const validProviderIds = [providerId, acc?.phone].filter(Boolean);
   const q = {
-    assignedProvider: { $in: [providerId, acc?.phone].filter(Boolean) },
+    $or: [
+      { assignedProvider: { $in: validProviderIds } },
+      { rejectedProviders: { $in: validProviderIds } }
+    ],
     $nor: [
       {
         status: { $in: ["pending", "Pending", "incoming", "final_approved"] },
