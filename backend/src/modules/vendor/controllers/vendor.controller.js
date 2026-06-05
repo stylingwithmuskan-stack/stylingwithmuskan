@@ -1077,8 +1077,7 @@ export async function assignBooking(req, res) {
         });
       } catch { }
     } else {
-      existing.commissionAmount = required;
-      existing.commissionChargedAt = null;
+      return res.status(409).json({ error: "Insufficient wallet balance to assign this booking." });
     }
   }
 
@@ -1263,10 +1262,7 @@ export async function reassignBooking(req, res) {
         });
       } catch { }
     } else {
-      // Low balance: Reassign but leave commissionChargedAt as null for manual activation
-      existing.commissionAmount = required;
-      existing.commissionChargedAt = null;
-      existing.commissionRefundedAt = null;
+      return res.status(409).json({ error: "Insufficient wallet balance to assign this booking." });
     }
   }
 

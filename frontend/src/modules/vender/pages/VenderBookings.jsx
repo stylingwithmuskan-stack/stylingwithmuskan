@@ -44,20 +44,20 @@ const statusColors = {
 
 export default function VenderBookings() {
     const { getAllBookings, getServiceProviders, getCustomEnquiries, assignSPToBooking, hydrated, isLoggedIn, assignTeamToBooking, reassignBooking, expireBooking, getAvailableProviders } = useVenderAuth();
-  
+
     const [bookings, setBookings] = useState([]);
     const [providers, setProviders] = useState([]);
     const [search, setSearch] = useState("");
     const [tab, setTab] = useState("all");
     const [typeFilter, setTypeFilter] = useState("all");
-    
+
     // Pagination state
     const [page, setPage] = useState(1);
     const [limit] = useState(20);
     const [total, setTotal] = useState(0);
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [loading, setLoading] = useState(false);
-    
+
     const [assignModal, setAssignModal] = useState(null);
     const [detailModal, setDetailModal] = useState(null);
     const [selectedProvider, setSelectedProvider] = useState("");
@@ -82,7 +82,7 @@ export default function VenderBookings() {
     const [availableProviders, setAvailableProviders] = useState([]);
     const [loadingAvailableProviders, setLoadingAvailableProviders] = useState(false);
     const [escalatedSelectedProvider, setEscalatedSelectedProvider] = useState("");
-    
+
     // Debounce search input
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search), 500);
@@ -103,12 +103,12 @@ export default function VenderBookings() {
                 getServiceProviders(),
                 getCustomEnquiries()
             ]);
-            
+
             // Handle pagination response
             const bks = Array.isArray(bksResponse) ? bksResponse : (bksResponse?.bookings || []);
             const totalCount = bksResponse?.total || bks.length;
             setTotal(totalCount);
-            
+
             const normal = bks.map((b) => ({ ...b, id: b._id || b.id }));
             const custom = (Array.isArray(enqs) ? enqs : []).map((e) => ({
                 id: e._id || e.id,
@@ -135,7 +135,7 @@ export default function VenderBookings() {
             }));
             const combined = [...normal, ...custom].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             setBookings(combined);
-            
+
             const spResponse = Array.isArray(sps) ? sps : (sps?.providers || []);
             setProviders(spResponse.filter(sp => sp.approvalStatus === "approved").map((sp) => ({ ...sp, id: sp._id?.toString?.() || sp.id || sp.phone })));
         } catch {
@@ -143,7 +143,7 @@ export default function VenderBookings() {
             setLoading(false);
         }
     };
-    
+
     useEffect(() => { load(); }, [hydrated, isLoggedIn, page, tab, typeFilter, debouncedSearch]);
 
     // Lock body scroll when any modal is open
@@ -376,10 +376,10 @@ export default function VenderBookings() {
             setQuoteExpiryHours(12);
 
             // Initialize quoted items
-            const itemsToQuote = booking.enquiry?.quote?.items?.length 
-                ? booking.enquiry.quote.items 
+            const itemsToQuote = booking.enquiry?.quote?.items?.length
+                ? booking.enquiry.quote.items
                 : (booking.enquiry?.items || booking.items || booking.services || []);
-            
+
             setQuotedItems(itemsToQuote.map(it => ({
                 id: it.id || it._id,
                 name: it.name,
@@ -396,7 +396,7 @@ export default function VenderBookings() {
         const updated = [...quotedItems];
         updated[index].price = parseFloat(newPrice) || 0;
         setQuotedItems(updated);
-        
+
         // Auto-update total customPrice
         const newTotal = updated.reduce((acc, it) => acc + (it.price * (it.quantity || 1)), 0);
         setCustomPrice(newTotal);
@@ -404,13 +404,13 @@ export default function VenderBookings() {
 
     const canShowAction = (booking) => {
         const st = (booking.status || "").toLowerCase();
-        
+
         // Statuses that require vendor action (Assign or Re-assign)
         const vendorActionRequired = [
-            "incoming", "pending", "unassigned", "unassigned", 
+            "incoming", "pending", "unassigned", "unassigned",
             "rejected", "provider_cancelled", "vendor_assigned", "vendor_reassigned"
         ];
-        
+
         if (vendorActionRequired.includes(st)) return true;
 
         // Escalated bookings need assignment (often status is still 'pending')
@@ -652,7 +652,7 @@ export default function VenderBookings() {
                                                     <span className="text-xl font-black text-primary">₹{booking.totalAmount?.toLocaleString()}</span>
                                                     {canShowAction(booking) ? (
                                                         <Button size="sm" className="h-8 bg-primary hover:bg-primary/90 rounded-lg text-[11px] font-bold gap-1" onClick={(e) => { e.stopPropagation(); handleBookingAction(booking); }}>
-                                                            <Users className="h-3.5 w-3.5" /> 
+                                                            <Users className="h-3.5 w-3.5" />
                                                             {getButtonLabel(booking)}
                                                         </Button>
                                                     ) : booking.status === "quote_submitted" ? (
@@ -676,24 +676,24 @@ export default function VenderBookings() {
                             ))}
                         </motion.div>
                     )}
-                    
+
                     {/* Pagination Controls */}
                     {!loading && Math.ceil(total / limit) > 1 && (
                         <div className="mt-8 pb-8">
                             <Pagination>
                                 <PaginationContent>
                                     <PaginationItem>
-                                        <PaginationPrevious 
+                                        <PaginationPrevious
                                             onClick={() => setPage(p => Math.max(1, p - 1))}
                                             className={page === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                                         />
                                     </PaginationItem>
-                                    
+
                                     {Array.from({ length: Math.ceil(total / limit) }, (_, i) => i + 1).map(p => {
                                         if (p === 1 || p === Math.ceil(total / limit) || (p >= page - 1 && p <= page + 1)) {
                                             return (
                                                 <PaginationItem key={p}>
-                                                    <PaginationLink 
+                                                    <PaginationLink
                                                         isActive={page === p}
                                                         onClick={() => setPage(p)}
                                                         className="cursor-pointer"
@@ -709,7 +709,7 @@ export default function VenderBookings() {
                                     })}
 
                                     <PaginationItem>
-                                        <PaginationNext 
+                                        <PaginationNext
                                             onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
                                             className={page === Math.ceil(total / limit) ? "pointer-events-none opacity-50" : "cursor-pointer"}
                                         />
@@ -1306,11 +1306,10 @@ export default function VenderBookings() {
                                             <button
                                                 key={p._id}
                                                 onClick={() => setEscalatedSelectedProvider(p._id)}
-                                                className={`w-full p-3 rounded-xl text-left border-2 transition-all ${
-                                                    escalatedSelectedProvider === p._id
+                                                className={`w-full p-3 rounded-xl text-left border-2 transition-all ${escalatedSelectedProvider === p._id
                                                         ? "border-emerald-600 bg-emerald-50"
                                                         : "border-border bg-muted/20 hover:border-emerald-300"
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <div>
@@ -1354,9 +1353,9 @@ export default function VenderBookings() {
                             )}
 
                             <div className="flex gap-2">
-                                <Button 
-                                    className="flex-1 h-11 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700" 
-                                    onClick={handleEscalatedAssign} 
+                                <Button
+                                    className="flex-1 h-11 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700"
+                                    onClick={handleEscalatedAssign}
                                     disabled={!escalatedSelectedProvider || loadingAvailableProviders}
                                 >
                                     <CheckCircle className="h-4 w-4" /> Assign Provider

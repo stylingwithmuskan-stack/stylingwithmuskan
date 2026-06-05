@@ -629,10 +629,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
           });
         } catch (notifyErr) {}
       } else {
-        // Low balance: Assign but leave commissionChargedAt as null for manual activation
-        existing.commissionAmount = required;
-        existing.commissionChargedAt = null;
-        existing.commissionRefundedAt = null;
+        return res.status(409).json({ error: "Insufficient wallet balance to assign this booking." });
       }
     }
 
