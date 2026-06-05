@@ -165,7 +165,7 @@ export default function VenderBookings() {
 
         let tabMatch = true;
         if (tab === "active") tabMatch = ["accepted", "travelling", "arrived", "in_progress", "service_confirmed"].includes(status);
-        else if (tab === "pending") tabMatch = ["incoming", "pending", "unassigned", "enquiry_created", "quote_submitted", "admin_approved", "waiting_for_customer_payment", "advance_paid", "provider_cancelled", "vendor_assigned", "vendor_reassigned"].includes(status);
+        else if (tab === "pending") tabMatch = ["incoming", "pending", "unassigned", "enquiry_created", "quote_submitted", "admin_approved", "final_approved", "waiting_for_customer_payment", "advance_paid", "provider_cancelled", "vendor_assigned", "vendor_reassigned"].includes(status);
         else if (tab === "completed") tabMatch = status === "completed";
         else if (tab === "cancelled") tabMatch = ["cancelled", "rejected", "quote_expired"].includes(status);
         else if (tab === "provider_cancelled") tabMatch = status === "provider_cancelled";
@@ -331,7 +331,7 @@ export default function VenderBookings() {
             return "Assign Provider";
         }
         if (booking.bookingType === "customized" || booking.eventType) {
-            if (st === "advance_paid") return "Assign Team";
+            if (st === "advance_paid" || st === "final_approved") return "Assign Team";
             if (st === "quote_submitted") return "Modify Quote";
             if (st === "enquiry_created") return "Set Quote";
             if (booking.totalAmount > 0 && !booking.assignedProvider) return "Edit Quote";
@@ -358,7 +358,7 @@ export default function VenderBookings() {
             fetchAvailableProviders(booking.id);
             return;
         }
-        if ((booking.bookingType === "customized" || booking.eventType) && st === "advance_paid") {
+        if ((booking.bookingType === "customized" || booking.eventType) && (st === "advance_paid" || st === "final_approved")) {
             // Open team assignment modal
             setTeamAssignModal(booking);
             setTeamSelectedMembers(booking.teamMembers?.map(m => m.id) || []);
@@ -417,7 +417,7 @@ export default function VenderBookings() {
         if (st === "pending" && booking.vendorEscalated === true && !booking.assignedProvider) return true;
 
         if (booking.bookingType === "customized" || booking.eventType) {
-            return ["enquiry_created", "quote_submitted", "advance_paid"].includes(st);
+            return ["enquiry_created", "quote_submitted", "advance_paid", "final_approved"].includes(st);
         }
         return false;
     };
@@ -661,7 +661,7 @@ export default function VenderBookings() {
                                                         <Badge variant="outline" className="h-8 px-3 rounded-lg bg-green-50 text-green-700 border-green-200 font-bold">Pending User</Badge>
                                                     ) : booking.status === "waiting_for_customer_payment" ? (
                                                         <Badge variant="outline" className="h-8 px-3 rounded-lg bg-amber-50 text-amber-700 border-amber-200 font-bold">Waiting Payment</Badge>
-                                                    ) : booking.status === "advance_paid" ? (
+                                                    ) : (booking.status === "advance_paid" || booking.status === "final_approved") ? (
                                                         <Badge variant="outline" className="h-8 px-3 rounded-lg bg-teal-50 text-teal-700 border-teal-200 font-bold">Ready for Team</Badge>
                                                     ) : booking.status === "quote_expired" ? (
                                                         <Badge variant="outline" className="h-8 px-3 rounded-lg bg-red-50 text-red-700 border-red-200 font-bold">Quote Expired</Badge>

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { 
   ClipboardList, CheckCircle, RefreshCw, Eye, X, LayoutGrid, 
-  IndianRupee, Clock, Phone, Users
+  IndianRupee, Clock, Phone, Users, MapPin
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
@@ -145,6 +145,12 @@ export default function CustomEnquiries() {
               </div>
               <div className="text-[11px] text-muted-foreground">Event: {enq.eventType} | People: {enq.noOfPeople}</div>
               <div className="text-[11px] text-muted-foreground">When: {enq.scheduledAt?.date} • {enq.scheduledAt?.timeSlot}</div>
+              {enq.address && (
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {[enq.address.houseNo, enq.address.area, enq.address.landmark, enq.address.city].filter(Boolean).join(", ")}
+                </div>
+              )}
               {enq.quote?.expiryAt && (
                 <div className="text-[11px] text-muted-foreground">
                   Quote Expiry: {new Date(enq.quote.expiryAt).toLocaleString()}

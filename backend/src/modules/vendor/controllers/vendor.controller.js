@@ -1481,8 +1481,8 @@ export async function assignTeamCustomEnquiry(req, res) {
 
   const enq = await CustomEnquiry.findById(req.params.id);
   if (!enq) return res.status(404).json({ error: "Not found" });
-  if (enq.paymentStatus !== "paid" && enq.status !== "advance_paid") {
-    return res.status(409).json({ error: "Advance payment is required before assignment." });
+  if (enq.paymentStatus !== "paid" && !["advance_paid", "final_approved"].includes(enq.status)) {
+    return res.status(409).json({ error: "Advance payment or admin approval is required before assignment." });
   }
 
   const teamMembers = Array.isArray(req.body.teamMembers) ? req.body.teamMembers : [];
