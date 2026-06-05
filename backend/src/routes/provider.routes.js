@@ -1429,23 +1429,16 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
   const now = new Date();
   const threshold = new Date(now.getTime() - getAcceptWindowMs());
   const q = {
-    $or: [
+    assignedProvider: { $in: [providerId, acc?.phone].filter(Boolean) },
+    $nor: [
       {
-        assignedProvider: { $in: [providerId, acc?.phone].filter(Boolean) },
-        $nor: [
-          {
-            status: { $in: ["pending", "Pending", "incoming", "final_approved"] },
-            $or: [
-              { expiresAt: { $ne: null, $lte: now } },
-              { expiresAt: null, lastAssignedAt: { $ne: null, $lte: threshold } },
-            ],
-          },
-        ]
+        status: { $in: ["pending", "Pending", "incoming", "final_approved"] },
+        $or: [
+          { expiresAt: { $ne: null, $lte: now } },
+          { expiresAt: null, lastAssignedAt: { $ne: null, $lte: threshold } },
+        ],
       },
-      {
-        rejectedProviders: { $in: [providerId, acc?.phone].filter(Boolean) }
-      }
-    ]
+    ],
   };
   console.log(`[BookingsGET] Provider: ${providerId}, Query assignedProvider: ${JSON.stringify(q.assignedProvider)}`);
   let total = await Booking.countDocuments(q);

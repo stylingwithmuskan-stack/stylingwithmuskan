@@ -137,14 +137,10 @@ export const ProviderBookingProvider = ({ children }) => {
         return false;
     }, [nowMs, acceptWindowMs]);
 
-    // Only show bookings explicitly assigned to this provider or missed by them
+    // Only show bookings explicitly assigned to this provider
     const myBookings = bookings.filter((b) => {
         const belongsToProvider = String(b.assignedProvider || "") === String(providerId || "");
-        const isMissedByProvider = (b.rejectedProviders || []).map(String).includes(String(providerId || ""));
-        
-        if (isMissedByProvider) return true;
         if (!belongsToProvider) return false;
-        
         return !isExpiredAssignmentForCurrentProvider(b);
     });
 
@@ -152,8 +148,9 @@ export const ProviderBookingProvider = ({ children }) => {
     const pendingBookings = myBookings.filter(b => ["pending", "Pending", "final_approved", "payment_pending", "advance_paid", "service_confirmed", "scheduled", "vendor_assigned", "vendor_reassigned", "confirmed"].includes(b.status));
     
     const lapsedBookings = myBookings.filter(b => {
-        const isMissedByProvider = (b.rejectedProviders || []).map(String).includes(String(providerId || ""));
-        return isMissedByProvider;
+        const isActiveStatus = ["accepted", "travelling", "arrived", "in_progress"].includes(b.status);
+        if (!isActiveStatus) return false;
+        return isSlotExpired(b);
     });
 
     const activeBookings = myBookings.filter(b => {

@@ -9,12 +9,7 @@ import { createLedgerEntry, getProviderCommissionRate } from "../../../lib/subsc
 export async function listAssignedBookings(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const q = {
-    $or: [
-      { assignedProvider: req.params.providerId },
-      { rejectedProviders: req.params.providerId }
-    ]
-  };
+  const q = { assignedProvider: req.params.providerId };
   const total = await Booking.countDocuments(q);
   const bookings = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
   res.json({ bookings, page, limit, total });
