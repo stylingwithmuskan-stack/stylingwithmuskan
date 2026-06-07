@@ -560,7 +560,7 @@ const ProviderBookingDetailPage = () => {
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Client Name</p>
                         </div>
                     </div>
-                    {(booking.customerPhone || booking.phone) && (
+                    {(booking.customerPhone || booking.phone) && !["in_progress", "payment", "documentation", "completed"].includes(booking?.status) && (
                         <a 
                             href={isCallRestricted ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`} 
                             onClick={(e) => {
