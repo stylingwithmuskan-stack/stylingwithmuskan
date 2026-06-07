@@ -101,10 +101,10 @@ router.get("/init", injectUser, async (req, res) => {
       gallery,
       testimonials
     ] = await Promise.all([
-      cached("content:service-types", () => ServiceType.find().lean()),
+      cached("content:service-types", () => ServiceType.find({ isActive: { $ne: false } }).lean()),
       cached("content:booking-types", () => BookingType.find().lean()),
-      cached("content:categories:all", () => Category.find().lean()),
-      cached("content:services:popular", () => Service.find({ rating: { $gte: 4.5 } }).select("-gallery -steps").limit(50).lean()),
+      cached("content:categories:all", () => Category.find({ isActive: { $ne: false } }).lean()),
+      cached("content:services:popular", () => Service.find({ rating: { $gte: 4.5 }, isActive: { $ne: false } }).select("-gallery -steps").limit(50).lean()),
 
       // Banners Logic
       cached("content:banners:all", async () => {
@@ -189,14 +189,14 @@ router.get("/init", injectUser, async (req, res) => {
 router.get("/service-types", async (_req, res) => {
   let data = [];
   try {
-    data = await cached("content:service-types", () => ServiceType.find().lean());
+    data = await cached("content:service-types", () => ServiceType.find({ isActive: { $ne: false } }).lean());
   } catch {
     data = [];
   }
   // Fallback to fresh DB query if cache is empty but DB has data
   if (!Array.isArray(data) || data.length === 0) {
     try {
-      data = await ServiceType.find().lean();
+      data = await ServiceType.find({ isActive: { $ne: false } }).lean();
     } catch { }
   }
   res.json({ data });
@@ -223,7 +223,7 @@ router.get("/categories", async (req, res) => {
   let data = [];
   try {
     data = await cached(`content:categories:${gender || "all"}`, () =>
-      gender ? Category.find({ gender }).lean() : Category.find().lean()
+      gender ? Category.find({ gender, isActive: { $ne: false } }).lean() : Category.find({ isActive: { $ne: false } }).lean()
     );
   } catch {
     data = [];
@@ -243,7 +243,7 @@ router.get("/categories", async (req, res) => {
   }
   if (!Array.isArray(data) || data.length === 0) {
     try {
-      data = await (gender ? Category.find({ gender }).lean() : Category.find().lean());
+      data = await (gender ? Category.find({ gender, isActive: { $ne: false } }).lean() : Category.find({ isActive: { $ne: false } }).lean());
     } catch { }
   }
   res.json({ data });
@@ -251,7 +251,7 @@ router.get("/categories", async (req, res) => {
 
 router.get("/services", async (req, res) => {
   const { category, gender, page = 1, limit } = req.query;
-  const q = {};
+  const q = { isActive: { $ne: false } };
   if (category) q.category = category;
   if (gender) q.gender = gender;
 
@@ -310,6 +310,7 @@ router.get("/search", async (req, res) => {
     const matchingCategoryIds = matchingCategories.map(c => c.id);
 
     const query = {
+      isActive: { $ne: false },
       $or: [
         { name: qRegex },
         { description: qRegex },

@@ -20,6 +20,7 @@ const ServiceTypeSchema = new mongoose.Schema({
   bgColor: String,
   zones: { type: [String], default: [] },
   disabledDates: { type: [DisabledDateSchema], default: [] },
+  isActive: { type: Boolean, default: true },
 });
 
 const BookingTypeSchema = new mongoose.Schema({
@@ -40,6 +41,7 @@ const CategorySchema = new mongoose.Schema({
   advancePercentage: { type: Number, default: 0 },
   zones: { type: [String], default: [] },
   disabledDates: { type: [DisabledDateSchema], default: [] },
+  isActive: { type: Boolean, default: true },
 });
 
 const ServiceSchema = new mongoose.Schema({
@@ -60,6 +62,7 @@ const ServiceSchema = new mongoose.Schema({
   disabledDates: { type: [DisabledDateSchema], default: [] },
   variants: [{ name: String, price: Number }],
   image: String,
+  isActive: { type: Boolean, default: true },
 });
 
 const BannerSchema = new mongoose.Schema({

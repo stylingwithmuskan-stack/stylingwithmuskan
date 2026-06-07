@@ -867,6 +867,11 @@ const UserModuleManagement = () => {
                                                     {item.category}
                                                 </span>
                                             )}
+                                            {(activeTab !== "parent_categories" && activeTab !== "spotlights" && activeTab !== "gallery" && activeTab !== "testimonials") && (
+                                                <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mt-1 ml-2 ${item.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {item.isActive !== false ? 'Active' : 'Inactive'}
+                                                </span>
+                                            )}
                                         </td>
                                         {(activeTab !== "parent_categories" && activeTab !== "spotlights" && activeTab !== "gallery" && activeTab !== "testimonials") && (
                                             <td className="px-3 py-3 md:px-4 hidden md:table-cell">
@@ -1364,6 +1369,19 @@ const UserModuleManagement = () => {
 
                             {(activeTab !== "spotlights" && activeTab !== "gallery" && activeTab !== "testimonials") && (
                                 <div className="pt-2">
+                                    <div className="flex items-center justify-between p-4 bg-muted/20 border border-border rounded-xl mb-4">
+                                        <div>
+                                            <h4 className="text-sm font-bold text-foreground">Active Status</h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5">Toggle whether this item is visible to customers.</p>
+                                        </div>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, isActive: formData.isActive !== false ? false : true })}
+                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 shadow-inner border border-black/10 ${formData.isActive !== false ? 'bg-green-500' : 'bg-gray-300'}`}
+                                        >
+                                            <span className={`${formData.isActive !== false ? 'translate-x-[22px]' : 'translate-x-[2px]'} inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow`} />
+                                        </button>
+                                    </div>
                                     <AvailabilityEditor formData={formData} setFormData={setFormData} />
                                 </div>
                             )}
