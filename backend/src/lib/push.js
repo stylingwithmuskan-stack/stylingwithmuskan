@@ -177,7 +177,7 @@ export function buildFCMPayload(notification) {
     apns: {
       payload: {
         aps: {
-          sound: sound === "default" ? "default" : `${sound}.caf`,
+          sound: "ringtone2.wav",
           badge: 1,
           critical: isUrgent,
           "mutable-content": imageUrl ? 1 : 0,
