@@ -49,11 +49,11 @@ export let pushEnabled = false;
   try {
     if (admin.apps.length === 0) {
       const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
-
+      
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
-
+      
       console.log(`[push] ✅ Firebase Admin initialized successfully for project: ${serviceAccount.project_id}`);
       pushEnabled = true;
     } else {
@@ -151,38 +151,20 @@ export function buildFCMPayload(notification) {
   const title = String(notification.title || "").slice(0, 100);
   const body = String(notification.message || "").slice(0, 200);
   const link = normalizeLink(notification.link);
-  const rawSound = notification.sound || "default";
-
-  const soundFile = rawSound === "default" ? "default" : (
-    rawSound === "ringtone" ? "ringtone.mp3" :
-      rawSound === "emergency" ? "sos_tone.mp3" :
-        rawSound === "alert" ? "alert.mp3" :
-          rawSound === "notification" || rawSound === "success" ? "massege_ting.mp3" :
-            `${rawSound}.mp3`
-  );
-
-  const iosSoundFile = rawSound === "default" ? "default" : (
-    rawSound === "ringtone" ? "ringtone2.wav" :
-    rawSound === "emergency" ? "sos_tone.wav" :
-    rawSound === "alert" ? "alert.wav" :
-    rawSound === "notification" || rawSound === "success" ? "massege_ting.wav" :
-    `${rawSound}.wav`
-  );
-
+  const sound = notification.sound || "default";
   const imageUrl = notification.image || null;
-  const isUrgent = ["ringtone", "emergency", "alert", "success"].includes(rawSound);
+  const isUrgent = ["ringtone", "emergency", "alert", "success"].includes(sound);
 
   return {
-    notification: {
-      title,
-      body,
-      sound: soundFile,
-      ...(imageUrl ? { imageUrl } : {})
+    notification: { 
+        title, 
+        body,
+        ...(imageUrl ? { imageUrl } : {})
     },
     android: {
       priority: "high",
       notification: {
-        sound: soundFile,
+        sound: sound === "default" ? "default" : sound,
         channelId: "high_priority_notifications",
         icon: "notification_icon",
         color: "#9333ea",
@@ -195,7 +177,7 @@ export function buildFCMPayload(notification) {
     apns: {
       payload: {
         aps: {
-          sound: iosSoundFile,
+          sound: sound === "default" ? "default" : `${sound}.caf`,
           badge: 1,
           critical: isUrgent,
           "mutable-content": imageUrl ? 1 : 0,
@@ -229,9 +211,9 @@ export function buildFCMPayload(notification) {
       link: String(link),
       type: String(notification.type),
       role: String(notification.recipientRole),
-      sound: String(rawSound),
+      sound: String(sound),
       image: imageUrl || "",
-      click_action: "FLUTTER_NOTIFICATION_CLICK",
+      click_action: "FLUTTER_NOTIFICATION_CLICK", 
     },
   };
 }
@@ -304,7 +286,7 @@ export async function sendPushForNotification(notification) {
       });
 
       console.log(`[push] FCM Batch response: success=${response.successCount}, failure=${response.failureCount}`);
-
+      
       for (let j = 0; j < response.responses.length; j++) {
         const res = response.responses[j];
         if (res.success) {
