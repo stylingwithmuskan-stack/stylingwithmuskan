@@ -225,9 +225,8 @@ router.get("/services", requireRole("admin"), async (req, res) => {
   let query = Service.find(q);
   if (minimal === "true") {
     query = query.select("id name category gender");
-  } else {
-    query = query.select("-gallery -steps");
   }
+  // We do not exclude gallery and steps here because admin needs to edit them
 
   const items = await query.skip(skip).limit(parseInt(limit)).lean();
 
