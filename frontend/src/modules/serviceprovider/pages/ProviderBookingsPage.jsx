@@ -59,8 +59,8 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
     const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
     const isCallRestricted = timeStatus.status === "block" && ["accepted", "vendor_assigned", "vendor_reassigned", "payment_pending"].includes(booking?.status);
 
-    const isPendingActivation = (booking.status === "vendor_assigned" || booking.status === "vendor_reassigned" || (booking.status === "accepted" && booking.isMandatory)) && 
-                               booking.commissionAmount > 0 && !booking.commissionChargedAt;
+    const isPendingActivation = (booking.status === "vendor_assigned" || booking.status === "vendor_reassigned" || (booking.status === "accepted" && booking.isMandatory)) &&
+        booking.commissionAmount > 0 && !booking.commissionChargedAt;
     const walletBalance = provider?.credits || 0;
     const canAfford = walletBalance >= booking.commissionAmount;
 
@@ -116,15 +116,14 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                 {(type === "incoming" || type === "pending") && (
                     <div className="flex gap-2">
                         {(booking.customerPhone || booking.phone) && (
-                            <a 
-                                href={isCallRestricted || booking.status === "payment_pending" ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`} 
-                                className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${
-                                    isCallRestricted || booking.status === "payment_pending" 
-                                    ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed" 
-                                    : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"
-                                }`}
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
+                            <a
+                                href={isCallRestricted || booking.status === "payment_pending" ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`}
+                                className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${isCallRestricted || booking.status === "payment_pending"
+                                        ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed"
+                                        : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"
+                                    }`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     if (isCallRestricted) {
                                         e.preventDefault();
                                         toast.error(`Call Restricted: Allowed only within 2 hours of the slot (${booking.slot?.time}).`);
@@ -137,17 +136,17 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                                 <Phone className="w-4 h-4" />
                             </a>
                         )}
-                        <Button 
+                        <Button
                             disabled={booking.status === "payment_pending"}
-                            onClick={() => onReject(bookingId)} 
-                            variant="ghost" 
+                            onClick={() => onReject(bookingId)}
+                            variant="ghost"
                             className="h-9 px-3.5 rounded-xl text-red-600 text-xs font-bold hover:bg-red-50 disabled:opacity-50"
                         >
                             Reject
                         </Button>
-                        <Button 
+                        <Button
                             disabled={booking.status === "payment_pending"}
-                            onClick={() => onAccept(bookingId)} 
+                            onClick={() => onAccept(bookingId)}
                             className="h-9 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-200 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
                         >
                             {booking.status === "payment_pending" ? "Waiting..." : "Accept"}
@@ -157,15 +156,14 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                 {(type === "active" || type === "completed" || type === "cancelled" || type === "assigned") && (
                     <div className="flex items-center gap-2">
                         {(type === "active" || type === "assigned") && (booking.customerPhone || booking.phone) && (
-                            <a 
-                                href={isCallRestricted ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`} 
-                                className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${
-                                    isCallRestricted 
-                                    ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed opacity-60" 
-                                    : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"
-                                }`}
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
+                            <a
+                                href={isCallRestricted ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`}
+                                className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${isCallRestricted
+                                        ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed opacity-60"
+                                        : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"
+                                    }`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     if (isCallRestricted) {
                                         e.preventDefault();
                                         toast.error(`Call Restricted: Allowed only within 2 hours of the slot (${booking.slot?.time}).`);
@@ -179,13 +177,13 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <div className="flex">
-                                    <Button 
-                                        onClick={() => onNavigate(bookingId)} 
+                                    <Button
+                                        onClick={() => onNavigate(bookingId)}
                                         disabled={isPendingActivation && !canAfford}
-                                        variant={isPendingActivation ? "default" : "outline"} 
+                                        variant={isPendingActivation ? "default" : "outline"}
                                         className={`h-9 px-4 rounded-xl text-xs font-bold border-gray-200 transition-all group ${isPendingActivation ? "bg-amber-600 hover:bg-amber-700 text-white border-transparent" : "text-gray-700 hover:bg-gray-50"} disabled:opacity-50 disabled:cursor-not-allowed`}
                                     >
-                                        {isPendingActivation ? "Activate Job" : (type === "active" || type === "assigned") ? "Manage Job" : "View Details"} 
+                                        {isPendingActivation ? "Activate Job" : (type === "active" || type === "assigned") ? "Manage Job" : "View Details"}
                                         <ChevronRight className={`w-3.5 h-3.5 ml-1.5 transition-all group-hover:translate-x-0.5 ${isPendingActivation ? "text-white/80" : "text-gray-400"}`} />
                                     </Button>
                                 </div>
@@ -211,7 +209,7 @@ const ProviderBookingsPage = () => {
     });
 
     useEffect(() => {
-        try { sessionStorage.setItem("provider_bookings_tab", activeTab); } catch {}
+        try { sessionStorage.setItem("provider_bookings_tab", activeTab); } catch { }
     }, [activeTab]);
 
     const tabs = [
