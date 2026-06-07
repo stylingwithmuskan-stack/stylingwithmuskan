@@ -117,25 +117,9 @@ export const ProviderBookingProvider = ({ children }) => {
     }, [nowMs]);
 
     const isExpiredAssignmentForCurrentProvider = useCallback((booking) => {
-        const normalizedStatus = String(booking?.status || "").toLowerCase();
-        if (!["incoming", "pending", "Pending", "final_approved", "payment_pending", "advance_paid", "service_confirmed", "scheduled", "vendor_assigned", "vendor_reassigned", "confirmed"].includes(normalizedStatus)) return false;
-
-        // Use a 60-second grace period to handle clock skew between server and client
-        const gracePeriodMs = 60000;
-        const nowWithGrace = nowMs - gracePeriodMs;
-
-        if (booking?.expiresAt) {
-            const expiresAtMs = new Date(booking.expiresAt).getTime();
-            return Number.isFinite(expiresAtMs) && expiresAtMs <= nowWithGrace;
-        }
-
-        if (booking?.lastAssignedAt) {
-            const lastAssignedMs = new Date(booking.lastAssignedAt).getTime();
-            return Number.isFinite(lastAssignedMs) && (nowWithGrace - lastAssignedMs) >= acceptWindowMs;
-        }
-
+        // Disabled based on request: providers can accept at any time (10 min window removed)
         return false;
-    }, [nowMs, acceptWindowMs]);
+    }, []);
 
     // Only show bookings explicitly assigned to this provider
     const myBookings = bookings.filter((b) => {

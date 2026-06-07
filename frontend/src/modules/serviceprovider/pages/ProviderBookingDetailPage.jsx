@@ -300,24 +300,8 @@ const ProviderBookingDetailPage = () => {
 
     const getNextAction = () => {
         // Check if job is lapsed (only for non-started jobs)
-        const isLapsed = ["accepted", "vendor_assigned", "vendor_reassigned"].includes(booking?.status) && (
-            (() => {
-                if (!booking?.slot?.date || !booking?.slot?.time) return false;
-                try {
-                    const scheduledDate = new Date(booking.slot.date);
-                    const parts = booking.slot.time.split(' ');
-                    if (parts.length !== 2) return false;
-                    const [time, period] = parts;
-                    let [hours, minutes] = time.split(':').map(Number);
-                    if (period === 'PM' && hours !== 12) hours += 12;
-                    if (period === 'AM' && hours === 12) hours = 0;
-                    scheduledDate.setHours(hours, minutes, 0, 0);
-                    return Date.now() > scheduledDate.getTime();
-                } catch (e) {
-                    return false;
-                }
-            })()
-        );
+        // Disabled — bookings no longer auto-move to missed based on time
+        const isLapsed = false;
 
         if (isLapsed) {
             return {

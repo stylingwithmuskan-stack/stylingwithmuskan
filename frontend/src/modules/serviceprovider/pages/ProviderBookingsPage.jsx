@@ -88,7 +88,8 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                             <Clock className="w-3 h-3" /> Date Expired
                         </span>
                     )}
-                    {(type === "incoming" || type === "pending") && booking.expiresAt && <CountdownTimer expiresAt={booking.expiresAt} />}
+                    {/* Timer removed as providers can accept at any time */}
+                    {/* {(type === "incoming" || type === "pending") && booking.expiresAt && <CountdownTimer expiresAt={booking.expiresAt} />} */}
                     {booking.status === "payment_pending" && <span className="text-[10px] font-bold uppercase text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 flex items-center gap-1.5"><Timer className="w-3.5 h-3.5" /> Awaiting Customer</span>}
                     {type === "active" && <span className="text-[10px] font-bold uppercase text-green-500 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> {booking.status?.replace("_", " ") || ""}</span>}
                     {type === "assigned" && <span className="text-[10px] font-bold uppercase text-blue-500 flex items-center gap-1.5"><Zap className="w-3 h-3" /> Mandatory Job</span>}

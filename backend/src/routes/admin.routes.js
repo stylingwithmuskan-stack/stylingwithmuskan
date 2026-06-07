@@ -39,7 +39,7 @@ router.post(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-    
+
     // Check database for dynamic password
     const settings = await SystemSettings.findOne().lean();
     const dynamicPassword = settings?.adminPassword;
@@ -48,7 +48,7 @@ router.post(
     const defaultEmail = "admin@swm.local";
     const defaultPassword = "admin123";
     const confEmail = (process.env.ADMIN_EMAIL || ADMIN_EMAIL || (isDev ? defaultEmail : "")).trim();
-    
+
     // Use dynamic password if set, otherwise fallback
     const confPassword = (dynamicPassword || process.env.ADMIN_PASSWORD || ADMIN_PASSWORD || (isDev ? defaultPassword : ""));
 
@@ -162,12 +162,12 @@ router.get("/categories", requireRole("admin"), async (req, res) => {
     const regex = new RegExp(search, "i");
     q.$or = [{ name: regex }, { id: regex }];
   }
-  
+
   let query = Category.find(q);
   if (minimal === "true") {
     query = query.select("id name serviceType gender");
   }
-  
+
   const items = await query.lean();
   res.json({ categories: items });
 });
@@ -218,21 +218,21 @@ router.get("/services", requireRole("admin"), async (req, res) => {
     const regex = new RegExp(search, "i");
     q.$or = [{ name: regex }, { id: regex }, { description: regex }];
   }
-  
+
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const total = await Service.countDocuments(q);
-  
+
   let query = Service.find(q);
   if (minimal === "true") {
     query = query.select("id name category gender");
   } else {
     query = query.select("-gallery -steps");
   }
-  
+
   const items = await query.skip(skip).limit(parseInt(limit)).lean();
-    
-  res.json({ 
-    services: items, 
+
+  res.json({
+    services: items,
     total,
     page: parseInt(page),
     limit: parseInt(limit)
@@ -295,7 +295,7 @@ router.delete("/services/:id",
 );
 router.get("/leaves", requireRole("admin"), async (_req, res) => {
   const items = await LeaveRequest.find().sort({ createdAt: -1 }).lean();
-  
+
   // Enrich leaves with provider name and city
   const providerIds = [...new Set(items.map(i => i.providerId))].filter(Boolean);
   const providers = await ProviderAccount.find({ _id: { $in: providerIds } }, "name city").lean();
@@ -328,7 +328,7 @@ router.patch("/leaves/:id/approve", requireRole("admin"), async (req, res) => {
         respectProviderQuietHours: true,
       });
     }
-  } catch {}
+  } catch { }
   res.json({ leave: item });
 });
 
@@ -353,7 +353,7 @@ router.patch("/leaves/:id/reject", requireRole("admin"), async (req, res) => {
         respectProviderQuietHours: true,
       });
     }
-  } catch {}
+  } catch { }
   res.json({ leave: item });
 });
 
@@ -367,7 +367,7 @@ router.patch("/vendors/:id/status", requireRole("admin"), param("id").isString()
   if (nextStatus === "approved" && v?.cityId) {
     try {
       await City.findByIdAndUpdate(v.cityId, { activeVendorId: v._id.toString() });
-    } catch {}
+    } catch { }
   }
   try {
     if (v?._id) {
@@ -379,13 +379,13 @@ router.patch("/vendors/:id/status", requireRole("admin"), param("id").isString()
         message: st === "approved"
           ? "Your vendor account has been approved by admin."
           : st === "rejected"
-          ? "Your vendor account was rejected by admin."
-          : `Your vendor status was updated to ${st}.`,
+            ? "Your vendor account was rejected by admin."
+            : `Your vendor status was updated to ${st}.`,
         type: st === "approved" ? "vendor_approved" : "vendor_rejected",
         meta: { vendorId: v._id.toString(), status: st },
       });
     }
-  } catch {}
+  } catch { }
   res.json({ vendor: v });
 });
 
@@ -405,7 +405,7 @@ router.patch("/vendors/:id/approve-zones", requireRole("admin"), param("id").isS
         type: "vendor_zones_approved",
         meta: { vendorId: v._id.toString(), zones: v.zones },
       });
-    } catch {}
+    } catch { }
   }
   res.json({ vendor: v });
 });
@@ -422,7 +422,7 @@ router.patch("/vendors/:id/reject-zones", requireRole("admin"), param("id").isSt
       type: "vendor_zones_rejected",
       meta: { vendorId: v._id.toString() },
     });
-  } catch {}
+  } catch { }
   res.json({ vendor: v });
 });
 
@@ -446,7 +446,7 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
     updates.approvalStatus = status;
   }
   const p = await ProviderAccount.findByIdAndUpdate(req.params.id, updates, { new: true });
-  
+
   // Create default availability when provider is approved
   if (status === "approved" && p?._id) {
     try {
@@ -464,7 +464,7 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
       console.error("[Admin] Failed to invalidate slots on status change:", err);
     }
   }
-  
+
   try {
     if (p?._id) {
       // ✅ Cache invalidation for public content (to show Muskan immediately)
@@ -477,16 +477,16 @@ router.patch("/providers/:id/status", requireRole("admin"), param("id").isString
         message: status === "approved"
           ? (prevStatus === "blocked" ? "Your account has been unblocked by admin." : "Your profile has been approved by admin.")
           : status === "blocked"
-          ? "Your account has been blocked by admin."
-          : status === "rejected"
-          ? "Your profile was rejected by admin."
-          : `Your status was updated to ${status}.`,
+            ? "Your account has been blocked by admin."
+            : status === "rejected"
+              ? "Your profile was rejected by admin."
+              : `Your status was updated to ${status}.`,
         type: status === "approved" ? "provider_admin_approved" : "provider_rejected",
         meta: { providerId: p._id.toString(), status },
         respectProviderQuietHours: true,
       });
     }
-  } catch {}
+  } catch { }
   res.json({ provider: p });
 });
 
@@ -498,9 +498,9 @@ router.patch(
   upload.single("profilePhoto"),
   AdminController.updateProviderProfilePhoto
 );
-router.patch("/providers/:id/wallet/adjust", 
-  requireRole("admin"), 
-  param("id").isString(), 
+router.patch("/providers/:id/wallet/adjust",
+  requireRole("admin"),
+  param("id").isString(),
   body("amount").isNumeric(),
   body("type").isIn(["add", "deduct"]),
   body("reason").optional().isString(),
@@ -524,7 +524,7 @@ router.patch("/providers/:id/approve-zones", requireRole("admin"), param("id").i
         type: "provider_zones_approved",
         meta: { providerId: p._id.toString(), zones: p.zones },
       });
-    } catch {}
+    } catch { }
   }
   res.json({ provider: p });
 });
@@ -541,7 +541,7 @@ router.patch("/providers/:id/reject-zones", requireRole("admin"), param("id").is
       type: "provider_zones_rejected",
       meta: { providerId: p._id.toString() },
     });
-  } catch {}
+  } catch { }
   res.json({ provider: p });
 });
 
@@ -569,7 +569,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
     }
 
     const previousProviderId = String(existing.assignedProvider || "").trim();
-    
+
     // 2. Commission handling logic (aligned with vendor.controller.js)
     const commissionSettings = await CommissionSettings.findOne().lean();
     const rate = Number(commissionSettings?.rate || 20);
@@ -597,7 +597,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
 
       // Check new provider balance
       const hasBalance = Number(provider.credits || 0) >= required;
-      
+
       if (hasBalance) {
         // Deduct commission from new provider
         provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
@@ -627,7 +627,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
             meta: { bookingId: existing._id.toString(), amount: required },
             respectProviderQuietHours: true,
           });
-        } catch (notifyErr) {}
+        } catch (notifyErr) { }
       } else {
         return res.status(409).json({ error: "Insufficient wallet balance to assign this booking." });
       }
@@ -643,7 +643,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
     existing.vendorEscalated = false;
     existing.lastAssignedAt = now;
     existing.expiresAt = null; // Manual assignment should not expire automatically
-    
+
     const b = await existing.save();
 
     // ───── SCENARIO 3: REASSIGNMENT PENALTY/REWARD ─────
@@ -677,7 +677,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
               balanceAfter: prevProv.credits,
               meta: { title: "Reassignment Compensation (20%)", reason: "reassigned_from_you", toProvider: providerId },
             });
-            
+
             // Notify old provider
             try {
               await notify({
@@ -687,9 +687,9 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
                 meta: { bookingId: existing._id.toString(), amount: penaltyReward, reason: "reassignment_compensation" },
                 respectProviderQuietHours: true,
               });
-            } catch {}
+            } catch { }
           }
-          
+
           console.log(`[AdminReassign] Transfer logic: ₹${penaltyReward} from ${providerId} to ${previousProviderId}`);
         } catch (err) {
           console.error("[AdminReassign] Transfer logic failed:", err);
@@ -708,11 +708,11 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
         reason: "admin_assigned",
         status: "accepted"
       });
-      io?.of("/bookings").emit("status:update", { 
-        id: b._id.toString(), 
-        status: "vendor_assigned" 
+      io?.of("/bookings").emit("status:update", {
+        id: b._id.toString(),
+        status: "vendor_assigned"
       });
-    } catch (ioErr) {}
+    } catch (ioErr) { }
 
     // Invalidate slot cache
     try {
@@ -722,7 +722,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
           await invalidateProviderSlots(pid, b.slot.date);
         }
       }
-    } catch (slotErr) {}
+    } catch (slotErr) { }
 
     // Send push/app notifications
     try {
@@ -743,7 +743,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
           meta: { bookingId: b._id.toString() },
         });
       }
-    } catch (notifyErr) {}
+    } catch (notifyErr) { }
 
     res.json({ booking: b });
   } catch (error) {
@@ -952,17 +952,17 @@ router.get("/referral", requireRole("admin"), async (_req, res) => {
   res.json({ settings: s || { referrerBonus: 100, refereeBonus: 50, maxReferrals: 10, isActive: true } });
 });
 
-router.put("/referral", 
-  requireRole("admin"), 
-  body("referrerBonus").isNumeric(), 
-  body("refereeBonus").isNumeric(), 
-  body("maxReferrals").isNumeric(), 
-  body("isActive").isBoolean(), 
+router.put("/referral",
+  requireRole("admin"),
+  body("referrerBonus").isNumeric(),
+  body("refereeBonus").isNumeric(),
+  body("maxReferrals").isNumeric(),
+  body("isActive").isBoolean(),
   body("adminManagedCodes").optional().isArray(),
   async (req, res) => {
     const s = await ReferralSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
     res.json({ settings: s });
-});
+  });
 
 router.get("/commission", requireRole("admin"), async (_req, res) => {
   const s = await CommissionSettings.findOne().lean();
@@ -1041,7 +1041,7 @@ router.put(
   async (req, res) => {
     const s = await BookingSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
     res.json({ settings: s });
-});
+  });
 
 router.get("/performance-criteria", requireRole("admin"), async (_req, res) => {
   const s = await PerformanceSettings.findOne().lean();
@@ -1087,7 +1087,7 @@ router.put(
 
 router.get("/sos", requireRole("admin"), async (_req, res) => {
   const rawAlerts = await SOSAlert.find().sort({ createdAt: -1 }).lean();
-  
+
   const enrichedAlerts = await Promise.all(rawAlerts.map(async (alert) => {
     // If it already has userName, keep it
     if (alert.userName && alert.userName !== "Unknown Source") return alert;
@@ -1122,7 +1122,7 @@ router.get("/sos", requireRole("admin"), async (_req, res) => {
     } catch (err) {
       console.error("[SOS Enrichment] Failed for alert", alert._id, err.message);
     }
-    
+
     return alert;
   }));
 
@@ -1179,10 +1179,10 @@ router.post(
   }
 );
 
-router.put("/system-settings", 
-  requireRole("admin"), 
-  body("menSectionEnabled").isBoolean(), 
-  body("availableRoles").optional().isArray(), 
+router.put("/system-settings",
+  requireRole("admin"),
+  body("menSectionEnabled").isBoolean(),
+  body("availableRoles").optional().isArray(),
   body("adminPassword").optional().isString(),
   body("otp").optional().isString(),
   async (req, res) => {
@@ -1219,18 +1219,18 @@ router.put("/system-settings",
       }
 
       const s = await SystemSettings.findOneAndUpdate(
-        {}, 
-        { $set: updates }, 
+        {},
+        { $set: updates },
         { upsert: true, new: true, runValidators: true }
       );
-      
+
       console.log("[Admin] System settings updated:", updates);
       res.json({ settings: s });
     } catch (error) {
       console.error("[Admin] Error updating system settings:", error);
       res.status(500).json({ error: "Failed to update system settings" });
     }
-});
+  });
 
 // ───── CITIES & ZONES ─────
 router.get("/cities", requireRole("admin"), AdminController.listCities);
@@ -1299,7 +1299,7 @@ router.get("/booking-types", requireRole("admin"), async (req, res) => {
 });
 
 // POST /admin/booking-types - Create new booking type
-router.post("/booking-types", 
+router.post("/booking-types",
   requireRole("admin"),
   body("id").isString().notEmpty().trim()
     .matches(/^[a-z0-9_-]+$/).withMessage("ID must contain only lowercase letters, numbers, hyphens, and underscores (no spaces)"),
@@ -1314,40 +1314,40 @@ router.post("/booking-types",
 
     try {
       const { id, label, icon, description } = req.body;
-      
+
       // Additional validation: no spaces allowed in ID
       if (id.includes(' ')) {
-        return res.status(400).json({ 
-          error: "Booking type ID cannot contain spaces. Use hyphens or underscores instead (e.g., 'fast-return' or 'fast_return')" 
+        return res.status(400).json({
+          error: "Booking type ID cannot contain spaces. Use hyphens or underscores instead (e.g., 'fast-return' or 'fast_return')"
         });
       }
-      
+
       // Check if id already exists
       const existing = await BookingType.findOne({ id });
       if (existing) {
         return res.status(400).json({ error: "Booking type ID already exists" });
       }
-      
+
       const bookingType = await BookingType.create({
         id: id.toLowerCase().trim(),
         label: label.trim(),
         icon: icon.trim(),
         description: description.trim()
       });
-      
+
       // Invalidate cache
       await bumpContentVersion();
-      
+
       console.log(`[Admin] Created booking type: ${id}`);
       res.status(201).json({ bookingType });
     } catch (error) {
       console.error("[Admin] Error creating booking type:", error);
-      
+
       // Handle duplicate key error
       if (error.code === 11000) {
         return res.status(400).json({ error: "Booking type ID already exists" });
       }
-      
+
       res.status(500).json({ error: "Failed to create booking type" });
     }
   }
@@ -1369,24 +1369,24 @@ router.patch("/admin/booking-types/:id",
     try {
       const { id } = req.params;
       const updates = {};
-      
+
       if (req.body.label) updates.label = req.body.label.trim();
       if (req.body.icon) updates.icon = req.body.icon.trim();
       if (req.body.description) updates.description = req.body.description.trim();
-      
+
       const bookingType = await BookingType.findOneAndUpdate(
         { id },
         updates,
         { new: true }
       );
-      
+
       if (!bookingType) {
         return res.status(404).json({ error: "Booking type not found" });
       }
-      
+
       // Invalidate cache
       await bumpContentVersion();
-      
+
       console.log(`[Admin] Updated booking type: ${id}`);
       res.json({ bookingType });
     } catch (error) {
@@ -1408,24 +1408,24 @@ router.delete("/admin/booking-types/:id",
 
     try {
       const { id } = req.params;
-      
+
       console.log(`[Admin] Attempting to delete booking type with id: "${id}"`);
-      
+
       // Check if booking type exists first
       const existingType = await BookingType.findOne({ id });
       console.log(`[Admin] Found booking type:`, existingType);
-      
+
       if (!existingType) {
         console.log(`[Admin] Booking type not found with id: "${id}"`);
         return res.status(404).json({ error: `Booking type not found: ${id}` });
       }
-      
+
       // Check if booking type is in use
       const categoriesUsingType = await Category.countDocuments({ bookingType: id });
       const servicesUsingType = await Service.countDocuments({ bookingType: id });
-      
+
       if (categoriesUsingType > 0 || servicesUsingType > 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Cannot delete booking type that is in use",
           usage: {
             categories: categoriesUsingType,
@@ -1433,12 +1433,12 @@ router.delete("/admin/booking-types/:id",
           }
         });
       }
-      
+
       const bookingType = await BookingType.findOneAndDelete({ id });
-      
+
       // Invalidate cache
       await bumpContentVersion();
-      
+
       console.log(`[Admin] Successfully deleted booking type: ${id}`);
       res.json({ message: "Booking type deleted successfully" });
     } catch (error) {
