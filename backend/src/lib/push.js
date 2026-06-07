@@ -147,7 +147,7 @@ async function deactivateToken(fcmToken, error) {
 // buildFCMPayload
 // ---------------------------------------------------------------------------
 
-export function buildFCMPayload(notification) {
+export function buildFCMPayload(notification, platform = "all") {
   const title = String(notification.title || "").slice(0, 100);
   const body = String(notification.message || "").slice(0, 200);
   const link = normalizeLink(notification.link);
@@ -211,7 +211,7 @@ export function buildFCMPayload(notification) {
       link: String(link),
       type: String(notification.type),
       role: String(notification.recipientRole),
-      sound: String(sound),
+      sound: platform === "ios" ? "ringtone2.wav" : String(sound),
       image: imageUrl || "",
       click_action: "FLUTTER_NOTIFICATION_CLICK", 
     },
@@ -270,45 +270,64 @@ export async function sendPushForNotification(notification) {
   }
 
   console.log(`[push] Found ${devices.length} devices for recipient ${notification.recipientId}. Sending FCM...`);
-  const payload = buildFCMPayload(notification);
-  // Unique tokens only to avoid duplicates
-  const tokens = [...new Set(devices.map((d) => d.fcmToken))];
+  
+  const iosTokens = [...new Set(devices.filter(d => (d.platform || "").toLowerCase() === "ios").map((d) => d.fcmToken))];
+  const otherTokens = [...new Set(devices.filter(d => (d.platform || "").toLowerCase() !== "ios").map((d) => d.fcmToken))];
+
+  const sendBatch = async (tokens, payload) => {
+    let sent = 0;
+    let failed = 0;
+    for (let i = 0; i < tokens.length; i += PUSH_BATCH_SIZE) {
+      const batch = tokens.slice(i, i + PUSH_BATCH_SIZE);
+      try {
+        const response = await admin.messaging().sendEachForMulticast({
+          ...payload,
+          tokens: batch,
+        });
+
+        console.log(`[push] FCM Batch response: success=${response.successCount}, failure=${response.failureCount}`);
+        
+        for (let j = 0; j < response.responses.length; j++) {
+          const res = response.responses[j];
+          if (res.success) {
+            sent++;
+          } else {
+            failed++;
+            const code = res.error?.code;
+            const message = res.error?.message;
+            const device = devices.find(d => d.fcmToken === batch[j]);
+            console.error(`[push] Token ${batch[j].slice(-6)} failed. Platform: ${device?.platform || 'unknown'}, Role: ${device?.recipientRole || 'unknown'}, Code: ${code}, Message: ${message}`);
+            if (
+              code === "messaging/registration-token-not-registered" ||
+              code === "messaging/invalid-registration-token"
+            ) {
+              await deactivateToken(batch[j], code);
+            }
+          }
+        }
+      } catch (err) {
+        failed += batch.length;
+        console.error("[push] sendEachForMulticast error:", err);
+      }
+    }
+    return { sent, failed };
+  };
 
   let totalSent = 0;
   let totalFailed = 0;
 
-  for (let i = 0; i < tokens.length; i += PUSH_BATCH_SIZE) {
-    const batch = tokens.slice(i, i + PUSH_BATCH_SIZE);
-    try {
-      const response = await admin.messaging().sendEachForMulticast({
-        ...payload,
-        tokens: batch,
-      });
+  if (iosTokens.length > 0) {
+    const iosPayload = buildFCMPayload(notification, "ios");
+    const res = await sendBatch(iosTokens, iosPayload);
+    totalSent += res.sent;
+    totalFailed += res.failed;
+  }
 
-      console.log(`[push] FCM Batch response: success=${response.successCount}, failure=${response.failureCount}`);
-      
-      for (let j = 0; j < response.responses.length; j++) {
-        const res = response.responses[j];
-        if (res.success) {
-          totalSent++;
-        } else {
-          totalFailed++;
-          const code = res.error?.code;
-          const message = res.error?.message;
-          const device = devices.find(d => d.fcmToken === batch[j]);
-          console.error(`[push] Token ${batch[j].slice(-6)} failed. Platform: ${device?.platform || 'unknown'}, Role: ${device?.recipientRole || 'unknown'}, Code: ${code}, Message: ${message}`);
-          if (
-            code === "messaging/registration-token-not-registered" ||
-            code === "messaging/invalid-registration-token"
-          ) {
-            await deactivateToken(batch[j], code);
-          }
-        }
-      }
-    } catch (err) {
-      totalFailed += batch.length;
-      console.error("[push] sendEachForMulticast error:", err);
-    }
+  if (otherTokens.length > 0) {
+    const otherPayload = buildFCMPayload(notification, "android");
+    const res = await sendBatch(otherTokens, otherPayload);
+    totalSent += res.sent;
+    totalFailed += res.failed;
   }
 
   const now = new Date();
