@@ -161,6 +161,14 @@ export function buildFCMPayload(notification) {
             `${rawSound}.mp3`
   );
 
+  const iosSoundFile = rawSound === "default" ? "default" : (
+    rawSound === "ringtone" ? "ringtone2.wav" :
+    rawSound === "emergency" ? "sos_tone.wav" :
+    rawSound === "alert" ? "alert.wav" :
+    rawSound === "notification" || rawSound === "success" ? "massege_ting.wav" :
+    `${rawSound}.wav`
+  );
+
   const imageUrl = notification.image || null;
   const isUrgent = ["ringtone", "emergency", "alert", "success"].includes(rawSound);
 
@@ -187,7 +195,7 @@ export function buildFCMPayload(notification) {
     apns: {
       payload: {
         aps: {
-          sound: soundFile,
+          sound: iosSoundFile,
           badge: 1,
           critical: isUrgent,
           "mutable-content": imageUrl ? 1 : 0,
