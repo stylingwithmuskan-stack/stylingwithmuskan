@@ -1,6 +1,6 @@
 # Welcome to your Lovable project
 
-## Project info
+## Project info12
 
 **URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
