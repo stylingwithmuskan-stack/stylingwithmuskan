@@ -796,23 +796,21 @@ export async function metricsCustomersByMonth(req, res) {
   const startPeriod = addMonths(period, -(months - 1));
   const startRange = monthRangeUtc(startPeriod, tz).start;
 
-  const agg = await Booking.aggregate([
+  const userCityQuery = city ? { "addresses.city": new RegExp("^" + city.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&") + "$", "i") } : {};
+
+  const agg = await User.aggregate([
     {
       $match: {
         createdAt: { $gte: startRange, $lt: endRange },
-        ...cityPredicate(city),
-        customerId: { $nin: [null, ""] },
+        ...userCityQuery,
       },
     },
     {
       $group: {
-        _id: {
-          month: { $dateToString: { format: "%Y-%m", date: "$createdAt", timezone: tz } },
-          customerId: "$customerId",
-        },
+        _id: { $dateToString: { format: "%Y-%m", date: "$createdAt", timezone: tz } },
+        customers: { $sum: 1 },
       },
     },
-    { $group: { _id: "$_id.month", customers: { $sum: 1 } } },
     { $sort: { _id: 1 } },
   ]);
 
@@ -841,24 +839,22 @@ export async function metricsProvidersByMonth(req, res) {
   const startPeriod = addMonths(period, -(months - 1));
   const startRange = monthRangeUtc(startPeriod, tz).start;
 
-  // Active SPs inferred from bookings in each month (distinct assignedProvider), filtered by booking city + time range.
-  const agg = await Booking.aggregate([
+  const cityQuery = city ? { city: new RegExp("^" + city.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&") + "$", "i") } : {};
+
+  const agg = await ProviderAccount.aggregate([
     {
       $match: {
         createdAt: { $gte: startRange, $lt: endRange },
-        ...cityPredicate(city),
-        assignedProvider: { $nin: [null, ""] },
+        registrationComplete: true,
+        ...cityQuery,
       },
     },
     {
       $group: {
-        _id: {
-          month: { $dateToString: { format: "%Y-%m", date: "$createdAt", timezone: tz } },
-          providerId: "$assignedProvider",
-        },
+        _id: { $dateToString: { format: "%Y-%m", date: "$createdAt", timezone: tz } },
+        providers: { $sum: 1 },
       },
     },
-    { $group: { _id: "$_id.month", providers: { $sum: 1 } } },
     { $sort: { _id: 1 } },
   ]);
 

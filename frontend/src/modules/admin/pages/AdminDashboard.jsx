@@ -423,7 +423,7 @@ export default function AdminDashboard() {
                     <Card className="border-border/50 shadow-none">
                         <CardHeader>
                             <CardTitle className="text-base font-bold">Customers</CardTitle>
-                            <CardDescription className="text-xs">Monthly active customers</CardDescription>
+                            <CardDescription className="text-xs">Monthly registered customers</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <ResponsiveContainer width="100%" height={220}>
@@ -443,7 +443,7 @@ export default function AdminDashboard() {
                     <Card className="border-border/50 shadow-none">
                         <CardHeader>
                             <CardTitle className="text-base font-bold">Service Providers</CardTitle>
-                            <CardDescription className="text-xs">Monthly active providers</CardDescription>
+                            <CardDescription className="text-xs">Monthly registered providers</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <ResponsiveContainer width="100%" height={220}>
