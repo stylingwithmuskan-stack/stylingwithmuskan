@@ -23,7 +23,7 @@ const ServiceDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { gender } = useGenderTheme();
-  const { cartItems, addToCart, updateQuantity, setIsCartOpen, selectedSlot: globalSlot, setSelectedSlot: setGlobalSlot } = useCart();
+  const { cartItems, addToCart, updateQuantity, setIsCartOpen, selectedSlot: globalSlot, setSelectedSlot: setGlobalSlot, setIsFloatingSummaryOpen } = useCart();
   const { isLoggedIn, user } = useAuth();
   const { services, categories, serviceTypes, providers: mockProviders, checkAvailability } = useUserModuleData();
   const [service, setService] = useState(services.find((s) => s.id === id));
@@ -179,21 +179,7 @@ const ServiceDetail = () => {
     });
   };
 
-  const handleViewCart = () => {
-    if (!isLoggedIn) {
-      navigate('/login');
-      return;
-    }
-    setIsCartOpen(true);
-  };
 
-  const handleBookingAction = () => {
-    if (!isLoggedIn) {
-      navigate('/login');
-      return;
-    }
-    handleViewCart();
-  };
 
   return (
     <div className="min-h-screen bg-background pb-32">
@@ -520,7 +506,10 @@ const ServiceDetail = () => {
             <div className="flex items-center gap-3">
               {qty === 0 ? (
                 <button
-                  onClick={() => addToCart(service, 1)}
+                  onClick={() => {
+                    addToCart(service, 1);
+                    setIsFloatingSummaryOpen(true);
+                  }}
                   className="px-6 py-2 rounded-full border-2 border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-colors"
                 >
                   ADD
@@ -542,7 +531,10 @@ const ServiceDetail = () => {
                     {qty}
                   </motion.span>
                   <button
-                    onClick={() => updateQuantity(service.id, 1)}
+                    onClick={() => {
+                        updateQuantity(service.id, 1);
+                        setIsFloatingSummaryOpen(true);
+                    }}
                     className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity"
                   >
                     <Plus className="w-4 h-4" />
@@ -658,57 +650,7 @@ const ServiceDetail = () => {
         </motion.div>
       </div>
 
-      {/* ===== STICKY BOTTOM BAR ===== */}
-      <motion.div
-        initial={{ y: 100 }}
-        animate={{ y: 0 }}
-        className="fixed bottom-0 left-0 right-0 glass-strong border-t border-border p-4 z-40 bg-background/80 backdrop-blur-xl"
-      >
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black">Total</p>
-              <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-black uppercase tracking-tighter border border-primary/20">
-                {serviceTypes.find(t => t.id === categories.find(c => c.id === service.category)?.serviceType)?.label || "Service"}
-              </span>
-            </div>
-            <motion.p
-              key={qty}
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              className="text-xl md:text-2xl font-black text-primary"
-            >
-              ₹{(service.price * qty).toLocaleString()}
-            </motion.p>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* View Cart Button - Directly navigates to cart */}
-            {!isAvailable ? (
-              <Button
-                disabled
-                className="flex-1 h-12 gap-2 rounded-xl font-bold bg-muted text-muted-foreground px-6 min-w-[140px]"
-              >
-                Currently Unavailable
-              </Button>
-            ) : qty === 0 ? (
-              <Button
-                disabled
-                className="flex-1 h-12 gap-2 rounded-xl font-bold bg-muted text-muted-foreground px-6 min-w-[140px]"
-              >
-                Select Quantity
-              </Button>
-            ) : (
-              <Button
-                onClick={handleViewCart}
-                className="flex-1 h-12 gap-2 rounded-xl transition-all duration-300 font-bold bg-primary text-primary-foreground glow-primary px-6 min-w-[140px]"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                View Cart
-              </Button>
-            )}
-          </div>
-        </div>
-      </motion.div>
+
     </div>
   );
 };
