@@ -29,8 +29,8 @@ const statusSteps = [
 const ProviderBookingDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { 
-        bookings, updateBookingStatus, requestPayment, verifyOTP, 
+    const {
+        bookings, updateBookingStatus, requestPayment, verifyOTP,
         addBeforeImages, addAfterImages, addProductImages, addProviderImages,
         removeBeforeImage, removeAfterImage, removeProductImage, removeProviderImage,
         updateLiveLocation, activateManualAssignment
@@ -66,12 +66,12 @@ const ProviderBookingDetailPage = () => {
         // Check if starting too early (only for travelling status)
         if (next === "travelling" && booking?.slot?.date && booking?.slot?.time) {
             const timeStatus = getBookingTimeStatus(booking.slot.date, booking.slot.time);
-            
+
             if (timeStatus.status === "block") {
                 toast.error(`Too Early: ${timeStatus.message}`);
                 return;
             }
-            
+
             if (timeStatus.status === "warn") {
                 setPendingStatusUpdate(next);
                 setShowEarlyStartWarning(true);
@@ -96,7 +96,7 @@ const ProviderBookingDetailPage = () => {
     const getBookingTimeStatus = (dateStr, timeStr) => {
         try {
             if (!dateStr || !timeStr) return { status: "allow" };
-            
+
             // Parse scheduled date
             let scheduledDate = new Date(dateStr);
             const [time, period] = timeStr.split(' ');
@@ -104,29 +104,29 @@ const ProviderBookingDetailPage = () => {
             if (period === 'PM' && hours !== 12) hours += 12;
             if (period === 'AM' && hours === 12) hours = 0;
             scheduledDate.setHours(hours, minutes, 0, 0);
-            
+
             const now = new Date();
             const timeDiff = scheduledDate.getTime() - now.getTime();
             const hoursDiff = timeDiff / (1000 * 60 * 60);
-            
+
             // More than 2 hours early OR different future date = BLOCK
             // (Note: simple date comparison to prevent starting tomorrow's jobs today even if < 24h)
             const todayStr = now.toISOString().split('T')[0];
             const isFutureDate = dateStr > todayStr;
 
             if (isFutureDate || hoursDiff > 2) {
-                return { 
-                    status: "block", 
+                return {
+                    status: "block",
                     message: `Scheduled for ${dateStr} at ${timeStr}`,
-                    diffHours: hoursDiff 
+                    diffHours: hoursDiff
                 };
             }
-            
+
             // Between 1 and 2 hours early = WARN
             if (hoursDiff > 1) {
                 return { status: "warn", diffHours: hoursDiff };
             }
-            
+
             // Less than 1 hour early = ALLOW
             return { status: "allow" };
         } catch (error) {
@@ -270,16 +270,16 @@ const ProviderBookingDetailPage = () => {
             existing.unshift(fb);
             localStorage.setItem("muskan-feedback", JSON.stringify(existing));
         }
-        
+
         // Update booking status to completed
         updateBookingStatus(bookingId, "completed");
-        
+
         // Close modal
         setShowComplete(false);
-        
+
         // Show success message
         toast.success("Booking completed successfully!");
-        
+
         // Navigate to dashboard after a short delay
         setTimeout(() => {
             navigate("/provider/dashboard");
@@ -318,7 +318,7 @@ const ProviderBookingDetailPage = () => {
             case "vendor_reassigned": {
                 // Check if commission is pending activation
                 const isPendingActivation = booking.commissionAmount > 0 && !booking.commissionChargedAt;
-                
+
                 if (isPendingActivation) {
                     const walletBalance = provider?.credits || 0;
                     const canAfford = walletBalance >= booking.commissionAmount;
@@ -333,18 +333,18 @@ const ProviderBookingDetailPage = () => {
                 }
 
                 // Mandatory booking - no accept/reject, only "Manage Jobs" button
-                return { 
-                    label: "Manage Jobs", 
-                    icon: Briefcase, 
+                return {
+                    label: "Manage Jobs",
+                    icon: Briefcase,
                     action: () => updateBookingStatus(bookingId, "accepted"),
                     disabled: false
                 };
             }
             case "accepted": {
                 const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
-                return { 
-                    label: timeStatus.status === "block" ? "Job Locked" : "Start Travelling", 
-                    icon: Navigation, 
+                return {
+                    label: timeStatus.status === "block" ? "Job Locked" : "Start Travelling",
+                    icon: Navigation,
                     action: () => handleUpdateStatus("travelling"),
                     disabled: timeStatus.status === "block"
                 };
@@ -534,10 +534,10 @@ const ProviderBookingDetailPage = () => {
                     <span className={`px-2.5 py-1 text-[9px] font-black uppercase rounded-md tracking-widest ${booking.status === 'in_progress' ? 'bg-amber-100 text-amber-700' : booking.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
                         {booking.status?.replace("_", " ") || ""}
                     </span>
-                    
+
                     {/* Chat Button in Header */}
                     {["accepted", "travelling", "arrived", "in_progress", "payment", "documentation", "completed"].includes(booking?.status?.toLowerCase()) && (
-                        <button 
+                        <button
                             onClick={() => setShowChat(true)}
                             className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 hover:bg-purple-100 transition-colors relative"
                         >
@@ -561,19 +561,18 @@ const ProviderBookingDetailPage = () => {
                         </div>
                     </div>
                     {(booking.customerPhone || booking.phone) && !["in_progress", "payment", "documentation", "completed"].includes(booking?.status) && (
-                        <a 
-                            href={isCallRestricted ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`} 
+                        <a
+                            href={isCallRestricted ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`}
                             onClick={(e) => {
                                 if (isCallRestricted) {
                                     e.preventDefault();
                                     toast.error(`Call Restricted: Communication is allowed only within 2 hours of the scheduled slot (${booking.slot?.time}).`);
                                 }
                             }}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black transition-all active:scale-95 uppercase tracking-widest ${
-                                isCallRestricted 
-                                ? "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none" 
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black transition-all active:scale-95 uppercase tracking-widest ${isCallRestricted
+                                ? "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none"
                                 : "bg-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700"
-                            }`}
+                                }`}
                         >
                             <Phone className="w-3.5 h-3.5" /> Call Now
                         </a>
@@ -625,12 +624,12 @@ const ProviderBookingDetailPage = () => {
                 {/* Status Progression */}
                 <div className="bg-white border border-gray-100 rounded-[24px] p-6 shadow-sm shadow-purple-50">
                     <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-8 text-center sm:text-left">Job Progression</h3>
-                    
+
                     {/* Horizontal Stepper (Desktop) */}
                     <div className="hidden sm:block">
                         <div className="flex items-center justify-between relative px-2">
                             <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-[3px] bg-gray-100 z-0 rounded-full" />
-                            <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-[3px] bg-purple-500 z-0 rounded-full transition-all duration-500" style={{ width: `${Math.max(0, currentIdx) * (100/6)}%` }} />
+                            <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-[3px] bg-purple-500 z-0 rounded-full transition-all duration-500" style={{ width: `${Math.max(0, currentIdx) * (100 / 6)}%` }} />
 
                             {statusSteps.map((step, i) => {
                                 const done = i <= currentIdx;
@@ -660,9 +659,9 @@ const ProviderBookingDetailPage = () => {
                     <div className="sm:hidden relative pl-4 space-y-6">
                         {/* Vertical Progress Line */}
                         <div className="absolute left-8 top-2 bottom-2 w-1 bg-gray-50 rounded-full" />
-                        <div 
-                            className="absolute left-8 top-2 w-1 bg-purple-500 rounded-full transition-all duration-700" 
-                            style={{ height: `${(currentIdx / 6) * 100}%` }} 
+                        <div
+                            className="absolute left-8 top-2 w-1 bg-purple-500 rounded-full transition-all duration-700"
+                            style={{ height: `${(currentIdx / 6) * 100}%` }}
                         />
 
                         {statusSteps.map((step, i) => {
@@ -786,7 +785,7 @@ const ProviderBookingDetailPage = () => {
                             <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 flex items-center gap-2">
                                 <Shield className="w-3.5 h-3.5 text-amber-500" /> Provider Verification
                             </h3>
-                            
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {[
                                     { key: "before", label: "Before Service", icon: Camera, data: booking.beforeImages || [], addFn: addBeforeImages, removeFn: removeBeforeImage, show: true, capture: "environment", isMultiple: true },
@@ -801,7 +800,7 @@ const ProviderBookingDetailPage = () => {
                                                 <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">{phase.data.length} Uploaded</span>
                                             )}
                                         </div>
-                                        
+
                                         <div className="bg-gray-50/50 rounded-2xl border border-gray-100 p-3 min-h-[140px] flex flex-col justify-center relative">
                                             {phase.data.length > 0 ? (
                                                 <div className="flex gap-2.5 flex-wrap justify-center sm:justify-start">
@@ -809,7 +808,7 @@ const ProviderBookingDetailPage = () => {
                                                         <div key={i} className="relative w-24 h-24 rounded-xl bg-gray-100 overflow-hidden border border-gray-200 shadow-sm group">
                                                             <img src={img} className="w-full h-full object-cover" alt="" />
                                                             {booking.status !== "completed" && (
-                                                                <button 
+                                                                <button
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         if (window.confirm("Remove this photo?")) {
@@ -823,10 +822,10 @@ const ProviderBookingDetailPage = () => {
                                                             )}
                                                         </div>
                                                     ))}
-                                                    
+
                                                     {/* Add more button */}
                                                     {booking.status !== "completed" && (
-                                                        <label 
+                                                        <label
                                                             className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 bg-white flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all active:scale-95"
                                                             onClick={async (e) => {
                                                                 if (isFlutterWebView()) {
@@ -844,9 +843,9 @@ const ProviderBookingDetailPage = () => {
                                                                 }
                                                             }}
                                                         >
-                                                            <input 
-                                                                type="file" 
-                                                                accept="image/*" 
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
                                                                 capture={phase.capture}
                                                                 multiple={phase.isMultiple}
                                                                 className="hidden"
@@ -860,7 +859,7 @@ const ProviderBookingDetailPage = () => {
                                                                             setIsUploading(false);
                                                                         }
                                                                     }
-                                                                }} 
+                                                                }}
                                                             />
                                                             <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center mb-1">
                                                                 <Plus className="w-4 h-4 text-gray-400" />
@@ -872,7 +871,7 @@ const ProviderBookingDetailPage = () => {
                                             ) : (
                                                 /* Show upload prompt if no photos OR message if completed */
                                                 booking.status !== "completed" ? (
-                                                    <label 
+                                                    <label
                                                         className="flex flex-col items-center justify-center py-6 cursor-pointer hover:bg-white hover:shadow-sm transition-all rounded-xl group border-2 border-dashed border-transparent hover:border-purple-100"
                                                         onClick={async (e) => {
                                                             if (isFlutterWebView()) {
@@ -890,9 +889,9 @@ const ProviderBookingDetailPage = () => {
                                                             }
                                                         }}
                                                     >
-                                                        <input 
-                                                            type="file" 
-                                                            accept="image/*" 
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
                                                             capture={phase.capture}
                                                             multiple={phase.isMultiple}
                                                             className="hidden"
@@ -906,7 +905,7 @@ const ProviderBookingDetailPage = () => {
                                                                         setIsUploading(false);
                                                                     }
                                                                 }
-                                                            }} 
+                                                            }}
                                                         />
                                                         <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                                             <phase.icon className="w-6 h-6 text-purple-600" />
@@ -1060,9 +1059,9 @@ const ProviderBookingDetailPage = () => {
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
                             className="relative w-full max-w-xl mx-auto"
                         >
-                            <BookingChat 
-                                bookingId={bookingId} 
-                                onClose={() => setShowChat(false)} 
+                            <BookingChat
+                                bookingId={bookingId}
+                                onClose={() => setShowChat(false)}
                             />
                         </motion.div>
                     </div>

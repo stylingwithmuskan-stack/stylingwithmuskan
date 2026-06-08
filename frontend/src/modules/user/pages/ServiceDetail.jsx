@@ -28,7 +28,7 @@ const ServiceDetail = () => {
   const { services, categories, serviceTypes, providers: mockProviders, checkAvailability } = useUserModuleData();
   const [service, setService] = useState(services.find((s) => s.id === id));
 
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -522,26 +522,37 @@ const ServiceDetail = () => {
               <p className="text-xs text-muted-foreground mt-0.5">Select number of sessions</p>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setQty(Math.max(1, qty - 1))}
-                className="w-9 h-9 rounded-full bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <motion.span
-                key={qty}
-                initial={{ scale: 0.5 }}
-                animate={{ scale: 1 }}
-                className="font-bold text-lg w-8 text-center"
-              >
-                {qty}
-              </motion.span>
-              <button
-                onClick={() => setQty(qty + 1)}
-                className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+              {qty === 0 ? (
+                <button
+                  onClick={() => setQty(1)}
+                  className="px-6 py-2 rounded-full border-2 border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-colors"
+                >
+                  ADD
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setQty(Math.max(0, qty - 1))}
+                    className="w-9 h-9 rounded-full bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <motion.span
+                    key={qty}
+                    initial={{ scale: 0.5 }}
+                    animate={{ scale: 1 }}
+                    className="font-bold text-lg w-8 text-center"
+                  >
+                    {qty}
+                  </motion.span>
+                  <button
+                    onClick={() => setQty(qty + 1)}
+                    className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -682,6 +693,13 @@ const ServiceDetail = () => {
                 className="flex-1 h-12 gap-2 rounded-xl font-bold bg-muted text-muted-foreground px-6 min-w-[140px]"
               >
                 Currently Unavailable
+              </Button>
+            ) : qty === 0 ? (
+              <Button
+                disabled
+                className="flex-1 h-12 gap-2 rounded-xl font-bold bg-muted text-muted-foreground px-6 min-w-[140px]"
+              >
+                Select Quantity
               </Button>
             ) : (
               <Button
