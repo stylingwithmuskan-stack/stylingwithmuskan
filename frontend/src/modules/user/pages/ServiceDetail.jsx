@@ -23,12 +23,13 @@ const ServiceDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { gender } = useGenderTheme();
-  const { cartItems, addToCart, setIsCartOpen, selectedSlot: globalSlot, setSelectedSlot: setGlobalSlot } = useCart();
+  const { cartItems, addToCart, updateQuantity, setIsCartOpen, selectedSlot: globalSlot, setSelectedSlot: setGlobalSlot } = useCart();
   const { isLoggedIn, user } = useAuth();
   const { services, categories, serviceTypes, providers: mockProviders, checkAvailability } = useUserModuleData();
   const [service, setService] = useState(services.find((s) => s.id === id));
 
-  const [qty, setQty] = useState(0);
+  const cartItem = cartItems.find((item) => item.id === service?.id);
+  const qty = cartItem ? cartItem.quantity : 0;
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -178,16 +179,12 @@ const ServiceDetail = () => {
     });
   };
 
-  const handleAddToCart = () => {
+  const handleViewCart = () => {
     if (!isLoggedIn) {
       navigate('/login');
       return;
     }
-
-    addToCart(service, qty);
-    setAddedToCart(true);
     setIsCartOpen(true);
-    setTimeout(() => setAddedToCart(false), 2000);
   };
 
   const handleBookingAction = () => {
@@ -195,8 +192,7 @@ const ServiceDetail = () => {
       navigate('/login');
       return;
     }
-    handleAddToCart();
-    setIsCartOpen(true);
+    handleViewCart();
   };
 
   return (
@@ -524,7 +520,7 @@ const ServiceDetail = () => {
             <div className="flex items-center gap-3">
               {qty === 0 ? (
                 <button
-                  onClick={() => setQty(1)}
+                  onClick={() => addToCart(service, 1)}
                   className="px-6 py-2 rounded-full border-2 border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-colors"
                 >
                   ADD
@@ -532,7 +528,7 @@ const ServiceDetail = () => {
               ) : (
                 <>
                   <button
-                    onClick={() => setQty(Math.max(0, qty - 1))}
+                    onClick={() => updateQuantity(service.id, -1)}
                     className="w-9 h-9 rounded-full bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors"
                   >
                     <Minus className="w-4 h-4" />
@@ -546,7 +542,7 @@ const ServiceDetail = () => {
                     {qty}
                   </motion.span>
                   <button
-                    onClick={() => setQty(qty + 1)}
+                    onClick={() => updateQuantity(service.id, 1)}
                     className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity"
                   >
                     <Plus className="w-4 h-4" />
@@ -686,7 +682,7 @@ const ServiceDetail = () => {
             </motion.p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Add to Cart Button - Directly navigates to cart */}
+            {/* View Cart Button - Directly navigates to cart */}
             {!isAvailable ? (
               <Button
                 disabled
@@ -703,11 +699,11 @@ const ServiceDetail = () => {
               </Button>
             ) : (
               <Button
-                onClick={handleAddToCart}
+                onClick={handleViewCart}
                 className="flex-1 h-12 gap-2 rounded-xl transition-all duration-300 font-bold bg-primary text-primary-foreground glow-primary px-6 min-w-[140px]"
               >
                 <ShoppingCart className="w-5 h-5" />
-                Add to Cart
+                View Cart
               </Button>
             )}
           </div>
