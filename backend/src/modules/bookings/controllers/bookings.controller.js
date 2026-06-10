@@ -800,6 +800,31 @@ export async function create(req, res) {
     });
   }
 
+  // Trigger VoIP Push to iOS providers for background ringing
+  try {
+    const { sendVoipPush } = await import("../../../lib/push.js");
+    const PushDeviceModule = await import("../../../models/PushDevice.js");
+    const PushDevice = PushDeviceModule.default;
+    
+    // We send VoIP to the candidate providers (or the assigned one)
+    const targetProviderIds = assignedProvider ? [assignedProvider] : candidateProviders;
+    
+    if (targetProviderIds && targetProviderIds.length > 0) {
+      const devices = await PushDevice.find({
+        recipientId: { $in: targetProviderIds },
+        platform: { $regex: /^ios$/i },
+        voipToken: { $exists: true, $ne: "" },
+        isActive: true
+      }).lean();
+
+      for (const device of devices) {
+        await sendVoipPush(device.voipToken, bookingId, req.user.name || "Customer", "provider");
+      }
+    }
+  } catch (err) {
+    console.error("[Booking] VoIP Push error:", err);
+  }
+
   // Notifications will be sent after payment verification or COD confirmation.
 }
 

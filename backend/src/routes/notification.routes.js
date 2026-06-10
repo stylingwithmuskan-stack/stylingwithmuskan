@@ -100,29 +100,33 @@ router.post("/push/register", flexibleAuth, async (req, res) => {
     const body = req.body || {};
     // Accept both { token, platform } (SOP style) and { fcmToken, deviceKey } (internal style)
     const fcmToken = body.fcmToken || body.token || "";
+    const voipToken = body.voipToken || "";
     const platform = body.platform || "web";
     const deviceKey = body.deviceKey || body.token || "";  // fall back to token as deviceKey if not provided
     const permission = body.permission || "granted";
     const enabled = body.enabled !== false;
 
-    if (!fcmToken) {
-      return res.status(400).json({ error: "token (or fcmToken) is required" });
+    if (!fcmToken && !voipToken) {
+      return res.status(400).json({ error: "token (or fcmToken/voipToken) is required" });
     }
+
+    const updateFields = {
+      recipientId,
+      recipientRole,
+      platform,
+      deviceKey,
+      permission,
+      isActive: true,
+      lastSeenAt: new Date(),
+      preferences: { enabled: enabled !== false },
+      lastError: "",
+    };
+    if (fcmToken) updateFields.fcmToken = fcmToken;
+    if (voipToken) updateFields.voipToken = voipToken;
 
     const device = await PushDevice.findOneAndUpdate(
       { recipientId, recipientRole, deviceKey },
-      {
-        recipientId,
-        recipientRole,
-        fcmToken,
-        platform,
-        deviceKey,
-        permission,
-        isActive: true,
-        lastSeenAt: new Date(),
-        preferences: { enabled: enabled !== false },
-        lastError: "",
-      },
+      updateFields,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 

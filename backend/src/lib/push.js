@@ -67,6 +67,8 @@ export let pushEnabled = false;
 })();
 
 export let apnProvider = null;
+export let voipApnProvider = null;
+
 (function initApn() {
   if (process.env.APN_KEY && process.env.APN_KEY_ID && process.env.APN_TEAM_ID) {
     try {
@@ -82,6 +84,22 @@ export let apnProvider = null;
     } catch (e) {
       console.error("[push] ❌ APN init error:", e);
     }
+  }
+
+  try {
+    const certPath = path.resolve(__dirname, "../config/Certificates.p12");
+    if (fs.existsSync(certPath)) {
+      voipApnProvider = new apn.Provider({
+        pfx: certPath,
+        passphrase: process.env.VOIP_CERT_PASSWORD || "", // empty or from env
+        production: process.env.NODE_ENV === "production"
+      });
+      console.log(`[push] ✅ VoIP APN Provider initialized successfully with Certificates.p12`);
+    } else {
+      console.warn(`[push] ⚠️ VoIP certificate not found at ${certPath}`);
+    }
+  } catch (e) {
+    console.error("[push] ❌ VoIP APN init error:", e);
   }
 })();
 
@@ -486,4 +504,50 @@ export async function isDuplicatePush(recipientId, dedupeKey, windowMs) {
     createdAt: { $gte: new Date(Date.now() - windowMs) },
   }).lean();
   return doc !== null;
+}
+
+// ---------------------------------------------------------------------------
+// sendVoipPush
+// ---------------------------------------------------------------------------
+
+export async function sendVoipPush(voipToken, bookingId, customerName, role = "provider") {
+  if (!voipApnProvider) {
+    console.error("[push] ❌ voipApnProvider is not initialized.");
+    return false;
+  }
+  if (!voipToken) {
+    console.error("[push] ❌ voipToken is missing.");
+    return false;
+  }
+
+  const notification = new apn.Notification();
+  // Ensure the topic has .voip suffix for VoIP pushes
+  const baseTopic = role === "provider" 
+    ? (process.env.APN_TOPIC_PROVIDER || "com.company.swmprovider") 
+    : (process.env.APN_TOPIC || "com.stylingwithmuskan");
+  notification.topic = `${baseTopic}.voip`;
+  notification.pushType = "voip";
+
+  notification.payload = {
+    id: String(bookingId),
+    nameCaller: "New Booking Alert!",
+    handle: `${customerName || "Customer"} requested a service`,
+    type: 0,
+    extra: {
+      bookingId: String(bookingId),
+      customerName: customerName || ""
+    }
+  };
+
+  try {
+    const result = await voipApnProvider.send(notification, voipToken);
+    console.log(`[push] VoIP Push sent. Success: ${result.sent.length}, Failed: ${result.failed.length}`);
+    if (result.failed.length > 0) {
+      console.error(`[push] VoIP Push failure details:`, JSON.stringify(result.failed, null, 2));
+    }
+    return result.sent.length > 0;
+  } catch (error) {
+    console.error("[push] ❌ VoIP Push error:", error);
+    return false;
+  }
 }

@@ -9,6 +9,7 @@ const PushDeviceSchema = new mongoose.Schema(
       enum: ["user", "provider", "vendor", "admin"],
     },
     fcmToken: { type: String, required: true },
+    voipToken: { type: String, default: "" },
     platform: { type: String, default: "web" },
     deviceKey: { type: String, required: true },
     permission: { type: String, default: "default" },
