@@ -100,7 +100,7 @@ router.post("/push/register", flexibleAuth, async (req, res) => {
     const body = req.body || {};
     // Accept both { token, platform } (SOP style) and { fcmToken, deviceKey } (internal style)
     const fcmToken = body.fcmToken || body.token || "";
-    const voipToken = body.voipToken || "";
+    const voipToken = body.voipToken || body.voiptoken || body.voip_token || "";
     const platform = body.platform || "web";
     const deviceKey = body.deviceKey || body.token || "";  // fall back to token as deviceKey if not provided
     const permission = body.permission || "granted";
