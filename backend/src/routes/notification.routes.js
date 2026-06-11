@@ -26,7 +26,7 @@ router.get("/test-sound", async (req, res) => {
   try {
     const { recipientId, role = "provider", sound = "ringtone" } = req.query;
     if (!recipientId) return res.status(400).send("Missing recipientId query param. Example: /notifications/test-sound?recipientId=123&role=provider");
-    
+
     const { notify } = await import("../lib/notify.js");
     await notify({
       recipientId,
@@ -37,7 +37,7 @@ router.get("/test-sound", async (req, res) => {
       meta: { sound },
       emit: true
     });
-    
+
     res.send(`<h1>✅ Test Triggered</h1><p>Sound <b>'${sound}'</b> sent to <b>${role}</b> (ID: ${recipientId}).</p><p>Check your browser console for logs!</p>`);
   } catch (err) {
     res.status(500).send(err.message);
@@ -53,9 +53,9 @@ router.get("/", flexibleAuth, async (req, res) => {
     const notifications = await Notification.find(baseQuery)
       .sort({ createdAt: -1 })
       .limit(50);
-    
+
     const unreadCount = await Notification.countDocuments({ ...baseQuery, isRead: false });
-    
+
     res.json({ notifications, unreadCount });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -138,8 +138,8 @@ router.post("/push/register", flexibleAuth, async (req, res) => {
     // We do NOT deactivate tokens for different roles on the same device, because this app supports
     // multi-role login (e.g., same person logged in as both "user" and "provider" simultaneously).
     await PushDevice.updateMany(
-      { 
-        fcmToken, 
+      {
+        fcmToken,
         recipientRole,
         recipientId: { $ne: recipientId }
       },
@@ -204,11 +204,11 @@ router.get("/push/status", flexibleAuth, async (req, res) => {
       enabled: device?.preferences?.enabled !== false,
       device: device
         ? {
-            deviceKey: device.deviceKey,
-            lastSeenAt: device.lastSeenAt,
-            lastSuccessAt: device.lastSuccessAt,
-            lastError: device.lastError,
-          }
+          deviceKey: device.deviceKey,
+          lastSeenAt: device.lastSeenAt,
+          lastSuccessAt: device.lastSuccessAt,
+          lastError: device.lastError,
+        }
         : null,
     });
   } catch (err) {
@@ -298,15 +298,15 @@ router.post("/delete-multiple", flexibleAuth, async (req, res) => {
     const recipientId = req.auth.sub;
     const recipientRole = req.auth.role || "user";
     const { ids = [] } = req.body;
-    
+
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: "No IDs provided" });
     }
 
     const baseQuery = getRecipientQuery(recipientId, recipientRole);
-    await Notification.deleteMany({ 
-      _id: { $in: ids }, 
-      ...baseQuery 
+    await Notification.deleteMany({
+      _id: { $in: ids },
+      ...baseQuery
     });
 
     res.json({ success: true, message: `${ids.length} notifications deleted` });

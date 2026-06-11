@@ -1423,6 +1423,14 @@ export default function VenderBookings() {
                                                 <span className="text-xs font-bold text-muted-foreground">Scheduled</span>
                                                 <span className="text-xs font-black">{detailModal.slot?.time}, {detailModal.slot?.date}</span>
                                             </div>
+                                            {detailModal.createdAt && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs font-bold text-muted-foreground">Booked On</span>
+                                                    <span className="text-xs font-black">
+                                                        {new Date(detailModal.createdAt).toLocaleString('en-IN', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}
+                                                    </span>
+                                                </div>
+                                            )}
                                             {detailModal.otp && (
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-xs font-bold text-muted-foreground">Start OTP</span>
