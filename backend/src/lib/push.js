@@ -544,13 +544,16 @@ export async function sendVoipPush(voipToken, bookingId, customerName, role = "p
   notification.pushType = "voip";
 
   notification.payload = {
-    id: String(bookingId),
-    nameCaller: "New Booking Alert!",
-    handle: `${customerName || "Customer"} requested a service`,
-    type: 0,
-    extra: {
-      bookingId: String(bookingId),
-      customerName: customerName || ""
+    data: {
+      id: String(bookingId),
+      nameCaller: "New Booking Alert!",
+      handle: `${customerName || "Customer"} requested a service`,
+      type: 0,
+      room_id: `room_${bookingId}`,
+      extra: {
+        bookingId: String(bookingId),
+        customerName: customerName || ""
+      }
     }
   };
 
@@ -587,12 +590,15 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
   notification.pushType = "voip";
 
   notification.payload = {
-    id: String(broadcastId),
-    nameCaller: String(title || "Admin Alert").slice(0, 50),
-    handle: String(message || "New message").slice(0, 100),
-    type: 1, // Type 1 can signify broadcast/admin alert
-    extra: {
-      broadcastId: String(broadcastId)
+    data: {
+      id: String(broadcastId),
+      nameCaller: String(title || "Admin Alert").slice(0, 50),
+      handle: String(message || "New message").slice(0, 100),
+      type: 0, 
+      room_id: `room_${broadcastId}`,
+      extra: {
+        broadcastId: String(broadcastId)
+      }
     }
   };
 
