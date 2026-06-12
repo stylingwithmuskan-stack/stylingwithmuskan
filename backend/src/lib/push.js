@@ -542,6 +542,8 @@ export async function sendVoipPush(voipToken, bookingId, customerName, role = "p
     : (process.env.APN_TOPIC || "com.stylingwithmuskan");
   notification.topic = `${baseTopic}.voip`;
   notification.pushType = "voip";
+  notification.priority = 10;
+  notification.expiry = Math.floor(Date.now() / 1000) + 3600;
 
   notification.payload = {
     data: {
@@ -588,6 +590,8 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
       : (process.env.APN_TOPIC || "com.stylingwithmuskan");
   notification.topic = `${baseTopic}.voip`;
   notification.pushType = "voip";
+  notification.priority = 10;
+  notification.expiry = Math.floor(Date.now() / 1000) + 3600;
 
   notification.payload = {
     data: {
