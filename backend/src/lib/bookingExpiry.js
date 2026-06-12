@@ -35,22 +35,22 @@ export function shouldAutoExpireBooking(booking, now) {
 
   // Auto-expire if within threshold (default 15 minutes)
   const threshold = Math.max(Number(BOOKING_AUTO_CANCEL_THRESHOLD_MINUTES || 15), 0);
-  
+
   if (diffMinutes < threshold && diffMinutes > 0) {
     console.log(`[Auto-Expiry Check] Booking ${booking._id} is within ${threshold}m window. Diff: ${diffMinutes}m. Action: SHOULD_EXPIRE`);
-    return { 
-      shouldExpire: true, 
-      reason: `slot_time_within_${threshold}_minutes`, 
-      diffMinutes: Math.round(diffMinutes) 
+    return {
+      shouldExpire: true,
+      reason: `slot_time_within_${threshold}_minutes`,
+      diffMinutes: Math.round(diffMinutes)
     };
   }
 
   // Also expire if slot time has already passed
   if (diffMinutes <= 0) {
-    return { 
-      shouldExpire: true, 
-      reason: "slot_time_passed", 
-      diffMinutes: Math.round(diffMinutes) 
+    return {
+      shouldExpire: true,
+      reason: "slot_time_passed",
+      diffMinutes: Math.round(diffMinutes)
     };
   }
 
@@ -66,7 +66,7 @@ export async function autoExpireBooking(booking) {
   try {
     const now = new Date();
     const check = shouldAutoExpireBooking(booking, now);
-    
+
     if (!check.shouldExpire) {
       return { success: false, refunded: false, error: `Not eligible for auto-expiry: ${check.reason}` };
     }
@@ -86,10 +86,10 @@ export async function autoExpireBooking(booking) {
     await BookingLog.create({
       action: "booking:auto-expire",
       bookingId: booking._id.toString(),
-      meta: { 
-        reason: check.reason, 
+      meta: {
+        reason: check.reason,
         diffMinutes: check.diffMinutes,
-        threshold: BOOKING_AUTO_CANCEL_THRESHOLD_MINUTES 
+        threshold: BOOKING_AUTO_CANCEL_THRESHOLD_MINUTES
       }
     });
 
@@ -121,10 +121,10 @@ export async function autoExpireBooking(booking) {
         recipientId: booking.customerId,
         recipientRole: "user",
         type: "booking_cancel",
-        meta: { 
-          bookingId: booking._id.toString(), 
+        meta: {
+          bookingId: booking._id.toString(),
           reason: isVendorRebook ? "no provider was free, please rebook" : "no professional could be assigned in time",
-          refunded 
+          refunded
         },
       });
 
@@ -140,8 +140,8 @@ export async function autoExpireBooking(booking) {
     // Emit socket event
     try {
       const io = getIO();
-      io?.of("/bookings").emit("status:update", { 
-        id: booking._id.toString(), 
+      io?.of("/bookings").emit("status:update", {
+        id: booking._id.toString(),
         status: "cancelled",
         reason: "auto_expired",
         message: "Booking auto-cancelled due to no provider assignment"
@@ -165,7 +165,7 @@ export async function autoExpireBooking(booking) {
 export async function processAutoExpiredBookings() {
   try {
     const now = new Date();
-    
+
     // Find all pending bookings that are escalated (vendor or admin)
     const candidates = await Booking.find({
       status: "pending",
@@ -188,7 +188,7 @@ export async function processAutoExpiredBookings() {
 
     for (const booking of candidates) {
       const check = shouldAutoExpireBooking(booking, now);
-      
+
       if (check.shouldExpire) {
         const result = await autoExpireBooking(booking);
         if (result.success) {
@@ -202,11 +202,11 @@ export async function processAutoExpiredBookings() {
 
     console.log(`[Auto-Expiry] Processed ${candidates.length} bookings: ${expired} expired, ${refunded} refunded, ${errors} errors`);
 
-    return { 
-      processed: candidates.length, 
-      expired, 
-      refunded, 
-      errors 
+    return {
+      processed: candidates.length,
+      expired,
+      refunded,
+      errors
     };
   } catch (error) {
     console.error("[Auto-Expiry] Error in processAutoExpiredBookings:", error.message);

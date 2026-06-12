@@ -31,11 +31,11 @@ export function calculateRefundPolicy(booking, cancelledBy, subscription = null)
   const now = new Date();
   const hoursUntilBooking = (bookingTime - now) / (1000 * 60 * 60);
   const status = (booking.status || "").toLowerCase();
-  
+
   let refundPercentage = 0;
   let providerCompensation = 0;
   let providerPenalty = 0;
-  
+
   // Provider cancellation - full refund to user, penalty for provider
   if (cancelledBy === "provider") {
     refundPercentage = 100;
@@ -49,7 +49,7 @@ export function calculateRefundPolicy(booking, cancelledBy, subscription = null)
       reason: "provider_cancellation"
     };
   }
-  
+
   // Admin cancellation - full refund
   if (cancelledBy === "admin") {
     refundPercentage = 100;
@@ -61,16 +61,16 @@ export function calculateRefundPolicy(booking, cancelledBy, subscription = null)
       reason: "admin_cancellation"
     };
   }
-  
+
   // Customer cancellation - based on status and timing
   if (cancelledBy === "customer") {
     // 100% refund for all customer cancellations as requested (no cancellation charges)
     refundPercentage = 100;
     providerCompensation = 0;
   }
-  
+
   const cancellationCharge = 100 - refundPercentage;
-  
+
   return {
     refundPercentage,
     cancellationCharge,
@@ -97,10 +97,10 @@ export async function processSmartRefund({
       status: "none"
     };
   }
-  
+
   // Get payment sources (backward compatible)
   let paymentSources = booking.paymentSources || [];
-  
+
   // Backward compatibility: if no paymentSources, create from existing fields
   if (paymentSources.length === 0 && booking.prepaidAmount > 0) {
     if (booking.walletAmountUsed > 0) {
@@ -121,20 +121,20 @@ export async function processSmartRefund({
       });
     }
   }
-  
+
   const refunds = [];
   let remainingRefund = refundAmount;
-  
+
   console.log(`[SmartRefund] Processing refund: bookingId=${booking._id}, amount=₹${refundAmount}`);
   console.log(`[SmartRefund] Payment sources:`, paymentSources);
-  
+
   // Process refunds in reverse order (LIFO)
   for (let i = paymentSources.length - 1; i >= 0 && remainingRefund > 0; i--) {
     const source = paymentSources[i];
     const refundForThisSource = Math.min(source.amount, remainingRefund);
-    
+
     console.log(`[SmartRefund] Processing ${source.source} refund: ₹${refundForThisSource}`);
-    
+
     if (source.source === "wallet") {
       // Wallet refund - instant
       try {
@@ -144,7 +144,7 @@ export async function processSmartRefund({
           bookingId: booking._id.toString(),
           reason
         });
-        
+
         refunds.push({
           source: "wallet",
           amount: refundForThisSource,
@@ -152,14 +152,14 @@ export async function processSmartRefund({
           transactionId: walletRefund.transactionId,
           refundedAt: new Date()
         });
-        
+
         remainingRefund -= refundForThisSource;
-        
+
         console.log(`[SmartRefund] Wallet refund successful: ₹${refundForThisSource}`);
-        
+
       } catch (error) {
         console.error(`[SmartRefund] Wallet refund failed:`, error);
-        
+
         refunds.push({
           source: "wallet",
           amount: refundForThisSource,
@@ -167,11 +167,11 @@ export async function processSmartRefund({
           error: error.message
         });
       }
-      
+
     } else if (source.source === "razorpay") {
       // Online refund - via Razorpay
       const paymentId = source.paymentId || booking.paymentId || booking.paymentOrder?.id;
-      
+
       if (!paymentId) {
         console.error(`[SmartRefund] No payment ID found for Razorpay refund`);
         refunds.push({
@@ -182,7 +182,7 @@ export async function processSmartRefund({
         });
         continue;
       }
-      
+
       try {
         const razorpayRefund = await processRazorpayRefund({
           paymentId,
@@ -190,7 +190,7 @@ export async function processSmartRefund({
           reason,
           bookingId: booking._id.toString()
         });
-        
+
         refunds.push({
           source: "razorpay",
           amount: refundForThisSource,
@@ -198,14 +198,14 @@ export async function processSmartRefund({
           refundId: razorpayRefund.refund_id,
           refundedAt: null
         });
-        
+
         remainingRefund -= refundForThisSource;
-        
+
         console.log(`[SmartRefund] Razorpay refund initiated: ₹${refundForThisSource}, refundId=${razorpayRefund.refund_id}`);
-        
+
       } catch (error) {
         console.error(`[SmartRefund] Razorpay refund failed:`, error);
-        
+
         refunds.push({
           source: "razorpay",
           amount: refundForThisSource,
@@ -215,16 +215,16 @@ export async function processSmartRefund({
       }
     }
   }
-  
+
   // Update booking with refund details
   booking.refunds = refunds;
   booking.refundAmount = refundAmount;
-  
+
   // Determine overall refund status
   const allProcessed = refunds.every(r => r.status === "processed");
   const anyFailed = refunds.some(r => r.status === "failed");
   const anyProcessing = refunds.some(r => r.status === "processing");
-  
+
   if (allProcessed) {
     booking.refundStatus = "processed";
   } else if (anyFailed && !anyProcessing) {
@@ -234,12 +234,12 @@ export async function processSmartRefund({
   } else {
     booking.refundStatus = "partial";
   }
-  
+
   await booking.save();
-  
+
   // Notify user about refund
   await notifyUserAboutRefund(user, booking, refunds);
-  
+
   return {
     success: true,
     refunds,
@@ -255,14 +255,14 @@ async function processWalletRefund({ user, amount, bookingId, reason }) {
   if (!user.wallet) {
     user.wallet = { balance: 0, transactions: [] };
   }
-  
+
   // Add to wallet balance
   const oldBalance = Number(user.wallet.balance || 0);
   user.wallet.balance = oldBalance + amount;
-  
+
   // Create transaction ID
   const transactionId = `refund_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  
+
   // Add transaction record
   user.wallet.transactions.unshift({
     type: "refund",
@@ -274,11 +274,11 @@ async function processWalletRefund({ user, amount, bookingId, reason }) {
     refundId: transactionId,
     at: new Date()
   });
-  
+
   await user.save();
-  
+
   console.log(`[WalletRefund] Refund processed: userId=${user._id}, amount=₹${amount}, newBalance=₹${user.wallet.balance}`);
-  
+
   return {
     success: true,
     transactionId,
@@ -293,12 +293,12 @@ async function processRazorpayRefund({ paymentId, amount, reason, bookingId }) {
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
     throw new Error("Razorpay keys not configured");
   }
-  
+
   const rzp = new Razorpay({
     key_id: RAZORPAY_KEY_ID,
     key_secret: RAZORPAY_KEY_SECRET
   });
-  
+
   const refund = await rzp.payments.refund(paymentId, {
     amount: Math.round(amount * 100),
     speed: "normal",
@@ -308,7 +308,7 @@ async function processRazorpayRefund({ paymentId, amount, reason, bookingId }) {
       timestamp: new Date().toISOString()
     }
   });
-  
+
   return {
     success: true,
     refund_id: refund.id,
@@ -323,14 +323,14 @@ async function processRazorpayRefund({ paymentId, amount, reason, bookingId }) {
 async function notifyUserAboutRefund(user, booking, refunds) {
   const walletRefunds = refunds.filter(r => r.source === "wallet");
   const onlineRefunds = refunds.filter(r => r.source === "razorpay");
-  
+
   const walletAmount = walletRefunds.reduce((sum, r) => sum + r.amount, 0);
   const onlineAmount = onlineRefunds.reduce((sum, r) => sum + r.amount, 0);
-  
+
   const serviceName = getBookingServiceName(booking);
   const bookingLabel = serviceName ? `${serviceName} booking` : "booking";
   let message = `Your ${bookingLabel} has been cancelled. `;
-  
+
   if (walletAmount > 0 && onlineAmount > 0) {
     message += `Refund breakdown: ₹${walletAmount} credited to wallet (instant), ₹${onlineAmount} will be credited to your bank account in 5-7 business days.`;
   } else if (walletAmount > 0) {
@@ -338,7 +338,7 @@ async function notifyUserAboutRefund(user, booking, refunds) {
   } else if (onlineAmount > 0) {
     message += `₹${onlineAmount} will be credited to your bank account in 5-7 business days.`;
   }
-  
+
   await notify({
     recipientId: user._id.toString(),
     recipientRole: "user",

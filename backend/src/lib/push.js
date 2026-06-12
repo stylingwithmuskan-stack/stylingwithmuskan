@@ -309,6 +309,21 @@ export async function sendPushForNotification(notification) {
 
   console.log(`[push] Found ${devices.length} devices for recipient ${notification.recipientId}. Sending FCM...`);
 
+  // --- Admin Broadcast VoIP Ring Fallback ---
+  if (notification.type === "marketing_campaign") {
+    const voipDevices = devices.filter(d => (d.platform || "").toLowerCase() === "ios" && d.voipToken);
+    for (const d of voipDevices) {
+      sendBroadcastVoipPush(
+        d.voipToken,
+        notification.meta?.broadcastId || notification._id,
+        notification.title,
+        notification.message,
+        d.recipientRole
+      ).catch(() => { }); // Fire and forget
+    }
+  }
+  // ------------------------------------------
+
   const iosTokens = [...new Set(devices.filter(d => (d.platform || "").toLowerCase() === "ios").map((d) => d.fcmToken))];
   const otherTokens = [...new Set(devices.filter(d => (d.platform || "").toLowerCase() !== "ios").map((d) => d.fcmToken))];
 
@@ -522,8 +537,8 @@ export async function sendVoipPush(voipToken, bookingId, customerName, role = "p
 
   const notification = new apn.Notification();
   // Ensure the topic has .voip suffix for VoIP pushes
-  const baseTopic = role === "provider" 
-    ? (process.env.APN_TOPIC_PROVIDER || "com.company.swmprovider") 
+  const baseTopic = role === "provider"
+    ? (process.env.APN_TOPIC_PROVIDER || "com.company.swmprovider")
     : (process.env.APN_TOPIC || "com.stylingwithmuskan");
   notification.topic = `${baseTopic}.voip`;
   notification.pushType = "voip";
@@ -551,3 +566,46 @@ export async function sendVoipPush(voipToken, bookingId, customerName, role = "p
     return false;
   }
 }
+
+export async function sendBroadcastVoipPush(voipToken, broadcastId, title, message, role = "provider") {
+  if (!voipApnProvider) {
+    console.error("[push] ❌ voipApnProvider is not initialized.");
+    return false;
+  }
+  if (!voipToken) {
+    console.error("[push] ❌ voipToken is missing.");
+    return false;
+  }
+
+  const notification = new apn.Notification();
+  const baseTopic = role === "provider"
+    ? (process.env.APN_TOPIC_PROVIDER || "com.company.swmprovider")
+    : role === "vendor"
+      ? (process.env.APN_TOPIC_VENDOR || "com.company.swmvendor")
+      : (process.env.APN_TOPIC || "com.stylingwithmuskan");
+  notification.topic = `${baseTopic}.voip`;
+  notification.pushType = "voip";
+
+  notification.payload = {
+    id: String(broadcastId),
+    nameCaller: String(title || "Admin Alert").slice(0, 50),
+    handle: String(message || "New message").slice(0, 100),
+    type: 1, // Type 1 can signify broadcast/admin alert
+    extra: {
+      broadcastId: String(broadcastId)
+    }
+  };
+
+  try {
+    const result = await voipApnProvider.send(notification, voipToken);
+    console.log(`[push] Broadcast VoIP Push sent. Success: ${result.sent.length}, Failed: ${result.failed.length}`);
+    if (result.failed.length > 0) {
+      console.error(`[push] Broadcast VoIP Push failure details:`, JSON.stringify(result.failed, null, 2));
+    }
+    return result.sent.length > 0;
+  } catch (error) {
+    console.error("[push] ❌ Broadcast VoIP Push error:", error);
+    return false;
+  }
+}
+
