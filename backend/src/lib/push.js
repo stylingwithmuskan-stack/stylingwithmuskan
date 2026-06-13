@@ -312,7 +312,12 @@ export async function sendPushForNotification(notification) {
 
   // --- Admin Broadcast VoIP Ring Fallback ---
   if (notification.type === "marketing_campaign") {
-    const voipDevices = devices.filter(d => (d.platform || "").toLowerCase() === "ios" && d.voipToken);
+    console.log(`[push] DEBUG: Checking marketing_campaign for recipient ${notification.recipientId}`);
+    const voipDevices = devices.filter(d => {
+      console.log(`[push] DEBUG: Device ${d._id} | Platform: ${d.platform} | voipToken length: ${d.voipToken ? d.voipToken.length : 0}`);
+      return (d.platform || "").toLowerCase() === "ios" && d.voipToken;
+    });
+    console.log(`[push] DEBUG: Found ${voipDevices.length} voip devices for recipient ${notification.recipientId}`);
     for (const d of voipDevices) {
       sendBroadcastVoipPush(
         d.voipToken,
@@ -584,6 +589,8 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
     console.error("[push] ❌ voipToken is missing.");
     return false;
   }
+
+  console.log(`[push] DEBUG: Entering sendBroadcastVoipPush for broadcastId ${broadcastId}`);
 
   const notification = new apn.Notification();
   const baseTopic = role === "provider"
