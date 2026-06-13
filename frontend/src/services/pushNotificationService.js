@@ -70,7 +70,15 @@ async function saveTokenToBackend(fcmToken, authToken, platform = "web", voipTok
   }
 }
 
+let initLocks = {};
+
 export async function initPushNotifications(authToken, role = "user") {
+  if (initLocks[role] && Date.now() - initLocks[role] < 10000) {
+    console.log(`[Push] ⏭️ Skipping duplicate init for role: ${role} within 10s window`);
+    return;
+  }
+  initLocks[role] = Date.now();
+
   console.log(`[Push] 🚀 Starting push notification init for role: ${role}, token present: ${!!authToken}`);
 
   // Check if we are in Flutter WebView
