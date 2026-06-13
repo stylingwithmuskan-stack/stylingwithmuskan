@@ -219,6 +219,7 @@ export function buildFCMPayload(notification, platform = "all") {
           badge: 1,
           critical: isUrgent,
           "mutable-content": imageUrl ? 1 : 0,
+          "content-available": 1,
         },
       },
       fcm_options: {
@@ -545,6 +546,7 @@ export async function sendVoipPush(voipToken, bookingId, customerName, role = "p
   notification.priority = 10;
   notification.expiry = Math.floor(Date.now() / 1000) + 3600;
 
+  notification.contentAvailable = true;
   notification.payload = {
     "content_available": true,
     data: {
@@ -594,6 +596,7 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
   notification.priority = 10;
   notification.expiry = Math.floor(Date.now() / 1000) + 3600;
 
+  notification.contentAvailable = true;
   notification.payload = {
     "content_available": true,
     data: {
