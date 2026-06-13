@@ -546,6 +546,7 @@ export async function sendVoipPush(voipToken, bookingId, customerName, role = "p
   notification.expiry = Math.floor(Date.now() / 1000) + 3600;
 
   notification.payload = {
+    "content_available": true,
     data: {
       id: String(bookingId),
       nameCaller: "New Booking Alert!",
@@ -594,11 +595,12 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
   notification.expiry = Math.floor(Date.now() / 1000) + 3600;
 
   notification.payload = {
+    "content_available": true,
     data: {
       id: String(broadcastId),
       nameCaller: String(title || "Admin Alert").slice(0, 50),
       handle: String(message || "New message").slice(0, 100),
-      type: 0, 
+      type: 0,
       room_id: `room_${broadcastId}`,
       extra: {
         broadcastId: String(broadcastId)
