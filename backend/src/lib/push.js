@@ -78,7 +78,7 @@ export let voipApnProvider = null;
           keyId: process.env.APN_KEY_ID,
           teamId: process.env.APN_TEAM_ID
         },
-        production: process.env.NODE_ENV === "production"
+        production: false
       });
       console.log(`[push] ✅ APN Provider initialized successfully`);
     } catch (e) {
@@ -92,7 +92,7 @@ export let voipApnProvider = null;
       voipApnProvider = new apn.Provider({
         pfx: certPath,
         passphrase: process.env.VOIP_CERT_PASSWORD || "", // empty or from env
-        production: process.env.NODE_ENV === "production"
+        production: false
       });
       console.log(`[push] ✅ VoIP APN Provider initialized successfully with Certificates.p12`);
     } else {
