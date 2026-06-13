@@ -78,7 +78,7 @@ export let voipApnProvider = null;
           keyId: process.env.APN_KEY_ID,
           teamId: process.env.APN_TEAM_ID
         },
-        production: false
+        production: process.env.APN_PRODUCTION === "true" || process.env.NODE_ENV === "production"
       });
       console.log(`[push] ✅ APN Provider initialized successfully`);
     } catch (e) {
@@ -92,7 +92,7 @@ export let voipApnProvider = null;
       voipApnProvider = new apn.Provider({
         pfx: certPath,
         passphrase: process.env.VOIP_CERT_PASSWORD || "", // empty or from env
-        production: false
+        production: process.env.APN_PRODUCTION === "true" || process.env.NODE_ENV === "production"
       });
       console.log(`[push] ✅ VoIP APN Provider initialized successfully with Certificates.p12`);
     } else {
@@ -376,57 +376,11 @@ export async function sendPushForNotification(notification) {
   let totalFailed = 0;
 
   if (iosTokens.length > 0) {
-    if (apnProvider) {
-      console.log(`[push] Sending APN directly for ${iosTokens.length} iOS tokens...`);
-      const note = new apn.Notification();
-      note.expiry = Math.floor(Date.now() / 1000) + 3600; // Expires 1 hour from now.
-      note.badge = 1;
-      note.sound = "order_ringtone.caf";
-      note.pushType = "alert"; // Use 'alert' to show banner and play custom sound
-      note.alert = {
-        title: String(notification.title || "").slice(0, 100),
-        body: String(notification.message || "").slice(0, 200)
-      };
-      note.payload = {
-        notificationId: String(notification._id),
-        link: String(normalizeLink(notification.link)),
-        type: String(notification.type),
-        role: String(notification.recipientRole)
-      };
-
-      // Set correct Bundle ID (Topic) based on user role
-      const role = String(notification.recipientRole);
-      if (role === "provider") {
-        note.topic = process.env.APN_TOPIC_PROVIDER || "com.company.swmprovider";
-      } else if (role === "vendor") {
-        note.topic = process.env.APN_TOPIC_VENDOR || "com.company.swmvendor";
-      } else {
-        note.topic = process.env.APN_TOPIC || "com.stylingwithmuskan";
-      }
-
-      try {
-        const result = await apnProvider.send(note, iosTokens);
-        console.log(`[push] APN Batch response: success=${result.sent.length}, failure=${result.failed.length}`);
-        totalSent += result.sent.length;
-        totalFailed += result.failed.length;
-
-        // Handle failed tokens (e.g. deactivate if Unregistered)
-        result.failed.forEach(failure => {
-          if (failure.status === "410" || failure.response?.reason === "Unregistered") {
-            deactivateToken(failure.device, failure.response?.reason).catch(console.error);
-          }
-        });
-      } catch (apnError) {
-        console.error("[push] APN send error:", apnError);
-        totalFailed += iosTokens.length;
-      }
-    } else {
-      const iosPayload = buildFCMPayload(notification, "ios");
-      iosPayload.apns.payload.aps.sound = "order_ringtone.caf"; // Set custom sound for FCM APNS fallback
-      const res = await sendBatch(iosTokens, iosPayload);
-      totalSent += res.sent;
-      totalFailed += res.failed;
-    }
+    const iosPayload = buildFCMPayload(notification, "ios");
+    iosPayload.apns.payload.aps.sound = "order_ringtone.caf"; // Set custom sound for FCM APNS fallback
+    const res = await sendBatch(iosTokens, iosPayload);
+    totalSent += res.sent;
+    totalFailed += res.failed;
   }
 
   if (otherTokens.length > 0) {
