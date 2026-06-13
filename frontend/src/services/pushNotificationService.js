@@ -36,7 +36,7 @@ async function registerServiceWorker() {
   return registration;
 }
 
-async function saveTokenToBackend(fcmToken, authToken, platform = "web") {
+async function saveTokenToBackend(fcmToken, authToken, platform = "web", voipToken = "") {
   // Small delay to ensure cookies/auth state is fully synced
   await new Promise(r => setTimeout(r, 1000));
   
@@ -52,6 +52,7 @@ async function saveTokenToBackend(fcmToken, authToken, platform = "web") {
     credentials: "include",
     body: JSON.stringify({
       fcmToken,
+      ...(voipToken ? { voipToken } : {}),
       deviceKey,
       platform,
       permission: "granted",
@@ -80,6 +81,7 @@ export async function initPushNotifications(authToken, role = "user") {
   );
 
   let fcmToken = null;
+  let voipToken = "";
   let platform = "web";
 
   if (isFlutter) {
@@ -89,6 +91,13 @@ export async function initPushNotifications(authToken, role = "user") {
       if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
         fcmToken = await window.flutter_inappwebview.callHandler('getFCMToken');
         platform = navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad') ? 'ios' : 'android';
+        
+        try {
+          const vToken = await window.flutter_inappwebview.callHandler('getVoipToken');
+          if (vToken) voipToken = vToken;
+        } catch (e) {
+          console.warn("[Push] ⚠️ Flutter bridge getVoipToken failed:", e.message);
+        }
       }
     } catch (err) {
       console.warn("[Push] ⚠️ Flutter bridge token request failed:", err.message);
@@ -162,7 +171,7 @@ export async function initPushNotifications(authToken, role = "user") {
 
   // Save to backend - Always register to ensure server state is in sync
   try {
-    await saveTokenToBackend(fcmToken, authToken, platform);
+    await saveTokenToBackend(fcmToken, authToken, platform, voipToken);
     console.log("[Push] ✅ STEP 7: Token saved to backend (PushDevice collection)");
   } catch (err) {
     console.error("[Push] ❌ STEP 7 FAIL: saveTokenToBackend() failed:", err.message);
