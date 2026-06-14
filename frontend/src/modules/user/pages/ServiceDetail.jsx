@@ -507,8 +507,12 @@ const ServiceDetail = () => {
               {qty === 0 ? (
                 <button
                   onClick={() => {
-                    addToCart(service, 1);
-                    setIsFloatingSummaryOpen(true);
+                    if (!isLoggedIn) {
+                      navigate('/login');
+                    } else {
+                      addToCart(service, 1);
+                      setIsFloatingSummaryOpen(true);
+                    }
                   }}
                   className="px-6 py-2 rounded-full border-2 border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-colors"
                 >
@@ -517,7 +521,13 @@ const ServiceDetail = () => {
               ) : (
                 <>
                   <button
-                    onClick={() => updateQuantity(service.id, -1)}
+                    onClick={() => {
+                      if (!isLoggedIn) {
+                        navigate('/login');
+                      } else {
+                        updateQuantity(service.id, -1);
+                      }
+                    }}
                     className="w-9 h-9 rounded-full bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors"
                   >
                     <Minus className="w-4 h-4" />
@@ -532,8 +542,12 @@ const ServiceDetail = () => {
                   </motion.span>
                   <button
                     onClick={() => {
+                      if (!isLoggedIn) {
+                        navigate('/login');
+                      } else {
                         updateQuantity(service.id, 1);
                         setIsFloatingSummaryOpen(true);
+                      }
                     }}
                     className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity"
                   >
