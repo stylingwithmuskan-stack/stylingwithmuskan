@@ -145,6 +145,7 @@ export async function broadcast(req, res) {
             title,
             message,
             link,
+            respectProviderQuietHours: false,
             meta: {
               title,
               message,
