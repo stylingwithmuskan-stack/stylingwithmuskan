@@ -434,7 +434,7 @@ async function isWithinProviderWindow() {
   try {
     const office = await OfficeSettings.findOne().lean();
     const bookingSettings = await BookingSettings.findOne().lean();
-    const now = new Date();
+    const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
     return withinWindow(
       now,
       bookingSettings?.providerNotificationStartTime || office?.startTime || "07:00",
