@@ -552,8 +552,9 @@ export async function sendVoipPush(voipToken, bookingId, customerName, role = "p
 }
 
 export async function sendBroadcastVoipPush(voipToken, broadcastId, title, message, role = "provider") {
-  if (!voipApnProvider) {
-    console.error("[push] ❌ voipApnProvider is not initialized.");
+  const providerToUse = voipApnProvider || apnProvider;
+  if (!providerToUse) {
+    console.error("[push] ❌ Neither voipApnProvider nor apnProvider is initialized.");
     return false;
   }
   if (!voipToken) {
@@ -590,7 +591,7 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
   };
 
   try {
-    const result = await voipApnProvider.send(notification, voipToken);
+    const result = await providerToUse.send(notification, voipToken);
     console.log(`[push] Broadcast VoIP Push sent. Success: ${result.sent.length}, Failed: ${result.failed.length}`);
     if (result.failed.length > 0) {
       const detailedErrors = result.failed.map(f => ({
