@@ -105,7 +105,7 @@ export let voipApnProvider = null;
     } catch (e) {
       console.error("[push] ❌ VoIP APN init error:", e);
     }
-  }).catch(() => {});
+  }).catch(() => { });
 })();
 
 // ---------------------------------------------------------------------------
@@ -128,7 +128,7 @@ export async function isWithinProviderPushWindow() {
   try {
     const office = await OfficeSettings.findOne().lean();
     const bookingSettings = await BookingSettings.findOne().lean();
-    const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
     return withinWindow(
       now,
       bookingSettings?.providerNotificationStartTime || office?.startTime || "07:00",
@@ -344,7 +344,7 @@ export async function sendPushForNotification(notification) {
       }
     }
   }
-  
+
   // Deduplicate tokens
   const uniqueIosTokens = [...new Set(iosTokens)];
   const uniqueOtherTokens = [...new Set(otherTokens)];

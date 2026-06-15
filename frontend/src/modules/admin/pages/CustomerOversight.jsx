@@ -205,7 +205,15 @@ export default function CustomerOversight() {
                                                             </Badge>
                                                         )}
                                                     </div>
-                                                    <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3" />{c.phone}</span>
+                                                    <div className="text-[11px] text-muted-foreground font-medium flex items-center gap-2 mt-0.5">
+                                                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>
+                                                        {c.createdAt && (
+                                                            <>
+                                                                <span className="opacity-50">•</span>
+                                                                <span>Joined {new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="flex gap-1.5">
                                                     {c.status === "active" && (
