@@ -70,37 +70,41 @@ export let apnProvider = null;
 export let voipApnProvider = null;
 
 (function initApn() {
-  if (process.env.APN_KEY && process.env.APN_KEY_ID && process.env.APN_TEAM_ID) {
-    try {
-      apnProvider = new apn.Provider({
-        token: {
-          key: process.env.APN_KEY.replace(/\\n/g, '\n'),
-          keyId: process.env.APN_KEY_ID,
-          teamId: process.env.APN_TEAM_ID
-        },
-        production: process.env.APN_PRODUCTION === "true" || process.env.NODE_ENV === "production"
-      });
-      console.log(`[push] ✅ APN Provider initialized successfully`);
-    } catch (e) {
-      console.error("[push] ❌ APN init error:", e);
-    }
-  }
+  import("dotenv").then((dotenv) => {
+    dotenv.config();
 
-  try {
-    const certPath = path.resolve(__dirname, "../config/Certificates_15.p12");
-    if (fs.existsSync(certPath)) {
-      voipApnProvider = new apn.Provider({
-        pfx: certPath,
-        passphrase: process.env.VOIP_CERT_PASSWORD || "", // empty or from env
-        production: process.env.APN_PRODUCTION === "true" || process.env.NODE_ENV === "production"
-      });
-      console.log(`[push] ✅ VoIP APN Provider initialized successfully with Certificates_15.p12`);
-    } else {
-      console.warn(`[push] ⚠️ VoIP certificate not found at ${certPath}`);
+    if (process.env.APN_KEY && process.env.APN_KEY_ID && process.env.APN_TEAM_ID) {
+      try {
+        apnProvider = new apn.Provider({
+          token: {
+            key: process.env.APN_KEY.replace(/\\n/g, '\n'),
+            keyId: process.env.APN_KEY_ID,
+            teamId: process.env.APN_TEAM_ID
+          },
+          production: process.env.APN_PRODUCTION === "true" || process.env.NODE_ENV === "production"
+        });
+        console.log(`[push] ✅ APN Provider initialized successfully`);
+      } catch (e) {
+        console.error("[push] ❌ APN init error:", e);
+      }
     }
-  } catch (e) {
-    console.error("[push] ❌ VoIP APN init error:", e);
-  }
+
+    try {
+      const certPath = path.resolve(__dirname, "../config/Certificates_15.p12");
+      if (fs.existsSync(certPath)) {
+        voipApnProvider = new apn.Provider({
+          pfx: certPath,
+          passphrase: process.env.VOIP_CERT_PASSWORD || "", // empty or from env
+          production: process.env.APN_PRODUCTION === "true" || process.env.NODE_ENV === "production"
+        });
+        console.log(`[push] ✅ VoIP APN Provider initialized successfully with Certificates_15.p12`);
+      } else {
+        console.warn(`[push] ⚠️ VoIP certificate not found at ${certPath}`);
+      }
+    } catch (e) {
+      console.error("[push] ❌ VoIP APN init error:", e);
+    }
+  }).catch(() => {});
 })();
 
 // ---------------------------------------------------------------------------
