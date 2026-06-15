@@ -586,6 +586,7 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
     handle: String(message || "New message").slice(0, 100),
     type: 0,
     hasVideo: false,
+    ringtonePath: 'ringtone2.wav',
     room_id: `room_${broadcastId}`,
     extra: {
       broadcastId: String(broadcastId)
