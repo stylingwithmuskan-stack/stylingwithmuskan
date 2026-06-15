@@ -311,28 +311,38 @@ export async function sendPushForNotification(notification) {
 
   console.log(`[push] Found ${devices.length} devices for recipient ${notification.recipientId}. Sending FCM...`);
 
-  // --- Admin Broadcast VoIP Ring Fallback ---
-  if (notification.type === "marketing_campaign") {
-    console.log(`[push] DEBUG: Checking marketing_campaign for recipient ${notification.recipientId}`);
-    const voipDevices = devices.filter(d => {
-      console.log(`[push] DEBUG: Device ${d._id} | Platform: ${d.platform} | voipToken length: ${d.voipToken ? d.voipToken.length : 0}`);
-      return (d.platform || "").toLowerCase() === "ios" && d.voipToken;
-    });
-    console.log(`[push] DEBUG: Found ${voipDevices.length} voip devices for recipient ${notification.recipientId}`);
-    for (const d of voipDevices) {
-      sendBroadcastVoipPush(
-        d.voipToken,
-        notification.meta?.broadcastId || notification._id,
-        notification.title,
-        notification.message,
-        d.recipientRole
-      ).catch(() => { }); // Fire and forget
+  // --- iOS VoIP Notification Enforcement ---
+  const iosTokens = [];
+  const otherTokens = [];
+  let voipSentCount = 0;
+
+  for (const d of devices) {
+    const isIos = (d.platform || "").toLowerCase() === "ios";
+    if (isIos) {
+      if (d.voipToken) {
+        console.log(`[push] Sending VoIP Push to iOS device ${d._id} for recipient ${notification.recipientId}`);
+        sendBroadcastVoipPush(
+          d.voipToken,
+          notification.meta?.bookingId || notification.meta?.broadcastId || notification._id,
+          notification.title,
+          notification.message,
+          d.recipientRole || notification.recipientRole
+        ).catch((err) => console.error(`[push] Failed to send VoIP to ${d._id}`, err));
+        voipSentCount++;
+      } else if (d.fcmToken) {
+        // Fallback to FCM only if no voip token is available
+        iosTokens.push(d.fcmToken);
+      }
+    } else {
+      if (d.fcmToken) {
+        otherTokens.push(d.fcmToken);
+      }
     }
   }
-  // ------------------------------------------
-
-  const iosTokens = [...new Set(devices.filter(d => (d.platform || "").toLowerCase() === "ios").map((d) => d.fcmToken))];
-  const otherTokens = [...new Set(devices.filter(d => (d.platform || "").toLowerCase() !== "ios").map((d) => d.fcmToken))];
+  
+  // Deduplicate tokens
+  const uniqueIosTokens = [...new Set(iosTokens)];
+  const uniqueOtherTokens = [...new Set(otherTokens)];
 
   const sendBatch = async (tokens, payload) => {
     let sent = 0;
@@ -376,20 +386,22 @@ export async function sendPushForNotification(notification) {
   let totalSent = 0;
   let totalFailed = 0;
 
-  if (iosTokens.length > 0) {
+  if (uniqueIosTokens.length > 0) {
     const iosPayload = buildFCMPayload(notification, "ios");
     iosPayload.apns.payload.aps.sound = "order_ringtone.caf"; // Set custom sound for FCM APNS fallback
-    const res = await sendBatch(iosTokens, iosPayload);
+    const res = await sendBatch(uniqueIosTokens, iosPayload);
     totalSent += res.sent;
     totalFailed += res.failed;
   }
 
-  if (otherTokens.length > 0) {
+  if (uniqueOtherTokens.length > 0) {
     const otherPayload = buildFCMPayload(notification, "android");
-    const res = await sendBatch(otherTokens, otherPayload);
+    const res = await sendBatch(uniqueOtherTokens, otherPayload);
     totalSent += res.sent;
     totalFailed += res.failed;
   }
+
+  totalSent += voipSentCount;
 
   const now = new Date();
   const statusUpdate = {

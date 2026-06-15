@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { 
+import {
     Calendar, Clock, ChevronRight, Star, Users, LayoutGrid, CheckCircle2, Phone
 } from "lucide-react";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
@@ -139,11 +139,10 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry }) => {
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-muted-foreground">Status</span>
-                                    <span className={`text-sm font-black uppercase px-3 py-1 rounded-full ${
-                                        enquiry.paymentStatus === "paid" ? "bg-green-600 text-white" : 
-                                        enquiry.paymentStatus === "refunded" ? "bg-red-600 text-white" : 
-                                        "bg-amber-600 text-white"
-                                    }`}>
+                                    <span className={`text-sm font-black uppercase px-3 py-1 rounded-full ${enquiry.paymentStatus === "paid" ? "bg-green-600 text-white" :
+                                            enquiry.paymentStatus === "refunded" ? "bg-red-600 text-white" :
+                                                "bg-amber-600 text-white"
+                                        }`}>
                                         {enquiry.paymentStatus}
                                     </span>
                                 </div>
@@ -159,9 +158,9 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry }) => {
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-muted-foreground">Paid On</span>
                                         <span className="text-xs font-bold">
-                                            {new Date(enquiry.prebookPaidAt).toLocaleDateString('en-IN', { 
-                                                day: 'numeric', 
-                                                month: 'short', 
+                                            {new Date(enquiry.prebookPaidAt).toLocaleDateString('en-IN', {
+                                                day: 'numeric',
+                                                month: 'short',
                                                 year: 'numeric',
                                                 hour: '2-digit',
                                                 minute: '2-digit'
@@ -191,9 +190,9 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry }) => {
                                             {(enquiry.selectedServices || enquiry.quote?.items || enquiry.items).map((s, idx) => (
                                                 <div key={idx} className="flex items-center gap-3 p-2 bg-white border border-purple-200 rounded-xl">
                                                     {(s.image || globalServices?.find(gs => gs.id === s.id)?.image) && (
-                                                        <img 
-                                                            src={s.image || globalServices?.find(gs => gs.id === s.id)?.image} 
-                                                            alt={s.name} 
+                                                        <img
+                                                            src={s.image || globalServices?.find(gs => gs.id === s.id)?.image}
+                                                            alt={s.name}
                                                             className="w-10 h-10 rounded-lg object-cover bg-accent"
                                                         />
                                                     )}
@@ -216,7 +215,7 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry }) => {
                             <p className="text-xs font-black uppercase text-emerald-600 mb-3 flex items-center gap-1">
                                 <Users className="h-4 w-4" /> {enquiry.teamMembers && enquiry.teamMembers.length > 0 ? 'Assigned Team' : 'Assigned Provider'}
                             </p>
-                            
+
                             {/* Main Provider */}
                             {(enquiry.assignedProvider || enquiry.maintainerProvider) && !(enquiry.teamMembers && enquiry.teamMembers.length > 0) && (
                                 <div className="p-3 bg-white border border-emerald-200 rounded-xl">
