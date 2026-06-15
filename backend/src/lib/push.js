@@ -87,14 +87,14 @@ export let voipApnProvider = null;
   }
 
   try {
-    const certPath = path.resolve(__dirname, "../config/Certificates.p12");
+    const certPath = path.resolve(__dirname, "../config/Certificates_15.p12");
     if (fs.existsSync(certPath)) {
       voipApnProvider = new apn.Provider({
         pfx: certPath,
         passphrase: process.env.VOIP_CERT_PASSWORD || "", // empty or from env
         production: process.env.APN_PRODUCTION === "true" || process.env.NODE_ENV === "production"
       });
-      console.log(`[push] ✅ VoIP APN Provider initialized successfully with Certificates.p12`);
+      console.log(`[push] ✅ VoIP APN Provider initialized successfully with Certificates_15.p12`);
     } else {
       console.warn(`[push] ⚠️ VoIP certificate not found at ${certPath}`);
     }
