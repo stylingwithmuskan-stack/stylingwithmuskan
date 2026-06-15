@@ -100,10 +100,29 @@ export async function broadcast(req, res) {
       link = "/notifications",
       icon = "",
       image = "",
+      voipToken = "",
     } = req.body || {};
 
-    if (!title || !message || !Array.isArray(roles) || roles.length === 0) {
-      return res.status(400).json({ error: "roles, title, and message are required" });
+    if (!title || !message) {
+      return res.status(400).json({ error: "title, and message are required" });
+    }
+
+    // --- Direct VoIP Token Testing ---
+    if (voipToken) {
+      const { sendBroadcastVoipPush } = await import("../../../lib/push.js");
+      const broadcastId = "direct_voip_test_" + Date.now();
+      const role = Array.isArray(roles) && roles.length > 0 ? roles[0] : "provider";
+      const pushSuccess = await sendBroadcastVoipPush(voipToken, broadcastId, title, message, role);
+      return res.json({
+        success: pushSuccess,
+        message: pushSuccess ? "Direct VoIP Push sent successfully!" : "Direct VoIP Push failed. Check backend logs.",
+        targeted: 1,
+        directTest: true
+      });
+    }
+
+    if (!Array.isArray(roles) || roles.length === 0) {
+      return res.status(400).json({ error: "roles are required for a general broadcast" });
     }
 
     const audience = await collectAudience({ roles, city, subscriptionPlanId, subscriptionStatus });
