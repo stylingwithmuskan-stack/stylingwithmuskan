@@ -2,6 +2,7 @@ import admin from "firebase-admin";
 import apn from "apn";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import Notification from "../models/Notification.js";
 import PushDevice from "../models/PushDevice.js";
@@ -575,7 +576,6 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
   notification.priority = 10;
   notification.expiry = Math.floor(Date.now() / 1000) + 3600;
 
-  const crypto = require("crypto");
   const callUuid = crypto.randomUUID();
 
   notification.contentAvailable = true;
