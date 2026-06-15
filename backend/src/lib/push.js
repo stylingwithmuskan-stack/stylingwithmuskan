@@ -589,7 +589,13 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
     const result = await voipApnProvider.send(notification, voipToken);
     console.log(`[push] Broadcast VoIP Push sent. Success: ${result.sent.length}, Failed: ${result.failed.length}`);
     if (result.failed.length > 0) {
-      console.error(`[push] Broadcast VoIP Push failure details:`, JSON.stringify(result.failed, null, 2));
+      const detailedErrors = result.failed.map(f => ({
+        device: f.device,
+        status: f.status,
+        response: f.response,
+        errorMessage: f.error ? (f.error.message || String(f.error)) : null
+      }));
+      console.error(`[push] Broadcast VoIP Push failure details:`, JSON.stringify(detailedErrors, null, 2));
     }
     return result.sent.length > 0;
   } catch (error) {
