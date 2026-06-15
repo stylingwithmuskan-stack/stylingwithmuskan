@@ -105,7 +105,7 @@ router.post("/push/register", flexibleAuth, async (req, res) => {
     const fcmToken = body.fcmToken || body.token || "";
     const voipToken = body.voipToken || body.voiptoken || body.voip_token || "";
     const platform = body.platform || "web";
-    const deviceKey = body.deviceKey || body.fcmToken || body.token || "";  // fall back to token as deviceKey if not provided
+    const deviceKey = body.deviceKey || body.fcmToken || body.token || voipToken || "";  // fall back to token/voipToken as deviceKey if not provided
     const permission = body.permission || "granted";
     const enabled = body.enabled !== false;
 
@@ -133,18 +133,27 @@ router.post("/push/register", flexibleAuth, async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // AUTO-CLEANUP: Deactivate this fcmToken for OTHER users with the SAME role.
-    // This ensures that if a different person logs in on the same device, the previous person stops receiving pushes.
-    // We do NOT deactivate tokens for different roles on the same device, because this app supports
-    // multi-role login (e.g., same person logged in as both "user" and "provider" simultaneously).
-    await PushDevice.updateMany(
-      {
-        fcmToken,
-        recipientRole,
-        recipientId: { $ne: recipientId }
-      },
-      { $set: { isActive: false, lastError: "Token transferred to another session/user" } }
-    );
+    // AUTO-CLEANUP: Deactivate this token for OTHER users with the SAME role.
+    if (fcmToken) {
+      await PushDevice.updateMany(
+        {
+          fcmToken,
+          recipientRole,
+          recipientId: { $ne: recipientId }
+        },
+        { $set: { isActive: false, lastError: "Token transferred to another session/user" } }
+      );
+    }
+    if (voipToken) {
+      await PushDevice.updateMany(
+        {
+          voipToken,
+          recipientRole,
+          recipientId: { $ne: recipientId }
+        },
+        { $set: { isActive: false, lastError: "Token transferred to another session/user" } }
+      );
+    }
 
     res.json({
       success: true,

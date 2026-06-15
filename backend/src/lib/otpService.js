@@ -32,7 +32,7 @@ function parseStoredOtpRecord(raw) {
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object") return parsed;
-  } catch {}
+  } catch { }
   return { otp: String(raw) };
 }
 
