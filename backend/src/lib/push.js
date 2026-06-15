@@ -575,10 +575,13 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
   notification.priority = 10;
   notification.expiry = Math.floor(Date.now() / 1000) + 3600;
 
+  const crypto = require("crypto");
+  const callUuid = crypto.randomUUID();
+
   notification.contentAvailable = true;
   notification.payload = {
-    uuid: String(broadcastId),
-    id: String(broadcastId),
+    uuid: callUuid,
+    id: callUuid,
     nameCaller: String(title || "Admin Alert").slice(0, 50),
     handle: String(message || "New message").slice(0, 100),
     type: 0,
