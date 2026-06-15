@@ -577,16 +577,15 @@ export async function sendBroadcastVoipPush(voipToken, broadcastId, title, messa
 
   notification.contentAvailable = true;
   notification.payload = {
-    "content_available": true,
-    data: {
-      id: String(broadcastId),
-      nameCaller: String(title || "Admin Alert").slice(0, 50),
-      handle: String(message || "New message").slice(0, 100),
-      type: 0,
-      room_id: `room_${broadcastId}`,
-      extra: {
-        broadcastId: String(broadcastId)
-      }
+    uuid: String(broadcastId),
+    id: String(broadcastId),
+    nameCaller: String(title || "Admin Alert").slice(0, 50),
+    handle: String(message || "New message").slice(0, 100),
+    type: 0,
+    hasVideo: false,
+    room_id: `room_${broadcastId}`,
+    extra: {
+      broadcastId: String(broadcastId)
     }
   };
 
