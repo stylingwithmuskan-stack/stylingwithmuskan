@@ -21,8 +21,10 @@ export default function VenderPayouts() {
         try {
             if (!hydrated || !isLoggedIn) return;
             const [sps, bks] = await Promise.all([getServiceProviders(), getAllBookings()]);
-            setProviders((Array.isArray(sps) ? sps : []).filter(sp => sp.approvalStatus === "approved"));
-            setBookings(Array.isArray(bks) ? bks : []);
+            const spsArr = Array.isArray(sps) ? sps : (sps?.providers || []);
+            const bksArr = Array.isArray(bks) ? bks : (bks?.bookings || []);
+            setProviders(spsArr.filter(sp => sp.approvalStatus === "approved"));
+            setBookings(bksArr);
         } catch {}
     };
 
@@ -33,8 +35,10 @@ export default function VenderPayouts() {
                 if (!hydrated || !isLoggedIn) return;
                 const [sps, bks] = await Promise.all([getServiceProviders(), getAllBookings()]);
                 if (cancelled) return;
-                setProviders((Array.isArray(sps) ? sps : []).filter(sp => sp.approvalStatus === "approved"));
-                setBookings(Array.isArray(bks) ? bks : []);
+                const spsArr = Array.isArray(sps) ? sps : (sps?.providers || []);
+                const bksArr = Array.isArray(bks) ? bks : (bks?.bookings || []);
+                setProviders(spsArr.filter(sp => sp.approvalStatus === "approved"));
+                setBookings(bksArr);
             } catch {}
         })();
         return () => { cancelled = true; };
