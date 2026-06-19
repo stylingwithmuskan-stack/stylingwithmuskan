@@ -1442,14 +1442,14 @@ export async function listFeedback(req, res) {
       .limit(Number(limit))
       .lean();
 
-    // Dynamically populate provider names if missing
-    const providerIds = [...new Set(feedbacks.filter(f => !f.providerName && f.providerId).map(f => f.providerId))];
+    // Dynamically populate provider names if missing or set to default "Provider"
+    const providerIds = [...new Set(feedbacks.filter(f => (!f.providerName || f.providerName === "Provider") && f.providerId).map(f => f.providerId))];
     if (providerIds.length > 0) {
       const providers = await ProviderAccount.find({ _id: { $in: providerIds } }, "name").lean();
       const provMap = new Map(providers.map(p => [p._id.toString(), p.name]));
       feedbacks.forEach(f => {
-        if (!f.providerName && f.providerId) {
-          f.providerName = provMap.get(f.providerId) || "Unknown Provider";
+        if ((!f.providerName || f.providerName === "Provider") && f.providerId) {
+          f.providerName = provMap.get(f.providerId) || f.providerName || "Unknown Provider";
         }
       });
     }
