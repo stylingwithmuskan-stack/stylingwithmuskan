@@ -709,7 +709,7 @@ export const api = {
       const q = new URLSearchParams(params).toString();
       return request(`/admin/payouts${q ? `?${q}` : ""}`);
     },
-    updatePayoutStatus: (id, status) => request(`/admin/payouts/${id}/status`, { method: "PATCH", body: { status } }),
+    updatePayoutStatus: (id, payload) => request(`/admin/payouts/${id}/status`, { method: "PATCH", body: payload }),
 
     // System Settings
     getSystemSettings: () => request("/admin/system-settings"),

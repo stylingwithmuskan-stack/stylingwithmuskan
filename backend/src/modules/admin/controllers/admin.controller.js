@@ -1325,7 +1325,7 @@ export async function getZoneStats(req, res) {
 
 export async function listPayouts(req, res) {
   const { city, status, startDate, endDate, query } = req.query;
-  const filter = { status: "completed" }; // Only completed bookings are eligible for payouts
+  const filter = { status: "completed", onlineAmountPaid: { $gt: 0 } }; // Only completed bookings with online payment are eligible for payouts
 
   if (city && city !== "All Cities") {
     filter.$or = [{ "address.city": city }, { "address.area": city }];
@@ -1355,8 +1355,9 @@ export async function listPayouts(req, res) {
     id: b._id.toString(),
     spName: provMap.get(b.assignedProvider)?.name || "Unknown SP",
     city: b.address?.city || b.address?.area || "Unknown",
-    amount: b.totalAmount || 0,
+    amount: b.onlineAmountPaid || b.totalAmount || 0,
     status: b.payoutStatus || "pending",
+    payoutProof: b.payoutProof || "",
     date: b.createdAt.toISOString().split("T")[0],
     vendorId: b.maintainProvider || "",
     bookingId: b._id.toString(),
@@ -1378,13 +1379,25 @@ export async function listPayouts(req, res) {
 
 export async function updatePayoutStatus(req, res) {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, payoutProof } = req.body;
   
   if (!["pending", "completed", "on_hold"].includes(status)) {
     return res.status(400).json({ error: "Invalid status" });
   }
 
-  const b = await Booking.findByIdAndUpdate(id, { payoutStatus: status }, { new: true });
+  let updates = { payoutStatus: status };
+
+  if (payoutProof && payoutProof.startsWith("data:image")) {
+    try {
+      const { uploadBase64Image } = await import("../../../startup/cloudinary.js");
+      updates.payoutProof = await uploadBase64Image(payoutProof, "payouts");
+    } catch (err) {
+      console.error("[Payout] Error uploading proof:", err);
+      return res.status(500).json({ error: "Failed to upload payout proof" });
+    }
+  }
+
+  const b = await Booking.findByIdAndUpdate(id, updates, { new: true });
   if (!b) return res.status(404).json({ error: "Booking not found" });
 
   res.json({ success: true, booking: b });

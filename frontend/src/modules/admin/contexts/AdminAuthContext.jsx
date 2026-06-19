@@ -295,7 +295,7 @@ export const AdminAuthProvider = ({ children }) => {
 
     // ───── PAYOUTS ─────
     const getPayouts = async (params = {}) => (await api.admin.getPayouts(params)).payouts;
-    const updatePayoutStatus = async (id, status) => { await api.admin.updatePayoutStatus(id, status); };
+    const updatePayoutStatus = async (id, payload) => { await api.admin.updatePayoutStatus(id, payload); };
 
     // ───── PERFORMANCE CRITERIA ─────
     const getPerformanceCriteria = async () => (await api.admin.getPerformanceCriteria()).settings;

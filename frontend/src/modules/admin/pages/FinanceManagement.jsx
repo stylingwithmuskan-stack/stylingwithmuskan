@@ -18,6 +18,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/modules/user/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/modules/user/components/ui/dialog";
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
@@ -31,6 +37,12 @@ export default function FinanceManagement() {
     const [payouts, setPayouts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [cities, setCities] = useState(["All Cities"]);
+
+    // Upload Proof State
+    const [uploadModalOpen, setUploadModalOpen] = useState(false);
+    const [selectedPayoutId, setSelectedPayoutId] = useState(null);
+    const [proofFile, setProofFile] = useState(null);
+    const [uploading, setUploading] = useState(false);
 
     // Filters
     const [searchCity, setSearchCity] = useState("All Cities");
@@ -93,9 +105,38 @@ export default function FinanceManagement() {
         setTimeout(() => setSaved(false), 2000);
     };
 
-    const handleExecutePayout = async (id, newStatus = "completed") => {
+    const handleExecutePayoutClick = (id) => {
+        setSelectedPayoutId(id);
+        setProofFile(null);
+        setUploadModalOpen(true);
+    };
+
+    const submitPayoutExecute = async () => {
+        if (!selectedPayoutId || !proofFile) return;
+        setUploading(true);
         try {
-            await updatePayoutStatus(id, newStatus);
+            const reader = new FileReader();
+            reader.readAsDataURL(proofFile);
+            reader.onload = async () => {
+                const base64Str = reader.result;
+                await updatePayoutStatus(selectedPayoutId, { status: "completed", payoutProof: base64Str });
+                setUploadModalOpen(false);
+                fetchPayouts();
+                setUploading(false);
+            };
+            reader.onerror = (error) => {
+                console.error("FileReader error: ", error);
+                setUploading(false);
+            };
+        } catch (e) {
+            console.error("Failed to execute payout", e);
+            setUploading(false);
+        }
+    };
+
+    const handleStatusChange = async (id, newStatus) => {
+        try {
+            await updatePayoutStatus(id, { status: newStatus });
             fetchPayouts(); // Refresh list
         } catch (e) {
             console.error("Failed to update payout status", e);
@@ -416,22 +457,29 @@ export default function FinanceManagement() {
                                                         {payout.status === "pending" && (
                                                             <Button
                                                                 size="sm"
-                                                                onClick={() => handleExecutePayout(payout.id)}
+                                                                onClick={() => handleExecutePayoutClick(payout.id)}
                                                                 className="h-9 px-4 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 glow-primary transition-all active:scale-95 whitespace-nowrap"
                                                             >
                                                                 Execute Payout
                                                             </Button>
                                                         )}
                                                         {payout.status === "completed" && (
-                                                            <div className="h-9 px-4 flex items-center justify-center rounded-xl bg-green-50 text-green-600 text-xs font-bold border border-green-200">
-                                                                Processed
+                                                            <div className="flex gap-2 items-center">
+                                                                {payout.payoutProof && (
+                                                                    <a href={payout.payoutProof} target="_blank" rel="noreferrer" className="h-9 px-4 flex items-center justify-center rounded-xl bg-blue-50 text-blue-600 text-xs font-bold border border-blue-200 hover:bg-blue-100">
+                                                                        View Proof
+                                                                    </a>
+                                                                )}
+                                                                <div className="h-9 px-4 flex items-center justify-center rounded-xl bg-green-50 text-green-600 text-xs font-bold border border-green-200">
+                                                                    Processed
+                                                                </div>
                                                             </div>
                                                         )}
                                                         {payout.status === "on_hold" && (
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
-                                                                onClick={() => handleExecutePayout(payout.id, "pending")}
+                                                                onClick={() => handleStatusChange(payout.id, "pending")}
                                                                 className="h-9 px-4 rounded-xl font-bold border-primary text-primary hover:bg-primary/10 whitespace-nowrap"
                                                             >
                                                                 Release Hold
@@ -453,6 +501,26 @@ export default function FinanceManagement() {
                     </Card>
                 </motion.div>
             </div>
+            <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Execute Payout</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                            <Label>Upload Payment Proof (Screenshot/Receipt)</Label>
+                            <Input type="file" accept="image/*" onChange={e => setProofFile(e.target.files?.[0])} />
+                        </div>
+                        <Button 
+                            className="w-full" 
+                            disabled={!proofFile || uploading} 
+                            onClick={submitPayoutExecute}
+                        >
+                            {uploading ? "Uploading & Saving..." : "Submit Payout"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

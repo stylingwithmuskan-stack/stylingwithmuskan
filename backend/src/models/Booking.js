@@ -62,6 +62,7 @@ const BookingSchema = new mongoose.Schema(
     cancelledAt: { type: Date, default: null },
     cancellationReason: { type: String, default: "" },
     payoutStatus: { type: String, default: "pending" },
+    payoutProof: { type: String, default: "" },
     commissionAmount: { type: Number, default: 0 },
     commissionChargedAt: { type: Date, default: null },
     commissionRefundedAt: { type: Date, default: null },
