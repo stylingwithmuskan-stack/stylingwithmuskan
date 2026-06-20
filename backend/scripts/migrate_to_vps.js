@@ -61,10 +61,36 @@ async function migrateImages() {
 
     for (const resource of allResources) {
       const oldUrl = resource.secure_url;
-      const localRelativePath = resource.localPath; // e.g., /assets/cloudinary/filename.jpg or /images/filename.mp4
+      if (!oldUrl) continue;
+
+      let filename = '';
+      let sourceFilePath = '';
+      const ext = path.extname(new URL(oldUrl).pathname) || '.jpg';
+
+      if (resource.localPath) {
+        filename = path.basename(resource.localPath);
+        sourceFilePath = path.join(LOCAL_IMAGES_DIR, filename);
+      } else {
+        filename = path.basename(resource.public_id) + ext;
+        const possiblePaths = [
+          path.join(LOCAL_IMAGES_DIR, resource.public_id + ext),
+          path.join(LOCAL_IMAGES_DIR, resource.public_id.replace(/\//g, '_') + ext),
+          path.join(LOCAL_IMAGES_DIR, filename)
+        ];
+        for (const p of possiblePaths) {
+          try {
+            await fs.access(p);
+            sourceFilePath = p;
+            break;
+          } catch (e) {}
+        }
+      }
+
+      if (!sourceFilePath) {
+        console.warn(`Could not find local file for ${resource.public_id}`);
+        continue;
+      }
       
-      // Determine filename from localPath
-      const filename = path.basename(localRelativePath);
       
       // Determine category (from public_id or default)
       const parts = resource.public_id.split('/');
@@ -79,7 +105,6 @@ async function migrateImages() {
       await fs.mkdir(targetDir, { recursive: true });
       
       const targetFilePath = path.join(targetDir, filename);
-      const sourceFilePath = path.join(LOCAL_IMAGES_DIR, filename);
 
       try {
         await fs.access(sourceFilePath);
