@@ -17,7 +17,8 @@ async function migrateImages() {
     console.log('Starting Migration from Local Downloaded Images to VPS Storage Structure...');
     
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI);
+    const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+    await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB.');
 
     // 1. Read metadata files
