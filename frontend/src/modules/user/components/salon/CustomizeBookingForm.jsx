@@ -692,7 +692,10 @@ const CustomizeBookingForm = ({ isOpen, onClose }) => {
                                                         >
                                                             <div className="flex justify-between items-start gap-4">
                                                                 <div className="flex-1" onClick={() => toggleService(service)}>
-                                                                    <h4 className="text-sm font-bold leading-tight">{service.name}</h4>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <h4 className="text-sm font-bold leading-tight">{service.name}</h4>
+                                                                        <span className="text-xs font-bold text-primary">₹{service.price}</span>
+                                                                    </div>
                                                                     <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">{service.description}</p>
                                                                 </div>
                                                                 <button
