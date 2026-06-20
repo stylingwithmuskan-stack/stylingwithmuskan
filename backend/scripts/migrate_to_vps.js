@@ -24,13 +24,22 @@ async function migrateImages() {
     // 1. Read metadata files
     const metadataPath = path.join(LOCAL_IMAGES_DIR, 'metadata.json');
     const videosMetadataPath = path.join(LOCAL_IMAGES_DIR, 'metadata_videos.json');
+    const alternateMetadataPath = path.join(LOCAL_IMAGES_DIR, 'cloudinary_metadata.json');
     
     let allResources = [];
     try {
       const imgData = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
       allResources = allResources.concat(imgData);
     } catch (e) {
-      console.log('No metadata.json found or failed to parse.');
+      console.log('No metadata.json found, skipping.');
+    }
+
+    try {
+      const altData = JSON.parse(await fs.readFile(alternateMetadataPath, 'utf8'));
+      allResources = allResources.concat(altData);
+      console.log('Successfully read cloudinary_metadata.json');
+    } catch (e) {
+      console.log('No cloudinary_metadata.json found, skipping.');
     }
 
     try {
