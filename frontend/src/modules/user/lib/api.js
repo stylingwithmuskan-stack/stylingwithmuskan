@@ -709,6 +709,10 @@ export const api = {
       const q = new URLSearchParams(params).toString();
       return request(`/admin/payouts${q ? `?${q}` : ""}`);
     },
+    getRecharges: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/admin/recharges${q ? `?${q}` : ""}`);
+    },
     updatePayoutStatus: (id, payload) => request(`/admin/payouts/${id}/status`, { method: "PATCH", body: payload }),
 
     // System Settings

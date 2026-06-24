@@ -10,7 +10,7 @@ export const useAdminAuth = () => {
         // Return a dummy object if context is missing to avoid immediate crash,
         // but this shouldn't happen if structure is correct.
         console.warn("useAdminAuth must be used within AdminAuthProvider");
-        return { admin: null, isLoggedIn: false, hydrated: false, login: () => {}, logout: () => {} };
+        return { admin: null, isLoggedIn: false, hydrated: false, login: () => { }, logout: () => { } };
     }
     return context;
 };
@@ -43,7 +43,7 @@ export const AdminAuthProvider = ({ children }) => {
                 sessionStorage.removeItem(ADMIN_KEY);
                 safeStorage.removeItem(ADMIN_KEY);
             }
-        } catch {}
+        } catch { }
     };
 
     const [hydrated, setHydrated] = useState(false);
@@ -78,7 +78,7 @@ export const AdminAuthProvider = ({ children }) => {
                 sessionStorage.removeItem(TOKEN_KEY);
                 safeStorage.removeItem(TOKEN_KEY);
             }
-        } catch {}
+        } catch { }
     };
 
     const login = async (email, password) => {
@@ -98,10 +98,10 @@ export const AdminAuthProvider = ({ children }) => {
     const logout = () => {
         setAdmin(null);
         setAdminToken("");
-        try { 
+        try {
             safeStorage.removeItem(ADMIN_KEY);
             safeStorage.removeItem(TOKEN_KEY);
-        } catch {}
+        } catch { }
         api.admin.logout();
     };
 
@@ -264,8 +264,8 @@ export const AdminAuthProvider = ({ children }) => {
     };
     const deleteBanner = async (id) => {
         // Try removing from both genders to be safe
-        try { await api.admin.deleteBanner(id, "women"); } catch {}
-        try { await api.admin.deleteBanner(id, "men"); } catch {}
+        try { await api.admin.deleteBanner(id, "women"); } catch { }
+        try { await api.admin.deleteBanner(id, "men"); } catch { }
     };
 
     // ───── REFERRAL ─────
@@ -295,6 +295,7 @@ export const AdminAuthProvider = ({ children }) => {
 
     // ───── PAYOUTS ─────
     const getPayouts = async (params = {}) => (await api.admin.getPayouts(params)).payouts;
+    const getRecharges = async (params = {}) => (await api.admin.getRecharges(params)).recharges;
     const updatePayoutStatus = async (id, payload) => { await api.admin.updatePayoutStatus(id, payload); };
 
     // ───── PERFORMANCE CRITERIA ─────
@@ -351,7 +352,7 @@ export const AdminAuthProvider = ({ children }) => {
             getCommissionSettings, updateCommissionSettings,
             getStatusSettings, updateStatusSettings,
             getMetricsOverview, getRevenueByMonth, getCustomersByMonth, getProvidersByMonth, getBookingTrend, getMetricsCities,
-            getPayouts, updatePayoutStatus,
+            getPayouts, getRecharges, updatePayoutStatus,
             getPerformanceCriteria, updatePerformanceCriteria,
             getSubscriptionSettings, updateSubscriptionSettings, getSubscriptionPlans, createSubscriptionPlan, updateSubscriptionPlan, getSubscriptionReport,
             deleteSubscriptionPlan,

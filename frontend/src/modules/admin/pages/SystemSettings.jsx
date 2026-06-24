@@ -14,7 +14,8 @@ export default function SystemSettings() {
     const [systemSettings, setSystemSettings] = useState({ 
         menSectionEnabled: false, 
         availableRoles: ["user", "provider", "vendor"],
-        adminPassword: ""
+        adminPassword: "",
+        adminEmail: ""
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -35,7 +36,8 @@ export default function SystemSettings() {
             if (system) {
                 setSystemSettings({
                     ...system,
-                    adminPassword: system.adminPassword || ""
+                    adminPassword: system.adminPassword || "",
+                    adminEmail: system.adminEmail || ""
                 });
             }
         } catch (err) {
@@ -76,6 +78,7 @@ export default function SystemSettings() {
             const payload = {
                 ...systemSettings,
                 adminPassword: systemSettings.adminPassword.trim(),
+                adminEmail: systemSettings.adminEmail.trim(),
                 otp: otp.trim()
             };
             await updateSystemSettings(payload);
@@ -127,6 +130,23 @@ export default function SystemSettings() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
+                    <div className="space-y-2">
+                        <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                            Admin Email
+                        </Label>
+                        <Input 
+                            type="email"
+                            disabled={showOtpInput}
+                            value={systemSettings.adminEmail} 
+                            onChange={(e) => setSystemSettings({ ...systemSettings, adminEmail: e.target.value })} 
+                            placeholder="Enter email for OTPs & Admin alerts" 
+                            className={cn(
+                                "h-12 rounded-xl font-bold text-lg",
+                                showOtpInput ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : "bg-muted/30"
+                            )}
+                        />
+                    </div>
+
                     <div className="space-y-2">
                         <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                             Admin Password

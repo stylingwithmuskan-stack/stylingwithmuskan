@@ -211,12 +211,12 @@ export async function listProviders(req, res) {
               { $group: { _id: "$assignedProvider", count: { $sum: 1 } } }
             ],
             accepted: [
-              { 
-                $match: { 
-                  status: { $nin: ["pending", "incoming", "unassigned", "payment_pending"] }, 
-                  assignedProvider: { $in: providerIds }, 
-                  lastAssignedAt: { $ne: null } 
-                } 
+              {
+                $match: {
+                  status: { $nin: ["pending", "incoming", "unassigned", "payment_pending"] },
+                  assignedProvider: { $in: providerIds },
+                  lastAssignedAt: { $ne: null }
+                }
               },
               {
                 $group: {
@@ -246,7 +246,7 @@ export async function listProviders(req, res) {
         const cancCount = cancelledMap.get(pId) || 0;
         const missedCount = missedMap.get(pId) || 0;
         const avgTimeMs = acceptedMap.get(pId) || 0;
-        
+
         const totalWorkHistory = comp.count + cancCount;
         const cancelRate = totalWorkHistory > 0 ? Math.round((cancCount / totalWorkHistory) * 100) : 0;
         const avgTimeMin = avgTimeMs > 0 ? Math.round(avgTimeMs / (1000 * 60)) : 0;
@@ -259,7 +259,7 @@ export async function listProviders(req, res) {
             missed: missedCount,
             revenue: comp.revenue,
             commission: comp.commission,
-            acceptTime: avgTimeMin > 0 ? (avgTimeMin > 60 ? `${Math.round(avgTimeMin/60)} hr` : `${avgTimeMin} min`) : "5 min"
+            acceptTime: avgTimeMin > 0 ? (avgTimeMin > 60 ? `${Math.round(avgTimeMin / 60)} hr` : `${avgTimeMin} min`) : "5 min"
           }
         };
       });
@@ -268,12 +268,12 @@ export async function listProviders(req, res) {
     }
   }
 
-  res.json({ 
-    providers: items, 
-    page: effectivePage, 
-    limit, 
-    total: filteredTotal, 
-    totalCount: activeTab === "all" ? totalAll : filteredTotal, 
+  res.json({
+    providers: items,
+    page: effectivePage,
+    limit,
+    total: filteredTotal,
+    totalCount: activeTab === "all" ? totalAll : filteredTotal,
     stats: {
       all: totalAll,
       active: activeCount,
@@ -352,7 +352,7 @@ export async function listBookings(req, res) {
   const providerIds = Array.from(new Set(
     items.flatMap(b => [b.assignedProvider, b.maintainProvider, b.maintainerProvider].filter(Boolean))
   ));
-  
+
   const provMap = new Map();
   if (providerIds.length) {
     const providers = await ProviderAccount.find({ _id: { $in: providerIds } }, "name phone").lean();
@@ -384,7 +384,7 @@ export async function getAvailableProvidersForBooking(req, res) {
   const city = (booking.address?.city || "").trim();
   const cityId = (booking.address?.cityId || "").trim();
   const zoneId = (booking.address?.zoneId || "").trim();
-  
+
   let pQuery = {
     approvalStatus: "approved",
     registrationComplete: true,
@@ -406,12 +406,12 @@ export async function getAvailableProvidersForBooking(req, res) {
   // This helps when providers are misconfigured or when admins want to override zone boundaries.
 
   const allProviders = await ProviderAccount.find(pQuery).lean();
-  
+
   const availableProviders = [];
   for (const provider of allProviders) {
     // eslint-disable-next-line no-await-in-loop
     const isAvailable = await canAssignProviderToBooking(
-      provider._id.toString(), 
+      provider._id.toString(),
       booking,
       { ignoreLeadTime: true, ignoreServiceWindow: true }
     );
@@ -420,7 +420,7 @@ export async function getAvailableProvidersForBooking(req, res) {
       // Check specialty match
       // eslint-disable-next-line no-await-in-loop
       const matchesSpecialty = await providerMatchesAllServiceIds(
-        provider, 
+        provider,
         (booking.services || booking.items || []).map(s => s.id).filter(Boolean)
       );
 
@@ -430,7 +430,7 @@ export async function getAvailableProvidersForBooking(req, res) {
         ...(provider.zoneIds || []),
         provider.baseZoneId
       ].filter(Boolean).map(id => String(id));
-      
+
       const inZone = zoneId ? pZoneIds.includes(zoneId) : true;
 
       availableProviders.push({
@@ -458,7 +458,7 @@ export async function getAvailableProvidersForBooking(req, res) {
     if (a.matchesSpecialty !== b.matchesSpecialty) return a.matchesSpecialty ? -1 : 1;
     return (b.rating || 0) - (a.rating || 0);
   });
-  
+
   res.json({ availableProviders });
 }
 
@@ -689,10 +689,10 @@ export async function metricsOverview(req, res) {
   if (!isOverall) {
     const prevPeriod = addMonths(period, -1);
     const { start: prevStart, end: prevEnd } = monthRangeUtc(prevPeriod, tz);
-    
+
     const prevBookingMatch = { ...cityPredicate(city), createdAt: { $gte: prevStart, $lt: prevEnd } };
     const prevUserQuery = { ...userCityQuery, createdAt: { $gte: prevStart, $lt: prevEnd } };
-    
+
     const [prevAgg, prevCustomers] = await Promise.all([
       Booking.aggregate([
         { $match: prevBookingMatch },
@@ -927,7 +927,7 @@ export async function metricsBookingTrend(req, res) {
 
 export async function metricsCities(_req, res) {
   const cityDocs = await City.find().sort({ name: 1 }).lean();
-  
+
   const set = new Set();
   for (const cDoc of cityDocs || []) {
     if (cDoc.name) {
@@ -935,7 +935,7 @@ export async function metricsCities(_req, res) {
       if (s) set.add(s);
     }
   }
-  
+
   const cities = ["All Cities", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   res.json({ cities });
 }
@@ -949,7 +949,7 @@ export async function listCustomEnquiries(_req, res) {
 
 export async function customEnquiryPriceQuote(req, res) {
   const { totalAmount, discountPrice, notes, items, prebookAmount, totalServiceTime, quoteExpiryHours } = req.body;
-  
+
   const enq = await CustomEnquiry.findById(req.params.id);
   if (!enq) return res.status(404).json({ error: "Not found" });
 
@@ -971,17 +971,17 @@ export async function customEnquiryPriceQuote(req, res) {
     expiryAt: expiryAt || enq.quote?.expiryAt || null,
     items: Array.isArray(items) ? items : (enq.quote?.items?.length ? enq.quote.items : enq.items),
   };
-  
+
   enq.status = "admin_approved";
   enq.timeline = Array.isArray(enq.timeline) ? enq.timeline : [];
-  enq.timeline.push({ 
+  enq.timeline.push({
     at: new Date(),
-    action: "admin_approved", 
-    meta: { totalAmount: enq.quote.totalAmount, discountPrice: enq.quote.discountPrice } 
+    action: "admin_approved",
+    meta: { totalAmount: enq.quote.totalAmount, discountPrice: enq.quote.discountPrice }
   });
 
   await enq.save();
-  
+
   try {
     await notify({
       recipientId: enq.userId,
@@ -989,7 +989,7 @@ export async function customEnquiryPriceQuote(req, res) {
       type: "custom_quote_submitted",
       meta: { enquiryId: enq._id?.toString?.() },
     });
-  } catch {}
+  } catch { }
 
   res.json({ enquiry: enq });
 }
@@ -1043,48 +1043,48 @@ function isValidCoordinate(coord) {
 export async function createZone(req, res) {
   const { cityId } = req.params;
   const { name, coordinates } = req.body;
-  
+
   // Existing validation
   if (!name) return res.status(400).json({ error: "Name is required" });
-  
+
   // Validate coordinates if provided
   if (coordinates !== undefined && coordinates !== null) {
     // Flexible validation: 3-10 points
     const MIN_POINTS = 3;
     const MAX_POINTS = 10;
-    
+
     if (!Array.isArray(coordinates)) {
-      return res.status(400).json({ 
-        error: "Coordinates must be an array" 
+      return res.status(400).json({
+        error: "Coordinates must be an array"
       });
     }
-    
+
     if (coordinates.length < MIN_POINTS || coordinates.length > MAX_POINTS) {
-      return res.status(400).json({ 
-        error: `Coordinates must have between ${MIN_POINTS} and ${MAX_POINTS} points. Received: ${coordinates.length}` 
+      return res.status(400).json({
+        error: `Coordinates must have between ${MIN_POINTS} and ${MAX_POINTS} points. Received: ${coordinates.length}`
       });
     }
-    
+
     // Validate each coordinate format
     for (let i = 0; i < coordinates.length; i++) {
       if (!isValidCoordinate(coordinates[i])) {
-        return res.status(400).json({ 
-          error: `Invalid coordinate format at point ${i + 1}` 
+        return res.status(400).json({
+          error: `Invalid coordinate format at point ${i + 1}`
         });
       }
     }
-    
+
     // Validate polygon geometry
     const validation = validatePolygon(coordinates);
     if (!validation.isValid) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Invalid polygon geometry",
         details: validation.errors,
         area: validation.areaKm,
         perimeter: validation.perimeterKm
       });
     }
-    
+
     // Log zone metrics for monitoring
     console.log(`[Zone Create] ${name}:`, {
       points: coordinates.length,
@@ -1092,18 +1092,18 @@ export async function createZone(req, res) {
       perimeter: `${validation.perimeterKm} km`
     });
   }
-  
+
   // Create zone with optional coordinates
-  const zone = await Zone.create({ 
-    name, 
+  const zone = await Zone.create({
+    name,
     city: cityId,
     ...(coordinates && { coordinates }) // Only include if provided
   });
   if (coordinates) await syncCityCenterFromZone(cityId, coordinates);
-  
+
   // Trigger notifications for providers in this city
   setImmediate(() => {
-    notifyProvidersOfNewZone(cityId, name).catch(err => 
+    notifyProvidersOfNewZone(cityId, name).catch(err =>
       console.error("[AdminController] Async notification failed:", err.message)
     );
   });
@@ -1118,10 +1118,10 @@ async function notifyProvidersOfNewZone(cityId, zoneName, excludeId = null) {
   try {
     const { notifyMany } = await import("../../../lib/notify.js");
     // Find all approved providers in this city
-    const query = { 
-      cityId: String(cityId), 
+    const query = {
+      cityId: String(cityId),
       approvalStatus: "approved",
-      registrationComplete: true 
+      registrationComplete: true
     };
     if (excludeId) query._id = { $ne: excludeId };
 
@@ -1173,10 +1173,10 @@ export async function deleteCity(req, res) {
 export async function updateZone(req, res) {
   const { zoneId } = req.params;
   const { name, coordinates } = req.body;
-  
+
   const updates = {};
   if (name) updates.name = name;
-  
+
   // Validate and include coordinates if provided
   if (coordinates !== undefined) {
     if (coordinates === null) {
@@ -1185,41 +1185,41 @@ export async function updateZone(req, res) {
       // Flexible validation: 3-10 points
       const MIN_POINTS = 3;
       const MAX_POINTS = 10;
-      
+
       if (!Array.isArray(coordinates)) {
-        return res.status(400).json({ 
-          error: "Coordinates must be an array" 
+        return res.status(400).json({
+          error: "Coordinates must be an array"
         });
       }
-      
+
       if (coordinates.length < MIN_POINTS || coordinates.length > MAX_POINTS) {
-        return res.status(400).json({ 
-          error: `Coordinates must have between ${MIN_POINTS} and ${MAX_POINTS} points. Received: ${coordinates.length}` 
+        return res.status(400).json({
+          error: `Coordinates must have between ${MIN_POINTS} and ${MAX_POINTS} points. Received: ${coordinates.length}`
         });
       }
-      
+
       // Validate each coordinate format
       for (let i = 0; i < coordinates.length; i++) {
         if (!isValidCoordinate(coordinates[i])) {
-          return res.status(400).json({ 
-            error: `Invalid coordinate format at point ${i + 1}` 
+          return res.status(400).json({
+            error: `Invalid coordinate format at point ${i + 1}`
           });
         }
       }
-      
+
       // Validate polygon geometry
       const validation = validatePolygon(coordinates);
       if (!validation.isValid) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Invalid polygon geometry",
           details: validation.errors,
           area: validation.areaKm,
           perimeter: validation.perimeterKm
         });
       }
-      
+
       updates.coordinates = coordinates;
-      
+
       // Log zone metrics for monitoring
       console.log(`[Zone Update] ${name || zoneId}:`, {
         points: coordinates.length,
@@ -1228,17 +1228,17 @@ export async function updateZone(req, res) {
       });
     }
   }
-  
+
   const zone = await Zone.findByIdAndUpdate(zoneId, updates, { new: true });
   if (!zone) return res.status(404).json({ error: "Zone not found" });
   if (updates.coordinates) await syncCityCenterFromZone(zone.city?.toString?.() || zone.city, updates.coordinates);
-  
+
   res.json({ zone });
 }
 
 export async function deleteZone(req, res) {
   const { zoneId } = req.params;
-  
+
   // 1. Fetch zone details first to get the name (needed for cleanup in string-based arrays)
   const zone = await Zone.findById(zoneId);
   if (!zone) return res.status(404).json({ error: "Zone not found" });
@@ -1251,15 +1251,15 @@ export async function deleteZone(req, res) {
   // 3. Cleanup ProviderAccount references
   // Pull from arrays
   await ProviderAccount.updateMany(
-    { 
+    {
       $or: [
-        { zones: zoneName }, 
-        { zoneIds: zoneId }, 
-        { pendingZones: zoneName }, 
+        { zones: zoneName },
+        { zoneIds: zoneId },
+        { pendingZones: zoneName },
         { serviceZoneIds: zoneId },
         { "pendingZoneRequests.resolvedZoneId": zoneId },
         { "pendingZoneRequests.zoneName": zoneName }
-      ] 
+      ]
     },
     {
       $pull: {
@@ -1267,7 +1267,7 @@ export async function deleteZone(req, res) {
         zoneIds: zoneId,
         pendingZones: zoneName,
         serviceZoneIds: zoneId,
-        pendingZoneRequests: { 
+        pendingZoneRequests: {
           $or: [
             { resolvedZoneId: zoneId },
             { zoneName: zoneName }
@@ -1283,12 +1283,12 @@ export async function deleteZone(req, res) {
   // 4. Cleanup Vendor references
   // Pull from arrays
   await Vendor.updateMany(
-    { 
+    {
       $or: [
-        { zones: zoneName }, 
-        { zoneIds: zoneId }, 
+        { zones: zoneName },
+        { zoneIds: zoneId },
         { pendingZones: zoneName }
-      ] 
+      ]
     },
     {
       $pull: {
@@ -1357,7 +1357,7 @@ export async function listPayouts(req, res) {
 
   // Fetch bookings with basic provider info
   const bookings = await Booking.find(filter).sort({ createdAt: -1 }).lean();
-  
+
   // Enhance with provider name if possible
   const providerIds = [...new Set(bookings.map(b => b.assignedProvider).filter(Boolean))];
   const providers = await ProviderAccount.find({ _id: { $in: providerIds } }, "name city").lean();
@@ -1379,8 +1379,8 @@ export async function listPayouts(req, res) {
   let filtered = payouts;
   if (query) {
     const q = query.toLowerCase();
-    filtered = payouts.filter(p => 
-      p.spName.toLowerCase().includes(q) || 
+    filtered = payouts.filter(p =>
+      p.spName.toLowerCase().includes(q) ||
       p.id.toLowerCase().includes(q) ||
       p.bookingId.toLowerCase().includes(q)
     );
@@ -1389,10 +1389,75 @@ export async function listPayouts(req, res) {
   res.json({ payouts: filtered });
 }
 
+export async function listRecharges(req, res) {
+  try {
+    const { city, startDate, endDate, query: searchParam } = req.query;
+    
+    let spQuery = {};
+    if (city && city !== "All Cities") spQuery.city = city;
+    
+    let validProviderIds = null;
+    if (searchParam || Object.keys(spQuery).length > 0) {
+        if (searchParam) {
+            spQuery.$or = [
+                { name: { $regex: new RegExp(searchParam, "i") } },
+                { phone: { $regex: new RegExp(searchParam, "i") } },
+                { email: { $regex: new RegExp(searchParam, "i") } }
+            ];
+        }
+        const providers = await ProviderAccount.find(spQuery, "_id name city phone").lean();
+        validProviderIds = providers.map(p => p._id.toString());
+    }
+
+    const q = { type: "recharge" };
+    if (validProviderIds !== null) {
+        if (validProviderIds.length === 0) {
+            return res.json({ recharges: [] });
+        }
+        q.providerId = { $in: validProviderIds };
+    }
+    
+    if (startDate || endDate) {
+        q.createdAt = {};
+        if (startDate) q.createdAt.$gte = new Date(startDate);
+        if (endDate) {
+            const ed = new Date(endDate);
+            ed.setHours(23, 59, 59, 999);
+            q.createdAt.$lte = ed;
+        }
+    }
+    
+    const txns = await ProviderWalletTxn.find(q).sort({ createdAt: -1 }).limit(100).lean();
+    
+    const pIds = [...new Set(txns.map(t => t.providerId))];
+    const sps = await ProviderAccount.find({ _id: { $in: pIds } }, "name city phone").lean();
+    const spMap = sps.reduce((acc, p) => {
+        acc[p._id.toString()] = p;
+        return acc;
+    }, {});
+    
+    const enriched = txns.map(t => ({
+        id: t._id,
+        spName: spMap[t.providerId]?.name || "Unknown Provider",
+        city: spMap[t.providerId]?.city || "N/A",
+        phone: spMap[t.providerId]?.phone || "N/A",
+        amount: t.amount,
+        balanceAfter: t.balanceAfter,
+        date: t.createdAt,
+        meta: t.meta || {}
+    }));
+    
+    res.json({ recharges: enriched });
+  } catch (error) {
+    console.error("[Admin] Fetch Wallet Recharges Error:", error);
+    res.status(500).json({ error: "Failed to fetch recharges" });
+  }
+}
+
 export async function updatePayoutStatus(req, res) {
   const { id } = req.params;
   const { status, payoutProof } = req.body;
-  
+
   if (!["pending", "completed", "on_hold"].includes(status)) {
     return res.status(400).json({ error: "Invalid status" });
   }
@@ -1489,10 +1554,10 @@ export async function getFeedbackStats(req, res) {
 
     // Basic stats
     const totalReviews = allFeedback.length;
-    const avgRating = totalReviews > 0 
+    const avgRating = totalReviews > 0
       ? (allFeedback.reduce((sum, f) => sum + f.rating, 0) / totalReviews).toFixed(1)
       : "0.0";
-    
+
     const customerToSP = allFeedback.filter(f => f.type === "customer_to_provider").length;
     const spToCustomer = allFeedback.filter(f => f.type === "provider_to_customer").length;
     const positiveCount = allFeedback.filter(f => f.rating >= 4).length;
@@ -1671,7 +1736,7 @@ export async function listPendingZoneCreations(req, res) {
     const requests = [];
     for (const provider of providers) {
       if (!provider.pendingZoneRequests) continue;
-      
+
       for (const request of provider.pendingZoneRequests) {
         // Only include vendor-approved new zones pending admin action
         if (request.isNewZone && request.vendorStatus === "approved" && request.adminStatus === "pending") {
@@ -1716,12 +1781,12 @@ export async function createZoneFromRequest(req, res) {
     // Validate coordinates (flexible: 3-10 points)
     const MIN_POINTS = 3;
     const MAX_POINTS = 10;
-    
-    if (!Array.isArray(coordinates) || 
-        coordinates.length < MIN_POINTS || 
-        coordinates.length > MAX_POINTS) {
-      return res.status(400).json({ 
-        error: `Coordinates must have between ${MIN_POINTS} and ${MAX_POINTS} points. Received: ${coordinates?.length || 0}` 
+
+    if (!Array.isArray(coordinates) ||
+      coordinates.length < MIN_POINTS ||
+      coordinates.length > MAX_POINTS) {
+      return res.status(400).json({
+        error: `Coordinates must have between ${MIN_POINTS} and ${MAX_POINTS} points. Received: ${coordinates?.length || 0}`
       });
     }
 
@@ -1777,7 +1842,7 @@ export async function createZoneFromRequest(req, res) {
 
     // Trigger notifications for other providers in this city
     setImmediate(() => {
-      notifyProvidersOfNewZone(cityId, zoneName, provider._id).catch(err => 
+      notifyProvidersOfNewZone(cityId, zoneName, provider._id).catch(err =>
         console.error("[AdminController] Async notification failed:", err.message)
       );
     });
@@ -1796,11 +1861,11 @@ export async function createZoneFromRequest(req, res) {
       // Notify vendor
       if (request.vendorReviewedBy) {
         const Vendor = (await import("../../../models/Vendor.js")).default;
-        const vendor = await Vendor.findOne({ 
+        const vendor = await Vendor.findOne({
           city: { $regex: new RegExp(`^${provider.city}$`, "i") },
           status: "approved"
         }).lean();
-        
+
         if (vendor) {
           await (await import("../../../lib/notify.js")).notify({
             recipientId: vendor._id.toString(),
@@ -1819,8 +1884,8 @@ export async function createZoneFromRequest(req, res) {
     // ✅ Clear public content cache (for new zone availability)
     await bumpContentVersion();
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       zone,
       message: `Zone "${zoneName}" created and assigned to provider ${provider.name}`
     });
@@ -1875,7 +1940,7 @@ export async function rejectZoneCreationRequest(req, res) {
       console.error('[Admin] Failed to send rejection notification:', notifyError);
     }
 
-    res.json({ 
+    res.json({
       success: true,
       message: `Zone request for "${request.zoneName}" rejected`
     });
@@ -1888,7 +1953,7 @@ export async function rejectZoneCreationRequest(req, res) {
 export async function updateProviderProfile(req, res) {
   try {
     const { id } = req.params;
-    
+
     const provider = await ProviderAccount.findById(id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
@@ -1896,14 +1961,14 @@ export async function updateProviderProfile(req, res) {
 
     const oldServices = provider.documents?.services || [];
     const oldZones = provider.serviceZoneIds || [];
-    
+
     const { primaryCategory, specializations, services, serviceZoneIds, zones } = req.body;
 
     const updates = {};
     if (Array.isArray(primaryCategory)) updates["documents.primaryCategory"] = primaryCategory;
     if (Array.isArray(specializations)) updates["documents.specializations"] = specializations;
     if (Array.isArray(services)) updates["documents.services"] = services;
-    
+
     if (Array.isArray(serviceZoneIds)) updates.serviceZoneIds = serviceZoneIds;
     if (Array.isArray(zones)) updates.zones = zones;
 
@@ -1926,9 +1991,9 @@ export async function updateProviderProfile(req, res) {
           title: "Profile Updated",
           message: `Admin has updated your professional profile ${zonesChanged ? "and service zones" : ""}. Please check your active services and working areas.`,
           type: "marketing_campaign",
-          meta: { 
+          meta: {
             servicesUpdated: servicesChanged,
-            zonesUpdated: zonesChanged 
+            zonesUpdated: zonesChanged
           }
         });
       } catch (notifyErr) {
@@ -1942,12 +2007,12 @@ export async function updateProviderProfile(req, res) {
     res.json({ success: true, provider: updatedProvider });
   } catch (error) {
     console.error("[Admin] Failed to update provider profile:", error);
-    
+
     // Handle Mongoose validation or cast errors with 400 Bad Request
     if (error.name === "ValidationError" || error.name === "CastError") {
-      return res.status(400).json({ 
-        error: "Invalid profile data provided", 
-        details: error.message 
+      return res.status(400).json({
+        error: "Invalid profile data provided",
+        details: error.message
       });
     }
 
@@ -1960,9 +2025,9 @@ export async function updateProviderProfilePhoto(req, res) {
     console.log("[Admin] Profile photo update request received");
     console.log("[Admin] Provider ID:", req.params.id);
     console.log("[Admin] File received:", !!req.file);
-    
+
     const { id } = req.params;
-    
+
     // Validate provider exists
     const provider = await ProviderAccount.findById(id);
     if (!provider) {
@@ -1981,7 +2046,7 @@ export async function updateProviderProfilePhoto(req, res) {
     const folder = `providers/${id}/profile`;
     const uploadResult = await uploadBuffer(req.file.buffer, folder);
     console.log("[Admin] Cloudinary upload successful:", uploadResult.secure_url);
-    
+
     // Update provider profile photo
     provider.profilePhoto = uploadResult.secure_url;
     await provider.save();
@@ -2003,8 +2068,8 @@ export async function updateProviderProfilePhoto(req, res) {
       console.error("[Admin] Failed to send photo update notification:", notifyErr);
     }
 
-    const responseData = { 
-      success: true, 
+    const responseData = {
+      success: true,
       profilePhoto: provider.profilePhoto,
       provider: {
         id: provider._id,
@@ -2159,7 +2224,7 @@ export async function approveCategoryRequest(req, res) {
     const updatedProvider = await ProviderAccount.findByIdAndUpdate(
       providerId,
       {
-        $set: { 
+        $set: {
           "pendingCategoryRequests.$[elem].status": "approved",
           "pendingCategoryRequests.$[elem].adminReviewedAt": new Date(),
           "pendingCategoryRequests.$[elem].adminReviewedBy": req.auth?.sub || "admin"
@@ -2173,7 +2238,7 @@ export async function approveCategoryRequest(req, res) {
     );
 
     if (!updatedProvider) return res.status(500).json({ error: "Failed to update provider" });
-    
+
     // Notify
     try {
       const { notify } = await import("../../../lib/notify.js");
@@ -2184,7 +2249,7 @@ export async function approveCategoryRequest(req, res) {
         message: `Your request for category "${request.categoryName}" has been approved.`,
         type: "system"
       });
-    } catch {}
+    } catch { }
 
     // ✅ Clear public content cache
     await bumpContentVersion();
@@ -2210,7 +2275,7 @@ export async function rejectCategoryRequest(req, res) {
     request.adminReviewedBy = req.auth?.sub || "admin";
 
     await provider.save();
-    
+
     res.json({ success: true, provider });
   } catch (error) {
     res.status(500).json({ error: "Failed to reject category request" });

@@ -545,6 +545,17 @@ const ProviderBookingDetailPage = () => {
                             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-green-500 rounded-full border border-white shadow-sm" />
                         </button>
                     )}
+
+                    {/* Cancel Button in Header for high visibility */}
+                    {["accepted", "travelling", "arrived", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase()) && (
+                        <button
+                            onClick={() => setShowCancelConfirm(true)}
+                            className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center text-red-600 hover:bg-red-100 transition-colors relative"
+                            title="Cancel Booking"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1006,11 +1017,11 @@ const ProviderBookingDetailPage = () => {
             {/* Sticky Action Footer */}
             {(nextAction || ["accepted", "travelling", "arrived", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase())) && (
                 <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 p-4 pb-20 sm:pb-4 z-50 safe-area-bottom shadow-2xl">
-                    <div className="max-w-xl mx-auto flex flex-col sm:flex-row gap-3">
+                    <div className="max-w-xl mx-auto flex flex-row gap-3">
                         {nextAction && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <div className="w-full sm:flex-1">
+                                    <div className="flex-1">
                                         <Button
                                             onClick={nextAction.action}
                                             disabled={statusLoading || nextAction.disabled}
@@ -1031,10 +1042,10 @@ const ProviderBookingDetailPage = () => {
                             <button
                                 onClick={() => setShowCancelConfirm(true)}
                                 disabled={statusLoading}
-                                className="w-full sm:flex-1 h-14 rounded-2xl border-2 border-red-100 bg-red-50 text-red-600 flex items-center justify-center gap-2 hover:bg-red-100 transition-all shadow-sm font-black text-xs uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 h-14 rounded-2xl border-2 border-red-100 bg-red-50 text-red-600 flex items-center justify-center gap-2 hover:bg-red-100 transition-all shadow-sm font-black text-xs uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Cancel Job"
                             >
-                                <Trash2 className="w-4 h-4" /> CANCEL BOOKING
+                                <Trash2 className="w-4 h-4" /> <span className="hidden sm:inline">CANCEL BOOKING</span><span className="sm:hidden">CANCEL</span>
                             </button>
                         )}
                     </div>

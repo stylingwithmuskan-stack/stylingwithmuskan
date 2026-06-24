@@ -1096,9 +1096,11 @@ router.post(
   requireRole("admin"),
   async (req, res) => {
     try {
+      const s = await SystemSettings.findOne().lean();
+      const dbEmail = s?.adminEmail;
       const isDev = (process.env.NODE_ENV !== "production");
       const defaultEmail = "admin@swm.local";
-      const confEmail = (process.env.ADMIN_EMAIL || ADMIN_EMAIL || (isDev ? defaultEmail : "")).trim();
+      const confEmail = (dbEmail || process.env.ADMIN_EMAIL || (isDev ? defaultEmail : "")).trim();
 
       if (!confEmail) {
         return res.status(500).json({ error: "Admin email not configured" });
@@ -1135,6 +1137,7 @@ router.put("/system-settings",
   body("menSectionEnabled").isBoolean(),
   body("availableRoles").optional().isArray(),
   body("adminPassword").optional().isString(),
+  body("adminEmail").optional().isString(),
   body("otp").optional().isString(),
   async (req, res) => {
     const errors = validationResult(req);
@@ -1143,9 +1146,10 @@ router.put("/system-settings",
     }
 
     try {
-      const { menSectionEnabled, availableRoles, adminPassword, otp } = req.body;
+      const { menSectionEnabled, availableRoles, adminPassword, adminEmail, otp } = req.body;
       const updates = { menSectionEnabled };
       if (availableRoles) updates.availableRoles = availableRoles;
+      if (adminEmail !== undefined) updates.adminEmail = adminEmail;
 
       // OTP Verification if trying to update password
       if (adminPassword !== undefined) {
@@ -1225,6 +1229,7 @@ router.post("/push/test", requireRole("admin"), AdminPushController.test);
 // ───── PAYOUTS ─────
 router.get("/payouts", requireRole("admin"), AdminController.listPayouts);
 router.patch("/payouts/:id/status", requireRole("admin"), AdminController.updatePayoutStatus);
+router.get("/recharges", requireRole("admin"), AdminController.listRecharges);
 
 // ───── FEEDBACK MANAGEMENT ─────
 router.get("/feedback", requireRole("admin"), AdminController.listFeedback);

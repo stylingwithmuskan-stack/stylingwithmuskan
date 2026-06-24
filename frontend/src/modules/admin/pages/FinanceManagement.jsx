@@ -29,12 +29,14 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } 
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } };
 
 export default function FinanceManagement() {
-    const { getCommissionSettings, updateCommissionSettings, getMetricsCities, getPayouts, updatePayoutStatus, getSubscriptionSettings, getReferralSettings } = useAdminAuth();
+    const { getCommissionSettings, updateCommissionSettings, getMetricsCities, getPayouts, getRecharges, updatePayoutStatus, getSubscriptionSettings, getReferralSettings } = useAdminAuth();
     const [settings, setSettings] = useState({ rate: 15, minPayout: 500, dateFormat: "PPP" });
     const [subSettings, setSubSettings] = useState(null);
     const [refSettings, setRefSettings] = useState(null);
     const [saved, setSaved] = useState(false);
     const [payouts, setPayouts] = useState([]);
+    const [recharges, setRecharges] = useState([]);
+    const [typeTab, setTypeTab] = useState("payouts");
     const [loading, setLoading] = useState(false);
     const [cities, setCities] = useState(["All Cities"]);
 
@@ -61,8 +63,12 @@ export default function FinanceManagement() {
             if (endDate) params.endDate = endDate;
             if (searchQuery) params.query = searchQuery;
 
-            const data = await getPayouts(params);
+            const [data, rechData] = await Promise.all([
+                getPayouts(params),
+                getRecharges(params)
+            ]);
             setPayouts(Array.isArray(data) ? data : []);
+            setRecharges(Array.isArray(rechData) ? rechData : []);
         } catch (e) {
             console.error("Failed to fetch payouts", e);
         } finally {
@@ -295,8 +301,11 @@ export default function FinanceManagement() {
                         <CardHeader className="pb-4">
                             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                                 <div>
-                                    <CardTitle className="text-lg font-bold">Global Payment Management</CardTitle>
-                                    <CardDescription>Filter, analyze, and execute pending payouts</CardDescription>
+                                    <CardTitle className="text-lg font-bold flex gap-4 border-b border-border/50 pb-2">
+                                        <button className={`pb-1 border-b-2 ${typeTab === 'payouts' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`} onClick={() => setTypeTab('payouts')}>Payout Requests</button>
+                                        <button className={`pb-1 border-b-2 ${typeTab === 'recharges' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`} onClick={() => setTypeTab('recharges')}>Wallet Recharges</button>
+                                    </CardTitle>
+                                    <CardDescription className="mt-2">Filter, analyze, and manage platform financial transactions</CardDescription>
                                 </div>
                                 {/* Filters Row 1: Search & City */}
                                 <div className="flex flex-wrap items-center gap-2">
@@ -417,6 +426,54 @@ export default function FinanceManagement() {
                                             <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
                                             <p className="mt-2 text-sm text-muted-foreground font-bold">Loading payouts...</p>
                                         </div>
+                                    ) : typeTab === "recharges" ? (
+                                        recharges.length > 0 ? (
+                                            recharges.map((recharge) => (
+                                                <motion.div
+                                                    key={recharge.id}
+                                                    layout
+                                                    initial={{ opacity: 0, scale: 0.95 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    exit={{ opacity: 0, scale: 0.95 }}
+                                                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl border border-border/60 bg-card hover:shadow-md transition-all gap-4"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-10 w-10 shrink-0 rounded-full bg-blue-100 flex items-center justify-center border border-blue-200">
+                                                            <span className="text-sm font-black text-blue-600">{recharge.spName.charAt(0)}</span>
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="text-sm font-bold">{recharge.spName}</p>
+                                                                <Badge variant="outline" className={`text-[9px] font-black bg-blue-100 text-blue-700 border-blue-200 h-4 px-1.5`}>
+                                                                    Recharge
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground mt-1">
+                                                                <span className="font-medium flex items-center gap-1"><MapPin className="h-3 w-3" />{recharge.city}</span>
+                                                                <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{recharge.date ? format(new Date(recharge.date), settings.dateFormat || "PPP") : "N/A"}</span>
+                                                                <span>ID: {recharge.id}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-border/50">
+                                                        <div className="text-left sm:text-right">
+                                                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-0.5">Amount</p>
+                                                            <span className="text-lg font-black text-green-600">+₹{recharge.amount.toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="text-left sm:text-right">
+                                                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-0.5">Balance After</p>
+                                                            <span className="text-lg font-black text-foreground">₹{recharge.balanceAfter.toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            ))
+                                        ) : (
+                                            <div className="py-12 text-center flex flex-col items-center justify-center opacity-60">
+                                                <Wallet className="h-10 w-10 text-muted-foreground mb-3" />
+                                                <p className="text-sm font-bold text-muted-foreground">No recharges found matching filters</p>
+                                            </div>
+                                        )
                                     ) : payouts.length > 0 ? (
                                         payouts.map((payout) => {
                                             const sc = statusConfig[payout.status];
