@@ -884,7 +884,7 @@ const BookingDetailsModal = ({ isOpen, onClose, booking, onChat, onCall }) => {
                             </div>
 
                             {/* Cancel Button - Only for non-started bookings */}
-                            {["pending", "accepted", "travelling", "upcoming"].includes(currentStatus) && (
+                            {["pending", "accepted", "travelling", "upcoming", "arrived"].includes(currentStatus) && (
                                 <button
                                     onClick={() => setShowCancelConfirm(true)}
                                     className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 border border-red-100 bg-red-50 text-red-600 text-xs font-black uppercase tracking-widest hover:bg-red-100 transition-all"

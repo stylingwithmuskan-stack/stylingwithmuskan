@@ -1091,51 +1091,7 @@ export async function assignBooking(req, res) {
   const b = await existing.save();
 
   // ───── SCENARIO 3: REASSIGNMENT PENALTY/REWARD ─────
-  if (previousProviderId && previousProviderId !== providerId && !["pending", "payment_pending", "unassigned"].includes(String(previousStatus).toLowerCase())) {
-    const penaltyReward = Math.round(totalAmount * 0.2);
-    if (penaltyReward > 0) {
-      try {
-        // Deduct from NEW provider (provider)
-        provider.credits = Number(provider.credits || 0) - penaltyReward;
-        await provider.save();
-        await ProviderWalletTxn.create({
-          providerId: provider._id.toString(),
-          bookingId: existing._id.toString(),
-          type: "penalty",
-          amount: -penaltyReward,
-          balanceAfter: provider.credits,
-          meta: { title: "Reassignment Fee (20%)", reason: "reassigned_to_you", fromProvider: previousProviderId },
-        });
-
-        // Add to OLD provider (previousProviderId)
-        const prevProv = await ProviderAccount.findById(previousProviderId);
-        if (prevProv) {
-          prevProv.credits = Number(prevProv.credits || 0) + penaltyReward;
-          await prevProv.save();
-          await ProviderWalletTxn.create({
-            providerId: previousProviderId,
-            bookingId: existing._id.toString(),
-            type: "compensation",
-            amount: penaltyReward,
-            balanceAfter: prevProv.credits,
-            meta: { title: "Reassignment Compensation (20%)", reason: "reassigned_from_you", toProvider: providerId },
-          });
-
-          try {
-            await notify({
-              recipientId: previousProviderId,
-              recipientRole: "provider",
-              type: "compensation",
-              meta: { bookingId: existing._id.toString(), amount: penaltyReward, reason: "reassignment_compensation" },
-              respectProviderQuietHours: true,
-            });
-          } catch { }
-        }
-      } catch (err) {
-        console.error("[VendorAssign] Transfer logic failed:", err);
-      }
-    }
-  }
+  // Removed reassignment compensation logic as requested.
 
   // Emit socket events for real-time updates
   try {
@@ -1277,51 +1233,7 @@ export async function reassignBooking(req, res) {
   const b = await existing.save();
 
   // ───── SCENARIO 3: REASSIGNMENT PENALTY/REWARD ─────
-  if (previousProviderId && previousProviderId !== providerId && !["pending", "payment_pending", "unassigned"].includes(String(previousStatus).toLowerCase())) {
-    const penaltyReward = Math.round(totalAmount * 0.2);
-    if (penaltyReward > 0) {
-      try {
-        // Deduct from NEW provider (provider)
-        provider.credits = Number(provider.credits || 0) - penaltyReward;
-        await provider.save();
-        await ProviderWalletTxn.create({
-          providerId: provider._id.toString(),
-          bookingId: existing._id.toString(),
-          type: "penalty",
-          amount: -penaltyReward,
-          balanceAfter: provider.credits,
-          meta: { title: "Reassignment Fee (20%)", reason: "reassigned_to_you", fromProvider: previousProviderId },
-        });
-
-        // Add to OLD provider (previousProviderId)
-        const prevProv = await ProviderAccount.findById(previousProviderId);
-        if (prevProv) {
-          prevProv.credits = Number(prevProv.credits || 0) + penaltyReward;
-          await prevProv.save();
-          await ProviderWalletTxn.create({
-            providerId: previousProviderId,
-            bookingId: existing._id.toString(),
-            type: "compensation",
-            amount: penaltyReward,
-            balanceAfter: prevProv.credits,
-            meta: { title: "Reassignment Compensation (20%)", reason: "reassigned_from_you", toProvider: providerId },
-          });
-
-          try {
-            await notify({
-              recipientId: previousProviderId,
-              recipientRole: "provider",
-              type: "compensation",
-              meta: { bookingId: existing._id.toString(), amount: penaltyReward, reason: "reassignment_compensation" },
-              respectProviderQuietHours: true,
-            });
-          } catch { }
-        }
-      } catch (err) {
-        console.error("[VendorReassign] Transfer logic failed:", err);
-      }
-    }
-  }
+  // Removed reassignment compensation logic as requested.
 
   // Emit socket events for real-time updates
   try {

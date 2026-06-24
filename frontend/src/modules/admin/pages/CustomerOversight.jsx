@@ -21,7 +21,7 @@ export default function CustomerOversight() {
     
     // Pagination state
     const [page, setPage] = useState(1);
-    const [limit] = useState(20);
+    const [limit] = useState(1000);
     const [total, setTotal] = useState(0);
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [loading, setLoading] = useState(false);
@@ -44,7 +44,7 @@ export default function CustomerOversight() {
         try {
             const [bookings, customerResponse] = await Promise.all([
                 getUserBookings()?.catch(() => []),
-                getAllCustomers({ page, limit })?.catch(() => ({ customers: [], total: 0 })),
+                getAllCustomers({ page, limit, search: debouncedSearch })?.catch(() => ({ customers: [], total: 0 })),
             ]);
             
             setFeedback(JSON.parse(localStorage.getItem('muskan-feedback') || '[]'));

@@ -646,55 +646,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
     const b = await existing.save();
 
     // ───── SCENARIO 3: REASSIGNMENT PENALTY/REWARD ─────
-    // If it's a true reassignment (from one professional to another) and it was already accepted/started
-    if (previousProviderId && previousProviderId !== providerId && !["pending", "payment_pending", "unassigned"].includes(String(previousStatus).toLowerCase())) {
-      const penaltyReward = Math.round(totalAmount * 0.2);
-      if (penaltyReward > 0) {
-        try {
-          // Deduct from NEW provider (provider)
-          provider.credits = Number(provider.credits || 0) - penaltyReward;
-          await provider.save();
-          await ProviderWalletTxn.create({
-            providerId: provider._id.toString(),
-            bookingId: existing._id.toString(),
-            type: "penalty", // New provider pays the reassignment fee
-            amount: -penaltyReward,
-            balanceAfter: provider.credits,
-            meta: { title: "Reassignment Fee (20%)", reason: "reassigned_to_you", fromProvider: previousProviderId },
-          });
-
-          // Add to OLD provider (previousProviderId)
-          const prevProv = await ProviderAccount.findById(previousProviderId);
-          if (prevProv) {
-            prevProv.credits = Number(prevProv.credits || 0) + penaltyReward;
-            await prevProv.save();
-            await ProviderWalletTxn.create({
-              providerId: previousProviderId,
-              bookingId: existing._id.toString(),
-              type: "compensation", // Old provider gets the compensation
-              amount: penaltyReward,
-              balanceAfter: prevProv.credits,
-              meta: { title: "Reassignment Compensation (20%)", reason: "reassigned_from_you", toProvider: providerId },
-            });
-
-            // Notify old provider
-            try {
-              await notify({
-                recipientId: previousProviderId,
-                recipientRole: "provider",
-                type: "compensation",
-                meta: { bookingId: existing._id.toString(), amount: penaltyReward, reason: "reassignment_compensation" },
-                respectProviderQuietHours: true,
-              });
-            } catch { }
-          }
-
-          console.log(`[AdminReassign] Transfer logic: ₹${penaltyReward} from ${providerId} to ${previousProviderId}`);
-        } catch (err) {
-          console.error("[AdminReassign] Transfer logic failed:", err);
-        }
-      }
-    }
+    // Removed reassignment compensation logic as requested.
 
     // 4. Notifications and Sync
     try {

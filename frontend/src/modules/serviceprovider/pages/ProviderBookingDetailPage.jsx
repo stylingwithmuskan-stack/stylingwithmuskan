@@ -1004,7 +1004,7 @@ const ProviderBookingDetailPage = () => {
             </AnimatePresence>
 
             {/* Sticky Action Footer */}
-            {(nextAction || ["accepted", "travelling", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase())) && (
+            {(nextAction || ["accepted", "travelling", "arrived", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase())) && (
                 <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 p-4 pb-20 sm:pb-4 z-50 safe-area-bottom shadow-2xl">
                     <div className="max-w-xl mx-auto flex flex-col sm:flex-row gap-3">
                         {nextAction && (
@@ -1027,7 +1027,7 @@ const ProviderBookingDetailPage = () => {
                                 )}
                             </Tooltip>
                         )}
-                        {["accepted", "travelling", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase()) && (
+                        {["accepted", "travelling", "arrived", "vendor_assigned", "vendor_reassigned"].includes(booking?.status?.toLowerCase()) && (
                             <button
                                 onClick={() => setShowCancelConfirm(true)}
                                 disabled={statusLoading}

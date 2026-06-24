@@ -465,9 +465,21 @@ export async function getAvailableProvidersForBooking(req, res) {
 
 export async function listCustomers(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
-  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const total = await User.countDocuments();
-  const items = await User.find().sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+  const limit = Math.min(parseInt(req.query.limit) || 1000, 5000);
+  const { search } = req.query;
+
+  const query = {};
+  if (search) {
+    const searchRegex = new RegExp(String(search).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&"), "i");
+    query.$or = [
+      { name: searchRegex },
+      { phone: searchRegex },
+      { email: searchRegex }
+    ];
+  }
+
+  const total = await User.countDocuments(query);
+  const items = await User.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
   res.json({ customers: items, page, limit, total });
 }
 
