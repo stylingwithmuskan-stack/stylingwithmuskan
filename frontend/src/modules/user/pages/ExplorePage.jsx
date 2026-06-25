@@ -74,7 +74,7 @@ const ExplorePage = () => {
             }
         }
     }, [categoryId, categories, setBookingType]);
-    const [activeFilter, setActiveFilter] = useState("Top Selling");
+    const [activeFilter, setActiveFilter] = useState("All");
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isSidebarHovered, setIsSidebarHovered] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -206,7 +206,9 @@ const ExplorePage = () => {
             const category = categories.find(c => String(c.id) === String(s.category));
             const effectiveGender = category ? category.gender : s.gender;
             
-            let matchesGender = (gender === "all" || effectiveGender === gender);
+            const isMatch = (g) => g === gender || g === "both" || gender === "all";
+            let matchesGender = isMatch(effectiveGender) || isMatch(s.gender);
+            
             const matchesCategory = searchQuery.length > 0 ? true : String(s.category) === String(activeCategory);
             
             const query = searchQuery.trim().toLowerCase();
@@ -242,7 +244,6 @@ const ExplorePage = () => {
                 } else if (preferences.priceRange === "Above ₹1999") {
                     matchesPrice = price >= 2000;
                 }
-                
                 matchesPreferences = matchesPrice;
             }
 

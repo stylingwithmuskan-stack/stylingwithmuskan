@@ -59,7 +59,9 @@ export function isContentAvailable(item, location, selectedDate = null, selected
   const locationKeys = resolveLocationKeys(location);
 
   if (effectiveZones.length > 0 && locationKeys.length > 0) {
-    const matches = effectiveZones.some((zone) => locationKeys.includes(zone));
+    const matches = effectiveZones.some((zone) => 
+      locationKeys.some(key => key.toLowerCase() === zone.toLowerCase() || zone.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(zone.toLowerCase()))
+    );
     if (!matches) return false;
   }
 
