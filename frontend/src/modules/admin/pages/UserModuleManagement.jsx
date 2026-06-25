@@ -1167,7 +1167,15 @@ const UserModuleManagement = () => {
                                         </div>
                                         <div>
                                             <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Subcategory</label>
-                                            <select required value={formData.category || ''} onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                            <select required value={formData.category || ''} onChange={e => {
+                                                const catId = e.target.value;
+                                                const selectedCat = categories.find(c => String(c.id) === String(catId));
+                                                setFormData({ 
+                                                    ...formData, 
+                                                    category: catId,
+                                                    gender: selectedCat?.gender || formData.gender 
+                                                });
+                                            }}
                                                 className="w-full px-3 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground">
                                                 <option value="">Select Subcategory</option>
                                                 {categories?.filter(c => c.gender === formData.gender).map(c => {

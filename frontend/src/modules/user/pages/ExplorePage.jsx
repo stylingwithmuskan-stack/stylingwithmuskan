@@ -203,17 +203,19 @@ const ExplorePage = () => {
         const source = searchQuery.trim().length >= 2 ? searchResults : services;
         
         return source.filter(s => {
-            const matchesGender = s.gender === gender;
+            const category = categories.find(c => String(c.id) === String(s.category));
+            const effectiveGender = category ? category.gender : s.gender;
+            
+            let matchesGender = (gender === "all" || effectiveGender === gender);
+            const matchesCategory = searchQuery.length > 0 ? true : String(s.category) === String(activeCategory);
+            
             const query = searchQuery.trim().toLowerCase();
             const matchesName = s.name.toLowerCase().includes(query);
             const matchesDescription = (s.description || "").toLowerCase().includes(query);
             
-            // Also check category name
-            const category = categories.find(c => c.id === s.category);
             const matchesCategoryName = category?.name.toLowerCase().includes(query);
             
             const matchesSearch = matchesName || matchesDescription || matchesCategoryName;
-            const matchesCategory = searchQuery.length > 0 ? true : String(s.category) === String(activeCategory);
             const isAvailable = checkAvailability(s, userLocation);
 
             // Store match type for sorting: 0=Name, 1=Category, 2=Description
