@@ -48,7 +48,7 @@ router.post(
     const isDev = (process.env.NODE_ENV || "development") !== "production";
     const defaultEmail = "admin@swm.local";
     const defaultPassword = "admin123";
-    const confEmail = (process.env.ADMIN_EMAIL || ADMIN_EMAIL || (isDev ? defaultEmail : "")).trim();
+    const confEmail = (settings?.adminEmail || process.env.ADMIN_EMAIL || ADMIN_EMAIL || (isDev ? defaultEmail : "")).trim();
 
     // Use dynamic password if set, otherwise fallback
     const confPassword = (dynamicPassword || process.env.ADMIN_PASSWORD || ADMIN_PASSWORD || (isDev ? defaultPassword : ""));
