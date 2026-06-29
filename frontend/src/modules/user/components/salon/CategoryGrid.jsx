@@ -8,8 +8,8 @@ import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext
 import { getServicePlaceholder } from "@/modules/user/lib/utils";
 import CustomizeBookingForm from "./CustomizeBookingForm";
 
-// Helper to detect iOS to prevent double-tap issues on hover effects
-const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent || "");
+// Helper to detect touch devices to prevent double-tap issues on hover effects
+const isTouchDevice = typeof window !== "undefined" && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
 const CategoryGrid = () => {
   const { gender } = useGenderTheme();
@@ -19,7 +19,8 @@ const CategoryGrid = () => {
   const { categories, serviceTypes: SERVICE_TYPES, checkAvailability } = useUserModuleData();
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
 
-  const handleCustomizeClick = () => {
+  const handleCustomizeClick = (e) => {
+    if (e?.currentTarget) e.currentTarget.blur();
     if (!isLoggedIn) {
       // Redirect to login if not authenticated
       navigate("/login", { state: { from: "/home", openCustomize: true } });
@@ -59,7 +60,8 @@ const CategoryGrid = () => {
     }
   }, [mainServiceTypes, loadCategoryServices]);
 
-  const handleServiceSelect = (type) => {
+  const handleServiceSelect = (e, type) => {
+    if (e?.currentTarget) e.currentTarget.blur();
     // Default to instant for home page selections, but it will be overridden by explore page if needed
     setBookingType("instant");
     navigate(`/explore/${type.entryCategory}?type=${type.id}&booking=instant`);
@@ -81,16 +83,16 @@ const CategoryGrid = () => {
           {mainServiceTypes.map((type) => (
             <motion.button
               key={type.id}
-              whileHover={isIOS ? undefined : { scale: 1.02, y: -2 }}
+              whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleServiceSelect(type)}
-              className={`relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white ${isIOS ? "" : "hover:shadow-md"}`}
+              onClick={(e) => handleServiceSelect(e, type)}
+              className={`relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white ${isTouchDevice ? "" : "hover:shadow-md"}`}
             >
               <div className="absolute inset-0 z-0">
                 <img
                   src={type.image || getServicePlaceholder(type.label)}
                   alt={type.label}
-                  className={`w-full h-full object-cover opacity-90 transition-transform duration-500 bg-accent ${isIOS ? "" : "group-hover:scale-105"}`}
+                  className={`w-full h-full object-cover opacity-90 transition-transform duration-500 bg-accent ${isTouchDevice ? "" : "group-hover:scale-105"}`}
                   onError={(e) => {
                     const placeholder = getServicePlaceholder(type.label);
                     if (e.target.src !== placeholder) e.target.src = placeholder;
@@ -107,13 +109,13 @@ const CategoryGrid = () => {
 
           {/* Customize / Enquiry Card */}
           <motion.button
-            whileHover={isIOS ? undefined : { scale: 1.02, y: -2 }}
+            whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleCustomizeClick}
-            className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 ${isIOS ? "" : "hover:shadow-md"}`}
+            className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 ${isTouchDevice ? "" : "hover:shadow-md"}`}
           >
             <div className="relative flex flex-col items-center gap-2">
-              <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-2xl transition-transform ${isIOS ? "" : "group-hover:scale-110"}`}>
+              <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-2xl transition-transform ${isTouchDevice ? "" : "group-hover:scale-110"}`}>
                 ✨
               </div>
               <div className="text-center">
