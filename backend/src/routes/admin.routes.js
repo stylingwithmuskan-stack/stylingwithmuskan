@@ -29,6 +29,7 @@ import { invalidateProviderSlots, invalidateProviderSlotsForNextDays } from "../
 import { bootstrapProviderAvailability } from "../lib/providerAvailabilityBootstrap.js";
 import { redis } from "../startup/redis.js";
 import { sendEmailOtp } from "../lib/emailService.js";
+import bcrypt from "bcryptjs";
 
 const router = Router();
 
@@ -57,7 +58,23 @@ router.post(
     }
     const email = (req.body.email || "").trim();
     const password = (req.body.password || "");
-    if (email !== confEmail || password !== confPassword) {
+    
+    // Compare plain-text email
+    if (email !== confEmail) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    
+    // Determine if password is plain-text (from .env) or bcrypt (from DB)
+    const isDbPassword = !!dynamicPassword;
+    let isValidPassword = false;
+    
+    if (isDbPassword) {
+      isValidPassword = await bcrypt.compare(password, confPassword);
+    } else {
+      isValidPassword = (password === confPassword);
+    }
+
+    if (!isValidPassword) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
     const admin = { id: "ADMIN001", name: "Super Admin", email: confEmail, role: "admin" };
@@ -1168,8 +1185,9 @@ router.put("/system-settings",
           return res.status(400).json({ error: "Invalid OTP. Please try again." });
         }
 
-        // OTP is valid! Save new password and delete OTP token from Redis
-        updates.adminPassword = adminPassword;
+        // OTP is valid! Hash new password, save it, and delete OTP token from Redis
+        const salt = await bcrypt.genSalt(10);
+        updates.adminPassword = await bcrypt.hash(adminPassword, salt);
         await redis.del(key);
       }
 

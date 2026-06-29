@@ -61,10 +61,17 @@ const CategoryGrid = () => {
   }, [mainServiceTypes, loadCategoryServices]);
 
   const handleServiceSelect = (e, type) => {
+    // Prevent Safari back-button focus bug
     if (e?.currentTarget) e.currentTarget.blur();
-    // Default to instant for home page selections, but it will be overridden by explore page if needed
+    if (document.activeElement) document.activeElement.blur();
+    
+    // Default to instant for home page selections
     setBookingType("instant");
-    navigate(`/explore/${type.entryCategory}?type=${type.id}&booking=instant`);
+    
+    // Tiny delay so Safari registers the blur before unloading the page
+    setTimeout(() => {
+      navigate(`/explore/${type.entryCategory}?type=${type.id}&booking=instant`);
+    }, 10);
   };
 
   return (
@@ -111,7 +118,7 @@ const CategoryGrid = () => {
           <motion.button
             whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
-            onClick={handleCustomizeClick}
+            onClick={(e) => handleCustomizeClick(e)}
             className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 ${isTouchDevice ? "" : "hover:shadow-md"}`}
           >
             <div className="relative flex flex-col items-center gap-2">

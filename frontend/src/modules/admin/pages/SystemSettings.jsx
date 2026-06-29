@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Settings, Save, RefreshCw, Palette, IndianRupee, Percent, Plus, Trash2, Info, Users, X, Mail, Check, AlertCircle } from "lucide-react";
+import { Settings, Save, RefreshCw, Palette, IndianRupee, Percent, Plus, Trash2, Info, Users, X, Mail, Check, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
 import { Input } from "@/modules/user/components/ui/input";
@@ -11,19 +11,20 @@ import { cn } from "@/modules/user/lib/utils";
 
 export default function SystemSettings() {
     const { getSystemSettings, updateSystemSettings, sendSystemSettingsOtp } = useAdminAuth();
-    const [systemSettings, setSystemSettings] = useState({ 
-        menSectionEnabled: false, 
+    const [systemSettings, setSystemSettings] = useState({
+        menSectionEnabled: false,
         availableRoles: ["user", "provider", "vendor"],
         adminPassword: "",
         adminEmail: ""
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    
+
     // OTP states
     const [showOtpInput, setShowOtpInput] = useState(false);
     const [otp, setOtp] = useState("");
     const [sendingOtp, setSendingOtp] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
         loadSettings();
@@ -36,7 +37,7 @@ export default function SystemSettings() {
             if (system) {
                 setSystemSettings({
                     ...system,
-                    adminPassword: system.adminPassword || "",
+                    adminPassword: "",
                     adminEmail: system.adminEmail || ""
                 });
             }
@@ -124,9 +125,9 @@ export default function SystemSettings() {
                         <Settings className="h-5 w-5 text-primary" /> Password Configuration
                     </CardTitle>
                     <CardDescription>
-                        {showOtpInput 
-                          ? "Verify your identity using the OTP code sent to your registered email."
-                          : "Enter a new password to update your login credentials."}
+                        {showOtpInput
+                            ? "Verify your identity using the OTP code sent to your registered email."
+                            : "Enter a new password to update your login credentials."}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
@@ -134,12 +135,12 @@ export default function SystemSettings() {
                         <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                             Admin Email
                         </Label>
-                        <Input 
+                        <Input
                             type="email"
                             disabled={showOtpInput}
-                            value={systemSettings.adminEmail} 
-                            onChange={(e) => setSystemSettings({ ...systemSettings, adminEmail: e.target.value })} 
-                            placeholder="Enter email for OTPs & Admin alerts" 
+                            value={systemSettings.adminEmail}
+                            onChange={(e) => setSystemSettings({ ...systemSettings, adminEmail: e.target.value })}
+                            placeholder="Enter email for OTPs & Admin alerts"
                             className={cn(
                                 "h-12 rounded-xl font-bold text-lg",
                                 showOtpInput ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : "bg-muted/30"
@@ -151,17 +152,27 @@ export default function SystemSettings() {
                         <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                             Admin Password
                         </Label>
-                        <Input 
-                            type="text"
-                            disabled={showOtpInput}
-                            value={systemSettings.adminPassword} 
-                            onChange={(e) => setSystemSettings({ ...systemSettings, adminPassword: e.target.value })} 
-                            placeholder="Enter new admin password" 
-                            className={cn(
-                                "h-12 rounded-xl font-bold text-lg",
-                                showOtpInput ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : "bg-muted/30"
-                            )}
-                        />
+                        <div className="relative">
+                            <Input
+                                type={showPassword ? "text" : "password"}
+                                disabled={showOtpInput}
+                                value={systemSettings.adminPassword}
+                                onChange={(e) => setSystemSettings({ ...systemSettings, adminPassword: e.target.value })}
+                                placeholder="Enter new admin password"
+                                className={cn(
+                                    "h-12 rounded-xl font-bold text-lg pr-12",
+                                    showOtpInput ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : "bg-muted/30"
+                                )}
+                            />
+                            <button
+                                type="button"
+                                disabled={showOtpInput}
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                            >
+                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                        </div>
                         {!showOtpInput && (
                             <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
                                 <AlertCircle className="h-3 w-3 text-amber-500" />
@@ -171,8 +182,8 @@ export default function SystemSettings() {
                     </div>
 
                     {showOtpInput && (
-                        <motion.div 
-                            initial={{ opacity: 0, height: 0 }} 
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: "auto" }}
                             className="space-y-3 pt-2"
                         >
@@ -180,12 +191,12 @@ export default function SystemSettings() {
                                 <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
                                     <Mail className="h-3.5 w-3.5" /> Enter 6-Digit OTP <span className="text-red-500">*</span>
                                 </Label>
-                                <Input 
+                                <Input
                                     type="text"
                                     maxLength={6}
-                                    value={otp} 
-                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} 
-                                    placeholder="e.g. 123456" 
+                                    value={otp}
+                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                    placeholder="e.g. 123456"
                                     className="h-12 rounded-xl bg-muted/30 font-bold text-center text-xl tracking-[0.5em] placeholder:tracking-normal placeholder:text-muted-foreground/50"
                                 />
                                 <p className="text-[10px] text-muted-foreground font-medium">
@@ -196,9 +207,9 @@ export default function SystemSettings() {
                     )}
 
                     {!showOtpInput ? (
-                        <Button 
-                            onClick={handleRequestOtp} 
-                            disabled={sendingOtp || !systemSettings.adminPassword.trim()} 
+                        <Button
+                            onClick={handleRequestOtp}
+                            disabled={sendingOtp || !systemSettings.adminPassword.trim()}
                             className="w-full h-12 rounded-xl font-black gap-2 bg-black text-white hover:bg-black/90 shadow-xl disabled:opacity-50"
                         >
                             {sendingOtp ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
@@ -206,28 +217,28 @@ export default function SystemSettings() {
                         </Button>
                     ) : (
                         <div className="space-y-3">
-                            <Button 
-                                onClick={handleSavePassword} 
-                                disabled={saving || otp.length !== 6} 
+                            <Button
+                                onClick={handleSavePassword}
+                                disabled={saving || otp.length !== 6}
                                 className="w-full h-12 rounded-xl font-black gap-2 bg-black text-white hover:bg-black/90 shadow-xl disabled:opacity-50"
                             >
                                 {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                 Verify & Update Dynamic Password
                             </Button>
-                            
+
                             <div className="grid grid-cols-2 gap-3 pt-1">
-                                <Button 
-                                    variant="outline" 
-                                    onClick={handleRequestOtp} 
-                                    disabled={sendingOtp} 
+                                <Button
+                                    variant="outline"
+                                    onClick={handleRequestOtp}
+                                    disabled={sendingOtp}
                                     className="h-11 rounded-xl font-bold border-border bg-white text-black hover:bg-muted/50 gap-1.5"
                                 >
                                     {sendingOtp ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                                     Resend OTP
                                 </Button>
-                                <Button 
-                                    variant="ghost" 
-                                    onClick={handleCancelOtp} 
+                                <Button
+                                    variant="ghost"
+                                    onClick={handleCancelOtp}
                                     className="h-11 rounded-xl font-bold hover:bg-red-50 text-red-600 hover:text-red-700 gap-1.5"
                                 >
                                     <X className="h-3.5 w-3.5" />

@@ -5,7 +5,7 @@ import {
   ArrowLeft, Star, Clock, ShieldCheck, Plus, Minus,
   Calendar, ChevronRight, ShoppingCart,
   Heart, Share2, Check, Timer, Sparkles, Camera,
-  UserCheck, MessageSquare
+  UserCheck, MessageSquare, X, Maximize2
 } from "lucide-react";
 import { Button } from "@/modules/user/components/ui/button";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
@@ -40,7 +40,20 @@ const ServiceDetail = () => {
   const [addedToCart, setAddedToCart] = useState(false);
   const [reviewsData, setReviewsData] = useState({ feedbacks: [], gallery: [] });
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState(null);
   const stepsRef = useRef(null);
+
+  // Lock background scroll when gallery image is selected
+  useEffect(() => {
+      if (selectedGalleryImage) {
+          document.body.style.overflow = "hidden";
+      } else {
+          document.body.style.overflow = "";
+      }
+      return () => {
+          document.body.style.overflow = "";
+      };
+  }, [selectedGalleryImage]);
 
   const placeholder = useMemo(() => {
     if (!service) return "/placeholder.svg";
@@ -437,12 +450,21 @@ const ServiceDetail = () => {
                 }))
               ].map((item, idx) => (
                 <div key={idx} className="flex-shrink-0 w-[300px] space-y-3">
-                  <div className="relative h-44 rounded-2xl overflow-hidden group shadow-lg border border-border bg-accent/30">
+                  <div 
+                    className="relative h-44 rounded-2xl overflow-hidden group shadow-lg border border-border bg-accent/30 cursor-pointer"
+                    onClick={() => setSelectedGalleryImage(item)}
+                  >
+                    {/* Hover Overlay with Maximize Icon */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px] z-20">
+                      <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-2xl scale-50 group-hover:scale-100 transition-transform duration-300">
+                        <Maximize2 className="w-5 h-5 text-primary" />
+                      </div>
+                    </div>
                     {item.type === 'hardcoded' ? (
                       <img 
                         src={item.url || placeholder} 
                         alt="Work" 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        className="w-full h-full object-cover object-[50%_20%] group-hover:scale-105 transition-transform duration-500" 
                         onError={(e) => { 
                           if (!e.target.dataset.triedFallback) {
                             e.target.dataset.triedFallback = 'true';
@@ -664,7 +686,71 @@ const ServiceDetail = () => {
         </motion.div>
       </div>
 
+      {/* Gallery Lightbox Modal */}
+      <AnimatePresence>
+        {selectedGalleryImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl"
+            onClick={() => setSelectedGalleryImage(null)}
+          >
+            {/* Close button */}
+            <motion.button
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="absolute top-8 right-8 w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all z-[110]"
+              onClick={() => setSelectedGalleryImage(null)}
+            >
+              <X className="w-6 h-6" />
+            </motion.button>
 
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative max-w-5xl w-full h-[60vh] md:h-[80vh] rounded-3xl overflow-hidden shadow-2xl bg-black"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {selectedGalleryImage.type === 'hardcoded' ? (
+                <img
+                  src={selectedGalleryImage.url || placeholder}
+                  alt="Work"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="absolute inset-0 flex">
+                  <div className={`relative ${selectedGalleryImage.after?.length > 0 ? "w-1/2" : "w-full"}`}>
+                    <img 
+                      src={selectedGalleryImage.before?.[0] || placeholder} 
+                      alt="Before" 
+                      className="w-full h-full object-contain bg-zinc-900" 
+                    />
+                    <div className="absolute top-4 left-4 bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded uppercase backdrop-blur-md">Before</div>
+                  </div>
+                  {selectedGalleryImage.after?.length > 0 && (
+                    <div className="w-1/2 relative border-l border-white/20">
+                      <img 
+                        src={selectedGalleryImage.after?.[0] || placeholder} 
+                        alt="After" 
+                        className="w-full h-full object-contain bg-zinc-900" 
+                      />
+                      <div className="absolute top-4 right-4 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded uppercase shadow-lg">After</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {selectedGalleryImage.customer && (
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6">
+                  <h3 className="text-xl font-bold text-white drop-shadow-lg">Client: {selectedGalleryImage.customer}</h3>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

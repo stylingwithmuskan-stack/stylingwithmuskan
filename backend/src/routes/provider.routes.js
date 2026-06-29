@@ -1794,7 +1794,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     b.adminEscalated = false;
   } else if (next === "cancelled") {
     // Provider cancelling an active booking
-    const restricted = ["arrived", "in_progress", "completed", "cancelled", "rejected", "provider_cancelled"];
+    const restricted = ["in_progress", "completed", "cancelled", "rejected", "provider_cancelled"];
     if (restricted.includes((b.status || "").toLowerCase())) {
       return res.status(400).json({ error: `Cannot cancel booking with current status: ${b.status}` });
     }
