@@ -8,6 +8,9 @@ import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext
 import { getServicePlaceholder } from "@/modules/user/lib/utils";
 import CustomizeBookingForm from "./CustomizeBookingForm";
 
+// Helper to detect iOS to prevent double-tap issues on hover effects
+const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent || "");
+
 const CategoryGrid = () => {
   const { gender } = useGenderTheme();
   const navigate = useNavigate();
@@ -78,16 +81,16 @@ const CategoryGrid = () => {
           {mainServiceTypes.map((type) => (
             <motion.button
               key={type.id}
-              whileHover={{ scale: 1.02, y: -2 }}
+              whileHover={isIOS ? undefined : { scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleServiceSelect(type)}
-              className="relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm hover:shadow-md transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white"
+              className={`relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white ${isIOS ? "" : "hover:shadow-md"}`}
             >
               <div className="absolute inset-0 z-0">
                 <img
                   src={type.image || getServicePlaceholder(type.label)}
                   alt={type.label}
-                  className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-500 bg-accent"
+                  className={`w-full h-full object-cover opacity-90 transition-transform duration-500 bg-accent ${isIOS ? "" : "group-hover:scale-105"}`}
                   onError={(e) => {
                     const placeholder = getServicePlaceholder(type.label);
                     if (e.target.src !== placeholder) e.target.src = placeholder;
@@ -104,13 +107,13 @@ const CategoryGrid = () => {
 
           {/* Customize / Enquiry Card */}
           <motion.button
-            whileHover={{ scale: 1.02, y: -2 }}
+            whileHover={isIOS ? undefined : { scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleCustomizeClick}
-            className="relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm hover:shadow-md transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5"
+            className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 ${isIOS ? "" : "hover:shadow-md"}`}
           >
             <div className="relative flex flex-col items-center gap-2">
-              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+              <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-2xl transition-transform ${isIOS ? "" : "group-hover:scale-110"}`}>
                 ✨
               </div>
               <div className="text-center">
