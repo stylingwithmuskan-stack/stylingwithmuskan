@@ -43,13 +43,21 @@ async function computeAdvanceFromCategories(items = [], bookingType = "instant")
   const bType = String(bookingType || "instant").toLowerCase();
   if (bType === "instant") return 0;
 
-  const catIds = Array.from(new Set(items.map((it) => it.category).filter(Boolean)));
-  const cats = await Category.find({ id: { $in: catIds } }).lean();
-  const byId = new Map(cats.map((c) => [c.id, c]));
+  const catIds = Array.from(new Set(items.map((it) => String(it.category || "").trim().toLowerCase()).filter(Boolean)));
+  // Fetch all categories with advance > 0 to check locally
+  const cats = await Category.find({ advancePercentage: { $gt: 0 } }).lean();
+  
   let sum = 0;
   for (const it of items) {
-    const c = byId.get(it.category);
+    const itCat = String(it.category || "").trim().toLowerCase();
+    if (!itCat) continue;
+    
+    const c = cats.find(cat => 
+        String(cat.id || "").toLowerCase() === itCat || 
+        String(cat.name || "").toLowerCase() === itCat
+    );
     if (!c) continue;
+    
     const pct = Number(c.advancePercentage || 0);
     const catType = String(c.bookingType || "").toLowerCase();
     // Advance applies if category is scheduled/prebook/customize OR if explicitly requested as scheduled/prebook

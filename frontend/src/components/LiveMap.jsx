@@ -379,7 +379,7 @@ const LiveMapContent = ({
                 zIndex: 200
             });
         }
-    }, [ready, bikeIconUrl]); // Static markers init
+    }, [apiKey, bikeIconUrl]); // Static markers init
 
     // Update markers and polyline when data changes
     useEffect(() => {

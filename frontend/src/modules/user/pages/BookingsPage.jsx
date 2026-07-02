@@ -18,6 +18,7 @@ import FeedbackModal from "@/modules/user/components/salon/FeedbackModal";
 import ProviderProfileModal from "@/modules/user/components/salon/ProviderProfileModal";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { useCart } from "@/modules/user/contexts/CartContext";
+import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useBookingChat } from "@/modules/user/contexts/BookingChatContext";
 
 const BookingsPage = () => {
@@ -25,7 +26,10 @@ const BookingsPage = () => {
     const { gender } = useGenderTheme();
     const { bookings, enquiries, acceptCustomEnquiry, rejectCustomEnquiry, payAdvanceForCustomEnquiry, loadingEnquiries, loading } = useBookings();
     const { addCustomAdvanceToCart, setIsCartOpen, clearCart, addToCart, setBookingType } = useCart();
+    const { user } = useAuth();
     const { unreadCounts } = useBookingChat();
+    // Get user's primary address for slot filtering
+    const userAddress = user?.addresses?.[0] || null;
     useEffect(() => {
         try {
             bookings.forEach(b => {
@@ -34,7 +38,7 @@ const BookingsPage = () => {
                     console.log("[Booking OTP]", b._id || b.id, b.otp);
                 }
             });
-        } catch {}
+        } catch { }
     }, [bookings]);
     const [mainType, setMainType] = useState("normal"); // 'normal' or 'customize'
     const [activeTab, setActiveTab] = useState("Upcoming");
@@ -42,6 +46,7 @@ const BookingsPage = () => {
     const [callingBooking, setCallingBooking] = useState(null);
     const [detailsBooking, setDetailsBooking] = useState(null);
     const [rescheduleBooking, setRescheduleBooking] = useState(null);
+    const [rebookSlotOpen, setRebookSlotOpen] = useState(false);
     const [feedbackBooking, setFeedbackBooking] = useState(null);
     const [providerModalData, setProviderModalData] = useState(null);
     const [customEnquiryDetails, setCustomEnquiryDetails] = useState(null);
@@ -79,7 +84,7 @@ const BookingsPage = () => {
                 setDetailsBooking(found);
             }
         }
-        
+
         if (enquiryParam && enquiries.length > 0) {
             const foundEnq = enquiries.find(e => (e.id || e._id) === enquiryParam);
             if (foundEnq) {
@@ -141,7 +146,7 @@ const BookingsPage = () => {
                 const serviceId = b.items?.[0]?.id || b.services?.[0]?.id;
                 const hasLocalImage = b.items?.[0]?.image || b.services?.[0]?.image;
                 const hasGlobalImage = globalServices?.some(s => (s.id === serviceId || s._id === serviceId) && s.image);
-                
+
                 if (!hasLocalImage && !hasGlobalImage) {
                     const categoryId = b.items?.[0]?.category || b.services?.[0]?.category || b.categoryId;
                     if (categoryId) {
@@ -162,7 +167,7 @@ const BookingsPage = () => {
 
     const handleProviderClick = (booking) => {
         let foundProvider = providers?.find(p => p.id === booking.assignedProvider || p.phone === booking.assignedProvider);
-        
+
         if (!foundProvider && booking.slot?.provider) {
             const p = booking.slot.provider;
             foundProvider = {
@@ -196,43 +201,41 @@ const BookingsPage = () => {
 
     const handleRebook = (booking) => {
         try {
-            // Extract services from the completed booking
             const services = booking.items || booking.services || [];
-            
+
             if (!services || services.length === 0) {
                 toast.error("No services found in this booking");
                 return;
             }
-            
-            // Clear existing cart to avoid conflicts
+
             clearCart();
-            
-            // Add each service to cart with all necessary details
-            services.forEach(service => {
+
+            services.forEach((service, i) => {
+                const realServiceId = service.id || service._id || service.serviceId || null;
                 addToCart({
-                    id: service.id || service._id || `service-${Date.now()}-${Math.random()}`,
+                    // ✅ Real ID use karo, ya phir cart ke liye unique 'rebook-x' ID do. 
+                    // SlotSelectionModal 'rebook-' wale IDs ko backend pe bhejne se pehle filter kar dega.
+                    id: realServiceId || `rebook-${i}`,
+                    _realId: realServiceId, // Optional reference
+
                     name: service.name,
                     price: service.price,
                     originalPrice: service.originalPrice,
                     duration: service.duration,
-                    category: service.category,
-                    serviceType: service.serviceType,
+                    serviceType: service.serviceType || booking.serviceType || "",
+                    category: service.category || service.categoryId || "",
                     image: service.image,
                     description: service.description
                 });
             });
-            
-            // Set booking type from previous booking (instant or pre-book)
+
             if (booking.bookingType) {
                 setBookingType(booking.bookingType);
             }
-            
-            // Show success message
-            toast.success(`${services.length} service${services.length > 1 ? 's' : ''} added to cart`);
-            
-            // Open cart for user to review and proceed
-            setIsCartOpen(true);
-            
+
+            toast.success(`${services.length} service${services.length > 1 ? 's' : ''} added — please select a new slot`);
+            setRebookSlotOpen(true);
+
         } catch (error) {
             console.error("Rebook error:", error);
             toast.error("Failed to rebook. Please try again.");
@@ -341,8 +344,8 @@ const BookingsPage = () => {
                                                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden flex-shrink-0 bg-accent border border-border/50">
                                                     <img
                                                         src={
-                                                            booking.items?.[0]?.image || 
-                                                            booking.services?.[0]?.image || 
+                                                            booking.items?.[0]?.image ||
+                                                            booking.services?.[0]?.image ||
                                                             globalServices?.find(s => (s.id === (booking.items?.[0]?.id || booking.services?.[0]?.id)) || (s._id === (booking.items?.[0]?.id || booking.services?.[0]?.id)))?.image ||
                                                             globalServices?.find(s => s.name === (booking.items?.[0]?.name || booking.services?.[0]?.name))?.image ||
                                                             "https://placehold.co/100x100"
@@ -370,15 +373,14 @@ const BookingsPage = () => {
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <span className={`flex-shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded-lg border ${
-                                                            booking.status?.toLowerCase() === "accepted" ? "bg-green-50 text-green-600 border-green-200" :
-                                                            booking.status?.toLowerCase() === "travelling" ? "bg-amber-50 text-amber-600 border-amber-200" :
-                                                            booking.status?.toLowerCase() === "arrived" ? "bg-purple-50 text-purple-600 border-purple-200" :
-                                                            booking.status?.toLowerCase() === "in_progress" || booking.status?.toLowerCase() === "documentation" ? "bg-blue-50 text-blue-600 border-blue-200" :
-                                                            booking.status?.toLowerCase() === "completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                                                            booking.status?.toLowerCase() === "cancelled" ? "bg-red-50 text-red-600 border-red-200" :
-                                                            "bg-gray-50 text-gray-600 border-gray-200"
-                                                        }`}>
+                                                        <span className={`flex-shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded-lg border ${booking.status?.toLowerCase() === "accepted" ? "bg-green-50 text-green-600 border-green-200" :
+                                                                booking.status?.toLowerCase() === "travelling" ? "bg-amber-50 text-amber-600 border-amber-200" :
+                                                                    booking.status?.toLowerCase() === "arrived" ? "bg-purple-50 text-purple-600 border-purple-200" :
+                                                                        booking.status?.toLowerCase() === "in_progress" || booking.status?.toLowerCase() === "documentation" ? "bg-blue-50 text-blue-600 border-blue-200" :
+                                                                            booking.status?.toLowerCase() === "completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                                                                                booking.status?.toLowerCase() === "cancelled" ? "bg-red-50 text-red-600 border-red-200" :
+                                                                                    "bg-gray-50 text-gray-600 border-gray-200"
+                                                            }`}>
                                                             {booking.status?.toLowerCase() === "completed" ? "Completed" : (booking.status || "Pending")}
                                                         </span>
                                                     </div>
@@ -391,24 +393,24 @@ const BookingsPage = () => {
                                                             <Clock className="w-3.5 h-3.5 text-primary/60" /> {booking.slot?.time}
                                                         </div>
                                                         <div className="col-span-2 sm:col-auto">
-                                                        {(booking.assignedProvider || booking.teamMembers?.length > 0 || ["accepted", "travelling", "arrived", "in_progress", "documentation", "completed", "payment_pending"].includes(booking.status?.toLowerCase())) ? (
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); handleProviderClick(booking); }} 
-                                                                className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer group/pro"
-                                                            >
-                                                                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                                                                <span className="font-bold underline decoration-primary/30 underline-offset-2 group-hover/pro:decoration-primary">
-                                                                    {booking.slot?.provider?.name || booking.teamMembers?.[0]?.name || (Array.isArray(providers) ? providers.find(p => p.id === booking.assignedProvider) : providers?.[booking.assignedProvider])?.name || 'Trained Pro'}
-                                                                </span>
-                                                            </button>
-                                                        ) : (
-                                                            <div className="flex items-center gap-1.5 text-muted-foreground/50 italic">
-                                                                <Users className="w-3.5 h-3.5" />
-                                                                <span className="font-medium text-[10px] uppercase tracking-tighter">
-                                                                    {booking.status?.toLowerCase() === 'cancelled' ? 'No Expert Assigned' : 'Assigning Expert...'}
-                                                                </span>
-                                                            </div>
-                                                        )}
+                                                            {(booking.assignedProvider || booking.teamMembers?.length > 0 || ["accepted", "travelling", "arrived", "in_progress", "documentation", "completed", "payment_pending"].includes(booking.status?.toLowerCase())) ? (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleProviderClick(booking); }}
+                                                                    className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer group/pro"
+                                                                >
+                                                                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                                                    <span className="font-bold underline decoration-primary/30 underline-offset-2 group-hover/pro:decoration-primary">
+                                                                        {booking.slot?.provider?.name || booking.teamMembers?.[0]?.name || (Array.isArray(providers) ? providers.find(p => p.id === booking.assignedProvider) : providers?.[booking.assignedProvider])?.name || 'Trained Pro'}
+                                                                    </span>
+                                                                </button>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1.5 text-muted-foreground/50 italic">
+                                                                    <Users className="w-3.5 h-3.5" />
+                                                                    <span className="font-medium text-[10px] uppercase tracking-tighter">
+                                                                        {booking.status?.toLowerCase() === 'cancelled' ? 'No Expert Assigned' : 'Assigning Expert...'}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
 
@@ -431,11 +433,10 @@ const BookingsPage = () => {
                                                         <p className="text-lg font-black text-primary">
                                                             ₹{(booking.totalAmount || 0).toLocaleString()}
                                                         </p>
-                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter ${
-                                                            booking.paymentStatus === 'PAID' || booking.balanceAmount === 0 
-                                                            ? "bg-green-50 text-green-600 border border-green-200" 
-                                                            : "bg-amber-50 text-amber-600 border border-amber-200"
-                                                        }`}>
+                                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter ${booking.paymentStatus === 'PAID' || booking.balanceAmount === 0
+                                                                ? "bg-green-50 text-green-600 border border-green-200"
+                                                                : "bg-amber-50 text-amber-600 border border-amber-200"
+                                                            }`}>
                                                             {booking.paymentStatus || (booking.balanceAmount === 0 ? 'PAID' : 'PENDING')}
                                                         </span>
                                                     </div>
@@ -485,7 +486,7 @@ const BookingsPage = () => {
                                                                     <Star className="w-3.5 h-3.5 fill-current" /> Review
                                                                 </button>
                                                             )}
-                                                            <button 
+                                                            <button
                                                                 onClick={() => handleRebook(booking)}
                                                                 className="h-10 px-4 rounded-xl border border-primary/20 bg-primary text-white text-[11px] font-black uppercase tracking-widest flex items-center gap-2 hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20"
                                                             >
@@ -567,11 +568,10 @@ const BookingsPage = () => {
 
                                     {/* Phase description */}
                                     {enq.displayPhase && (
-                                        <div className={`mb-3 p-3 rounded-xl border ${
-                                            enq.displayPhase === "final" ? "bg-emerald-50 border-emerald-100" :
-                                            enq.displayPhase === "pricing" ? "bg-green-50 border-green-100" :
-                                            "bg-muted/30 border-border/30"
-                                        }`}>
+                                        <div className={`mb-3 p-3 rounded-xl border ${enq.displayPhase === "final" ? "bg-emerald-50 border-emerald-100" :
+                                                enq.displayPhase === "pricing" ? "bg-green-50 border-green-100" :
+                                                    "bg-muted/30 border-border/30"
+                                            }`}>
                                             <p className="text-[10px] font-bold text-foreground/70 leading-relaxed">
                                                 {getPhaseDescription(enq.displayPhase)}
                                             </p>
@@ -642,10 +642,10 @@ const BookingsPage = () => {
                                                         {(enq.selectedServices || enq.quote?.items || enq.items).map((s, idx) => (
                                                             <div key={idx} className="flex items-center gap-1.5 px-2 py-1 bg-white border border-purple-200 text-purple-700 rounded-lg">
                                                                 {(s.image || globalServices?.find(gs => gs.id === s.id)?.image) && (
-                                                                    <img 
-                                                                        src={s.image || globalServices?.find(gs => gs.id === s.id)?.image} 
-                                                                        alt="" 
-                                                                        className="w-4 h-4 rounded-sm object-cover" 
+                                                                    <img
+                                                                        src={s.image || globalServices?.find(gs => gs.id === s.id)?.image}
+                                                                        alt=""
+                                                                        className="w-4 h-4 rounded-sm object-cover"
                                                                     />
                                                                 )}
                                                                 <span className="text-[9px] font-bold">
@@ -848,16 +848,28 @@ const BookingsPage = () => {
                 }}
             />
 
+            {/* ✅ Rebook Slot Modal — opens directly after Rebook button */}
+            <SlotSelectionModal
+                isOpen={rebookSlotOpen}
+                onClose={() => setRebookSlotOpen(false)}
+                address={userAddress}
+                onSave={() => {
+                    setRebookSlotOpen(false);
+                    // Open cart after slot is selected so user can checkout
+                    setIsCartOpen(true);
+                }}
+            />
+
             <FeedbackModal
                 isOpen={!!feedbackBooking}
                 onClose={() => setFeedbackBooking(null)}
                 booking={feedbackBooking}
             />
 
-            <ProviderProfileModal 
-                isOpen={!!providerModalData} 
-                onClose={() => setProviderModalData(null)} 
-                provider={providerModalData} 
+            <ProviderProfileModal
+                isOpen={!!providerModalData}
+                onClose={() => setProviderModalData(null)}
+                provider={providerModalData}
             />
 
             {/* Custom Enquiry Details Modal */}
@@ -866,7 +878,7 @@ const BookingsPage = () => {
                 onClose={() => setCustomEnquiryDetails(null)}
                 enquiry={customEnquiryDetails}
             />
-            
+
         </div>
     );
 };

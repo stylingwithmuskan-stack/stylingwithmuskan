@@ -22,7 +22,7 @@ export default function ProviderLoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(300); // 5 minutes OTP validity
-    const [resendTimer, setResendTimer] = useState(60); // 1 minute resend cooldown
+    const [resendTimer, setResendTimer] = useState(120); // 2 minutes resend cooldown
     const [error, setError] = useState("");
     const [otpDeliveryMode, setOtpDeliveryMode] = useState("sms");
 
@@ -65,7 +65,7 @@ export default function ProviderLoginPage() {
             setOtpDeliveryMode(res?.deliveryMode || "sms");
             setStep(2);
             setTimer(300); // 5 minutes OTP validity
-            setResendTimer(60); // 1 minute resend cooldown
+            setResendTimer(120); // 2 minutes resend cooldown
         } catch (e) {
             setError(e?.message || "Failed to request OTP");
         } finally {
@@ -245,7 +245,9 @@ export default function ProviderLoginPage() {
                                 <div className="text-center">
                                     {resendTimer > 0 ? (
                                         <p className="text-gray-400 text-sm font-medium">
-                                            Resend OTP in <span className="text-gray-900 font-bold">0:{resendTimer.toString().padStart(2, '0')}</span>
+                                            Resend OTP in <span className="text-gray-900 font-bold">
+                                                {Math.floor(resendTimer / 60)}:{(resendTimer % 60).toString().padStart(2, '0')}
+                                            </span>
                                         </p>
                                     ) : (
                                         <button 
@@ -255,7 +257,7 @@ export default function ProviderLoginPage() {
                                                     const res = await requestOtp(phone);
                                                     setOtpDeliveryMode(res?.deliveryMode || "sms");
                                                     setTimer(300);
-                                                    setResendTimer(60);
+                                                    setResendTimer(120);
                                                     toast.success("OTP sent successfully!");
                                                 } catch (err) {
                                                     console.error("[ProviderLogin] resend-otp error", err);

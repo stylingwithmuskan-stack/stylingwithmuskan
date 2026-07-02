@@ -216,9 +216,17 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             if (totalDurationMinutes > 0) params.durationMinutes = String(totalDurationMinutes);
 
             // Pass service IDs so backend can check disabledDates exceptions from DB (source of truth)
+            // ✅ Only pass REAL service IDs — skip null/fake generated IDs
             if (focusedItems?.length > 0) {
-                // Support both id and _id for service matching
-                const serviceIds = focusedItems.map(item => item.id || item._id).filter(Boolean);
+                const serviceIds = focusedItems
+                    .map(item => item.id || item._id)
+                    .filter(id => {
+                        if (!id) return false;
+                        // Filter out fake generated IDs from rebook flow
+                        if (String(id).startsWith("rebook-")) return false;
+                        if (String(id).startsWith("service-")) return false;
+                        return true;
+                    });
                 if (serviceIds.length > 0) {
                     params.serviceIds = JSON.stringify(serviceIds);
                 }

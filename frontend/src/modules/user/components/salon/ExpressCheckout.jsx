@@ -134,7 +134,11 @@ const ExpressCheckout = () => {
             // Check if item belongs to a displayed group
             if (activeCheckoutType && item.serviceType !== activeCheckoutType) return;
 
-            const category = categories?.find(c => c.id === item.category);
+            const itCat = String(item.category || "").trim().toLowerCase();
+            const category = categories?.find(c => 
+                String(c.id || "").toLowerCase() === itCat || 
+                String(c.name || "").toLowerCase() === itCat
+            );
 
             const advancePercent = category?.advancePercentage || 0;
 
@@ -191,7 +195,11 @@ const ExpressCheckout = () => {
                         if (!item) return;
                         if (item.serviceType !== finalType) return;
 
-                        const category = categories?.find(c => c.id === item.category);
+                        const itCat = String(item.category || "").trim().toLowerCase();
+                        const category = categories?.find(c => 
+                            String(c.id || "").toLowerCase() === itCat || 
+                            String(c.name || "").toLowerCase() === itCat
+                        );
                         const advancePercent = category?.advancePercentage || 0;
 
                         if (advancePercent > 0) {
