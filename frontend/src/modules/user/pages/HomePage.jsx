@@ -110,7 +110,7 @@ const HomePage = () => {
         </svg>
 
         {/* Pulse Effect */}
-        <span className="absolute inset-0 rounded-full bg-[#25D366]/40 animate-ping -z-10" />
+        <span className="absolute inset-0 rounded-full bg-[#25D366]/40 animate-ping -z-10 pointer-events-none" />
 
         {/* Tooltip (Only on laptop) */}
         <span className="absolute right-full mr-4 bg-black/80 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden lg:block">
