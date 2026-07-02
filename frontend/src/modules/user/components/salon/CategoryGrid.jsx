@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useGenderTheme } from "@/modules/user/contexts/GenderThemeContext";
@@ -6,6 +7,9 @@ import { useCart } from "@/modules/user/contexts/CartContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { getServicePlaceholder } from "@/modules/user/lib/utils";
 import CustomizeBookingForm from "./CustomizeBookingForm";
+
+// Helper to detect touch devices to prevent double-tap issues on hover effects
+const isTouchDevice = typeof window !== "undefined" && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
 
 
@@ -96,17 +100,19 @@ const CategoryGrid = () => {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {mainServiceTypes.map((type) => (
-            <button
+            <motion.button
               key={type.id}
+              whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
               onClick={(e) => handleServiceSelect(e, type)}
               style={{ touchAction: "pan-y", WebkitTapHighlightColor: "transparent" }}
-              className="relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white lg:hover:shadow-md lg:hover:-translate-y-0.5 active:scale-[0.98]"
+              className={`relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white ${isTouchDevice ? "" : "hover:shadow-md"}`}
             >
               <div className="absolute inset-0 z-0">
                 <img
                   src={type.image || getServicePlaceholder(type.label)}
                   alt={type.label}
-                  className="w-full h-full object-cover opacity-90 transition-transform duration-500 bg-accent lg:group-hover:scale-105"
+                  className={`w-full h-full object-cover opacity-90 transition-transform duration-500 bg-accent ${isTouchDevice ? "" : "group-hover:scale-105"}`}
                   onError={(e) => {
                     const placeholder = getServicePlaceholder(type.label);
                     if (e.target.src !== placeholder) e.target.src = placeholder;
@@ -118,17 +124,19 @@ const CategoryGrid = () => {
                 <h3 className="text-sm lg:text-base font-bold text-white leading-tight">{type.label}</h3>
                 <p className="hidden sm:block text-[9px] text-white/70 font-medium tracking-tight mt-0.5">{type.description}</p>
               </div>
-            </button>
+            </motion.button>
           ))}
 
           {/* Customize / Enquiry Card */}
-          <button
+          <motion.button
+            whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
+            whileTap={{ scale: 0.98 }}
             onClick={(e) => handleCustomizeSelect(e)}
             style={{ touchAction: "pan-y", WebkitTapHighlightColor: "transparent" }}
-            className="relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 lg:hover:shadow-md lg:hover:-translate-y-0.5 active:scale-[0.98]"
+            className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 ${isTouchDevice ? "" : "hover:shadow-md"}`}
           >
             <div className="relative flex flex-col items-center gap-2">
-              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-2xl transition-transform lg:group-hover:scale-110">
+              <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-2xl transition-transform ${isTouchDevice ? "" : "group-hover:scale-110"}`}>
                 ✨
               </div>
               <div className="text-center">
@@ -136,7 +144,7 @@ const CategoryGrid = () => {
                 <p className="hidden sm:block text-[9px] text-muted-foreground font-bold tracking-tight">Bulk/Event Enquiry</p>
               </div>
             </div>
-          </button>
+          </motion.button>
         </div>
       </div>
 
