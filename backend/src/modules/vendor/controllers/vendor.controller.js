@@ -490,7 +490,7 @@ export async function listProviders(req, res) {
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   const city = normCity(vendor?.city) || "";
   let cityId = String(vendor?.cityId || "").trim();
-  
+
   // Dynamic cityId resolution — always verify against cities collection
   if (city) {
     try {
@@ -502,7 +502,7 @@ export async function listProviders(req, res) {
           await Vendor.updateOne({ _id: vendorId }, { $set: { cityId } });
         }
       }
-    } catch {}
+    } catch { }
   }
 
   const zones = await getLatestVendorZones(vendor);
@@ -802,7 +802,7 @@ export async function listBookings(req, res) {
   if (!vendor) return res.status(404).json({ error: "Vendor not found" });
   const city = normCity(vendor?.city) || "";
   let cityId = String(vendor?.cityId || "").trim();
-  
+
   // Dynamic cityId resolution: if vendor doesn't have cityId OR has stale one, resolve from City collection
   if (city) {
     try {
@@ -1289,7 +1289,7 @@ export async function expireBooking(req, res) {
   if (!existing) return res.status(404).json({ error: "Not found" });
 
   const previousProviderId = String(existing.assignedProvider || "").trim();
-  
+
   // Refund provider if they were charged
   if (previousProviderId) {
     await refundProviderCommissionIfNeeded(existing, previousProviderId, "vendor_expiry");

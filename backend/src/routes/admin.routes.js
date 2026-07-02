@@ -58,16 +58,16 @@ router.post(
     }
     const email = (req.body.email || "").trim();
     const password = (req.body.password || "");
-    
+
     // Compare plain-text email
     if (email !== confEmail) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
-    
+
     // Determine if password is plain-text (from .env) or bcrypt (from DB)
     const isDbPassword = !!dynamicPassword;
     let isValidPassword = false;
-    
+
     if (isDbPassword) {
       isValidPassword = await bcrypt.compare(password, confPassword);
     } else {

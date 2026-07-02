@@ -45,6 +45,8 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setHasAddress(false);
         safeStorage.removeItem(STORAGE_KEY);
+        // ✅ Token bhi clear karo — reinstall ke baad stale token na rahe
+        safeStorage.removeItem("swm_token");
         // Clear cart on logout
         localStorage.removeItem("swm_cart");
     };
@@ -72,14 +74,23 @@ export const AuthProvider = ({ children }) => {
         let cancelled = false;
         (async () => {
             try {
-                const { user: serverUser } = await api.me();
+                const { user: serverUser, skipped } = await api.me();
                 if (cancelled) return;
+                // ✅ Agar token tha hi nahi (skipped) toh session clear karo
+                if (skipped) {
+                    clearUserSession();
+                    setLoading(false);
+                    return;
+                }
                 setUser(serverUser);
                 setIsLoggedIn(true);
                 setHasAddress((serverUser.addresses || []).length > 0);
             } catch (error) {
-                // Clear only on definite unauthorized states; keep hydrated state for transient failures.
-                if (!cancelled && error?.status === 401) {
+                if (cancelled) return;
+                // ✅ 401 = token invalid/expired → clear karo
+                // ✅ 403 = forbidden → clear karo
+                // Network errors (no status) ke liye localStorage state rehne do (offline support)
+                if (error?.status === 401 || error?.status === 403) {
                     clearUserSession();
                 }
             } finally {
