@@ -20,6 +20,8 @@ const CategoryGrid = () => {
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
 
   const handleCustomizeClick = (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     if (e?.currentTarget) e.currentTarget.blur();
     if (!isLoggedIn) {
       // Redirect to login if not authenticated
@@ -61,6 +63,8 @@ const CategoryGrid = () => {
   }, [mainServiceTypes, loadCategoryServices]);
 
   const handleServiceSelect = (e, type) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     // Prevent Safari back-button focus bug
     if (e?.currentTarget) e.currentTarget.blur();
     if (document.activeElement) document.activeElement.blur();
@@ -68,10 +72,18 @@ const CategoryGrid = () => {
     // Default to instant for home page selections
     setBookingType("instant");
     
-    // Tiny delay so Safari registers the blur before unloading the page
-    setTimeout(() => {
-      navigate(`/explore/${type.entryCategory}?type=${type.id}&booking=instant`);
-    }, 10);
+    navigate(`/explore/${type.entryCategory}?type=${type.id}&booking=instant`);
+  };
+
+  const handleCustomizeSelect = (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (e?.currentTarget) e.currentTarget.blur();
+    if (!isLoggedIn) {
+      navigate("/login", { state: { from: "/home", openCustomize: true } });
+      return;
+    }
+    setIsCustomizeOpen(true);
   };
 
   return (
@@ -92,7 +104,9 @@ const CategoryGrid = () => {
               key={type.id}
               whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              onClick={(e) => handleServiceSelect(e, type)}
+              onTouchEnd={(e) => handleServiceSelect(e, type)}
+              onClick={(e) => { if (!isTouchDevice) handleServiceSelect(e, type); }}
+              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
               className={`relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white ${isTouchDevice ? "" : "hover:shadow-md"}`}
             >
               <div className="absolute inset-0 z-0">
@@ -118,7 +132,9 @@ const CategoryGrid = () => {
           <motion.button
             whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
-            onClick={(e) => handleCustomizeClick(e)}
+            onTouchEnd={(e) => handleCustomizeSelect(e)}
+            onClick={(e) => { if (!isTouchDevice) handleCustomizeSelect(e); }}
+            style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
             className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 ${isTouchDevice ? "" : "hover:shadow-md"}`}
           >
             <div className="relative flex flex-col items-center gap-2">
