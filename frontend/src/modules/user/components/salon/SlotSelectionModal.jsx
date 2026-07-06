@@ -272,10 +272,9 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     }, [isOpen, tempDate, selectedProvider, totalDurationMinutes, serviceTypes, serviceCategories, address?.city, address?.zone, address?.area]);
 
     const dates = useMemo(() => {
-        const MAX_BOOKING_DAYS = 15; // Client requirement: max 15 days ahead
-        let maxDays = MAX_BOOKING_DAYS;
+        let maxDays = 7; // Default
 
-        // Config block defaults — capped at MAX_BOOKING_DAYS
+        // Config block defaults
         const schedConfig = bookingTypeConfig?.find(b => b.id === "scheduled");
         const instConfig = bookingTypeConfig?.find(b => b.id === "instant");
 
@@ -286,11 +285,13 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         });
 
         if (hasScheduled) {
-            maxDays = Math.min(schedConfig?.maxAdvanceDays || MAX_BOOKING_DAYS, MAX_BOOKING_DAYS);
+            // 365 din ka limit matlab practically koi limit nahi (1 saal tak booking allowed)
+            maxDays = schedConfig?.maxAdvanceDays || 365;
         } else {
+            // For Instant, take the max of allowedAdvanceDays array, default to 7
             let allowedArray = instConfig?.allowedAdvanceDays || [2, 5, 7];
             if (!Array.isArray(allowedArray)) allowedArray = [allowedArray];
-            maxDays = Math.min(Math.max(...allowedArray, 7), MAX_BOOKING_DAYS);
+            maxDays = Math.max(...allowedArray, 7);
         }
 
         return Array.from({ length: maxDays }, (_, i) => {
