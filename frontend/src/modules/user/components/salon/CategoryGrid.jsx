@@ -93,9 +93,9 @@ const CategoryGrid = () => {
             <motion.button
               key={type.id}
               whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
+              whileTap={isTouchDevice ? undefined : { scale: 0.98 }}
               onClick={(e) => handleServiceSelect(e, type)}
-              style={{ touchAction: "pan-y", WebkitTapHighlightColor: "transparent" }}
+              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", cursor: "pointer" }}
               className={`relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white ${isTouchDevice ? "" : "hover:shadow-md"}`}
             >
               <div className="absolute inset-0 z-0">
@@ -120,9 +120,9 @@ const CategoryGrid = () => {
           {/* Customize / Enquiry Card */}
           <motion.button
             whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
+            whileTap={isTouchDevice ? undefined : { scale: 0.98 }}
             onClick={(e) => handleCustomizeSelect(e)}
-            style={{ touchAction: "pan-y", WebkitTapHighlightColor: "transparent" }}
+            style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", cursor: "pointer" }}
             className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 ${isTouchDevice ? "" : "hover:shadow-md"}`}
           >
             <div className="relative flex flex-col items-center gap-2">
