@@ -92,7 +92,7 @@ const HomePage = () => {
         </AnimatePresence>
       </main>
 
-      {/* Floating WhatsApp Support Button - Commented out for testing iOS click issue 
+      {/* Floating WhatsApp Support Button */}
       <motion.a
         href={`https://wa.me/91${import.meta.env.VITE_SUPPORT_PHONE || "8349764176"}?text=Hello%20Styling%20With%20Muskan,%20I%20need%20assistance.`}
         target="_blank"
@@ -121,7 +121,6 @@ const HomePage = () => {
           WhatsApp Support
         </span>
       </motion.a>
-      */}
     </div>
   );
 };

@@ -64,21 +64,11 @@ const CategoryGrid = () => {
   }, [mainServiceTypes, loadCategoryServices]);
 
   const handleServiceSelect = (e, type) => {
-
-    e?.preventDefault();
-    e?.stopPropagation();
-    if (e?.currentTarget) e.currentTarget.blur();
-    if (document.activeElement) document.activeElement.blur();
-
     setBookingType("instant");
     navigate(`/explore/${type.entryCategory}?type=${type.id}&booking=instant`);
   };
 
   const handleCustomizeSelect = (e) => {
-
-    e?.preventDefault();
-    e?.stopPropagation();
-    if (e?.currentTarget) e.currentTarget.blur();
     if (!isLoggedIn) {
       navigate("/login", { state: { from: "/home", openCustomize: true } });
       return;
