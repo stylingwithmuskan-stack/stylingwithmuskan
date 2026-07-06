@@ -1045,10 +1045,13 @@ router.put(
   body("providerEndTime").optional().isString(),
   body("autoAssign").isBoolean(),
   body("bufferMinutes").optional().isNumeric(),
+  body("showWhatsappButton").optional().isBoolean(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const s = await OfficeSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
+    // Invalidate content cache so user app picks up new settings immediately
+    await bumpContentVersion().catch(() => {});
     res.json({ settings: s });
   }
 );

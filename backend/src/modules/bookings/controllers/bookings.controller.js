@@ -39,11 +39,8 @@ function logDevAssignment(message, payload = {}) {
 }
 
 async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
-  // Logic: Instant bookings never require advance payment.
   const bType = String(bookingType || "instant").toLowerCase();
-  if (bType === "instant") return 0;
 
-  const catIds = Array.from(new Set(items.map((it) => String(it.category || "").trim().toLowerCase()).filter(Boolean)));
   // Fetch all categories with advance > 0 to check locally
   const cats = await Category.find({ advancePercentage: { $gt: 0 } }).lean();
   
@@ -52,16 +49,18 @@ async function computeAdvanceFromCategories(items = [], bookingType = "instant")
     const itCat = String(it.category || "").trim().toLowerCase();
     if (!itCat) continue;
     
-    const c = cats.find(cat => 
-        String(cat.id || "").toLowerCase() === itCat || 
+    const c = cats.find(cat =>
+        String(cat.id || "").toLowerCase() === itCat ||
         String(cat.name || "").toLowerCase() === itCat
     );
     if (!c) continue;
     
     const pct = Number(c.advancePercentage || 0);
     const catType = String(c.bookingType || "").toLowerCase();
-    // Advance applies if category is scheduled/prebook/customize OR if explicitly requested as scheduled/prebook
-    if (pct > 0 && (catType === "scheduled" || catType === "prebooking" || catType === "pre-book" || catType === "customize" || bType === "scheduled" || bType === "pre-book")) {
+    // Advance applies:
+    // 1. If the category itself requires advance (any bookingType category with advancePercentage set)
+    // 2. OR if booking is explicitly scheduled/prebook
+    if (pct > 0 && (catType === "scheduled" || catType === "prebooking" || catType === "pre-book" || catType === "customize" || catType === "instant" || bType === "scheduled" || bType === "pre-book")) {
       sum += Math.ceil((Number(it.price) || 0) * (Number(it.quantity) || 1) * (pct / 100));
     }
   }

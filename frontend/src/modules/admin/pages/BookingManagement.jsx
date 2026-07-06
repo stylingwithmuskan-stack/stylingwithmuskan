@@ -1120,6 +1120,17 @@ export default function BookingManagement() {
                                     </button>
                                 </div>
 
+                                <div className="flex items-center justify-between bg-muted/20 border border-border/30 rounded-3xl p-5 hover:bg-muted/30 transition-colors">
+                                    <div className="flex-1 pr-4">
+                                        <p className="text-sm font-black tracking-tight">WhatsApp Support Button</p>
+                                        <p className="text-[11px] text-muted-foreground mt-1 font-medium leading-relaxed">Show/hide the floating WhatsApp support button on the user app home page.</p>
+                                    </div>
+                                    <button onClick={() => setTempSettings({ ...tempSettings, showWhatsappButton: !tempSettings.showWhatsappButton })}
+                                        className={`w-14 h-8 rounded-full transition-all duration-300 relative p-1 ${tempSettings.showWhatsappButton !== false ? 'bg-[#25D366] shadow-lg shadow-green-500/20' : 'bg-muted-foreground/30'}`}>
+                                        <div className={`w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${tempSettings.showWhatsappButton !== false ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+
                                 <div className="space-y-2 pb-4">
                                     <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 block">Off-Hours Message</label>
                                     <textarea rows={2} value={tempSettings.notificationMessage || ""} onChange={e => setTempSettings({ ...tempSettings, notificationMessage: e.target.value })}

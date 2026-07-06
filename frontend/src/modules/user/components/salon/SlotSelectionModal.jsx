@@ -272,7 +272,12 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     }, [isOpen, tempDate, selectedProvider, totalDurationMinutes, serviceTypes, serviceCategories, address?.city, address?.zone, address?.area]);
 
     const dates = useMemo(() => {
-        let maxDays = 7; // Default
+        const MAX_BOOKING_DAYS = 15; // Client requirement: max 15 days ahead
+        let maxDays = MAX_BOOKING_DAYS;
+
+        // Config block defaults — capped at MAX_BOOKING_DAYS
+        const schedConfig = bookingTypeConfig?.find(b => b.id === "scheduled");
+        const instConfig = bookingTypeConfig?.find(b => b.id === "instant");
 
         // Find if cart has scheduled or instant items
         const hasScheduled = cartItems.some(item => {
@@ -280,17 +285,12 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             return (cat?.bookingType) === "scheduled";
         });
 
-        // Config block defaults
-        const schedConfig = bookingTypeConfig?.find(b => b.id === "scheduled");
-        const instConfig = bookingTypeConfig?.find(b => b.id === "instant");
-
         if (hasScheduled) {
-            maxDays = schedConfig?.maxAdvanceDays || 30;
+            maxDays = Math.min(schedConfig?.maxAdvanceDays || MAX_BOOKING_DAYS, MAX_BOOKING_DAYS);
         } else {
-            // For Instant, take the max of allowedAdvanceDays array, default to 7
             let allowedArray = instConfig?.allowedAdvanceDays || [2, 5, 7];
             if (!Array.isArray(allowedArray)) allowedArray = [allowedArray];
-            maxDays = Math.max(...allowedArray, 7);
+            maxDays = Math.min(Math.max(...allowedArray, 7), MAX_BOOKING_DAYS);
         }
 
         return Array.from({ length: maxDays }, (_, i) => {

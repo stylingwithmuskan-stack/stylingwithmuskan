@@ -183,8 +183,8 @@ const BookingSummary = () => {
   const finalTotal = finalTotalBeforeWallet - walletAmountToUse;
 
   // Calculate advance based on passed data or fallback
-  // Instant bookings do not require advance payment
-  let advanceAmountBeforeWallet = (effectiveBookingType === 'instant') ? 0 : (passedBookingData?.advanceAmount || quotePreview?.advanceAmount || 0);
+  // Advance is now determined by the backend (category-level advancePercentage setting)
+  let advanceAmountBeforeWallet = passedBookingData?.advanceAmount || quotePreview?.advanceAmount || 0;
   
   // Custom enquiry advance: the advance amount IS the custom advance amount
   if (customAdvanceData?.amount > 0) {

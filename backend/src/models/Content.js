@@ -98,6 +98,7 @@ const OfficeSettingsSchema = new mongoose.Schema({
   autoAssign: Boolean,
   bufferMinutes: { type: Number, default: 30 },
   notificationMessage: String,
+  showWhatsappButton: { type: Boolean, default: true },
 });
 
 export const ServiceType = mongoose.models.ServiceType || mongoose.model("ServiceType", ServiceTypeSchema);
