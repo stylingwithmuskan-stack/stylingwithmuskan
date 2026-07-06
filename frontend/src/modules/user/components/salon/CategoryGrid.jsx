@@ -63,18 +63,28 @@ const CategoryGrid = () => {
     }
   }, [mainServiceTypes, loadCategoryServices]);
 
-  const handleServiceSelect = (e, type) => {
+  const handleServiceSelect = (type) => {
     setBookingType("instant");
     navigate(`/explore/${type.entryCategory}?type=${type.id}&booking=instant`);
   };
 
-  const handleCustomizeSelect = (e) => {
+  const handleCustomizeSelect = () => {
     if (!isLoggedIn) {
       navigate("/login", { state: { from: "/home", openCustomize: true } });
       return;
     }
     setIsCustomizeOpen(true);
   };
+
+  // iOS Safari fires click after 300ms delay. onTouchEnd fires instantly.
+  // preventDefault() stops the ghost mouse events that follow touchend.
+  const getTouchProps = (fn) => ({
+    onTouchEnd: (e) => {
+      e.preventDefault();
+      fn();
+    },
+    onClick: isTouchDevice ? undefined : fn,
+  });
 
   return (
     <>
@@ -94,7 +104,7 @@ const CategoryGrid = () => {
               key={type.id}
               whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
               whileTap={isTouchDevice ? undefined : { scale: 0.98 }}
-              onClick={(e) => handleServiceSelect(e, type)}
+              {...getTouchProps(() => handleServiceSelect(type))}
               style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", cursor: "pointer" }}
               className={`relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white ${isTouchDevice ? "" : "hover:shadow-md"}`}
             >
@@ -121,7 +131,7 @@ const CategoryGrid = () => {
           <motion.button
             whileHover={isTouchDevice ? undefined : { scale: 1.02, y: -2 }}
             whileTap={isTouchDevice ? undefined : { scale: 0.98 }}
-            onClick={(e) => handleCustomizeSelect(e)}
+            {...getTouchProps(handleCustomizeSelect)}
             style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", cursor: "pointer" }}
             className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 ${isTouchDevice ? "" : "hover:shadow-md"}`}
           >
