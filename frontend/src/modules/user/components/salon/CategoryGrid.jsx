@@ -76,15 +76,29 @@ const CategoryGrid = () => {
     setIsCustomizeOpen(true);
   };
 
-  // iOS Safari fires click after 300ms delay. onTouchEnd fires instantly.
-  // preventDefault() stops the ghost mouse events that follow touchend.
-  const getTouchProps = (fn) => ({
-    onTouchEnd: (e) => {
-      e.preventDefault();
-      fn();
-    },
-    onClick: isTouchDevice ? undefined : fn,
-  });
+  // iOS Safari: onTouchEnd fires instantly (no 300ms delay).
+  // We track touchStart position so we can cancel if user is scrolling.
+  // If finger moved more than 10px, it's a scroll — don't navigate.
+  const getTouchProps = (fn) => {
+    let startY = 0;
+    let startX = 0;
+    return {
+      onTouchStart: (e) => {
+        startY = e.touches[0].clientY;
+        startX = e.touches[0].clientX;
+      },
+      onTouchEnd: (e) => {
+        const diffY = Math.abs(e.changedTouches[0].clientY - startY);
+        const diffX = Math.abs(e.changedTouches[0].clientX - startX);
+        // Only treat as tap if finger barely moved (not a scroll)
+        if (diffY < 10 && diffX < 10) {
+          e.preventDefault();
+          fn();
+        }
+      },
+      onClick: isTouchDevice ? undefined : fn,
+    };
+  };
 
   return (
     <>
