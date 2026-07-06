@@ -202,8 +202,8 @@ export default function ProviderLoginPage() {
                                 <div className="text-center pt-4">
                                     <p className="text-gray-500 text-sm font-medium">
                                         New here?{" "}
-                                        <Link 
-                                            to="/provider/register" 
+                                        <Link
+                                            to="/provider/register"
                                             onClick={() => localStorage.removeItem('swm-provider-registration')}
                                             className="text-violet-600 font-black hover:underline"
                                         >
@@ -250,7 +250,7 @@ export default function ProviderLoginPage() {
                                             </span>
                                         </p>
                                     ) : (
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={async () => {
                                                 try {
