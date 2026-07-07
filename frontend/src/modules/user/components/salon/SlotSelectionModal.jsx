@@ -115,7 +115,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
 
     const serviceCategories = useMemo(() => {
         // More robust extraction checking multiple possible field names
-        let ids = (focusedItems || []).map(item => 
+        let ids = (focusedItems || []).map(item =>
             item.category || item.categoryId || item._id || item.id
         ).filter(Boolean);
 
@@ -140,7 +140,7 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
     // previously performed EVERY service currently in the user's cart.
     const providerList = useMemo(() => {
         if (!recentProviders || !focusedItems.length) return recentProviders;
-        
+
         const currentServiceIds = focusedItems.map(it => String(it.id || it.serviceId || "").trim()).filter(Boolean);
         if (!currentServiceIds.length) return recentProviders;
 
@@ -280,19 +280,14 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
 
         // Find if cart has scheduled or instant items
         const hasScheduled = cartItems.some(item => {
-            const cat = categories?.find(c => c.id === item.category);
+            const catId = item.category || item.categoryId;
+            const cat = categories?.find(c => c.id === catId || c._id === catId);
             return (cat?.bookingType) === "scheduled";
         });
 
-        if (hasScheduled) {
-            // 365 din ka limit matlab practically koi limit nahi (1 saal tak booking allowed)
-            maxDays = schedConfig?.maxAdvanceDays || 365;
-        } else {
-            // For Instant, take the max of allowedAdvanceDays array, default to 7
-            let allowedArray = instConfig?.allowedAdvanceDays || [2, 5, 7];
-            if (!Array.isArray(allowedArray)) allowedArray = [allowedArray];
-            maxDays = Math.max(...allowedArray, 7);
-        }
+        // Remove limits completely as requested, set to 1000 days (approx 2.7 years)
+        // so user can book for 2028 or any future date.
+        maxDays = 1000;
 
         return Array.from({ length: maxDays }, (_, i) => {
             const d = new Date();
@@ -435,10 +430,10 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                                             <div className="relative">
                                                 <div className="w-14 h-14 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center border border-border/50">
                                                     {(provider.profilePhoto || provider.image) ? (
-                                                        <img 
-                                                            src={resolveImageUrl(provider.profilePhoto || provider.image)} 
-                                                            className="w-full h-full object-cover" 
-                                                            alt={provider.name} 
+                                                        <img
+                                                            src={resolveImageUrl(provider.profilePhoto || provider.image)}
+                                                            className="w-full h-full object-cover"
+                                                            alt={provider.name}
                                                             onError={(e) => {
                                                                 e.target.style.display = 'none';
                                                                 e.target.nextSibling.style.display = 'flex';
