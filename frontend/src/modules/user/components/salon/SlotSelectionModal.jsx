@@ -285,9 +285,15 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
             return (cat?.bookingType) === "scheduled";
         });
 
-        // Remove limits completely as requested, set to 1000 days (approx 2.7 years)
-        // so user can book for 2028 or any future date.
-        maxDays = 1000;
+        if (hasScheduled) {
+            // Advance booking (scheduled) ke liye 1000 din (approx 2.7 years) ka limit
+            maxDays = 1000;
+        } else {
+            // Instant/regular booking ke liye purana limit wapas set kar diya (mostly 7 din)
+            let allowedArray = instConfig?.allowedAdvanceDays || [2, 5, 7];
+            if (!Array.isArray(allowedArray)) allowedArray = [allowedArray];
+            maxDays = Math.max(...allowedArray, 7);
+        }
 
         return Array.from({ length: maxDays }, (_, i) => {
             const d = new Date();
