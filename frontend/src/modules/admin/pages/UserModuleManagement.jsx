@@ -598,6 +598,22 @@ const UserModuleManagement = () => {
     // Form state
     const [formData, setFormData] = useState({});
 
+    // Unique variant names for autocomplete
+    const [uniqueVariants, setUniqueVariants] = useState([]);
+    useEffect(() => {
+        const fetchVariants = async () => {
+            try {
+                const res = await api.content.getUniqueVariantNames();
+                if (res.success && res.variantNames) {
+                    setUniqueVariants(res.variantNames);
+                }
+            } catch (err) {
+                console.error("Failed to fetch variant names", err);
+            }
+        };
+        fetchVariants();
+    }, []);
+
     // Variant discovery logic
     const existingVariant = useMemo(() => {
         if (activeTab !== "services" || !formData.name || !adminServices) return null;
@@ -1336,6 +1352,7 @@ const UserModuleManagement = () => {
                                             {(formData.variants || []).map((variant, vIdx) => (
                                                 <div key={vIdx} className="grid grid-cols-[1fr_80px_auto] gap-2 items-center bg-white p-2 rounded-xl border border-border shadow-sm">
                                                     <input 
+                                                        list="dynamic-variant-names"
                                                         placeholder="Variant Name (e.g. Basic, Pro)" 
                                                         value={variant.name} 
                                                         onChange={e => {
@@ -1367,6 +1384,11 @@ const UserModuleManagement = () => {
                                                     </button>
                                                 </div>
                                             ))}
+                                            <datalist id="dynamic-variant-names">
+                                                {uniqueVariants.map((vName, idx) => (
+                                                    <option key={idx} value={vName} />
+                                                ))}
+                                            </datalist>
                                             {(!formData.variants || formData.variants.length === 0) && (
                                                 <p className="text-[9px] text-muted-foreground italic text-center py-1">No variants added. Base price will be used.</p>
                                             )}

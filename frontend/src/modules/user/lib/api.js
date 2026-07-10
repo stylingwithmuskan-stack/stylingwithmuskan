@@ -353,6 +353,7 @@ export const api = {
       return request(`/content/resolve-location${q ? `?${q}` : ""}`);
     },
     getServiceReviews: (serviceName) => request(`/content/services/reviews/${encodeURIComponent(serviceName)}`),
+    getUniqueVariantNames: () => request("/content/variants/names"),
   },
 
   // Customer bookings + enquiries

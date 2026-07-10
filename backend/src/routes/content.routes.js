@@ -632,4 +632,14 @@ function escapeRegex(s) {
   return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+router.get("/variants/names", async (req, res) => {
+  try {
+    const variantNames = await Service.distinct("variants.name", { "variants.name": { $ne: null, $ne: "" } });
+    res.json({ success: true, variantNames });
+  } catch (error) {
+    console.error("Error fetching unique variant names:", error);
+    res.status(500).json({ error: "Failed to fetch variant names" });
+  }
+});
+
 export default router;
