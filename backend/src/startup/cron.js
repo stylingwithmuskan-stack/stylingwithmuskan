@@ -203,7 +203,7 @@ export function startCron() {
         const paymentTimeoutThreshold = new Date(now.getTime() - 60 * 60 * 1000);
         const unpaidBookings = await Booking.find({
           status: "payment_pending",
-          createdAt: { $lt: paymentTimeoutThreshold }
+          updatedAt: { $lt: paymentTimeoutThreshold }
         });
 
         if (unpaidBookings.length > 0) {
@@ -211,7 +211,7 @@ export function startCron() {
         }
 
         for (const b of unpaidBookings) {
-          console.log(`[Cron] Auto-cancelling booking ${b._id}. CreatedAt: ${b.createdAt?.toISOString()}, Status: ${b.status}`);
+          console.log(`[Cron] Auto-cancelling booking ${b._id}. UpdatedAt: ${b.updatedAt?.toISOString()}, Status: ${b.status}`);
           b.status = "cancelled";
           b.cancelledBy = "system";
           b.cancellationReason = "Payment timeout: No payment received within 60 minutes";
@@ -221,7 +221,7 @@ export function startCron() {
           await BookingLog.create({
             action: "booking:auto-cancel",
             bookingId: b._id.toString(),
-            meta: { reason: "payment_timeout", createdAt: b.createdAt }
+            meta: { reason: "payment_timeout", updatedAt: b.updatedAt }
           });
           
           try {
