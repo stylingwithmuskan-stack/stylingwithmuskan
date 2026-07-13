@@ -30,15 +30,10 @@ const ServiceDetail = () => {
 
   const [selectedVariant, setSelectedVariant] = useState(null);
 
-  useEffect(() => {
-    if (service?.variants?.length > 0) {
-      setSelectedVariant(service.variants[0]);
-    }
-  }, [service]);
-
   const currentItemId = selectedVariant ? `${service?.id}-${selectedVariant.name}` : service?.id;
   const cartItem = cartItems.find((item) => item.id === currentItemId);
   const qty = cartItem ? cartItem.quantity : 0;
+  const displayPrice = service ? (service.price + (selectedVariant ? selectedVariant.price : 0)) : 0;
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -530,8 +525,20 @@ const ServiceDetail = () => {
             transition={{ delay: 0.12 }}
             className="mt-4 glass-strong rounded-2xl p-4 md:p-5"
           >
-            <h3 className="font-semibold text-sm mb-3">Select Variant</h3>
+            <h3 className="font-semibold text-sm mb-3">Customize your service</h3>
             <div className="flex flex-col gap-2">
+              <label 
+                className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${!selectedVariant ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-primary/30'}`}
+                onClick={() => setSelectedVariant(null)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${!selectedVariant ? 'border-primary' : 'border-muted-foreground'}`}>
+                    {!selectedVariant && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                  <span className="font-medium text-sm">Standard (No Add-ons)</span>
+                </div>
+                <span className="font-bold text-sm">₹{service.price}</span>
+              </label>
               {service.variants.map((variant, idx) => (
                 <label 
                   key={idx}
@@ -542,9 +549,9 @@ const ServiceDetail = () => {
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedVariant?.name === variant.name ? 'border-primary' : 'border-muted-foreground'}`}>
                       {selectedVariant?.name === variant.name && <div className="w-2 h-2 rounded-full bg-primary" />}
                     </div>
-                    <span className="font-medium text-sm">{variant.name}</span>
+                    <span className="font-medium text-sm">With {variant.name}</span>
                   </div>
-                  <span className="font-bold text-sm">₹{variant.price}</span>
+                  <span className="font-bold text-sm text-primary">+ ₹{variant.price}</span>
                 </label>
               ))}
             </div>
@@ -571,7 +578,7 @@ const ServiceDetail = () => {
                       navigate('/login');
                     } else {
                       const serviceToAdd = selectedVariant 
-                        ? { ...service, id: currentItemId, name: `${service.name} - ${selectedVariant.name}`, price: selectedVariant.price, originalPrice: selectedVariant.price } 
+                        ? { ...service, id: currentItemId, name: `${service.name} + ${selectedVariant.name}`, price: displayPrice, originalPrice: displayPrice } 
                         : service;
                       addToCart(serviceToAdd, 1);
                       setIsFloatingSummaryOpen(true);
@@ -625,7 +632,7 @@ const ServiceDetail = () => {
           <div className="mt-4 pt-4 border-t border-border">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Price per session</span>
-              <span>₹{(selectedVariant ? selectedVariant.price : service.price).toLocaleString()}</span>
+              <span>₹{displayPrice.toLocaleString()}</span>
             </div>
             {qty > 1 && (
               <div className="flex items-center justify-between text-sm mt-1">
@@ -641,7 +648,7 @@ const ServiceDetail = () => {
                 animate={{ scale: 1 }}
                 className="text-xl font-bold text-primary"
               >
-                ₹{((selectedVariant ? selectedVariant.price : service.price) * qty).toLocaleString()}
+                ₹{(displayPrice * qty).toLocaleString()}
               </motion.span>
             </div>
           </div>
