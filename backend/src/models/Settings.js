@@ -37,6 +37,8 @@ const BookingSettingsSchema = new mongoose.Schema(
     providerNotificationEndTime: { type: String, default: "22:00" },
     allowPayAfterService: { type: Boolean, default: true },
     prebookingRequired: { type: Boolean, default: false },
+    convenienceFeeAmount: { type: Number, default: 49 },
+    convenienceFeeThreshold: { type: Number, default: 750 },
   },
   { timestamps: true }
 );

@@ -174,6 +174,7 @@ const BookingSummary = () => {
   const combinedDiscount = Number(quotePreview?.discount || 0);
   const discount = Math.max(combinedDiscount - plusDiscount, 0);
   const convenienceFee = Number(quotePreview?.convenienceFee || 0);
+  const originalConvenienceFee = Number(quotePreview?.originalConvenienceFee || 0);
 
   const passedBookingData = location.state;
   const customAdvanceData = passedBookingData?.customAdvance || customAdvance;
@@ -914,18 +915,20 @@ const BookingSummary = () => {
               <span className="text-amber-600 font-bold shrink-0">-₹{plusDiscount.toLocaleString()}</span>
             </div>
           )}
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground font-medium">Convenience Fee</span>
-            {isPlusMember && subscriptionPreview?.zeroConvenienceFee ? (
-              <span className="font-bold text-emerald-600 flex items-center gap-1">
-                {convenienceFee > 0 && (
-                  <span className="line-through text-muted-foreground/50 text-xs">₹{convenienceFee}</span>
-                )} FREE
-              </span>
-            ) : (
-              <span className="font-bold">₹{convenienceFee.toLocaleString()}</span>
-            )}
-          </div>
+          
+          {(convenienceFee > 0 || (isPlusMember && subscriptionPreview?.zeroConvenienceFee && originalConvenienceFee > 0)) && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground font-medium">Convenience Fee</span>
+              {isPlusMember && subscriptionPreview?.zeroConvenienceFee ? (
+                <span className="font-bold text-emerald-600 flex items-center gap-1">
+                  <span className="line-through text-muted-foreground/50 text-xs">₹{originalConvenienceFee}</span> FREE
+                </span>
+              ) : (
+                <span className="font-bold">₹{convenienceFee.toLocaleString()}</span>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground font-medium">Taxes & Fees</span>
             <span className="font-bold">₹0</span>

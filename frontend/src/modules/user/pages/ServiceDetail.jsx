@@ -28,7 +28,16 @@ const ServiceDetail = () => {
   const { services, categories, serviceTypes, providers: mockProviders, checkAvailability } = useUserModuleData();
   const [service, setService] = useState(services.find((s) => s.id === id));
 
-  const cartItem = cartItems.find((item) => item.id === service?.id);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+
+  useEffect(() => {
+    if (service?.variants?.length > 0) {
+      setSelectedVariant(service.variants[0]);
+    }
+  }, [service]);
+
+  const currentItemId = selectedVariant ? `${service?.id}-${selectedVariant.name}` : service?.id;
+  const cartItem = cartItems.find((item) => item.id === currentItemId);
   const qty = cartItem ? cartItem.quantity : 0;
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -513,6 +522,35 @@ const ServiceDetail = () => {
           </motion.div>
         )}
 
+        {/* ===== SERVICE VARIANTS ===== */}
+        {service?.variants?.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="mt-4 glass-strong rounded-2xl p-4 md:p-5"
+          >
+            <h3 className="font-semibold text-sm mb-3">Select Variant</h3>
+            <div className="flex flex-col gap-2">
+              {service.variants.map((variant, idx) => (
+                <label 
+                  key={idx}
+                  className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-primary/30'}`}
+                  onClick={() => setSelectedVariant(variant)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedVariant?.name === variant.name ? 'border-primary' : 'border-muted-foreground'}`}>
+                      {selectedVariant?.name === variant.name && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    </div>
+                    <span className="font-medium text-sm">{variant.name}</span>
+                  </div>
+                  <span className="font-bold text-sm">₹{variant.price}</span>
+                </label>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {/* ===== QUANTITY & COST ===== */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -532,7 +570,10 @@ const ServiceDetail = () => {
                     if (!isLoggedIn) {
                       navigate('/login');
                     } else {
-                      addToCart(service, 1);
+                      const serviceToAdd = selectedVariant 
+                        ? { ...service, id: currentItemId, name: `${service.name} - ${selectedVariant.name}`, price: selectedVariant.price, originalPrice: selectedVariant.price } 
+                        : service;
+                      addToCart(serviceToAdd, 1);
                       setIsFloatingSummaryOpen(true);
                     }
                   }}
@@ -547,7 +588,7 @@ const ServiceDetail = () => {
                       if (!isLoggedIn) {
                         navigate('/login');
                       } else {
-                        updateQuantity(service.id, -1);
+                        updateQuantity(currentItemId, -1);
                       }
                     }}
                     className="w-9 h-9 rounded-full bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors"
@@ -567,7 +608,7 @@ const ServiceDetail = () => {
                       if (!isLoggedIn) {
                         navigate('/login');
                       } else {
-                        updateQuantity(service.id, 1);
+                        updateQuantity(currentItemId, 1);
                         setIsFloatingSummaryOpen(true);
                       }
                     }}
@@ -584,7 +625,7 @@ const ServiceDetail = () => {
           <div className="mt-4 pt-4 border-t border-border">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Price per session</span>
-              <span>₹{service.price.toLocaleString()}</span>
+              <span>₹{(selectedVariant ? selectedVariant.price : service.price).toLocaleString()}</span>
             </div>
             {qty > 1 && (
               <div className="flex items-center justify-between text-sm mt-1">
@@ -600,7 +641,7 @@ const ServiceDetail = () => {
                 animate={{ scale: 1 }}
                 className="text-xl font-bold text-primary"
               >
-                ₹{(service.price * qty).toLocaleString()}
+                ₹{((selectedVariant ? selectedVariant.price : service.price) * qty).toLocaleString()}
               </motion.span>
             </div>
           </div>

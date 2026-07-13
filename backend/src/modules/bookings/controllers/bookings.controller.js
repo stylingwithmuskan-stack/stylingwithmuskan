@@ -35,7 +35,7 @@ function logDevAssignment(message, payload = {}) {
   if (process.env.NODE_ENV === "production") return;
   try {
     console.log(`[AssignmentFlow] ${message}`, payload);
-  } catch {}
+  } catch { }
 }
 
 async function computeAdvanceFromCategories(items = [], bookingType = "instant") {
@@ -43,18 +43,18 @@ async function computeAdvanceFromCategories(items = [], bookingType = "instant")
 
   // Fetch all categories with advance > 0 to check locally
   const cats = await Category.find({ advancePercentage: { $gt: 0 } }).lean();
-  
+
   let sum = 0;
   for (const it of items) {
     const itCat = String(it.category || "").trim().toLowerCase();
     if (!itCat) continue;
-    
+
     const c = cats.find(cat =>
-        String(cat.id || "").toLowerCase() === itCat ||
-        String(cat.name || "").toLowerCase() === itCat
+      String(cat.id || "").toLowerCase() === itCat ||
+      String(cat.name || "").toLowerCase() === itCat
     );
     if (!c) continue;
-    
+
     const pct = Number(c.advancePercentage || 0);
     const catType = String(c.bookingType || "").toLowerCase();
     // Advance applies:
@@ -190,13 +190,13 @@ export async function list(req, res) {
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const customerId = req.user._id.toString();
-  const q = { 
+  const q = {
     $or: [
       { customerId: customerId },
       { customerId: new mongoose.Types.ObjectId(customerId) }
     ]
   };
-  
+
   let total = await Booking.countDocuments(q);
   let items = await Booking.find(q).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
 
@@ -210,7 +210,7 @@ export async function list(req, res) {
       total = await Booking.countDocuments(phoneQ);
     }
   }
-  
+
   // DEBUG LOG TO FILE
   try {
     const allUserBookings = await Booking.find({ customerPhone: req.user.phone }).select('_id customerId status').lean();
@@ -225,7 +225,7 @@ export async function list(req, res) {
   } catch (err) {
     console.error("[BookingDebugError]", err);
   }
-  
+
   let bookings = (items || []).map((b) => ({
     ...b,
     id: b._id?.toString?.() || b.id,
@@ -236,10 +236,10 @@ export async function list(req, res) {
   const bookingIds = bookings.map((b) => String(b.id || b._id || "")).filter(Boolean);
   const feedbackDocs = bookingIds.length > 0
     ? await Feedback.find({
-        bookingId: { $in: bookingIds },
-        customerId: req.user._id.toString(),
-        type: "customer_to_provider",
-      }).select("bookingId").lean()
+      bookingId: { $in: bookingIds },
+      customerId: req.user._id.toString(),
+      type: "customer_to_provider",
+    }).select("bookingId").lean()
     : [];
   const feedbackBookingIds = new Set((feedbackDocs || []).map((doc) => String(doc.bookingId || "")));
   bookings = bookings.map((booking) => ({
@@ -252,9 +252,10 @@ export async function list(req, res) {
 export async function quote(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  const [couponDoc, advanceAmount] = await Promise.all([
+  const [couponDoc, advanceAmount, bookingSettings] = await Promise.all([
     req.body.couponCode ? Coupon.findOne({ code: req.body.couponCode, isActive: true }).lean() : null,
-    computeAdvanceFromCategories(req.body.items || [], req.body.bookingType)
+    computeAdvanceFromCategories(req.body.items || [], req.body.bookingType),
+    resolveBookingSettings()
   ]);
 
   let coupon = couponDoc;
@@ -279,7 +280,19 @@ export async function quote(req, res) {
   });
 
   totals.discount += subBenefits.subscriptionDiscount;
-  totals.finalTotal = Math.max(totals.total - totals.discount, 0);
+
+  let originalConvenienceFee = 0;
+  let convenienceFee = 0;
+
+  if (totals.total <= (bookingSettings.convenienceFeeThreshold || 750)) {
+    originalConvenienceFee = bookingSettings.convenienceFeeAmount || 49;
+    convenienceFee = subBenefits.snapshot?.zeroConvenienceFee ? 0 : originalConvenienceFee;
+  }
+
+  // Wait, if I add it to finalTotal here, I should make sure it reflects properly.
+  // Actually, I shouldn't modify finalTotal here if frontend handles it, but wait!
+  // If frontend expects finalTotal to INCLUDE convenienceFee, then yes.
+  totals.finalTotal = Math.max(totals.total - totals.discount + convenienceFee, 0);
   res.json({
     ...totals,
     couponApplied: coupon ? coupon.code : null,
@@ -287,6 +300,8 @@ export async function quote(req, res) {
     subscription: subBenefits.snapshot,
     subscriptionDiscount: subBenefits.subscriptionDiscount,
     discountFundedBy: coupon?.discountBorneBy || subBenefits.discountFundedBy || "admin",
+    convenienceFee,
+    originalConvenienceFee,
   });
 }
 
@@ -294,16 +309,16 @@ export async function create(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { items, slot, address, bookingType, couponCode, allowAutoFallback } = req.body;
-  
+
   // ✅ NEW: Validate service availability on booking date (SAFETY NET)
   if (items?.length > 0 && slot?.date) {
     try {
       const { checkServiceExceptions, isTimeInRange } = await import("../../../lib/serviceAvailability.js");
       const serviceIds = items.map(item => item.id || item.serviceId).filter(Boolean);
-      
+
       if (serviceIds.length > 0) {
         const blockedInfo = await checkServiceExceptions(serviceIds, slot.date);
-        
+
         // Check full day block
         if (blockedInfo.isFullyBlocked) {
           console.log(`[Booking] Service "${blockedInfo.blockedService}" is blocked on ${slot.date}`);
@@ -313,13 +328,13 @@ export async function create(req, res) {
             blockedService: blockedInfo.blockedService
           });
         }
-        
+
         // Check partial time block
         if (blockedInfo.partialBlocks?.length > 0 && slot?.time) {
-          const isBlocked = blockedInfo.partialBlocks.some(block => 
+          const isBlocked = blockedInfo.partialBlocks.some(block =>
             isTimeInRange(slot.time, block.startTime, block.endTime)
           );
-          
+
           if (isBlocked) {
             console.log(`[Booking] Service "${blockedInfo.blockedService}" is blocked at ${slot.time} on ${slot.date}`);
             return res.status(400).json({
@@ -335,7 +350,7 @@ export async function create(req, res) {
       console.error("[Booking] Service exception validation failed:", err);
     }
   }
-  
+
   const fallbackAddr = (req.user?.addresses && req.user.addresses[0]) ? req.user.addresses[0] : {};
   // Persist booking city for analytics + filtering. Back-compat: if city not provided, fall back to area.
   const safeAddress = {
@@ -379,7 +394,7 @@ export async function create(req, res) {
           cityId: safeAddress.cityId,
           cityName: safeAddress.city
         });
-        
+
         if (resolved.insideServiceArea) {
           safeAddress.city = resolved.cityName || safeAddress.city;
           safeAddress.cityId = resolved.cityId || safeAddress.cityId;
@@ -411,15 +426,27 @@ export async function create(req, res) {
   }
 
   const totals = computeTotals(items, coupon);
-  
+
   const customerSubscription = await calculateCustomerSubscriptionBenefits({
     userId: req.user._id.toString(),
     total: totals.total,
     subtotalAfterCoupon: totals.finalTotal,
   });
-  
+
   totals.discount += customerSubscription.subscriptionDiscount;
-  totals.finalTotal = Math.max(totals.total - totals.discount, 0);
+
+  let originalConvenienceFee = 0;
+  let convenienceFee = 0;
+
+  if (totals.total <= (settings.convenienceFeeThreshold || 750)) {
+    originalConvenienceFee = settings.convenienceFeeAmount || 49;
+    convenienceFee = customerSubscription.snapshot?.zeroConvenienceFee ? 0 : originalConvenienceFee;
+  }
+
+  totals.finalTotal = Math.max(totals.total - totals.discount + convenienceFee, 0);
+
+  // Override customerSubscription.convenienceFee so it gets saved in Booking.create
+  customerSubscription.convenienceFee = convenienceFee;
   if (settings?.minBookingAmount && totals.finalTotal < Number(settings.minBookingAmount)) {
     return res.status(400).json({ error: `Minimum booking amount is INR ${settings.minBookingAmount}.` });
   }
@@ -434,13 +461,13 @@ export async function create(req, res) {
   const endMinutes = endH * 60 + endM;
   const withinOffice = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
   let notificationStatus = withinOffice ? "immediate" : "queued";
-  
+
   // Admin toggle check: If autoAssign is false in OfficeSettings, global auto-assign is disabled
   const autoAssignAllowed = settings?.autoAssign !== false;
-  
+
   // Use admin setting as base, but also respect if user explicitly asked for autoAssign (or if we want to force it)
-  const autoAssign = autoAssignAllowed; 
-  
+  const autoAssign = autoAssignAllowed;
+
   // Build candidate provider list (zone-strict, no city fallback if zone exists)
   const requestedDate = String(slot?.date || "").trim();
   const requestedTime = String(slot?.time || "").trim();
@@ -506,7 +533,7 @@ export async function create(req, res) {
   }
 
   const providerIsCandidate = (pid) => !!pid && candidateProviders.includes(pid);
-  
+
   // LOGIC CHANGE: Check if preferred provider is busy
   if (preferredProviderId && !providerIsCandidate(preferredProviderId)) {
     return res.status(409).json({
@@ -566,12 +593,12 @@ export async function create(req, res) {
         provName = pDoc.name;
         provPhone = pDoc.phone || "";
       }
-    } catch (e) {}
-    
+    } catch (e) { }
+
     let mode = "AUTO-ASSIGNED";
     if (isPreferred) mode = "PREFERRED";
     else if (isAnyPro) mode = "ANY-PROFESSIONAL (Random)";
-    
+
     console.log(`[Booking] Assignment: ${mode} Provider = ${provName} (${provPhone}) (ID: ${assignedProvider})`);
     logDevAssignment("Booking created with assigned provider", {
       assignedProvider,
@@ -598,12 +625,12 @@ export async function create(req, res) {
       const list = await ProviderAccount.find({ _id: { $in: candidateProviders } }).select("name phone").lean();
       const view = (list || []).map((p) => ({ name: p.name || "", phone: p.phone || "" }));
       console.log(`[Booking] Zone free provider candidates (${requestedDate} ${requestedTime}):`, view);
-    } catch {}
+    } catch { }
   }
 
   const useWallet = !!req.body.useWallet;
   let walletAmountUsed = 0;
-  
+
   if (useWallet) {
     const userWalletBalance = Number(req.user.wallet?.balance || 0);
     if (userWalletBalance > 0) {
@@ -656,7 +683,7 @@ export async function create(req, res) {
     discountFundedBy: (coupon?.discountBorneBy || customerSubscription.discountFundedBy || "admin"),
     convenienceFee: customerSubscription.convenienceFee,
     walletAmountUsed,
-    prepaidAmount: walletAmountUsed, 
+    prepaidAmount: walletAmountUsed,
     balanceAmount: Math.max(totals.finalTotal - walletAmountUsed, 0),
     paymentStatus: (walletAmountUsed >= totals.finalTotal) ? "Fully Paid" : (walletAmountUsed > 0 ? "Partially Paid" : "Pending"),
     address: safeAddress,
@@ -707,7 +734,7 @@ export async function create(req, res) {
       Status: ${booking.status}
       InDB: ${!!check}\n`;
     fs.appendFileSync(logPath, logMsg);
-  } catch (err) {}
+  } catch (err) { }
   let order = null;
   // Use the remainingAdvance already calculated above
   if (remainingAdvance > 0 && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
@@ -787,16 +814,16 @@ export async function create(req, res) {
         customerSubscription.discountFundedBy === "provider"
           ? "provider"
           : customerSubscription.discountFundedBy === "vendor"
-          ? "vendor"
-          : "customer",
+            ? "vendor"
+            : "customer",
       subscriptionId: customerSubscription.snapshot.planId || "",
       planId: customerSubscription.snapshot.planId || "",
       entryType:
         customerSubscription.discountFundedBy === "provider"
           ? "provider_settlement_adjustment"
           : customerSubscription.discountFundedBy === "vendor"
-          ? "vendor_billing_adjustment"
-          : "discount_adjustment",
+            ? "vendor_billing_adjustment"
+            : "discount_adjustment",
       direction: "debit",
       amount: Number(customerSubscription.subscriptionDiscount || 0),
       meta: {
@@ -812,10 +839,10 @@ export async function create(req, res) {
     const { sendVoipPush } = await import("../../../lib/push.js");
     const PushDeviceModule = await import("../../../models/PushDevice.js");
     const PushDevice = PushDeviceModule.default;
-    
+
     // We send VoIP to the candidate providers (or the assigned one)
     const targetProviderIds = assignedProvider ? [assignedProvider] : candidateProviders;
-    
+
     if (targetProviderIds && targetProviderIds.length > 0) {
       const devices = await PushDevice.find({
         recipientId: { $in: targetProviderIds },
@@ -872,7 +899,7 @@ export async function confirmCOD(req, res) {
       });
     }
   }
-  
+
   // Critical Fix: If a provider was already assigned (during slot choice), 
   // verify they are still approved/active BEFORE confirming and notifying them.
   if (booking.assignedProvider) {
@@ -891,7 +918,7 @@ export async function confirmCOD(req, res) {
     if (booking.assignedProvider && booking?.slot?.date) {
       await invalidateProviderSlots(booking.assignedProvider, booking.slot.date);
     }
-  } catch {}
+  } catch { }
 
   try {
     const bookingId = booking._id.toString();
@@ -954,9 +981,9 @@ export async function track(req, res) {
   if (providerId) {
     // 1. First, check if the booking has a persisted location for instant rendering
     if (booking.lastProviderLocation?.lat && booking.lastProviderLocation?.lng) {
-      providerLocation = { 
-        lat: booking.lastProviderLocation.lat, 
-        lng: booking.lastProviderLocation.lng 
+      providerLocation = {
+        lat: booking.lastProviderLocation.lat,
+        lng: booking.lastProviderLocation.lng
       };
     }
 
@@ -1056,7 +1083,7 @@ export async function createCustomEnquiry(req, res) {
         meta: { enquiryId: doc._id.toString(), city: city || "N/A" },
       });
     }
-  } catch {}
+  } catch { }
   res.status(201).json({ enquiry: doc });
 }
 
@@ -1285,7 +1312,7 @@ export async function adminFinalApprove(req, res) {
   if (createBookingNow) {
     const items = (enq.quote?.items?.length > 0 ? enq.quote.items : (enq.items?.length > 0 ? enq.items : []));
     const total = (enq.quote?.totalAmount || items.reduce((s, it) => s + (Number(it.price) * (it.quantity || 1)), 0));
-    
+
     console.log(`[ForceCreate] Processing Enquiry: ${enq._id}. Items count: ${items.length}, Total: ${total}`);
 
     const bookingUser = await User.findById(enq.userId);
@@ -1296,12 +1323,12 @@ export async function adminFinalApprove(req, res) {
         customerId: enq.userId,
         customerName: enq.name || bookingUser?.name || "Customer",
         customerPhone: enq.phone || bookingUser?.phone || "",
-        services: items.map(it => ({ 
-          name: it.name, 
-          price: Number(it.price) || 0, 
-          duration: "60", 
-          category: it.category || it.categoryName || "", 
-          serviceType: it.serviceType || "" 
+        services: items.map(it => ({
+          name: it.name,
+          price: Number(it.price) || 0,
+          duration: "60",
+          category: it.category || it.categoryName || "",
+          serviceType: it.serviceType || ""
         })),
         totalAmount: total,
         prepaidAmount: Number(enq.quote?.prebookAmount) || 0,
@@ -1319,9 +1346,9 @@ export async function adminFinalApprove(req, res) {
         },
         cityId: enq.address?.cityId || primaryAddress.cityId || "",
         zoneId: enq.address?.zoneId || primaryAddress.zoneId || "",
-        slot: { 
-          date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10), 
-          time: enq.scheduledAt?.timeSlot || "10:00" 
+        slot: {
+          date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10),
+          time: enq.scheduledAt?.timeSlot || "10:00"
         },
         bookingType: "customized",
         status: "pending",
@@ -1347,7 +1374,7 @@ export async function adminFinalApprove(req, res) {
           meta: { bookingId: booking._id.toString() },
           respectProviderQuietHours: true,
         });
-      } catch {}
+      } catch { }
     } else {
       // If no provider is manually assigned, trigger the automated assignment flow immediately
       try {
@@ -1368,7 +1395,7 @@ export async function adminFinalApprove(req, res) {
       type: "custom_approved",
       meta: { enquiryId: enq._id?.toString?.(), bookingId: booking?._id?.toString?.() || "" },
     });
-  } catch {}
+  } catch { }
   res.json({ enquiry: enq, booking });
 }
 
@@ -1390,12 +1417,12 @@ export async function cancel(req, res) {
 
   // Calculate refund policy
   const refundPolicy = calculateRefundPolicy(booking, "customer", subscription);
-  
+
   // Ensure advance is non-refundable for pre-bookings
   const items = bookingServicesToItems(booking.services);
   const requiredAdvance = await computeAdvanceFromCategories(items, booking.bookingType);
   const refundableBase = Math.max((booking.prepaidAmount || 0) - requiredAdvance, 0);
-  
+
   const refundAmount = Math.round(refundableBase * (refundPolicy.refundPercentage / 100));
   const cancellationCharge = (booking.prepaidAmount || 0) - refundAmount;
 
@@ -1504,7 +1531,7 @@ export async function cancel(req, res) {
           });
         }
       }
-    } catch {}
+    } catch { }
   } catch (err) {
     console.error("Socket notification failed:", err);
   }

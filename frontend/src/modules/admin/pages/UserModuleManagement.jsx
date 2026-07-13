@@ -204,6 +204,8 @@ const BookingRulesConfig = ({ config, onUpdate }) => {
 const SystemSettingsConfig = () => {
     const [menEnabled, setMenEnabled] = useState(false);
     const [minBookingAmount, setMinBookingAmount] = useState(500);
+    const [convenienceFeeAmount, setConvenienceFeeAmount] = useState(49);
+    const [convenienceFeeThreshold, setConvenienceFeeThreshold] = useState(750);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -216,6 +218,8 @@ const SystemSettingsConfig = () => {
                 ]);
                 setMenEnabled(sysData.settings?.menSectionEnabled || false);
                 setMinBookingAmount(bookData.settings?.minBookingAmount ?? 500);
+                setConvenienceFeeAmount(bookData.settings?.convenienceFeeAmount ?? 49);
+                setConvenienceFeeThreshold(bookData.settings?.convenienceFeeThreshold ?? 750);
             } catch {
                 toast.error("Failed to load settings");
             } finally {
@@ -239,7 +243,11 @@ const SystemSettingsConfig = () => {
     const handleSaveBookingSettings = async () => {
         setSaving(true);
         try {
-            await api.admin.updateBookingSettings({ minBookingAmount: Number(minBookingAmount) });
+            await api.admin.updateBookingSettings({ 
+                minBookingAmount: Number(minBookingAmount),
+                convenienceFeeAmount: Number(convenienceFeeAmount),
+                convenienceFeeThreshold: Number(convenienceFeeThreshold)
+            });
             toast.success("Booking constraints updated successfully!");
         } catch {
             toast.error("Failed to update booking settings");
@@ -287,13 +295,46 @@ const SystemSettingsConfig = () => {
                             />
                         </div>
                     </div>
-                    <div className="flex justify-end">
+                    
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/40">
+                        <div>
+                            <h3 className="font-bold text-foreground">Convenience Fee Amount</h3>
+                            <p className="text-xs text-muted-foreground mt-1">Fee added to the booking if below threshold.</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-bold text-sm">₹</span>
+                            <input 
+                                type="number" 
+                                value={convenienceFeeAmount} 
+                                onChange={(e) => setConvenienceFeeAmount(e.target.value)}
+                                className="w-24 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground font-bold"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h3 className="font-bold text-foreground">Convenience Fee Threshold</h3>
+                            <p className="text-xs text-muted-foreground mt-1">Bookings below or equal to this amount will incur the fee.</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-bold text-sm">₹</span>
+                            <input 
+                                type="number" 
+                                value={convenienceFeeThreshold} 
+                                onChange={(e) => setConvenienceFeeThreshold(e.target.value)}
+                                className="w-24 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground font-bold"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end mt-4">
                         <Button 
                             disabled={saving} 
                             onClick={handleSaveBookingSettings}
                             className="bg-primary text-primary-foreground text-xs h-8 px-4 font-bold"
                         >
-                            {saving ? "Saving..." : "Save Constraint"}
+                            {saving ? "Saving..." : "Save Settings"}
                         </Button>
                     </div>
                 </div>
