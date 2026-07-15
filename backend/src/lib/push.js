@@ -151,9 +151,9 @@ export function buildNotificationLink({ recipientRole, type, meta = {} }) {
   const enquiryId = meta?.enquiryId ? String(meta.enquiryId) : "";
 
   if (recipientRole === "user") {
-    if (type.startsWith("payment_")) return "/payment";
+    if (type.startsWith("payment_")) return bookingId ? `/bookings?id=${bookingId}` : "/payment";
     if (type.startsWith("custom_") && enquiryId) return `/bookings?enquiry=${enquiryId}`;
-    if (bookingId) return `/bookings`;
+    if (bookingId) return `/bookings?id=${bookingId}`;
     return "/notifications";
   }
   if (recipientRole === "provider") {
