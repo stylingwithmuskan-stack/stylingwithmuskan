@@ -11,6 +11,10 @@
   ],
   "routes": [
     {
+      "src": "/images/(.*)",
+      "dest": "https://stylingwithmuskan.in/images/$1"
+    },
+    {
       "handle": "filesystem"
     },
     {

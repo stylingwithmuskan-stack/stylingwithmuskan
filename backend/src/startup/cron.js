@@ -52,7 +52,7 @@ export function startCron() {
       const officeSettings = await OfficeSettings.findOne().lean();
       // Auto-expire if within threshold (default 15 minutes)
       const threshold = Math.max(Number(process.env.BOOKING_AUTO_CANCEL_THRESHOLD_MINUTES || 15), 0);
-      
+
       const pendingReassignments = await Booking.find({
         status: "provider_cancelled"
       });
@@ -65,7 +65,7 @@ export function startCron() {
 
         // ✅ FIX: Reduced aggressive 90-minute auto-cancel for provider_cancelled bookings.
         // We now respect the global 15-minute threshold instead of a hard 90-minute limit.
-        const effectiveThreshold = 15; 
+        const effectiveThreshold = 15;
 
         if (diffMins < effectiveThreshold) {
           console.log(`[Cron] Auto-cancelling provider_cancelled booking ${b._id}. Diff: ${diffMins}m, Threshold: ${effectiveThreshold}m`);
@@ -102,10 +102,10 @@ export function startCron() {
 
           try {
             const io = getIO();
-            io?.of("/bookings").emit("status:update", { 
-              id: b._id.toString(), 
-              status: "cancelled", 
-              message: "Your booking has been cancelled as we couldn't find a replacement professional in time." 
+            io?.of("/bookings").emit("status:update", {
+              id: b._id.toString(),
+              status: "cancelled",
+              message: "Your booking has been cancelled as we couldn't find a replacement professional in time."
             });
 
             await notify({
@@ -116,7 +116,7 @@ export function startCron() {
               dedupeKey: `escalation:${b._id}`,
               dedupeWindowMs: 23 * 60 * 60 * 1000,
             });
-          } catch {}
+          } catch { }
         }
       }
 
@@ -156,7 +156,7 @@ export function startCron() {
               dedupeKey: `vendor_reminder:${b._id}`,
               dedupeWindowMs: 23 * 60 * 60 * 1000,
             });
-          } catch {}
+          } catch { }
         }
       }
 
@@ -194,10 +194,10 @@ export function startCron() {
               dedupeKey: `reminder:${b._id}`,
               dedupeWindowMs: 23 * 60 * 60 * 1000,
             });
-          } catch {}
+          } catch { }
         }
       }
-      
+
       // Auto-expire payment_pending bookings after 60 minutes of inactivity
       try {
         const paymentTimeoutThreshold = new Date(now.getTime() - 60 * 60 * 1000);
@@ -217,22 +217,22 @@ export function startCron() {
           b.cancellationReason = "Payment timeout: No payment received within 60 minutes";
           b.cancelledAt = now;
           await b.save();
-          
+
           await BookingLog.create({
             action: "booking:auto-cancel",
             bookingId: b._id.toString(),
             meta: { reason: "payment_timeout", updatedAt: b.updatedAt }
           });
-          
+
           try {
             const io = getIO();
-            io?.of("/bookings").emit("status:update", { 
-              id: b._id.toString(), 
-              status: "cancelled", 
-              message: "Booking cancelled due to payment timeout." 
+            io?.of("/bookings").emit("status:update", {
+              id: b._id.toString(),
+              status: "cancelled",
+              message: "Booking cancelled due to payment timeout."
             });
             io?.of("/bookings").to(b._id.toString()).emit("booking:update", { id: b._id.toString() });
-          } catch {}
+          } catch { }
         }
       } catch (err) {
         console.error("[Cron] Error in payment expiry:", err.message);
@@ -259,7 +259,7 @@ export function startCron() {
             await enq.save();
           }
         }
-      } catch {}
+      } catch { }
 
       const office = await OfficeSettings.findOne().lean();
       const bookingSettings = await BookingSettings.findOne().lean();
@@ -286,11 +286,11 @@ export function startCron() {
               bookingId: b._id.toString(),
               meta: { tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "local" },
             });
-          } catch {}
+          } catch { }
           try {
             const io = getIO();
             io?.of("/bookings").emit("status:update", { id: b._id.toString(), status: b.status, notificationStatus: b.notificationStatus });
-          } catch {}
+          } catch { }
         }
       }
       await processQueuedPushNotifications();

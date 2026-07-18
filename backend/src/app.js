@@ -65,6 +65,9 @@ app.get("/",(req,res)=>{
   res.send("Welcome to Styling With Muskan");
 });
 
+// Serve the images directory statically
+app.use("/images", express.static(path.join(__dirname, "../images")));
+
 // Fail fast if DB is unavailable (prevents silent local/memory writes)
 app.use((req, res, next) => {
   const path = req.path || "";
