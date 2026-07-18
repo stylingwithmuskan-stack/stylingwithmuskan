@@ -36,7 +36,7 @@ export function uploadBuffer(buffer, folder, options = {}) {
           return reject(err);
         }
         resolve({
-          secure_url: `/images/${filename}`
+          secure_url: `/api/images/${filename}`
         });
       });
     } catch (err) {
@@ -61,7 +61,7 @@ export async function uploadBase64Image(base64Str, folder = "swm-app") {
     const destPath = path.join(IMAGES_DIR, filename);
     
     await fs.promises.writeFile(destPath, buffer);
-    return `/images/${filename}`;
+    return `/api/images/${filename}`;
   } catch (error) {
     console.error("Failed to upload base64 image locally:", error);
     return base64Str; // fallback to original if it fails

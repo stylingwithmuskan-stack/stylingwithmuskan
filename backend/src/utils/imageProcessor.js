@@ -51,7 +51,7 @@ export const processAndSaveImage = async (buffer, category, options = {}) => {
       .toFile(filepath);
 
     // Return the URL path
-    return `/images/${category}/${year}/${month}/${filename}`;
+    return `/api/images/${category}/${year}/${month}/${filename}`;
   } catch (error) {
     console.error('Error processing image:', error);
     throw new Error('Failed to process and save image');
