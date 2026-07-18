@@ -8,7 +8,7 @@ import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 import { Button } from "@/modules/user/components/ui/button";
 import { Heart } from "lucide-react";
-import { getServicePlaceholder } from "@/modules/user/lib/utils";
+import { getServicePlaceholder, resolveImageUrl } from "@/modules/user/lib/utils";
 
 const PopularServices = () => {
   const { gender } = useGenderTheme();
@@ -55,7 +55,7 @@ const PopularServices = () => {
           >
             <div className="relative h-32 overflow-hidden cursor-pointer">
               <img
-                src={service.image || getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name)}
+                src={resolveImageUrl(service.image) || getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name)}
                 alt={service.name}
                 onClick={() => navigate(`/service/${service.id}`)}
                 className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"

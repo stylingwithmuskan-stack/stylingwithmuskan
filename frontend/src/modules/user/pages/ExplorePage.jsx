@@ -10,7 +10,7 @@ import { useCart } from "@/modules/user/contexts/CartContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import { Button } from "@/modules/user/components/ui/button";
-import { shareContent, getServicePlaceholder } from "@/modules/user/lib/utils";
+import { shareContent, getServicePlaceholder, resolveImageUrl } from "@/modules/user/lib/utils";
 import FilterModal from "@/modules/user/components/salon/FilterModal";
 import QuantityControl from "@/modules/user/components/ui/QuantityControl";
 
@@ -401,7 +401,7 @@ const ExplorePage = () => {
                             >
                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all overflow-hidden border-2 ${activeType === type.id ? "border-primary shadow-lg shadow-primary/20 scale-110" : "border-border/50"}`}>
                                     <img 
-                                        src={type.image || getServicePlaceholder(type.label)} 
+                                        src={resolveImageUrl(type.image) || getServicePlaceholder(type.label)} 
                                         alt={type.label} 
                                         className="w-full h-full object-cover" 
                                         onError={(e) => {
@@ -484,7 +484,7 @@ const ExplorePage = () => {
                             >
                                 <div className="w-24 h-24 rounded-2xl overflow-hidden bg-accent flex-shrink-0 relative border border-border/50">
                                     <img 
-                                        src={service.image || getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name)} 
+                                        src={resolveImageUrl(service.image) || getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name)} 
                                         alt={service.name} 
                                         className="w-full h-full object-cover" 
                                         onError={(e) => {

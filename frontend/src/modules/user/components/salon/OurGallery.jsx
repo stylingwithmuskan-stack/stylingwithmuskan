@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Maximize2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
+import { resolveImageUrl } from "@/modules/user/lib/utils";
 
 const OurGallery = () => {
     const { gallery } = useUserModuleData();
@@ -68,7 +69,7 @@ const OurGallery = () => {
                                 className="flex-shrink-0 w-[240px] md:w-[350px] aspect-[4/3] relative rounded-[2.5rem] overflow-hidden snap-center shadow-2xl group cursor-pointer"
                             >
                                 <img
-                                    src={item.image}
+                                    src={resolveImageUrl(item.image)}
                                     className="w-full h-full object-cover transition-all duration-1000 group-hover:scale-110 group-hover:rotate-1"
                                     alt={item.title}
                                 />
@@ -126,7 +127,7 @@ const OurGallery = () => {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <img
-                                src={selectedImage.image}
+                                src={resolveImageUrl(selectedImage.image)}
                                 alt={selectedImage.title}
                                 className="w-full h-full object-contain bg-black"
                             />

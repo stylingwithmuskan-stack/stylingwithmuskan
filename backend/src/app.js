@@ -25,6 +25,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { ALLOWED_ORIGINS, SWAGGER_SERVER_URL } from "./config.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 
 app.set("trust proxy", 1);
@@ -112,7 +115,6 @@ app.use("/subscriptions", subscriptionRoutes);
 app.use("/support", supportRoutes);
 app.use("/training", trainingRoutes);
 try {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const spec = JSON.parse(fs.readFileSync(path.join(__dirname, "swagger.json"), "utf-8"));
   const swaggerUi = (await import("swagger-ui-express")).default;
   if (SWAGGER_SERVER_URL) spec.servers = [{ url: SWAGGER_SERVER_URL }];

@@ -33,6 +33,13 @@ async function boot() {
   try {
     await connectRedis();
     console.log('[Server] ✅ Redis connected successfully');
+    try {
+      const { bumpContentVersion } = await import("./lib/contentCache.js");
+      await bumpContentVersion();
+      console.log('[Server] 🔄 Content version bumped (cache invalidated)');
+    } catch (cacheErr) {
+      console.error('[Server] Failed to bump content version:', cacheErr.message);
+    }
   } catch (err) {
     console.warn('[Server] ⚠️  Redis connection failed, using in-memory fallback');
   }

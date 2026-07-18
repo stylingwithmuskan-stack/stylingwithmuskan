@@ -14,7 +14,7 @@ import { useCart } from "@/modules/user/contexts/CartContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useWishlist } from "@/modules/user/contexts/WishlistContext";
 import { api, API_BASE_URL } from "@/modules/user/lib/api";
-import { shareContent, getServicePlaceholder } from "@/modules/user/lib/utils";
+import { shareContent, getServicePlaceholder, resolveImageUrl } from "@/modules/user/lib/utils";
 
 
 
@@ -203,7 +203,7 @@ const ServiceDetail = () => {
       {/* Hero Image */}
       <div className="relative h-48 md:h-64 lg:h-[380px]">
         <img
-          src={service.image || placeholder}
+          src={resolveImageUrl(service.image) || placeholder}
           alt={service.name}
           className="w-full h-full object-cover"
           onError={(e) => { 

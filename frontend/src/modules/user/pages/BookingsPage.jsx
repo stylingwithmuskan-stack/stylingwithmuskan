@@ -327,8 +327,8 @@ const BookingsPage = () => {
                                     // Strictly exclude customized bookings from normal tab
                                     if (isCustom) return false;
 
-                                    if (activeTab === "Upcoming") return !["completed", "cancelled"].includes(s);
-                                    if (activeTab === "Past") return ["completed", "cancelled"].includes(s);
+                                    if (activeTab === "Upcoming") return !["completed", "cancelled", "payment_pending"].includes(s);
+                                    if (activeTab === "Past") return ["completed", "cancelled", "payment_pending"].includes(s);
                                     return false;
                                 })
                                 .map((booking, i) => (
@@ -374,12 +374,12 @@ const BookingsPage = () => {
                                                             </div>
                                                         </div>
                                                         <span className={`flex-shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded-lg border ${booking.status?.toLowerCase() === "accepted" ? "bg-green-50 text-green-600 border-green-200" :
-                                                                booking.status?.toLowerCase() === "travelling" ? "bg-amber-50 text-amber-600 border-amber-200" :
-                                                                    booking.status?.toLowerCase() === "arrived" ? "bg-purple-50 text-purple-600 border-purple-200" :
-                                                                        booking.status?.toLowerCase() === "in_progress" || booking.status?.toLowerCase() === "documentation" ? "bg-blue-50 text-blue-600 border-blue-200" :
-                                                                            booking.status?.toLowerCase() === "completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
-                                                                                booking.status?.toLowerCase() === "cancelled" ? "bg-red-50 text-red-600 border-red-200" :
-                                                                                    "bg-gray-50 text-gray-600 border-gray-200"
+                                                            booking.status?.toLowerCase() === "travelling" ? "bg-amber-50 text-amber-600 border-amber-200" :
+                                                                booking.status?.toLowerCase() === "arrived" ? "bg-purple-50 text-purple-600 border-purple-200" :
+                                                                    booking.status?.toLowerCase() === "in_progress" || booking.status?.toLowerCase() === "documentation" ? "bg-blue-50 text-blue-600 border-blue-200" :
+                                                                        booking.status?.toLowerCase() === "completed" ? "bg-emerald-50 text-emerald-600 border-emerald-200" :
+                                                                            booking.status?.toLowerCase() === "cancelled" ? "bg-red-50 text-red-600 border-red-200" :
+                                                                                "bg-gray-50 text-gray-600 border-gray-200"
                                                             }`}>
                                                             {booking.status?.toLowerCase() === "completed" ? "Completed" : (booking.status || "Pending")}
                                                         </span>
@@ -434,8 +434,8 @@ const BookingsPage = () => {
                                                             ₹{(booking.totalAmount || 0).toLocaleString()}
                                                         </p>
                                                         <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter ${booking.paymentStatus === 'PAID' || booking.balanceAmount === 0
-                                                                ? "bg-green-50 text-green-600 border border-green-200"
-                                                                : "bg-amber-50 text-amber-600 border border-amber-200"
+                                                            ? "bg-green-50 text-green-600 border border-green-200"
+                                                            : "bg-amber-50 text-amber-600 border border-amber-200"
                                                             }`}>
                                                             {booking.paymentStatus || (booking.balanceAmount === 0 ? 'PAID' : 'PENDING')}
                                                         </span>
@@ -569,8 +569,8 @@ const BookingsPage = () => {
                                     {/* Phase description */}
                                     {enq.displayPhase && (
                                         <div className={`mb-3 p-3 rounded-xl border ${enq.displayPhase === "final" ? "bg-emerald-50 border-emerald-100" :
-                                                enq.displayPhase === "pricing" ? "bg-green-50 border-green-100" :
-                                                    "bg-muted/30 border-border/30"
+                                            enq.displayPhase === "pricing" ? "bg-green-50 border-green-100" :
+                                                "bg-muted/30 border-border/30"
                                             }`}>
                                             <p className="text-[10px] font-bold text-foreground/70 leading-relaxed">
                                                 {getPhaseDescription(enq.displayPhase)}

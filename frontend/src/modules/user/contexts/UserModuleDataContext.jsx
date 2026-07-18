@@ -1,5 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { api } from "@/modules/user/lib/api";
+import { api, API_BASE_URL } from "@/modules/user/lib/api";
+
+// Resolve relative image/video URLs like "/images/xyz.jpg" to full backend URL
+const BACKEND_BASE = API_BASE_URL.replace(/\/api$/, "");
+function resolveMediaUrl(url) {
+    if (!url || typeof url !== "string") return url;
+    if (url.startsWith("http") || url.startsWith("data:")) return url;
+    // relative path like /images/... → http://localhost:3001/images/...
+    return `${BACKEND_BASE}${url.startsWith("/") ? "" : "/"}${url}`;
+}
 import { isContentAvailable } from "@/modules/user/lib/contentAvailability";
 import {
     SERVICE_TYPES as FALLBACK_SERVICE_TYPES,
@@ -70,9 +79,19 @@ export const UserModuleDataProvider = ({ children }) => {
                            const uniquePop = pop.filter(s => !existingIds.has(s.id));
                            return [...prev, ...uniquePop];
                        });
-                       setSpotlights(normalize(d.spotlights));
-                       setGallery(normalize(d.gallery));
-                       setTestimonials(normalize(d.testimonials));
+                       setSpotlights((normalize(d.spotlights)).map(s => ({
+                           ...s,
+                           video: resolveMediaUrl(s.video),
+                           poster: resolveMediaUrl(s.poster),
+                       })));
+                       setGallery((normalize(d.gallery)).map(g => ({
+                           ...g,
+                           image: resolveMediaUrl(g.image),
+                       })));
+                       setTestimonials((normalize(d.testimonials)).map(t => ({
+                           ...t,
+                           image: resolveMediaUrl(t.image),
+                       })));
                        setProviders(d.providers || []);
                    } catch {}
                 })();

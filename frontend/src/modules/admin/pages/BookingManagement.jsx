@@ -139,9 +139,9 @@ export default function BookingManagement() {
 
     const STATUS_GROUPS = {
         active: ["accepted", "travelling", "arrived", "in_progress"],
-        pending: ["incoming", "pending", "unassigned", "payment_pending", "documentation", "vendor_assigned", "admin_approved", "user_accepted", "team_assigned", "final_approved", "advance_paid"],
+        pending: ["incoming", "pending", "unassigned", "documentation", "vendor_assigned", "admin_approved", "user_accepted", "team_assigned", "final_approved", "advance_paid"],
         completed: ["completed"],
-        missed: ["cancelled", "missed", "rejected"]
+        missed: ["cancelled", "missed", "rejected", "payment_pending"]
     };
 
     const load = async () => {
