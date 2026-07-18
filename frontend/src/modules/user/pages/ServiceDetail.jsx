@@ -188,7 +188,11 @@ const ServiceDetail = () => {
     ? Math.round(((service.originalPrice - service.price) / service.originalPrice) * 100)
     : 0;
 
-  const handleShare = () => {
+  const handleShare = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     shareContent({
       title: service.name,
       text: `Check out this amazing service: ${service.name} at Styling with Muskan!`,
@@ -218,6 +222,7 @@ const ServiceDetail = () => {
         {/* Top Actions */}
         <div className="absolute top-[calc(env(safe-area-inset-top)+1rem)] left-4 right-4 flex items-center justify-between z-50">
           <button
+            type="button"
             onClick={() => {
               if (window.history.length > 1 && location.key !== "default") {
                 navigate(-1);
@@ -231,7 +236,10 @@ const ServiceDetail = () => {
           </button>
           <div className="flex gap-2">
             <button
-              onClick={() => {
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 if (!isLoggedIn) {
                   navigate('/login');
                 } else {
@@ -243,6 +251,7 @@ const ServiceDetail = () => {
               <Heart className={`w-5 h-5 transition-all ${isFav ? "fill-red-500 text-red-500 scale-110" : "text-foreground"}`} />
             </button>
             <button
+              type="button"
               onClick={handleShare}
               className="w-10 h-10 rounded-full glass flex items-center justify-center backdrop-blur-xl"
             >

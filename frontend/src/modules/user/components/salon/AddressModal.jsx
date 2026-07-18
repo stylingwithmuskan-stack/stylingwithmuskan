@@ -39,6 +39,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
             document.body.style.top = `-${scrollY}px`;
             document.body.dataset.scrollY = scrollY;
         } else {
+            // Check immediately since we'll conditionally apply swm-modal-active
             const activeModals = document.querySelectorAll('.swm-modal-active').length;
             if (activeModals === 0) {
                 const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
@@ -49,16 +50,14 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
             }
         }
         return () => {
-            setTimeout(() => {
-                const activeModals = document.querySelectorAll('.swm-modal-active').length;
-                if (activeModals === 0) {
-                    const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
-                    document.documentElement.classList.remove("modal-open");
-                    document.body.classList.remove("modal-open");
-                    document.body.style.top = "";
-                    if (scrollY > 0) window.scrollTo(0, scrollY);
-                }
-            }, 100);
+            const activeModals = document.querySelectorAll('.swm-modal-active').length;
+            if (activeModals === 0) {
+                const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
+                document.documentElement.classList.remove("modal-open");
+                document.body.classList.remove("modal-open");
+                document.body.style.top = "";
+                if (scrollY > 0) window.scrollTo(0, scrollY);
+            }
         };
     }, [isOpen]);
 
@@ -345,7 +344,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 40 }}
                         transition={{ type: "spring", damping: 28, stiffness: 300 }}
-                        className="relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-lg bg-background sm:rounded-[32px] rounded-none shadow-2xl flex flex-col overflow-hidden swm-modal-active"
+                        className={`relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-lg bg-background sm:rounded-[32px] rounded-none shadow-2xl flex flex-col overflow-hidden ${isOpen ? 'swm-modal-active' : ''}`}
                     >
                         {/* Fixed Header */}
                         <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-background z-10 shrink-0">

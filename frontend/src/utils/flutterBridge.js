@@ -61,6 +61,36 @@ export const shareToFlutter = async (data) => {
       console.error('Flutter Share Bridge Error:', error);
     }
   }
+
+  // Fallback for custom Flutter webview implementations like webview_flutter 
+  // or native iOS WKWebView that might inject standard message handlers
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.share) {
+    try {
+      window.webkit.messageHandlers.share.postMessage({
+        title: data.title || 'Styling with Muskan',
+        text: data.text || '',
+        url: data.url || ''
+      });
+      return true;
+    } catch (error) {
+      console.error('WebKit Share Bridge Error:', error);
+    }
+  }
+
+  // Fallback for Android JavascriptInterface if standard share is disabled
+  if (window.AndroidInterface && window.AndroidInterface.share) {
+    try {
+      window.AndroidInterface.share(JSON.stringify({
+        title: data.title || 'Styling with Muskan',
+        text: data.text || '',
+        url: data.url || ''
+      }));
+      return true;
+    } catch (error) {
+      console.error('Android Share Bridge Error:', error);
+    }
+  }
+  
   return false;
 };
 
