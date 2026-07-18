@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { toast } from "sonner";
 export function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
@@ -35,14 +36,14 @@ export async function shareContent(data) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         try {
             await navigator.clipboard.writeText(copyText);
-            alert("Link copied to clipboard!");
+            toast.success("Link copied to clipboard!");
             return;
         } catch (err) {
             console.error("Clipboard failed:", err);
         }
     }
 
-    // Fallback 2: Old school textarea hack (Works in most insecure contexts)
+    // Fallback 2: Old school textarea hack
     try {
         const textArea = document.createElement("textarea");
         textArea.value = copyText;
@@ -55,13 +56,30 @@ export async function shareContent(data) {
         const successful = document.execCommand("copy");
         document.body.removeChild(textArea);
         if (successful) {
-            alert("Link copied to clipboard!");
+            toast.success("Link copied to clipboard!");
+            return;
         } else {
             throw new Error("execCommand failed");
         }
     } catch (err) {
-        // Last resort
-        window.prompt("Copy this link:", copyText);
+        // Last resort: Show toast with manual copy button (guarantees user gesture works)
+        toast("Copy this link to share", {
+            description: copyText,
+            action: {
+                label: "Copy Link",
+                onClick: () => {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(copyText)
+                            .then(() => toast.success("Copied!"))
+                            .catch(() => alert("Please copy manually: " + copyText));
+                    } else {
+                        // In case clipboard API is completely missing, prompt user
+                        window.prompt("Copy this link:", copyText);
+                    }
+                }
+            },
+            duration: 8000
+        });
     }
 }
 

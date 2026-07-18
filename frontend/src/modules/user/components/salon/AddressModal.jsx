@@ -12,6 +12,7 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
     const [showLocationPopup, setShowLocationPopup] = useState(false);
     const [locationErrorType, setLocationErrorType] = useState("denied");
     const areaInputRef = useRef(null);
+    const modalRef = useRef(null);
     const [address, setAddress] = useState({
         houseNo: "",
         landmark: "",
@@ -39,8 +40,8 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
             document.body.style.top = `-${scrollY}px`;
             document.body.dataset.scrollY = scrollY;
         } else {
-            // Check immediately since we'll conditionally apply swm-modal-active
-            const activeModals = document.querySelectorAll('.swm-modal-active').length;
+            const activeModals = Array.from(document.querySelectorAll('.swm-modal-active'))
+                .filter(el => el !== modalRef.current).length;
             if (activeModals === 0) {
                 const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
                 document.documentElement.classList.remove("modal-open");
@@ -50,7 +51,8 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
             }
         }
         return () => {
-            const activeModals = document.querySelectorAll('.swm-modal-active').length;
+            const activeModals = Array.from(document.querySelectorAll('.swm-modal-active'))
+                .filter(el => el !== modalRef.current).length;
             if (activeModals === 0) {
                 const scrollY = parseInt(document.body.dataset.scrollY || "0", 10);
                 document.documentElement.classList.remove("modal-open");
@@ -340,11 +342,12 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                     />
 
                     <motion.div
+                        ref={modalRef}
                         initial={{ opacity: 0, y: 40 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 40 }}
                         transition={{ type: "spring", damping: 28, stiffness: 300 }}
-                        className={`relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-lg bg-background sm:rounded-[32px] rounded-none shadow-2xl flex flex-col overflow-hidden ${isOpen ? 'swm-modal-active' : ''}`}
+                        className="relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-lg bg-background sm:rounded-[32px] rounded-none shadow-2xl flex flex-col overflow-hidden swm-modal-active"
                     >
                         {/* Fixed Header */}
                         <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-background z-10 shrink-0">

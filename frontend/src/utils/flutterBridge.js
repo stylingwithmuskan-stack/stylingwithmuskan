@@ -51,12 +51,14 @@ export const playFlutterSound = async (soundKey = 'notification') => {
 export const shareToFlutter = async (data) => {
   if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
     try {
-      await window.flutter_inappwebview.callHandler('shareContent', {
+      const result = await window.flutter_inappwebview.callHandler('shareContent', {
         title: data.title || 'Styling with Muskan',
         text: data.text || '',
         url: data.url || ''
       });
-      return true;
+      if (result === true || (result && result.success)) {
+        return true;
+      }
     } catch (error) {
       console.error('Flutter Share Bridge Error:', error);
     }
