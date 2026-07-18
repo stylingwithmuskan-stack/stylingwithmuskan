@@ -49,13 +49,22 @@ export const playFlutterSound = async (soundKey = 'notification') => {
 };
 
 export const shareToFlutter = async (data) => {
+  const sharePayload = {
+    title: data.title || 'Styling with Muskan',
+    text: data.text || '',
+    url: data.url || ''
+  };
+
   if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
     try {
-      const result = await window.flutter_inappwebview.callHandler('shareContent', {
-        title: data.title || 'Styling with Muskan',
-        text: data.text || '',
-        url: data.url || ''
-      });
+      // Try 'share' handler first
+      let result = await window.flutter_inappwebview.callHandler('share', sharePayload).catch(() => null);
+      if (result === true || (result && result.success)) {
+        return true;
+      }
+      
+      // Try 'shareContent' handler second
+      result = await window.flutter_inappwebview.callHandler('shareContent', sharePayload).catch(() => null);
       if (result === true || (result && result.success)) {
         return true;
       }
@@ -66,27 +75,32 @@ export const shareToFlutter = async (data) => {
 
   // Fallback for custom Flutter webview implementations like webview_flutter 
   // or native iOS WKWebView that might inject standard message handlers
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.share) {
-    try {
-      window.webkit.messageHandlers.share.postMessage({
-        title: data.title || 'Styling with Muskan',
-        text: data.text || '',
-        url: data.url || ''
-      });
-      return true;
-    } catch (error) {
-      console.error('WebKit Share Bridge Error:', error);
+  if (window.webkit && window.webkit.messageHandlers) {
+    // Try webkit 'share' handler
+    if (window.webkit.messageHandlers.share) {
+      try {
+        window.webkit.messageHandlers.share.postMessage(sharePayload);
+        return true;
+      } catch (error) {
+        console.error('WebKit Share Error:', error);
+      }
+    }
+    
+    // Try webkit 'shareContent' handler
+    if (window.webkit.messageHandlers.shareContent) {
+      try {
+        window.webkit.messageHandlers.shareContent.postMessage(sharePayload);
+        return true;
+      } catch (error) {
+        console.error('WebKit shareContent Error:', error);
+      }
     }
   }
 
   // Fallback for Android JavascriptInterface if standard share is disabled
   if (window.AndroidInterface && window.AndroidInterface.share) {
     try {
-      window.AndroidInterface.share(JSON.stringify({
-        title: data.title || 'Styling with Muskan',
-        text: data.text || '',
-        url: data.url || ''
-      }));
+      window.AndroidInterface.share(JSON.stringify(sharePayload));
       return true;
     } catch (error) {
       console.error('Android Share Bridge Error:', error);
