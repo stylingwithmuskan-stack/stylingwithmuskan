@@ -31,56 +31,67 @@ export async function shareContent(data) {
         }
     }
 
-    // Fallback 1: Clipboard API (Secure contexts only)
+    // Fallback 1: Try copying to clipboard first
     const copyText = shareData.url || shareData.text;
+    let copied = false;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         try {
             await navigator.clipboard.writeText(copyText);
-            toast.success("Link copied to clipboard!");
-            return;
+            copied = true;
         } catch (err) {
             console.error("Clipboard failed:", err);
         }
     }
 
-    // Fallback 2: Old school textarea hack
-    try {
-        const textArea = document.createElement("textarea");
-        textArea.value = copyText;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        textArea.style.top = "0";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        const successful = document.execCommand("copy");
-        document.body.removeChild(textArea);
-        if (successful) {
-            toast.success("Link copied to clipboard!");
-            return;
-        } else {
-            throw new Error("execCommand failed");
+    // Fallback 1b: Secondary copy method
+    if (!copied) {
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = copyText;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            copied = document.execCommand("copy");
+            document.body.removeChild(textArea);
+        } catch (err) {
+            console.error("Insecure copy failed:", err);
         }
-    } catch (err) {
-        // Last resort: Show toast with manual copy button (guarantees user gesture works)
-        toast("Copy this link to share", {
-            description: copyText,
-            action: {
-                label: "Copy Link",
-                onClick: () => {
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(copyText)
-                            .then(() => toast.success("Copied!"))
-                            .catch(() => alert("Please copy manually: " + copyText));
-                    } else {
-                        // In case clipboard API is completely missing, prompt user
-                        window.prompt("Copy this link:", copyText);
-                    }
-                }
-            },
-            duration: 8000
-        });
     }
+
+    // If in App (WebView) or Mobile device and Web Share failed, redirect to WhatsApp
+    if (isFlutterWebView() || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        const message = `${shareData.text || shareData.title}\n\nLink: ${shareData.url}`;
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+        toast.success(copied ? "Link copied & opening WhatsApp!" : "Opening WhatsApp...");
+        return;
+    }
+
+    if (copied) {
+        toast.success("Link copied to clipboard!");
+        return;
+    }
+
+    // Last resort: Show toast with manual copy button (guarantees user gesture works)
+    toast("Copy this link to share", {
+        description: copyText,
+        action: {
+            label: "Copy Link",
+            onClick: () => {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(copyText)
+                        .then(() => toast.success("Copied!"))
+                        .catch(() => alert("Please copy manually: " + copyText));
+                } else {
+                    window.prompt("Copy this link:", copyText);
+                }
+            }
+        },
+        duration: 8000
+    });
 }
 
 export function getServicePlaceholder(serviceName = "", categoryName = "") {
