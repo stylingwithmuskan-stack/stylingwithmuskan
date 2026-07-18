@@ -84,6 +84,14 @@ export function resolveImageUrl(imagePath) {
         return imagePath;
     }
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+    
+    // If the image is a local upload (/images/...), fetch it through the /api route 
+    // so that Nginx on the live server automatically proxies it to the backend.
+    if (imagePath.startsWith("/images/")) {
+        const cleanApiBase = apiBaseUrl.endsWith("/") ? apiBaseUrl.slice(0, -1) : apiBaseUrl;
+        return `${cleanApiBase}${imagePath}`;
+    }
+
     const baseUrl = apiBaseUrl.replace(/\/api\/?$/, '');
     const cleanPath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
     return `${baseUrl}${cleanPath}`;

@@ -70,6 +70,8 @@ app.get("/",(req,res)=>{
 
 // Serve the images directory statically
 app.use("/images", express.static(path.join(__dirname, "../images")));
+// Also serve via /api/images so that Nginx properly proxies image requests to the backend
+app.use("/api/images", express.static(path.join(__dirname, "../images")));
 
 // Fail fast if DB is unavailable (prevents silent local/memory writes)
 app.use((req, res, next) => {
