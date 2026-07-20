@@ -159,35 +159,71 @@ export const ProviderAuthProvider = ({ children }) => {
         if (hasFiles && safe.phone) {
             const form = new FormData();
             form.append("phone", safe.phone);
-            const toBlob = (dataUrl) => {
-                try {
-                    const arr = dataUrl.split(",");
-                    const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
-                    const bstr = atob(arr[1]);
-                    let n = bstr.length;
-                    const u8arr = new Uint8Array(n);
-                    while (n--) u8arr[n] = bstr.charCodeAt(n);
-                    return new Blob([u8arr], { type: mime });
-                } catch { return null; }
+            const compressImage = (val) => {
+                return new Promise((resolve) => {
+                    if (!val) return resolve(val);
+                    const isFile = val instanceof File;
+                    const isDataUrl = typeof val === "string" && val.startsWith("data:");
+                    if (!isFile && !isDataUrl) return resolve(val);
+                    
+                    const img = new Image();
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+                        const maxWidth = 1200;
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                        const canvas = document.createElement("canvas");
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext("2d");
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+                        resolve(compressedDataUrl);
+                    };
+                    img.onerror = () => resolve(val);
+                    img.src = isFile ? URL.createObjectURL(val) : val;
+                });
             };
-            const appendIf = (key, val) => {
-                if (val instanceof File) form.append(key, val, val.name || `${key}.png`);
-                else if (typeof val === "string" && val.startsWith("data:")) {
-                    // Send as string directly for backend smartUpload fallback
-                    form.append(key, val);
+
+            const appendIf = async (key, val) => {
+                const compressed = await compressImage(val);
+                if (compressed) {
+                    if (compressed instanceof File) {
+                        form.append(key, compressed, compressed.name || `${key}.png`);
+                    } else if (typeof compressed === "string" && compressed.startsWith("data:")) {
+                        // Convert data URL to Blob for multer
+                        const arr = compressed.split(',');
+                        const mime = arr[0].match(/:(.*?);/)[1];
+                        const bstr = atob(arr[1]);
+                        let n = bstr.length;
+                        const u8arr = new Uint8Array(n);
+                        while(n--){
+                            u8arr[n] = bstr.charCodeAt(n);
+                        }
+                        const blob = new Blob([u8arr], {type:mime});
+                        form.append(key, blob, `${key}.jpg`);
+                    }
                 }
             };
-            appendIf("profilePhoto", payload.profilePhoto);
-            appendIf("aadharFront", payload.aadharFront);
-            appendIf("aadharBack", payload.aadharBack);
-            appendIf("panCard", payload.panCard);
+
+            await appendIf("profilePhoto", payload.profilePhoto);
+            await appendIf("aadharFront", payload.aadharFront);
+            await appendIf("aadharBack", payload.aadharBack);
+            await appendIf("panCard", payload.panCard);
+
             if (Array.isArray(payload.certifications)) {
-                payload.certifications.forEach((cert, idx) => {
+                for (let idx = 0; idx < payload.certifications.length; idx++) {
+                    const cert = payload.certifications[idx];
                     if (cert.data?.startsWith("data:")) {
-                        const blob = toBlob(cert.data);
-                        if (blob) form.append("certifications", blob, cert.name || `cert-${idx}.png`);
+                        const compressedCert = await compressImage(cert.data);
+                        if (compressedCert) {
+                            form.append("certifications", compressedCert);
+                        }
                     }
-                });
+                }
             }
             try {
                 const { provider: upProvider } = await api.provider.uploadDocs(form, providerToken);

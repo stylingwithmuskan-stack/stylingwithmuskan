@@ -1372,27 +1372,27 @@ router.post(
       return null;
     };
 
-    // Profile Photo
-    const profileUrl = await smartUpload("profilePhoto");
+    // Process main documents in parallel
+    const [profileUrl, aadharFrontUrl, aadharBackUrl, panCardUrl] = await Promise.all([
+      smartUpload("profilePhoto"),
+      smartUpload("aadharFront"),
+      smartUpload("aadharBack"),
+      smartUpload("panCard")
+    ]);
+
     if (profileUrl) updates.profilePhoto = profileUrl;
-
-    // Documents
-    const aadharFrontUrl = await smartUpload("aadharFront");
     if (aadharFrontUrl) docs.aadharFront = aadharFrontUrl;
-
-    const aadharBackUrl = await smartUpload("aadharBack");
     if (aadharBackUrl) docs.aadharBack = aadharBackUrl;
-
-    const panCardUrl = await smartUpload("panCard");
     if (panCardUrl) docs.panCard = panCardUrl;
 
     // Certifications (Multer only for simplicity, or add base64 loop if needed)
     if (files.certifications?.length) {
-      const certUrls = [];
-      for (const f of files.certifications) {
-        const up = await uploadBuffer(f.buffer, folder);
-        certUrls.push(up.secure_url);
-      }
+      const certUrls = await Promise.all(
+        files.certifications.map(async (f) => {
+          const up = await uploadBuffer(f.buffer, folder);
+          return up.secure_url;
+        })
+      );
       docs.certifications = certUrls;
     }
 
