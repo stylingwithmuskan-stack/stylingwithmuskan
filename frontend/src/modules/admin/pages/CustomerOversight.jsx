@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, CreditCard, AlertTriangle, Star } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Ban, UserCheck, Phone, RefreshCw, CreditCard, AlertTriangle, Star, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/modules/user/components/ui/card";
 import { Button } from "@/modules/user/components/ui/button";
@@ -146,6 +146,50 @@ export default function CustomerOversight() {
         }
     };
 
+    const handleExportCSV = async () => {
+        try {
+            toast.loading("Preparing CSV...", { id: "export-csv" });
+            
+            const response = await getAllCustomers({ page: 1, limit: 100000 });
+            const allCustomers = Array.isArray(response) ? response : (response?.customers || []);
+            
+            if (!allCustomers.length) {
+                toast.error("No customers to export", { id: "export-csv" });
+                return;
+            }
+
+            const headers = ["Name", "Phone", "Status", "Joined Date", "COD Disabled"];
+            const csvRows = [headers.join(",")];
+            
+            allCustomers.forEach(c => {
+                const name = `"${(c.name || 'Unknown').replace(/"/g, '""')}"`;
+                const phone = c.phone || "";
+                const status = c.status || "active";
+                const joinedDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : "";
+                const codDisabled = c.codDisabled ? "Yes" : "No";
+                
+                csvRows.push([name, phone, status, joinedDate, codDisabled].join(","));
+            });
+            
+            const csvContent = csvRows.join("\n");
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `customers_export_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            toast.success("CSV Exported successfully", { id: "export-csv" });
+        } catch (error) {
+            console.error("Export error:", error);
+            toast.error("Failed to export CSV", { id: "export-csv" });
+        }
+    };
+
     return (
         <div className="space-y-6">
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -153,7 +197,12 @@ export default function CustomerOversight() {
                     <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2"><Users className="h-7 w-7 text-primary" /> Customer Oversight</h1>
                     <p className="text-sm text-muted-foreground font-medium mt-1">Track user performance, cancellations, and blacklists</p>
                 </div>
-                <Button onClick={load} variant="outline" className="gap-2 rounded-xl font-bold"><RefreshCw className="h-4 w-4" /> Refresh</Button>
+                <div className="flex items-center gap-2">
+                    <Button onClick={handleExportCSV} variant="outline" className="gap-2 rounded-xl font-bold bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:text-green-800">
+                        <Download className="h-4 w-4" /> Export CSV
+                    </Button>
+                    <Button onClick={load} variant="outline" className="gap-2 rounded-xl font-bold"><RefreshCw className="h-4 w-4" /> Refresh</Button>
+                </div>
             </motion.div>
 
             <Tabs value={tab} onValueChange={setTab}>
