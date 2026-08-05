@@ -246,6 +246,18 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                 return;
             }
 
+            // Backend returns { reason: "no_provider_for_service" } when no providers are available for the selected services
+            if (response.reason === "no_provider_for_service") {
+                const msg = `No professional is available in your area/zone for the selected services on ${tempDate}.`;
+                toast.error(msg);
+                setServiceBlockMessage(msg);
+                setAvailableSlots([]);
+                setSlotMap({});
+                setTempSlot(null);
+                setSlotsLoading(false);
+                return;
+            }
+
             // Backend already filters partial-day blocked slots before returning.
             // We just normalize and display what comes back.
             const rawSlots = response.slots || [];
@@ -525,6 +537,12 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                             {isToday && !slotsLoading && slots.length === 0 && !serviceBlockMessage && (
                                 <div className="mb-3 p-3 rounded-xl border border-amber-200 bg-amber-50/60 text-[10px] font-bold text-amber-700">
                                     No slots available for today after lead time. Please choose another date.
+                                </div>
+                            )}
+                            {/* No slots message for future dates */}
+                            {!isToday && !slotsLoading && slots.length === 0 && !serviceBlockMessage && (
+                                <div className="mb-3 p-3 rounded-xl border border-amber-200 bg-amber-50/60 text-[10px] font-bold text-amber-700">
+                                    No slots available for this date. No active professional is available in your area/zone for the selected services.
                                 </div>
                             )}
                             <div className="grid grid-cols-4 gap-2">
