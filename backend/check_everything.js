@@ -2,7 +2,9 @@ import mongoose from "mongoose";
 import { ServiceType, Category } from "./src/models/Content.js";
 import { City } from "./src/models/CityZone.js";
 import dotenv from "dotenv";
+import dns from "dns";
 
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI;
@@ -17,7 +19,7 @@ async function run() {
   
   const categories = await Category.find().lean();
   console.log("\n--- CATEGORIES ---");
-  categories.forEach(c => console.log(`ID: ${c.id}, Name: ${c.name}, ServiceType: ${c.serviceType}, Gender: ${c.gender}, Zones: ${JSON.stringify(c.zones)}`));
+  categories.forEach(c => console.log(`ID: ${c.id}, Name: ${c.name}, ServiceType: ${c.serviceType}, Gender: ${c.gender}, Zones: ${JSON.stringify(c.zones)}, Image: ${c.image}`));
   
   const cities = await City.find().lean();
   console.log("\n--- CITIES ---");
@@ -26,4 +28,4 @@ async function run() {
   process.exit(0);
 }
 
-run();
+run().catch(console.error);

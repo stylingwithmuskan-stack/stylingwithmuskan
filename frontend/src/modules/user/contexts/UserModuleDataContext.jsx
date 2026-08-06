@@ -234,19 +234,8 @@ export const UserModuleDataProvider = ({ children }) => {
         return false;
     };
 
-    // 🔥 Sequential Background Pre-fetcher for Instant Navigation
-    // Once the app is ready, we slowly load all other category services in the background
-    // so that when the user clicks, the data is already available.
-    useEffect(() => {
-        if (!isLoading && categories.length > 0) {
-            const timer = setTimeout(() => {
-                categories.forEach(cat => {
-                    loadCategoryServices(cat.id).catch(() => {});
-                });
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-    }, [isLoading, categories, loadCategoryServices]);
+    // Background pre-fetcher removed to avoid multiple redundant API calls on startup.
+    // Services for each category will now load on-demand when user visits those sections.
 
     const checkAvailability = useCallback((item, location, selectedDate = null, selectedTime = null) =>
         isContentAvailable(item, location, selectedDate, selectedTime, {
