@@ -167,8 +167,8 @@ async function main() {
               }
             }
             // Handle missing local image references
-            else if (val.startsWith("/images/") || val.startsWith("/api/images/")) {
-              const filename = val.startsWith("/api/images/") ? val.replace("/api/images/", "") : val.replace("/images/", "");
+            else if (val.startsWith("/images/")) {
+              const filename = val.replace("/images/", "");
               const dest = path.join(localImagesDir, filename);
               const exists = fs.existsSync(dest) && fs.statSync(dest).size > 0;
 
@@ -198,9 +198,9 @@ async function main() {
                 } else {
                   newGallery.push(img);
                 }
-              } else if (img.startsWith("/images/") || img.startsWith("/api/images/")) {
+              } else if (img.startsWith("/images/")) {
                 newGallery.push(img);
-                const filename = img.startsWith("/api/images/") ? img.replace("/api/images/", "") : img.replace("/images/", "");
+                const filename = img.replace("/images/", "");
                 const dest = path.join(localImagesDir, filename);
                 const exists = fs.existsSync(dest) && fs.statSync(dest).size > 0;
 

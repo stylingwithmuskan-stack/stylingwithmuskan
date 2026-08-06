@@ -62,7 +62,15 @@ const UserLoginPage = () => {
             setTimer(300); // 5 minutes OTP validity
             setResendTimer(60); // 1 minute resend cooldown
         } catch (e) {
-            setError(e.message || "Failed to send OTP");
+            const errMsg = e.message || "Failed to send OTP";
+            if (errMsg.toLowerCase().includes("no account found") || errMsg.toLowerCase().includes("register first")) {
+                toast.error("Account not found. Redirecting to signup...");
+                setTimeout(() => {
+                    navigate("/register", { state: { phone } });
+                }, 1500);
+            } else {
+                setError(errMsg);
+            }
         }
     };
 

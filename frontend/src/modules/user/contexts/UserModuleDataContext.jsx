@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { api, API_BASE_URL } from "@/modules/user/lib/api";
 
 // Resolve relative image/video URLs like "/images/xyz.jpg" to full backend URL
@@ -25,6 +26,9 @@ import {
 const UserModuleDataContext = createContext(null);
 
 export const UserModuleDataProvider = ({ children }) => {
+    const { pathname } = useLocation();
+    const hasFetched = useRef(false);
+
     const [serviceTypes, setServiceTypes] = useState([]);
     const [bookingTypeConfig, setBookingTypeConfig] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -42,6 +46,21 @@ export const UserModuleDataProvider = ({ children }) => {
     const [testimonials, setTestimonials] = useState([]);
 
     useEffect(() => {
+        const isUserRoute = !pathname.startsWith("/provider") && 
+                            !pathname.startsWith("/vender") && 
+                            !pathname.startsWith("/vendor") && 
+                            !pathname.startsWith("/admin");
+                            
+        if (!isUserRoute || hasFetched.current) {
+            if (!isUserRoute && isLoading) {
+                setIsLoading(false);
+            }
+            return;
+        }
+
+        hasFetched.current = true;
+        setIsLoading(true);
+
         let cancelled = false;
         
         const loadHomePageData = async () => {
@@ -126,7 +145,7 @@ export const UserModuleDataProvider = ({ children }) => {
 
         loadHomePageData();
         return () => { cancelled = true; };
-    }, []);
+    }, [pathname]);
 
     // Track in-flight requests to avoid duplicates and handle concurrent calls
     const [pendingCategories, setPendingCategories] = useState(new Set());

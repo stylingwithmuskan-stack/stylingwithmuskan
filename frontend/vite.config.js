@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
         },
         proxy: {
             '/images': {
-                target: 'http://localhost:4800',
+                target: 'http://localhost:3001',
                 changeOrigin: true
             }
         }

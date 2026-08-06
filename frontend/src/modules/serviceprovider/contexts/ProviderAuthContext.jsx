@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "@/modules/user/lib/api";
 import { safeStorage } from "@/modules/user/lib/safeStorage";
 import { initPushNotifications, unregisterPush } from "@/services/pushNotificationService";
@@ -15,6 +16,7 @@ const STORAGE_KEY = "swm_provider";
 const TOKEN_KEY = "swm_provider_token";
 
 export const ProviderAuthProvider = ({ children }) => {
+    const { pathname } = useLocation();
     const [provider, setProviderState] = useState(() => {
         try {
             // Priority 1: sessionStorage (Tab-specific, survives refresh)
@@ -66,6 +68,9 @@ export const ProviderAuthProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
+        // Skip provider check if not on a provider route
+        if (!pathname.startsWith("/provider")) return;
+
         let cancelled = false;
         (async () => {
             try {
@@ -83,7 +88,7 @@ export const ProviderAuthProvider = ({ children }) => {
             } catch {}
         })();
         return () => { cancelled = true; };
-    }, [provider?.phone, provider?.approvalStatus]);
+    }, [provider?.phone, provider?.approvalStatus, pathname]);
 
     useEffect(() => {
         const handle401 = (e) => {

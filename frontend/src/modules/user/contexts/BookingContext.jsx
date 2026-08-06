@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { api, API_BASE_URL, SOCKET_BASE_URL } from "@/modules/user/lib/api";
 import { io } from "socket.io-client";
 import { AuthContext } from "@/modules/user/contexts/AuthContext";
@@ -13,6 +14,9 @@ export const useBookings = () => {
 };
 
 export const BookingProvider = ({ children }) => {
+  const { pathname } = useLocation();
+  const hasLoaded = useRef(false);
+
   const [bookings, setBookings] = useState([]);
   const [enquiries, setEnquiries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +83,25 @@ export const BookingProvider = ({ children }) => {
   useEffect(() => {
     if (!isLoggedIn) return;
 
+    // Only load bookings if on a customer booking/payment/profile related page
+    const isBookingRelatedPage = pathname.startsWith("/bookings") || 
+                                 pathname.startsWith("/booking/") || 
+                                 pathname.startsWith("/payment") || 
+                                 pathname.startsWith("/activity") ||
+                                 pathname.startsWith("/profile");
+
+    if (!isBookingRelatedPage || hasLoaded.current) {
+        if (!isBookingRelatedPage && (loading || loadingEnquiries)) {
+            setLoading(false);
+            setLoadingEnquiries(false);
+        }
+        return;
+    }
+
+    hasLoaded.current = true;
+    setLoading(true);
+    setLoadingEnquiries(true);
+
     loadBookings();
     loadEnquiries();
 
@@ -92,7 +115,7 @@ export const BookingProvider = ({ children }) => {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [isLoggedIn, loadBookings, loadEnquiries]);
+  }, [isLoggedIn, loadBookings, loadEnquiries, pathname]);
 
   // Socket sync logic separated for reactivity
   useEffect(() => {

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from "@/modules/user/lib/api";
 import { safeStorage } from "@/modules/user/lib/safeStorage";
 import { initPushNotifications, unregisterPush } from "@/services/pushNotificationService";
@@ -7,6 +8,9 @@ export const AuthContext = createContext();
 const STORAGE_KEY = "swm_user_auth_state";
 
 export const AuthProvider = ({ children }) => {
+    const { pathname } = useLocation();
+    const hasChecked = useRef(false);
+
     const [isLoggedIn, setIsLoggedIn] = useState(() => {
         try {
             const raw = safeStorage.getItem(STORAGE_KEY);
@@ -71,6 +75,21 @@ export const AuthProvider = ({ children }) => {
     }, [isLoggedIn, user, loading]);
 
     useEffect(() => {
+        const isUserRoute = !pathname.startsWith("/provider") && 
+                            !pathname.startsWith("/vender") && 
+                            !pathname.startsWith("/vendor") && 
+                            !pathname.startsWith("/admin");
+                            
+        if (!isUserRoute || hasChecked.current) {
+            if (!isUserRoute && loading) {
+                setLoading(false);
+            }
+            return;
+        }
+
+        hasChecked.current = true;
+        setLoading(true);
+
         let cancelled = false;
         (async () => {
             try {
@@ -98,7 +117,7 @@ export const AuthProvider = ({ children }) => {
             }
         })();
         return () => { cancelled = true; };
-    }, []);
+    }, [pathname]);
 
     useEffect(() => {
         const handle401 = (e) => {

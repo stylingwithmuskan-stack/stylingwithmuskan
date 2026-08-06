@@ -16,7 +16,9 @@ const UserRegisterPage = () => {
     const location = useLocation();
     const { loginWithOtp, isLoggedIn, user, updateProfile } = useAuth();
     const [step, setStep] = useState(1); // 1: Phone, 2: OTP, 3: Profile Setup
-    const [phone, setPhone] = useState("");
+    const [phone, setPhone] = useState(() => {
+        return location.state?.phone || "";
+    });
     const [name, setName] = useState("");
     const [referralCode, setReferralCode] = useState("");
     const [profileError, setProfileError] = useState("");

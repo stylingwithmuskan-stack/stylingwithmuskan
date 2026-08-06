@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "@/modules/user/lib/api";
 import { safeStorage } from "@/modules/user/lib/safeStorage";
 
@@ -14,6 +15,8 @@ const STORAGE_KEY = "swm_vendor";
 const TOKEN_KEY = "swm_vendor_token";
 
 export const VenderAuthProvider = ({ children }) => {
+    const { pathname } = useLocation();
+    const hasRefreshed = useRef(false);
     const [vendor, setVendorState] = useState(() => {
         try {
             const sessionRaw = sessionStorage.getItem(STORAGE_KEY);
@@ -45,12 +48,16 @@ export const VenderAuthProvider = ({ children }) => {
     const syncVendor = setVendor;
 
     useEffect(() => {
-        // Initial state set in useState initializer
         setHydrated(true);
+
+        const isVendorRoute = pathname.startsWith("/vender") || pathname.startsWith("/vendor");
+        if (!isVendorRoute || hasRefreshed.current) return;
+
+        hasRefreshed.current = true;
         refreshVendor().catch(err => {
             if (err?.status === 401) logout();
         });
-    }, []);
+    }, [pathname]);
 
     useEffect(() => {
         const handle401 = (e) => {
