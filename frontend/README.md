@@ -17,7 +17,7 @@ The admin panel's Cities & Zones feature requires a Google Maps API key. See [GO
 
 ## How can I edit this code?
 
-## 16
+## 18
 
 There are several ways of editing your application.
 
