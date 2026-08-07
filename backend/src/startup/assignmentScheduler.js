@@ -44,7 +44,6 @@ export async function runAssignmentSchedulerOnce(now = new Date()) {
         items: b.services || [],
         customerId: b.customerId,
         requestedDurationMinutes,
-        useCache: false,
       });
 
       // Fetch provider names for logging

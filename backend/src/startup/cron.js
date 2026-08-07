@@ -55,7 +55,7 @@ export function startCron() {
 
       const pendingReassignments = await Booking.find({
         status: "provider_cancelled"
-      });
+      }).limit(200);
 
       for (const b of pendingReassignments) {
         const bookingTime = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
@@ -126,7 +126,7 @@ export function startCron() {
       const unassignedBookings = await Booking.find({
         status: "provider_cancelled",
         vendorReminderSent: { $ne: true }
-      });
+      }).limit(200);
 
       for (const b of unassignedBookings) {
         const bookingTime = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
@@ -166,7 +166,7 @@ export function startCron() {
         status: { $in: ["accepted", "vendor_reassigned"] },
         providerReminderSent: { $ne: true },
         assignedProvider: { $exists: true, $ne: null }
-      });
+      }).limit(200);
 
       for (const b of activeBookings) {
         const bookingTime = slotLabelToLocalDateTime(b.slot?.date, b.slot?.time);
@@ -204,7 +204,7 @@ export function startCron() {
         const unpaidBookings = await Booking.find({
           status: "payment_pending",
           updatedAt: { $lt: paymentTimeoutThreshold }
-        });
+        }).limit(200);
 
         if (unpaidBookings.length > 0) {
           console.log(`[Cron] Found ${unpaidBookings.length} stale payment_pending bookings. Threshold: ${paymentTimeoutThreshold.toISOString()}`);
@@ -237,12 +237,6 @@ export function startCron() {
       } catch (err) {
         console.error("[Cron] Error in payment expiry:", err.message);
       }
-
-      // Existing release logic for other statuses...
-      const expired = await Booking.find({
-        status: "incoming",
-        expiresAt: { $ne: null, $lt: now },
-      });
 
       // Auto-expire custom enquiry quotes
       try {

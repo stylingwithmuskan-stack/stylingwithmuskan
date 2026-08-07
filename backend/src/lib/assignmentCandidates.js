@@ -137,18 +137,15 @@ export async function buildAssignmentCandidates({
   cityProviders.forEach(p => allProvidersMap.set(p._id.toString(), p));
   
   providers = Array.from(allProvidersMap.values());
-  console.log(`[Candidates] Total providers considered for assignment in ${bookingCity}: ${providers.length}`);
-
 
   // ✅ STRICT: Specialty filter is now a hard requirement — only assign providers who match the service
   const matchingProviders = providers.filter((p) => providerMatchesRequestedSpecialties(p, requestedSpecialties));
   if (matchingProviders.length > 0) {
     providers = matchingProviders;
   } else {
-    // No matching providers found — log warning but still use filtered list
-    // This prevents assigning providers who don't offer the requested service at all
-    console.warn(`[Candidates] ⚠️ NO providers match requested specialties. Escalating to vendor/admin instead of assigning unqualified providers.`);
-    providers = []; // Empty list will result in no candidates → triggers vendor escalation
+    // No matching providers found — use filtered (empty) list to trigger vendor escalation
+    // instead of assigning providers who don't offer the requested service at all
+    providers = [];
   }
 
   const activeProviderSubs = await UserSubscription.find({
