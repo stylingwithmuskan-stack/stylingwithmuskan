@@ -10,3 +10,4 @@ branch_structure.json
 # Ignore image storage folders
 backend/images/
 storage/
+node_modules

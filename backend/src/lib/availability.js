@@ -15,11 +15,13 @@ async function getVersion(providerId, date) {
   }
 }
 
-async function cacheKey(providerId, date, settings, requestedDurationMinutes) {
+async function cacheKey(providerId, date, settings, requestedDurationMinutes, opts = {}) {
   const settingsKey = settings?.updatedAt ? new Date(settings.updatedAt).getTime() : 0;
   const ver = await getVersion(providerId, date);
   const durKey = Math.max(Number(requestedDurationMinutes || 0), 0);
-  return `slots:${providerId}:${date}:${ver}:${settingsKey}:${durKey}`;
+  const excludeKey = opts.excludeBookingId ? String(opts.excludeBookingId) : "";
+  const flagsKey = `${opts.ignoreLeadTime === true ? 1 : 0}${opts.ignoreServiceWindow === true ? 1 : 0}`;
+  return `slots:${providerId}:${date}:${ver}:${settingsKey}:${durKey}:${excludeKey}:${flagsKey}`;
 }
 
 export async function invalidateProviderSlots(providerId, dates = []) {
@@ -46,17 +48,16 @@ export async function invalidateProviderSlotsForNextDays(providerId, days = 30, 
 }
 
 export async function computeAvailableSlots(providerId, date, settings, opts = {}) {
-  const useCache = false; // Temporarily disabled for live debugging
+  const useCache = opts.useCache !== false;
   const requestedDurationMinutes = Math.max(Number(opts.requestedDurationMinutes || 0), 0);
-  /* 
+  let cacheKeyStr = null;
   if (useCache) {
     try {
-      const key = await cacheKey(providerId, date, settings, requestedDurationMinutes);
-      const hit = await redis.get(key);
+      cacheKeyStr = await cacheKey(providerId, date, settings, requestedDurationMinutes, opts);
+      const hit = await redis.get(cacheKeyStr);
       if (hit) return JSON.parse(hit);
     } catch {}
   }
-  */
 
   const dayStart = isoDateToLocalStart(date);
   const dayEnd = isoDateToLocalEnd(date);
@@ -90,14 +91,10 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     DEFAULT_TIME_SLOTS.forEach((s) => { slotMap[s] = false; });
     return { date, slots: [], slotMap, reason: "provider_blocked" };
   }
-  console.log(`[Availability] Computing for Provider: ${providerId}, Date: ${date}, Duration: ${requestedDurationMinutes}m`);
-
   const provPhoneRaw = String(provDetails?.phone || "").trim();
-  const provName = String(provDetails?.name || "").trim();
-  
+
   // Use only the specific provider ID for booking checks to ensure independence
   let allRelatedProviderIds = [String(providerId)];
-  console.log(`[Availability] Checking bookings for Provider: ${provName} (ID: ${providerId})`);
 
   const phoneVariants = provPhoneRaw ? [
     provPhoneRaw,
@@ -118,8 +115,6 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   };
 
   const targetDateStandard = toYYYYMMDD(date);
-  console.log(`[Availability] Target Date: ${targetDateStandard}`);
-
   // FIXED: Treat empty array as "no availability set" and default to TRUE
   const baseMap = (availDoc && availDoc.availableSlots && availDoc.availableSlots.length > 0)
     ? (() => {
@@ -144,25 +139,16 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     ...(excludeBookingId && mongoose.isValidObjectId(excludeBookingId) ? { _id: { $ne: excludeBookingId } } : {}),
   }).select("slot slotStartAt slotEndAt services status createdAt items").lean();
 
-  console.log(`[Availability] Found ${allProviderBookings.length} total active bookings for matched group`);
-
   // Filter bookings that match the requested date (Timezone-safe comparison)
   const providerBookings = allProviderBookings.filter(b => {
     const bDateStr = String(b?.slot?.date || "").trim();
     if (!bDateStr) return false;
-    const isMatch = toYYYYMMDD(bDateStr) === targetDateStandard;
-    if (isMatch) console.log(`[Availability] ✅ MATCHED Booking ${b._id} on ${bDateStr} at ${b?.slot?.time} (Status: ${b.status})`);
-    return isMatch;
+    return toYYYYMMDD(bDateStr) === targetDateStandard;
   });
 
-  console.log(`[Availability] ${providerBookings.length} bookings match date ${targetDateStandard}`);
-
-  
   // Use a case-insensitive set for exact slot blocking
   const bookedSet = new Set((providerBookings || []).map((b) => {
-    const t = String(b?.slot?.time || "").toUpperCase().trim();
-    console.log(`[Availability] Blocking exact slot: ${t}`);
-    return t;
+    return String(b?.slot?.time || "").toUpperCase().trim();
   }).filter(Boolean));
   
   // Buffer: Use 45m default as requested
@@ -205,13 +191,6 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
     }
   }
 
-  if (busyIntervals.length > 0) {
-    console.log(`[Availability Debug] Found ${busyIntervals.length} busy intervals for provider ${providerId} on ${date}:`);
-    busyIntervals.forEach(it => {
-      console.log(`   - Booking ${it.bookingId} (${it.status}): ${it.start.toLocaleTimeString()} to ${it.end.toLocaleTimeString()}`);
-    });
-  }
-
   // Priority: startTime (OfficeSettings/Admin) > serviceStartTime (BookingSettings/Default)
   const windowStartMin = (settings?.startTime || settings?.serviceStartTime) ? parseHHMMToMinutes(settings.startTime || settings.serviceStartTime) : null;
   const windowEndMin = (settings?.endTime || settings?.serviceEndTime) ? parseHHMMToMinutes(settings.endTime || settings.serviceEndTime) : null;
@@ -224,9 +203,7 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
   const leadMs = Math.max(Number(settings?.minLeadTimeMinutes || 0), 0) * 60 * 1000;
   
   // Dynamic Lead Time Calculation with 2-minute UI buffer for checkout window
-  const effectiveLeadMs = Math.max(bufferMs, leadMs) + (2 * 60 * 1000); 
-  
-  console.log(`[SLOTS DEBUG] Provider: ${providerId}, Date: ${date}, effectiveLead: ${Math.round(effectiveLeadMs/60000)}m`);
+  const effectiveLeadMs = Math.max(bufferMs, leadMs) + (2 * 60 * 1000);
 
   const slotMap = {};
   const slots = [];
@@ -273,14 +250,13 @@ export async function computeAvailableSlots(providerId, date, settings, opts = {
       }
     }
   }
-  console.log(`[SLOTS DEBUG] Finished. Found ${slots.length} slots for ${providerId}`);
 
   const isFullyBooked = slots.length === 0;
   const reason = isFullyBooked ? (isToday ? "all_slots_past_or_busy" : "no_slots_found") : null;
   const result = { date, slots, slotMap, isFullyBooked, isLeave: false, reason };
   if (useCache) {
     try {
-      const key = await cacheKey(providerId, date, settings, requestedDurationMinutes);
+      const key = cacheKeyStr || (await cacheKey(providerId, date, settings, requestedDurationMinutes, opts));
       await redis.set(key, JSON.stringify(result), { EX: 60 });
     } catch {}
   }

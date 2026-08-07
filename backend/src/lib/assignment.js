@@ -62,7 +62,6 @@ async function isProviderEligibleForBooking(providerId, booking, opts = {}) {
       const io = getIO();
       io?.of("/bookings").emit("provider:low_balance_skipped", { providerId: String(providerId) });
     } catch(e) {}
-    console.log(`[Assignment Debug] Provider ${providerId} skipped due to low balance (Credits: ${acc.credits}, Required: ${requiredCommission})`);
     return false;
   }
 
@@ -70,17 +69,11 @@ async function isProviderEligibleForBooking(providerId, booking, opts = {}) {
   const settings = await loadAssignmentSettings();
   const avail = await computeAvailableSlots(providerId, date, settings, {
     requestedDurationMinutes,
-    useCache: false,
     excludeBookingId: booking._id ? String(booking._id) : null,
     ignoreLeadTime: opts.ignoreLeadTime === true,
     ignoreServiceWindow: opts.ignoreServiceWindow === true,
   });
-  const res = avail?.slotMap?.[time] === true;
-  if (!res) {
-    console.log(`[Assignment Debug] Provider ${providerId} is NOT eligible for booking at ${time}. Reason: slot_busy or window_mismatch. Available slots:`, avail?.slots);
-  }
-
-  return res;
+  return avail?.slotMap?.[time] === true;
 }
 
 async function loadAssignmentSettings() {
@@ -111,51 +104,40 @@ export async function canAssignProviderToBooking(providerId, booking, opts = {})
     slot: overrideSlot,
     services: Array.isArray(booking.services) ? booking.services : booking.items,
   };
-  console.log(`[Assignment Debug] canAssignProviderToBooking: providerId=${providerId}, bookingId=${bookingId}, slot=${overrideSlot?.date} ${overrideSlot?.time}, ignoreLeadTime=${opts.ignoreLeadTime}`);
   return isProviderEligibleForBooking(providerId, bookingForCheck, opts);
 }
 
 export async function pickNextProviderForBooking(booking, startIndex = 0) {
   const candidates = Array.isArray(booking?.candidateProviders) ? booking.candidateProviders : [];
-  console.log(`[Assignment] pickNextProviderForBooking called for booking ${booking._id}, Candidate Array Length: ${candidates.length}, StartIdx: ${startIndex}`);
   if (!candidates.length) {
-    console.log(`[Assignment] Returning null early because candidates array is empty.`);
     return null;
   }
 
   const rejected = new Set(Array.isArray(booking?.rejectedProviders) ? booking.rejectedProviders : []);
-  console.log(`[DEBUG_ASSIGN] Booking: ${booking._id}, Rejected Count: ${rejected.size}`);
 
   // User requested Max 5 providers limit
   if (rejected.size >= 5) {
-    console.log(`[DEBUG_ASSIGN] Reached limit (5). Returning NULL to escalate.`);
     return null;
   }
   let idx = Math.max(Number(startIndex) || 0, 0);
-  console.log(`[DEBUG_ASSIGN] Attempting to find next candidate from Index: ${idx}`);
 
   while (idx < candidates.length) {
     const cand = String(candidates[idx] || "");
     if (!cand) {
-      console.log(`[Assignment] Skipping cand at idx ${idx}: invalid ID`);
       idx++;
       continue;
     }
     if (rejected.has(cand)) {
-      console.log(`[Assignment] Skipping cand ${cand} at idx ${idx}: already rejected`);
       idx++;
       continue;
     }
 
-    console.log(`[Assignment] Checking eligibility for cand ${cand} at idx ${idx}...`);
     // eslint-disable-next-line no-await-in-loop
     const ok = await isProviderEligibleForBooking(cand, booking, { ignoreLeadTime: true });
 
-    console.log(`[Assignment] Eligibility for cand ${cand} returned: ${ok}`);
     if (ok) return { providerId: cand, index: idx };
     idx++;
   }
-  console.log(`[Assignment] Exhausted all candidates, returning null.`);
   return null;
 }
 
