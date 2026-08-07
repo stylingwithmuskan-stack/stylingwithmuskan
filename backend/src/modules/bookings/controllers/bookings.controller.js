@@ -1581,3 +1581,115 @@ export async function getChatHistory(req, res) {
     return res.status(500).json({ error: "Failed to fetch chat history" });
   }
 }
+
+/**
+ * Initiates Exotel Call Masking between customer and provider.
+ */
+export async function callMask(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "Invalid booking ID" });
+
+    const booking = await Booking.findById(id).lean();
+    if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+    // Extract numbers
+    const customerPhone = booking.customerPhone || booking.phone;
+    let providerPhone = "";
+
+    if (booking.slot?.provider?.phone) {
+        providerPhone = booking.slot.provider.phone;
+    } else if (booking.teamMembers?.[0]?.phone) {
+        providerPhone = booking.teamMembers[0].phone;
+    } else if (booking.assignedProvider) {
+        const providerObj = await ProviderAccount.findById(booking.assignedProvider).lean();
+        if (providerObj?.phone) {
+            providerPhone = providerObj.phone;
+        } else if (/^\d{10}$/.test(booking.assignedProvider) || /^\+\d+$/.test(booking.assignedProvider)) {
+            providerPhone = booking.assignedProvider;
+        }
+    }
+
+    if (!customerPhone || !providerPhone) {
+      return res.status(400).json({ error: "Customer or Provider phone number not found for this booking" });
+    }
+
+    // Determine who is making the call
+    const userId = req.user._id.toString();
+    const isCustomer = booking.customerId === userId;
+
+    let fromNumber = "";
+    let toNumber = "";
+
+    if (isCustomer) {
+      fromNumber = customerPhone;
+      toNumber = providerPhone;
+    } else {
+      fromNumber = providerPhone;
+      toNumber = customerPhone;
+    }
+
+    // Helper to format numbers for Exotel (+91prefix for 10-digit Indian numbers)
+    const formatExotelPhone = (num) => {
+      if (!num) return "";
+      let clean = String(num).replace(/\D/g, "");
+      if (clean.length === 10) {
+        return "+91" + clean;
+      }
+      if (clean.length === 12 && clean.startsWith("91")) {
+        return "+" + clean;
+      }
+      return num;
+    };
+
+    const exotelFrom = formatExotelPhone(fromNumber);
+    const exotelTo = formatExotelPhone(toNumber);
+
+    // Import Exotel credentials
+    const { EXOTEL_ACCOUNT_SID, EXOTEL_API_KEY, EXOTEL_API_TOKEN, EXOTEL_EXOPHONE } = await import("../../../config.js");
+
+    if (!EXOTEL_API_KEY || !EXOTEL_API_TOKEN) {
+      return res.status(500).json({ error: "Exotel Call Masking is not configured on the server" });
+    }
+
+    // Exotel Connect Call API
+    const url = `https://api.exotel.com/v1/Accounts/${EXOTEL_ACCOUNT_SID}/Calls/connect.json`;
+    
+    // Prepare urlencoded form body
+    const details = {
+      From: exotelFrom,
+      To: exotelTo,
+      CallerId: EXOTEL_EXOPHONE,
+      CallType: "transact"
+    };
+
+    const formBody = Object.keys(details)
+      .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(details[key]))
+      .join('&');
+
+    const authHeader = 'Basic ' + Buffer.from(EXOTEL_API_KEY + ':' + EXOTEL_API_TOKEN).toString('base64');
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': authHeader
+      },
+      body: formBody
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("[Exotel API Error]", data);
+      return res.status(response.status).json({ error: data?.RestResponse?.Error?.Message || "Failed to trigger call via Exotel" });
+    }
+
+    console.log("[Exotel Call Triggered Successfully]", data?.RestResponse?.Call);
+    return res.json({ success: true, message: "Call initiated. Exotel will call you shortly.", callSid: data?.RestResponse?.Call?.Sid });
+
+  } catch (err) {
+    console.error("[CallMask] Error:", err);
+    return res.status(500).json({ error: "Internal server error triggering call masking" });
+  }
+}

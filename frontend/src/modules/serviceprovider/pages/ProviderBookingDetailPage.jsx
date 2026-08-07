@@ -180,6 +180,22 @@ const ProviderBookingDetailPage = () => {
     const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
     const isCallRestricted = timeStatus.status === "block" && ["accepted", "vendor_assigned", "vendor_reassigned"].includes(booking?.status);
 
+    const handleCallProvider = async () => {
+        if (isCallRestricted) {
+            toast.error(`Call Restricted: Communication is allowed only within 2 hours of the scheduled slot (${booking?.slot?.time}).`);
+            return;
+        }
+        if (!bookingId) return;
+        toast.promise(
+            api.bookings.callMask(bookingId),
+            {
+                loading: 'Connecting call via Exotel...',
+                success: (data) => data.message || 'Call initiated! Exotel will call you shortly.',
+                error: (err) => err?.message || 'Failed to connect call via Exotel.'
+            }
+        );
+    };
+
     useEffect(() => {
         if (!booking) return;
         const lat = booking.address?.lat;
@@ -572,21 +588,15 @@ const ProviderBookingDetailPage = () => {
                         </div>
                     </div>
                     {(booking.customerPhone || booking.phone) && !["in_progress", "payment", "documentation", "completed"].includes(booking?.status) && (
-                        <a
-                            href={isCallRestricted ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`}
-                            onClick={(e) => {
-                                if (isCallRestricted) {
-                                    e.preventDefault();
-                                    toast.error(`Call Restricted: Communication is allowed only within 2 hours of the scheduled slot (${booking.slot?.time}).`);
-                                }
-                            }}
+                        <button
+                            onClick={handleCallProvider}
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black transition-all active:scale-95 uppercase tracking-widest ${isCallRestricted
                                 ? "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none"
                                 : "bg-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700"
                                 }`}
                         >
                             <Phone className="w-3.5 h-3.5" /> Call Now
-                        </a>
+                        </button>
                     )}
                 </div>
 

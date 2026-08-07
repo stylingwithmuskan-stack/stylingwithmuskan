@@ -167,4 +167,10 @@ router.post(
   }
 );
 
+router.post(
+  "/:id/call-mask",
+  requireAuth,
+  BookingsController.callMask
+);
+
 export default router;

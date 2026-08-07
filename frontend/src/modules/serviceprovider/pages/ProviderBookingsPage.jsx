@@ -7,6 +7,7 @@ import { useProviderAuth } from "@/modules/serviceprovider/contexts/ProviderAuth
 import { Button } from "@/modules/user/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/modules/user/components/ui/tooltip";
 import { toast } from "sonner";
+import { api } from "@/modules/user/lib/api";
 
 const getBookingTimeStatus = (dateStr, timeStr) => {
     try {
@@ -58,6 +59,26 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
     const { provider } = useProviderAuth();
     const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
     const isCallRestricted = timeStatus.status === "block" && ["accepted", "vendor_assigned", "vendor_reassigned", "payment_pending"].includes(booking?.status);
+
+    const handleCall = async (e) => {
+        e.stopPropagation();
+        if (isCallRestricted) {
+            toast.error(`Call Restricted: Allowed only within 2 hours of the slot (${booking.slot?.time}).`);
+            return;
+        }
+        if (booking.status === "payment_pending") {
+            return;
+        }
+        if (!bookingId) return;
+        toast.promise(
+            api.bookings.callMask(bookingId),
+            {
+                loading: 'Connecting call via Exotel...',
+                success: (data) => data.message || 'Call initiated! Exotel will call you shortly.',
+                error: (err) => err?.message || 'Failed to connect call via Exotel.'
+            }
+        );
+    };
 
     const isPendingActivation = (booking.status === "vendor_assigned" || booking.status === "vendor_reassigned" || (booking.status === "accepted" && booking.isMandatory)) &&
         booking.commissionAmount > 0 && !booking.commissionChargedAt;
@@ -116,25 +137,16 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                 {(type === "incoming" || type === "pending") && (
                     <div className="flex gap-2">
                         {(booking.customerPhone || booking.phone) && (
-                            <a
-                                href={isCallRestricted || booking.status === "payment_pending" ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`}
+                            <button
+                                onClick={handleCall}
                                 className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${isCallRestricted || booking.status === "payment_pending"
                                         ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed"
                                         : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"
                                     }`}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (isCallRestricted) {
-                                        e.preventDefault();
-                                        toast.error(`Call Restricted: Allowed only within 2 hours of the slot (${booking.slot?.time}).`);
-                                    } else if (booking.status === "payment_pending") {
-                                        e.preventDefault();
-                                    }
-                                }}
                                 title={isCallRestricted ? "Call restricted till 2h before slot" : booking.status === "payment_pending" ? "Awaiting Payment" : "Call Customer"}
                             >
                                 <Phone className="w-4 h-4" />
-                            </a>
+                            </button>
                         )}
                         <Button
                             disabled={booking.status === "payment_pending"}
@@ -156,23 +168,16 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
                 {(type === "active" || type === "completed" || type === "cancelled" || type === "assigned") && (
                     <div className="flex items-center gap-2">
                         {(type === "active" || type === "assigned") && (booking.customerPhone || booking.phone) && (
-                            <a
-                                href={isCallRestricted ? "javascript:void(0)" : `tel:${booking.customerPhone || booking.phone}`}
+                            <button
+                                onClick={handleCall}
                                 className={`h-9 w-9 rounded-xl flex items-center justify-center border transition-all active:scale-95 ${isCallRestricted
                                         ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed opacity-60"
                                         : "bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100"
                                     }`}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (isCallRestricted) {
-                                        e.preventDefault();
-                                        toast.error(`Call Restricted: Allowed only within 2 hours of the slot (${booking.slot?.time}).`);
-                                    }
-                                }}
                                 title={isCallRestricted ? "Call restricted till 2h before slot" : "Call Customer"}
                             >
                                 <Phone className="w-4 h-4" />
-                            </a>
+                            </button>
                         )}
                         <Tooltip>
                             <TooltipTrigger asChild>

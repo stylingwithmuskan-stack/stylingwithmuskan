@@ -46,17 +46,7 @@ export const UserModuleDataProvider = ({ children }) => {
     const [testimonials, setTestimonials] = useState([]);
 
     useEffect(() => {
-        const isUserRoute = !pathname.startsWith("/provider") && 
-                            !pathname.startsWith("/vender") && 
-                            !pathname.startsWith("/vendor") && 
-                            !pathname.startsWith("/admin");
-                            
-        if (!isUserRoute || hasFetched.current) {
-            if (!isUserRoute && isLoading) {
-                setIsLoading(false);
-            }
-            return;
-        }
+        if (hasFetched.current) return;
 
         hasFetched.current = true;
         setIsLoading(true);

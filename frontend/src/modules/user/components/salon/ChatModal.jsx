@@ -9,6 +9,19 @@ const ChatModal = ({ isOpen, onClose, booking }) => {
     const { setActiveChatId, clearUnread } = useBookingChat();
     const bookingId = booking?._id || booking?.id;
     const [messages, setMessages] = useState([]);
+
+    const handleCallClick = async () => {
+        if (!bookingId) return;
+        const { toast } = await import("sonner");
+        toast.promise(
+            api.bookings.callMask(bookingId),
+            {
+                loading: 'Connecting call via Exotel...',
+                success: (data) => data.message || 'Call initiated! Exotel will call you shortly.',
+                error: (err) => err?.message || 'Failed to connect call.'
+            }
+        );
+    };
     const [inputText, setInputText] = useState("");
     const [loading, setLoading] = useState(true);
     const [connected, setConnected] = useState(false);
@@ -158,9 +171,9 @@ const ChatModal = ({ isOpen, onClose, booking }) => {
                         </div>
                         <div className="flex items-center gap-2">
                             {booking?.slot?.provider?.phone && (
-                                <a href={`tel:${booking.slot.provider.phone}`} className="p-2 rounded-full hover:bg-accent transition-colors text-muted-foreground">
+                                <button onClick={handleCallClick} className="p-2 rounded-full hover:bg-accent transition-colors text-muted-foreground">
                                     <Phone className="w-4 h-4" />
-                                </a>
+                                </button>
                             )}
                             <button onClick={onClose} className="p-2 rounded-full hover:bg-accent transition-colors">
                                 <X className="w-5 h-5" />

@@ -1235,7 +1235,11 @@ const UserModuleManagement = () => {
                                             }}
                                                 className="w-full px-3 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground">
                                                 <option value="">Select Subcategory</option>
-                                                {categories?.filter(c => c.gender === formData.gender).map(c => {
+                                                {categories?.filter(c => 
+                                                    c.gender === formData.gender || 
+                                                    String(c.id) === String(formData.category) ||
+                                                    c.name?.toLowerCase() === String(formData.category).toLowerCase()
+                                                ).map(c => {
                                                     const parent = serviceTypes?.find(st => st.id === c.serviceType);
                                                     return (
                                                         <option key={c.id + '-' + c.bookingType} value={c.id}>

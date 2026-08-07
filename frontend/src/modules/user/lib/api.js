@@ -373,6 +373,7 @@ export const api = {
       userReject: (id) => request(`/bookings/custom-enquiry/${id}/user-reject`, { method: "PATCH" }),
     },
     getChatHistory: (id) => request(`/bookings/${id}/chat`),
+    callMask: (id) => request(`/bookings/${id}/call-mask`, { method: "POST" }),
   },
 
   // Payments

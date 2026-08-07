@@ -25,6 +25,12 @@ export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
 export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 export const SUPPORT_PHONE = process.env.SUPPORT_PHONE || "8349764176";
 
+// Exotel Call Masking
+export const EXOTEL_ACCOUNT_SID = process.env.EXOTEL_ACCOUNT_SID || "chalosathi1";
+export const EXOTEL_API_KEY = process.env.EXOTEL_API_KEY || "";
+export const EXOTEL_API_TOKEN = process.env.EXOTEL_API_TOKEN || "";
+export const EXOTEL_EXOPHONE = process.env.EXOTEL_EXOPHONE || "09513886363";
+
 // SMS India Hub
 export const SMSINDIAHUB_API_KEY = process.env.SMSINDIAHUB_API_KEY || "";
 export const SMSINDIAHUB_SENDER_ID = process.env.SMSINDIAHUB_SENDER_ID || "SMSHUB";
