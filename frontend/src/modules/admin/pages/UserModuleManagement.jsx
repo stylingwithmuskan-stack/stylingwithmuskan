@@ -1092,7 +1092,7 @@ const UserModuleManagement = () => {
                                         {activeTab === "spotlights" && (
                                             <div>
                                                 <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Video URL (mp4)</label>
-                                                <input required type="text" value={formData.video || ''} onChange={e => setFormData({ ...formData, video: e.target.value })}
+                                                <input required type="text" value={formData.video || ''} onChange={e => setFormData(prev => ({ ...prev, video: e.target.value }))}
                                                     className="w-full px-3 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground" />
                                             </div>
                                         )}
@@ -1101,9 +1101,9 @@ const UserModuleManagement = () => {
                                             value={activeTab === "spotlights" ? formData.poster : formData.image}
                                             onChange={(val) => {
                                                 if (activeTab === "spotlights") {
-                                                    setFormData({ ...formData, poster: val });
+                                                    setFormData(prev => ({ ...prev, poster: val }));
                                                 } else {
-                                                    setFormData({ ...formData, image: val });
+                                                    setFormData(prev => ({ ...prev, image: val }));
                                                 }
                                             }}
                                         />
@@ -1113,17 +1113,17 @@ const UserModuleManagement = () => {
                                 <div className="space-y-4">
                                     <div>
                                         <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Label / Name</label>
-                                        <input required type="text" value={formData.label || ''} onChange={e => setFormData({ ...formData, label: e.target.value })}
+                                        <input required type="text" value={formData.label || ''} onChange={e => setFormData(prev => ({ ...prev, label: e.target.value }))}
                                             className="w-full px-3 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground" />
                                     </div>
                                     <ImageUpload
                                         label="Category Image"
                                         value={formData.image}
-                                        onChange={(val) => setFormData({ ...formData, image: val })}
+                                        onChange={(val) => setFormData(prev => ({ ...prev, image: val }))}
                                     />
                                     <div>
                                         <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Description</label>
-                                        <input required type="text" value={formData.description || ''} onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                        <input required type="text" value={formData.description || ''} onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
                                             className="w-full px-3 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground" />
                                     </div>
                                     <div>
@@ -1153,7 +1153,7 @@ const UserModuleManagement = () => {
                                         <ImageUpload
                                             label="Main Image"
                                             value={formData.image}
-                                            onChange={(val) => setFormData({ ...formData, image: val })}
+                                            onChange={(val) => setFormData(prev => ({ ...prev, image: val }))}
                                             placeholder={getServicePlaceholder(formData.name, categories?.find(c => String(c.id) === String(formData.category))?.name)}
                                         />
                                     ) : (
@@ -1194,7 +1194,7 @@ const UserModuleManagement = () => {
                                     <ImageUpload
                                         label="Icon (Image)"
                                         value={formData.icon}
-                                        onChange={(val) => setFormData({ ...formData, icon: val })}
+                                        onChange={(val) => setFormData(prev => ({ ...prev, icon: val }))}
                                         placeholder={getServicePlaceholder(formData.name)}
                                     />
                                     <div>
