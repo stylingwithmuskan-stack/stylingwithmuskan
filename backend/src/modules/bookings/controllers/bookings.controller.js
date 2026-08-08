@@ -1617,6 +1617,13 @@ export async function callMask(req, res) {
     // Determine who is making the call
     const userId = req.user._id.toString();
     const isCustomer = String(booking.customerId || "") === userId;
+    const isProvider = String(booking.assignedProvider || "") === userId;
+    const isAdmin = req.user.role === 'admin';
+
+    // Security Check: Block unauthorized users
+    if (!isCustomer && !isProvider && !isAdmin) {
+      return res.status(403).json({ error: "You are not authorized to initiate calls for this booking" });
+    }
 
     let fromNumber = "";
     let toNumber = "";
