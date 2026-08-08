@@ -1616,7 +1616,7 @@ export async function callMask(req, res) {
 
     // Determine who is making the call
     const userId = req.user._id.toString();
-    const isCustomer = booking.customerId === userId;
+    const isCustomer = String(booking.customerId || "") === userId;
 
     let fromNumber = "";
     let toNumber = "";
