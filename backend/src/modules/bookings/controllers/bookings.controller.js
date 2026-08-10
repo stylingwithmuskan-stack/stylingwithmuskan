@@ -1598,16 +1598,16 @@ export async function callMask(req, res) {
     let providerPhone = "";
 
     if (booking.slot?.provider?.phone) {
-        providerPhone = booking.slot.provider.phone;
+      providerPhone = booking.slot.provider.phone;
     } else if (booking.teamMembers?.[0]?.phone) {
-        providerPhone = booking.teamMembers[0].phone;
+      providerPhone = booking.teamMembers[0].phone;
     } else if (booking.assignedProvider) {
-        const providerObj = await ProviderAccount.findById(booking.assignedProvider).lean();
-        if (providerObj?.phone) {
-            providerPhone = providerObj.phone;
-        } else if (/^\d{10}$/.test(booking.assignedProvider) || /^\+\d+$/.test(booking.assignedProvider)) {
-            providerPhone = booking.assignedProvider;
-        }
+      const providerObj = await ProviderAccount.findById(booking.assignedProvider).lean();
+      if (providerObj?.phone) {
+        providerPhone = providerObj.phone;
+      } else if (/^\d{10}$/.test(booking.assignedProvider) || /^\+\d+$/.test(booking.assignedProvider)) {
+        providerPhone = booking.assignedProvider;
+      }
     }
 
     if (!customerPhone || !providerPhone) {
@@ -1661,7 +1661,7 @@ export async function callMask(req, res) {
 
     // Exotel Connect Call API
     const url = `https://api.exotel.com/v1/Accounts/${EXOTEL_ACCOUNT_SID}/Calls/connect.json`;
-    
+
     // Prepare urlencoded form body
     const details = {
       From: exotelFrom,

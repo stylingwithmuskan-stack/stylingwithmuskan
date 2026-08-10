@@ -67,6 +67,7 @@ export default function CustomerOversight() {
                     phone: u.phone,
                     status: u.status || "active",
                     codDisabled: u.codDisabled || false,
+                    walletBalance: u.wallet?.balance || 0,
                     totalBookings: 0,
                     cancelledBookings: 0,
                     paymentFailures: 0,
@@ -289,7 +290,7 @@ export default function CustomerOversight() {
                                             </div>
 
                                             {/* Advanced Stats */}
-                                            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-border/50">
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-border/50">
                                                 <div className="bg-muted/30 p-2 rounded-xl">
                                                     <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Total Bookings</p>
                                                     <p className="text-sm font-black mt-0.5">{c.totalBookings}</p>
@@ -297,6 +298,10 @@ export default function CustomerOversight() {
                                                 <div className="bg-muted/30 p-2 rounded-xl">
                                                     <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><XCircle className="h-3 w-3" /> Cancellations</p>
                                                     <p className={`text-sm font-black mt-0.5 ${c.cancelledBookings > 2 ? 'text-red-500' : ''}`}>{c.cancelledBookings}</p>
+                                                </div>
+                                                <div className="bg-muted/30 p-2 rounded-xl">
+                                                    <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><CreditCard className="h-3 w-3" /> Wallet Balance</p>
+                                                    <p className="text-sm font-black mt-0.5 text-green-600 font-bold">₹{c.walletBalance}</p>
                                                 </div>
                                                 <div className="bg-muted/30 p-2 rounded-xl">
                                                     <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1"><Star className="h-3 w-3" /> User Rating</p>
