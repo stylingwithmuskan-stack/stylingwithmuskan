@@ -716,9 +716,22 @@ const UserModuleManagement = () => {
 
     const handleOpenEdit = (item) => {
         setEditingItem(item);
+        
+        let resolvedCategory = item.category;
+        if (activeTab === "services" && item.category && categories) {
+            const foundCat = categories.find(c => 
+                String(c.id) === String(item.category) ||
+                c.name?.toLowerCase() === String(item.category).toLowerCase()
+            );
+            if (foundCat) {
+                resolvedCategory = foundCat.id;
+            }
+        }
+
         // Ensure steps and gallery are arrays, and convert includes to string for editing
         setFormData({
             ...item,
+            category: resolvedCategory,
             steps: item.steps || [],
             gallery: item.gallery || [],
             includes: Array.isArray(item.includes) ? item.includes.join(', ') : (item.includes || "")
@@ -1224,7 +1237,14 @@ const UserModuleManagement = () => {
                                         </div>
                                         <div>
                                             <label className="text-xs font-semibold text-muted-foreground uppercase mb-1.5 block">Subcategory</label>
-                                            <select required value={formData.category || ''} onChange={e => {
+                                            <select required value={(() => {
+                                                if (!formData.category) return '';
+                                                const found = categories?.find(c => 
+                                                    String(c.id) === String(formData.category) || 
+                                                    c.name?.toLowerCase() === String(formData.category).toLowerCase()
+                                                );
+                                                return found ? found.id : formData.category;
+                                            })()} onChange={e => {
                                                 const catId = e.target.value;
                                                 const selectedCat = categories.find(c => String(c.id) === String(catId));
                                                 setFormData({ 
