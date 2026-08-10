@@ -324,7 +324,7 @@ export async function listBookings(req, res) {
   }
 
   // Execute main queries in parallel
-  const [items, total, statsTotal, statsActive, statsPending, statsUnassigned, statsQueued] = await Promise.all([
+  const [items, total, statsTotal, statsActive, statsPending, statsUnassigned, statsCompleted] = await Promise.all([
     Booking.find(query)
       .select("id customerId customerName customerPhone totalAmount discountPrice slot address status serviceType bookingType createdAt assignedProvider maintainProvider maintainerProvider teamMembers notificationStatus services imagesApproved prepaidAmount balanceAmount paymentStatus eventType categoryName otp")
       .sort({ createdAt: -1 })
@@ -336,7 +336,7 @@ export async function listBookings(req, res) {
     Booking.countDocuments({ status: { $in: STATUS_GROUPS.active } }),
     Booking.countDocuments({ status: { $in: STATUS_GROUPS.pending } }),
     Booking.countDocuments({ status: { $in: ["unassigned", "incoming", "pending"] } }),
-    Booking.countDocuments({ notificationStatus: "queued" })
+    Booking.countDocuments({ status: "completed" })
   ]);
 
   // Extract stats
@@ -345,7 +345,8 @@ export async function listBookings(req, res) {
     active: statsActive || 0,
     pending: statsPending || 0,
     unassigned: statsUnassigned || 0,
-    queued: statsQueued || 0
+    queued: 0,
+    done: statsCompleted || 0
   };
 
   // Enrich with provider details (Names/Phones)
@@ -1392,61 +1393,61 @@ export async function listPayouts(req, res) {
 export async function listRecharges(req, res) {
   try {
     const { city, startDate, endDate, query: searchParam } = req.query;
-    
+
     let spQuery = {};
     if (city && city !== "All Cities") spQuery.city = city;
-    
+
     let validProviderIds = null;
     if (searchParam || Object.keys(spQuery).length > 0) {
-        if (searchParam) {
-            spQuery.$or = [
-                { name: { $regex: new RegExp(searchParam, "i") } },
-                { phone: { $regex: new RegExp(searchParam, "i") } },
-                { email: { $regex: new RegExp(searchParam, "i") } }
-            ];
-        }
-        const providers = await ProviderAccount.find(spQuery, "_id name city phone").lean();
-        validProviderIds = providers.map(p => p._id.toString());
+      if (searchParam) {
+        spQuery.$or = [
+          { name: { $regex: new RegExp(searchParam, "i") } },
+          { phone: { $regex: new RegExp(searchParam, "i") } },
+          { email: { $regex: new RegExp(searchParam, "i") } }
+        ];
+      }
+      const providers = await ProviderAccount.find(spQuery, "_id name city phone").lean();
+      validProviderIds = providers.map(p => p._id.toString());
     }
 
     const q = { type: "recharge" };
     if (validProviderIds !== null) {
-        if (validProviderIds.length === 0) {
-            return res.json({ recharges: [] });
-        }
-        q.providerId = { $in: validProviderIds };
+      if (validProviderIds.length === 0) {
+        return res.json({ recharges: [] });
+      }
+      q.providerId = { $in: validProviderIds };
     }
-    
+
     if (startDate || endDate) {
-        q.createdAt = {};
-        if (startDate) q.createdAt.$gte = new Date(startDate);
-        if (endDate) {
-            const ed = new Date(endDate);
-            ed.setHours(23, 59, 59, 999);
-            q.createdAt.$lte = ed;
-        }
+      q.createdAt = {};
+      if (startDate) q.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const ed = new Date(endDate);
+        ed.setHours(23, 59, 59, 999);
+        q.createdAt.$lte = ed;
+      }
     }
-    
+
     const txns = await ProviderWalletTxn.find(q).sort({ createdAt: -1 }).limit(100).lean();
-    
+
     const pIds = [...new Set(txns.map(t => t.providerId))];
     const sps = await ProviderAccount.find({ _id: { $in: pIds } }, "name city phone").lean();
     const spMap = sps.reduce((acc, p) => {
-        acc[p._id.toString()] = p;
-        return acc;
+      acc[p._id.toString()] = p;
+      return acc;
     }, {});
-    
+
     const enriched = txns.map(t => ({
-        id: t._id,
-        spName: spMap[t.providerId]?.name || "Unknown Provider",
-        city: spMap[t.providerId]?.city || "N/A",
-        phone: spMap[t.providerId]?.phone || "N/A",
-        amount: t.amount,
-        balanceAfter: t.balanceAfter,
-        date: t.createdAt,
-        meta: t.meta || {}
+      id: t._id,
+      spName: spMap[t.providerId]?.name || "Unknown Provider",
+      city: spMap[t.providerId]?.city || "N/A",
+      phone: spMap[t.providerId]?.phone || "N/A",
+      amount: t.amount,
+      balanceAfter: t.balanceAfter,
+      date: t.createdAt,
+      meta: t.meta || {}
     }));
-    
+
     res.json({ recharges: enriched });
   } catch (error) {
     console.error("[Admin] Fetch Wallet Recharges Error:", error);

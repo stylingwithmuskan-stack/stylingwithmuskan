@@ -203,7 +203,13 @@ export function startCron() {
         const paymentTimeoutThreshold = new Date(now.getTime() - 60 * 60 * 1000);
         const unpaidBookings = await Booking.find({
           status: "payment_pending",
-          updatedAt: { $lt: paymentTimeoutThreshold }
+          updatedAt: { $lt: paymentTimeoutThreshold },
+          // Only auto-cancel if it's the initial booking checkout (no provider assigned yet)
+          $or: [
+            { assignedProvider: { $exists: false } },
+            { assignedProvider: null },
+            { assignedProvider: "" }
+          ]
         }).limit(200);
 
         if (unpaidBookings.length > 0) {

@@ -62,7 +62,7 @@ export default function BookingManagement() {
     const [page, setPage] = useState(1);
     const [limit] = useState(20);
     const [total, setTotal] = useState(0);
-    const [stats, setStats] = useState({ total: 0, active: 0, pending: 0, unassigned: 0, queued: 0 });
+    const [stats, setStats] = useState({ total: 0, active: 0, pending: 0, unassigned: 0, done: 0 });
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusMap, setStatusMap] = useState({});
 
@@ -467,7 +467,7 @@ export default function BookingManagement() {
                         { label: "Active", val: stats.active, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
                         { label: "Pending", val: stats.pending, color: "bg-amber-50 text-amber-600 border-amber-200" },
                         { label: "Unassigned", val: stats.unassigned, color: "bg-orange-50 text-orange-600 border-orange-200" },
-                        { label: "Queued Notifs", val: stats.queued, color: "bg-yellow-50 text-yellow-600 border-yellow-200" },
+                        { label: "Bookings Done", val: stats.done || 0, color: "bg-yellow-50 text-yellow-600 border-yellow-200" },
                     ].map((s, i) => (
                         <motion.div key={s.label} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 + i * 0.05 }}
                             className={`rounded-xl p-3 border ${s.color}`}>
