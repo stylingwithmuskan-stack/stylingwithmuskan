@@ -1418,10 +1418,9 @@ export async function cancel(req, res) {
   // Calculate refund policy
   const refundPolicy = calculateRefundPolicy(booking, "customer", subscription);
 
-  // Ensure advance is non-refundable for pre-bookings
-  const items = bookingServicesToItems(booking.services);
-  const requiredAdvance = await computeAdvanceFromCategories(items, booking.bookingType);
-  const refundableBase = Math.max((booking.prepaidAmount || 0) - requiredAdvance, 0);
+  // Ensure advance is non-refundable for pre-bookings ONLY if explicitly required, but current policy is 100% refund
+  // const requiredAdvance = await computeAdvanceFromCategories(items, booking.bookingType);
+  const refundableBase = booking.prepaidAmount || 0;
 
   const refundAmount = Math.round(refundableBase * (refundPolicy.refundPercentage / 100));
   const cancellationCharge = (booking.prepaidAmount || 0) - refundAmount;
