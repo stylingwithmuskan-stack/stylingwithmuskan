@@ -1240,13 +1240,13 @@ const UserModuleManagement = () => {
                                             <select required value={(() => {
                                                 if (!formData.category) return '';
                                                 const found = categories?.find(c => 
-                                                    String(c.id) === String(formData.category) || 
+                                                    String(c.id || c._id) === String(formData.category) || 
                                                     c.name?.toLowerCase() === String(formData.category).toLowerCase()
                                                 );
-                                                return found ? found.id : formData.category;
+                                                return found ? (found.id || found._id) : formData.category;
                                             })()} onChange={e => {
                                                 const catId = e.target.value;
-                                                const selectedCat = categories.find(c => String(c.id) === String(catId));
+                                                const selectedCat = categories.find(c => String(c.id || c._id) === String(catId));
                                                 setFormData({ 
                                                     ...formData, 
                                                     category: catId,
@@ -1257,12 +1257,12 @@ const UserModuleManagement = () => {
                                                 <option value="">Select Subcategory</option>
                                                 {categories?.filter(c => 
                                                     c.gender === formData.gender || 
-                                                    String(c.id) === String(formData.category) ||
+                                                    String(c.id || c._id) === String(formData.category) ||
                                                     c.name?.toLowerCase() === String(formData.category).toLowerCase()
                                                 ).map(c => {
-                                                    const parent = serviceTypes?.find(st => st.id === c.serviceType);
+                                                    const parent = serviceTypes?.find(st => (st.id || st._id) === c.serviceType);
                                                     return (
-                                                        <option key={c.id + '-' + c.bookingType} value={c.id}>
+                                                        <option key={(c.id || c._id) + '-' + c.bookingType} value={c.id || c._id}>
                                                             {c.name} ({parent?.label || 'Unknown'}) - {c.bookingType}
                                                         </option>
                                                     );
