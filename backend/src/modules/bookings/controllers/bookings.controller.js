@@ -293,6 +293,11 @@ export async function quote(req, res) {
   // Actually, I shouldn't modify finalTotal here if frontend handles it, but wait!
   // If frontend expects finalTotal to INCLUDE convenienceFee, then yes.
   totals.finalTotal = Math.max(totals.total - totals.discount + convenienceFee, 0);
+
+  if (advanceAmount > 0) {
+    advanceAmount = Math.min(advanceAmount + convenienceFee, totals.finalTotal);
+  }
+
   res.json({
     ...totals,
     couponApplied: coupon ? coupon.code : null,
@@ -444,6 +449,10 @@ export async function create(req, res) {
   }
 
   totals.finalTotal = Math.max(totals.total - totals.discount + convenienceFee, 0);
+
+  if (advanceAmount > 0) {
+    advanceAmount = Math.min(advanceAmount + convenienceFee, totals.finalTotal);
+  }
 
   // Override customerSubscription.convenienceFee so it gets saved in Booking.create
   customerSubscription.convenienceFee = convenienceFee;

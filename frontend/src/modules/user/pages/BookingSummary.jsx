@@ -262,7 +262,7 @@ const BookingSummary = () => {
 
         // Create order for custom advance
         const orderRes = await api.payments.createOrder({
-          amount: Math.round(amt * 100),
+          amount: Math.round((amt + convenienceFee) * 100),
           currency: "INR",
           purpose: "custom_advance",
           enquiryId: customAdvanceData.enquiryId
