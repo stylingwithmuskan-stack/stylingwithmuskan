@@ -20,6 +20,7 @@ import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext
 import { useCart } from "@/modules/user/contexts/CartContext";
 import { useAuth } from "@/modules/user/contexts/AuthContext";
 import { useBookingChat } from "@/modules/user/contexts/BookingChatContext";
+import { api } from "@/modules/user/lib/api";
 
 const BookingsPage = () => {
     const navigate = useNavigate();
@@ -54,16 +55,24 @@ const BookingsPage = () => {
     const location = useLocation();
 
     const handleMakeCall = async (booking) => {
+        console.log("handleMakeCall triggered with booking:", booking);
         if (!booking) return;
         const bookingId = booking.id || booking._id;
+        console.log("Extracted bookingId:", bookingId);
         if (!bookingId) return;
 
         toast.promise(
             api.bookings.callMask(bookingId),
             {
                 loading: 'Connecting call via Exotel...',
-                success: (data) => data.message || 'Call initiated! Exotel will call you shortly.',
-                error: (err) => err?.message || 'Failed to connect call via Exotel.'
+                success: (data) => {
+                    console.log("Call mask success:", data);
+                    return data.message || 'Call initiated! Exotel will call you shortly.';
+                },
+                error: (err) => {
+                    console.error("Call mask error:", err);
+                    return err?.message || 'Failed to connect call via Exotel.';
+                }
             }
         );
     };
@@ -823,6 +832,7 @@ const BookingsPage = () => {
                             isOpen={!!detailsBooking}
                             onClose={() => setDetailsBooking(null)}
                             enquiry={detailsBooking}
+                            onCall={() => handleMakeCall(detailsBooking)}
                         />
                     ) : (
                         <BookingDetailsModal

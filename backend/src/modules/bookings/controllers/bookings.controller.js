@@ -1598,8 +1598,17 @@ export async function callMask(req, res) {
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "Invalid booking ID" });
 
-    const booking = await Booking.findById(id).lean();
-    if (!booking) return res.status(404).json({ error: "Booking not found" });
+    let booking = await Booking.findById(id).lean();
+    if (!booking) {
+      booking = await CustomEnquiry.findById(id).lean();
+      if (booking) {
+        // Map CustomEnquiry fields to Booking fields for consistency
+        booking.customerId = booking.userId;
+        booking.customerPhone = booking.phone;
+      } else {
+        return res.status(404).json({ error: "Booking/Enquiry not found" });
+      }
+    }
 
     // Extract numbers
     const customerPhone = booking.customerPhone || booking.phone;
@@ -1609,12 +1618,13 @@ export async function callMask(req, res) {
       providerPhone = booking.slot.provider.phone;
     } else if (booking.teamMembers?.[0]?.phone) {
       providerPhone = booking.teamMembers[0].phone;
-    } else if (booking.assignedProvider) {
-      const providerObj = await ProviderAccount.findById(booking.assignedProvider).lean();
+    } else if (booking.assignedProvider || booking.maintainProvider || booking.maintainerProvider) {
+      const pId = booking.assignedProvider || booking.maintainProvider || booking.maintainerProvider;
+      const providerObj = await ProviderAccount.findById(pId).lean();
       if (providerObj?.phone) {
         providerPhone = providerObj.phone;
-      } else if (/^\d{10}$/.test(booking.assignedProvider) || /^\+\d+$/.test(booking.assignedProvider)) {
-        providerPhone = booking.assignedProvider;
+      } else if (/^\d{10}$/.test(pId) || /^\+\d+$/.test(pId)) {
+        providerPhone = pId;
       }
     }
 
@@ -1625,7 +1635,16 @@ export async function callMask(req, res) {
     // Determine who is making the call
     const userId = req.user._id.toString();
     const isCustomer = String(booking.customerId || "") === userId;
-    const isProvider = String(booking.assignedProvider || "") === userId;
+    
+    // Check if the current user is any of the assigned providers (for both normal and custom bookings)
+    const providerIds = [
+      booking.assignedProvider,
+      booking.maintainProvider,
+      booking.maintainerProvider,
+      ...(booking.teamMembers?.map(m => m.id) || [])
+    ].map(id => String(id || ""));
+    const isProvider = providerIds.includes(userId);
+    
     const isAdmin = req.user.role === 'admin';
 
     // Security Check: Block unauthorized users

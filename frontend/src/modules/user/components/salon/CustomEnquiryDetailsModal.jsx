@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useUserModuleData } from "@/modules/user/contexts/UserModuleDataContext";
 
-const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry }) => {
+const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry, onCall }) => {
     const { services: globalServices, providers } = useUserModuleData();
 
     if (!isOpen || !enquiry) return null;
@@ -272,22 +272,27 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry }) => {
                 <div className="p-6 border-t border-border bg-muted/30 flex gap-3">
                     {["team_pending", "team_review", "final"].includes(enquiry.displayPhase) && (
                         <button
-                            onClick={() => {
-                                let providerPhone = "";
-                                if (enquiry.slot?.provider?.phone) {
-                                    providerPhone = enquiry.slot.provider.phone;
-                                } else if (enquiry.teamMembers?.[0]?.phone) {
-                                    providerPhone = enquiry.teamMembers[0].phone;
-                                } else if (enquiry.assignedProvider) {
-                                    const found = providers?.find(p => p.id === enquiry.assignedProvider || p.phone === enquiry.assignedProvider || p._id === enquiry.assignedProvider);
-                                    if (found?.phone) {
-                                        providerPhone = found.phone;
-                                    } else if (/^\d{10}$/.test(enquiry.assignedProvider) || /^\+\d+$/.test(enquiry.assignedProvider)) {
-                                        providerPhone = enquiry.assignedProvider;
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onCall) {
+                                    onCall();
+                                } else {
+                                    let providerPhone = "";
+                                    if (enquiry.slot?.provider?.phone) {
+                                        providerPhone = enquiry.slot.provider.phone;
+                                    } else if (enquiry.teamMembers?.[0]?.phone) {
+                                        providerPhone = enquiry.teamMembers[0].phone;
+                                    } else if (enquiry.assignedProvider) {
+                                        const found = providers?.find(p => p.id === enquiry.assignedProvider || p.phone === enquiry.assignedProvider || p._id === enquiry.assignedProvider);
+                                        if (found?.phone) {
+                                            providerPhone = found.phone;
+                                        } else if (/^\d{10}$/.test(enquiry.assignedProvider) || /^\+\d+$/.test(enquiry.assignedProvider)) {
+                                            providerPhone = enquiry.assignedProvider;
+                                        }
                                     }
+                                    const finalPhone = providerPhone || "8349764176";
+                                    window.location.href = `tel:${finalPhone}`;
                                 }
-                                const finalPhone = providerPhone || "8349764176";
-                                window.location.href = `tel:${finalPhone}`;
                             }}
                             className="flex-1 py-3 border border-primary/20 bg-primary/5 text-primary rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary/10 transition-colors"
                         >
