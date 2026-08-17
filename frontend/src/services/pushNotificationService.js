@@ -203,6 +203,7 @@ export async function unregisterPush(authToken, role = "user") {
     });
 
     localStorage.removeItem(FCM_TOKEN_STORAGE);
+    localStorage.removeItem(DEVICE_KEY_STORAGE);
     console.log("[Push] Token unregistered for deviceKey:", deviceKey);
   } catch (err) {
     console.error("[Push] unregisterPush error:", err);
