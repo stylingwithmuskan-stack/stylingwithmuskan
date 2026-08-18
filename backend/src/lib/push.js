@@ -335,7 +335,7 @@ export async function sendPushForNotification(notification) {
         ).catch((err) => console.error(`[push] Failed to send VoIP to ${d._id}`, err));
         voipSentCount++;
       } else if (d.fcmToken) {
-        // Fallback to FCM only if no voip token is available
+        // FCM only for iOS foreground (no voipToken = foreground device)
         iosTokens.push(d.fcmToken);
       }
     } else {

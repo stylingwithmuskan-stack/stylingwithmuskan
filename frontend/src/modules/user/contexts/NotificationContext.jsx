@@ -295,9 +295,8 @@ export const NotificationProvider = ({ children, role }) => {
                     }
                 }
 
-                if (payload.notification?.sound || payload.sound) {
-                    playNotificationSound(payload.notification?.sound || payload.sound);
-                }
+                const soundToPlay = payload.notification?.sound || payload.sound || "notification";
+                playNotificationSound(soundToPlay);
             } else {
                 console.warn("[NotificationContext] ❌ Ignored: Role or ID Mismatch", { targetRole, activeRole, targetId, myId, type });
             }
