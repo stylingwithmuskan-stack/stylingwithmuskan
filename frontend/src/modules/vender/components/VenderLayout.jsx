@@ -126,13 +126,13 @@ const VenderLayout = () => {
                                         className={cn(
                                             "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200",
                                             active
-                                                ? "bg-emerald-800/60 text-white shadow-sm ring-1 ring-emerald-700/30"
-                                                : "text-emerald-100/70 hover:text-white hover:bg-emerald-800/30"
+                                                ? "bg-emerald-700/80 text-white shadow-sm ring-1 ring-emerald-700/30"
+                                                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-black/5"
                                         )}
                                     >
                                         <div className={cn(
                                             "h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
-                                            active ? "bg-emerald-500 text-white shadow-md" : "bg-black/20 text-emerald-200/70"
+                                            active ? "bg-emerald-500 text-white shadow-md" : "bg-black/5 text-sidebar-foreground/50"
                                         )}>
                                             <Icon className="h-4 w-4" />
                                         </div>
@@ -150,9 +150,9 @@ const VenderLayout = () => {
                         whileHover={{ x: 4 }}
                         whileTap={{ scale: 0.97 }}
                         onClick={handleLogout}
-                        className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-emerald-100/70 hover:text-white hover:bg-emerald-800/30 transition-all"
+                        className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-black/5 transition-all"
                     >
-                        <div className="h-8 w-8 rounded-lg bg-black/20 text-emerald-200/70 flex items-center justify-center">
+                        <div className="h-8 w-8 rounded-lg bg-black/5 text-sidebar-foreground/50 flex items-center justify-center">
                             <LogOut className="h-4 w-4" />
                         </div>
                         Logout
@@ -161,9 +161,9 @@ const VenderLayout = () => {
                         whileHover={{ x: 4 }}
                         whileTap={{ scale: 0.97 }}
                         onClick={handleDeleteAccount}
-                        className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                        className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-red-600/70 hover:text-red-600 hover:bg-red-50 transition-all"
                     >
-                        <div className="h-8 w-8 rounded-lg bg-red-500/10 text-red-400/70 flex items-center justify-center">
+                        <div className="h-8 w-8 rounded-lg bg-red-50 text-red-500/70 flex items-center justify-center">
                             <X className="h-4 w-4" />
                         </div>
                         Delete Account

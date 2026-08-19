@@ -127,6 +127,7 @@ export default function VenderBookings() {
                 prebookAmount: e.quote?.prebookAmount || 0,
                 totalServiceTime: e.quote?.totalServiceTime || "",
                 paymentStatus: e.paymentStatus || "",
+                otp: e.otp || "",
                 teamMembers: e.teamMembers || [],
                 maintainProvider: e.maintainerProvider || "",
                 assignedProvider: e.assignedProvider || e.maintainerProvider || "",
@@ -1454,6 +1455,10 @@ export default function VenderBookings() {
                                             <div className="border-t border-border/50 pt-2 mt-2 space-y-1">
                                                 <div className="flex justify-between"><span className="text-xs font-bold text-muted-foreground">Total Amount</span><span className="text-xs font-black">₹{detailModal.totalAmount?.toLocaleString()}</span></div>
                                                 {detailModal.discount > 0 && <div className="flex justify-between"><span className="text-xs font-bold text-green-600">Discount</span><span className="text-xs font-black text-green-600">-₹{detailModal.discount?.toLocaleString()}</span></div>}
+                                                <div className="flex justify-between">
+                                                    <span className="text-xs font-bold text-red-600">Commission Deducted</span>
+                                                    <span className="text-xs font-black text-red-600">-₹{(detailModal.commissionAmount || 0).toLocaleString()}</span>
+                                                </div>
                                                 <div className="flex justify-between"><span className="text-sm font-black text-primary">Payable</span><span className="text-sm font-black text-primary">₹{((detailModal.totalAmount || 0) - (detailModal.discount || 0)).toLocaleString()}</span></div>
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-xs font-bold text-muted-foreground">Payment</span>

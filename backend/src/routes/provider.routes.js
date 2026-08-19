@@ -5,6 +5,7 @@ import ProviderAccount from "../models/ProviderAccount.js";
 import PushDevice from "../models/PushDevice.js";
 import Booking from "../models/Booking.js";
 import User from "../models/User.js";
+import CustomEnquiry from "../models/CustomEnquiry.js";
 import ProviderWalletTxn from "../models/ProviderWalletTxn.js";
 import { redis } from "../startup/redis.js";
 import { upload } from "../middleware/upload.js";
@@ -2115,10 +2116,20 @@ router.patch(
 );
 
 router.post("/bookings/:id/verify-otp", requireRole("provider"), param("id").isString(), body("otp").isString(), async (req, res) => {
-  const b = await Booking.findById(req.params.id);
+  let b = await Booking.findById(req.params.id);
+  if (!b) {
+    b = await CustomEnquiry.findById(req.params.id);
+  }
+  
   if (!b || b.otp !== req.body.otp) return res.status(403).json({ error: "Invalid OTP" });
   if (String(b.assignedProvider || "") !== String(req.auth?.sub || "")) return res.status(403).json({ error: "Forbidden" });
-  b.status = "in_progress";
+  
+  if (b.status === "service_confirmed" || b.status === "arrived") {
+    b.status = "in_progress";
+  } else {
+    b.status = "in_progress";
+  }
+  
   await b.save();
   await BookingLog.create({ action: "booking:verify-otp", userId: req.auth?.sub || "", bookingId: req.params.id, meta: {} });
   try {

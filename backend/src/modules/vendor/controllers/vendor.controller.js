@@ -1414,7 +1414,11 @@ export async function assignTeamCustomEnquiry(req, res) {
 
   const commissionSettings = await CommissionSettings.findOne().lean();
   const rate = Number(commissionSettings?.rate || 20);
-  const totalAmount = Number(enq.quote?.totalAmount || 0);
+  
+  const items = (enq.quote?.items?.length > 0 ? enq.quote.items : (enq.items?.length > 0 ? enq.items : []));
+  const calcTotal = (enq.quote?.totalAmount || items.reduce((s, it) => s + (Number(it.price) * (it.quantity || 1)), 0));
+  
+  const totalAmount = Number(calcTotal);
   const discountAmount = Number(enq.quote?.discountPrice || 0);
   const fundedBy = String(enq.quote?.discountFundedBy || "admin").toLowerCase();
 
@@ -1472,6 +1476,7 @@ export async function assignTeamCustomEnquiry(req, res) {
     booking = await Booking.create({
       customerId: enq.userId,
       customerName: enq.name || "",
+      customerPhone: enq.phone || "",
       services: items.map(it => ({ name: it.name, price: it.price, duration: "", category: it.category, serviceType: it.serviceType })),
       totalAmount,
       prepaidAmount: Number(enq.prebookAmountPaid || 0),
@@ -1488,6 +1493,7 @@ export async function assignTeamCustomEnquiry(req, res) {
       slot: { date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10), time: enq.scheduledAt?.timeSlot || "10:00" },
       bookingType: "customized",
       status: "vendor_assigned",
+      otp: enq.otp || (Math.floor(100000 + Math.random() * 900000)).toString(),
       lastAssignedAt: new Date(),
       expiresAt: null, // Manual vendor assignment should not expire automatically
       notificationStatus: (await withinNotificationWindow()) ? "immediate" : "queued",

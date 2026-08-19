@@ -1055,6 +1055,7 @@ export async function createCustomEnquiry(req, res) {
     },
     status: "enquiry_created",
     paymentStatus: "pending",
+    otp: (Math.floor(100000 + Math.random() * 900000)).toString(),
     timeline: [{ action: "enquiry_created" }],
   });
   try {
@@ -1361,6 +1362,7 @@ export async function adminFinalApprove(req, res) {
         },
         bookingType: "customized",
         status: "pending",
+        otp: enq.otp || (Math.floor(100000 + Math.random() * 900000)).toString(),
         assignedProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
         maintainProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
         teamMembers: Array.isArray(req.body?.teamMembers) ? req.body.teamMembers : (Array.isArray(enq.teamMembers) ? enq.teamMembers : []),

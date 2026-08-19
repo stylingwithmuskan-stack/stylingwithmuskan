@@ -39,6 +39,7 @@ const CustomEnquirySchema = new mongoose.Schema(
     prebookPaidAt: { type: Date, default: null },
     prebookAmountPaid: { type: Number, default: 0 },
     bookingId: { type: String, default: "" },
+    otp: String,
     maintainerProvider: String,
     assignedProvider: { type: String, default: "" },
     providerAssignedAt: { type: Date, default: null },

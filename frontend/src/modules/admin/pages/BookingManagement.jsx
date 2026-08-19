@@ -1332,6 +1332,10 @@ export default function BookingManagement() {
                                                         <span className="font-bold">+₹{(detailModal.convenienceFee || 0).toLocaleString()}</span>
                                                     </div>
                                                 )}
+                                                <div className="flex justify-between text-xs text-red-600">
+                                                    <span className="font-bold">Commission Deducted</span>
+                                                    <span className="font-bold">-₹{(detailModal.commissionAmount || 0).toLocaleString()}</span>
+                                                </div>
                                                 {detailModal.walletAmountUsed > 0 && (
                                                     <div className="flex justify-between text-xs text-purple-600">
                                                         <span className="font-bold">Wallet Used</span>
