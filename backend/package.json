@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npx kill-port 5000 && nodemon src/server.js",
-    "start": "NODE_ENV=production node --max-old-space-size=4096 src/server.js",
+    "dev": "npx kill-port 5000 && nodemon --exec \"node --openssl-legacy-provider\" src/server.js",
+    "start": "NODE_ENV=production node --openssl-legacy-provider --max-old-space-size=4096 src/server.js",
     "lint": "echo \"No linter configured for backend\"",
     "smoke": "node scripts/smoke.mjs",
     "seed:booking-flow": "node scripts/seed-booking-flow.mjs",
