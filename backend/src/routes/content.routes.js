@@ -160,7 +160,7 @@ router.get("/init", injectUser, async (req, res) => {
     // Handle like status for spotlights if user is authenticated
     const userId = req.auth?.sub || req.user?._id;
     console.log(`[Init] App initialization. UserID: ${userId || 'guest'}`);
-    
+
     const spotlights = userId ? spotlightsData.map(spotlight => ({
       ...spotlight,
       isLikedByUser: spotlight.likedBy?.some(id => id.toString() === userId.toString()) || false
@@ -426,7 +426,7 @@ router.post("/spotlights/:id/like", flexibleAuth, async (req, res) => {
   try {
     const userId = req.auth?.sub || req.user?._id;
     console.log(`[Spotlight Like] Attempt by ${userId} (Source: ${req.auth?.sub ? 'auth.sub' : 'user._id'}) for spotlight ${req.params.id}`);
-    
+
     if (!userId) {
       console.warn(`[Spotlight Like] Unauthorized: No userId found in request.`);
       return res.status(401).json({ error: "Unauthorized" });

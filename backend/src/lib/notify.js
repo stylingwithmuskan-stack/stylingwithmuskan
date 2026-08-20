@@ -119,7 +119,7 @@ async function enrichMeta(meta = {}) {
         if (!safe.time && booking.slot?.time) safe.time = booking.slot.time;
         if (!safe.date && booking.slot?.date) safe.date = booking.slot.date;
       }
-    } catch {}
+    } catch { }
   }
   if (!safe.serviceName && safe.enquiryId) {
     try {
@@ -136,7 +136,7 @@ async function enrichMeta(meta = {}) {
         if (!safe.time && enquiry.scheduledAt?.timeSlot) safe.time = enquiry.scheduledAt.timeSlot;
         if (!safe.date && enquiry.scheduledAt?.date) safe.date = enquiry.scheduledAt.date;
       }
-    } catch {}
+    } catch { }
   }
   return safe;
 }
@@ -248,7 +248,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
       return {
         title: "New Order",
         message: `${aBooking}${cityText} needs attention${reasonHuman ? `: ${reasonHuman}` : "."}`,
-        sound: "emergency",
+        sound: "ringtone",
       };
     case "payment_required":
       return {
@@ -434,7 +434,7 @@ async function isWithinProviderWindow() {
   try {
     const office = await OfficeSettings.findOne().lean();
     const bookingSettings = await BookingSettings.findOne().lean();
-    const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
     return withinWindow(
       now,
       bookingSettings?.providerNotificationStartTime || office?.startTime || "07:00",

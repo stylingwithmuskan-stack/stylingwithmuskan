@@ -9,7 +9,9 @@ import {
   Settings,
   Bell,
   CalendarRange,
-  ShieldAlert
+  ShieldAlert,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import { cn } from "@/modules/user/lib/utils";
 import { useProviderAuth } from "../contexts/ProviderAuthContext";
@@ -23,7 +25,7 @@ import { api } from "@/modules/user/lib/api";
 const ProviderLayout = () => {
   const location = useLocation();
   const { provider, isLoggedIn, hydrated } = useProviderAuth();
-  const { unreadCount } = useNotifications();
+  const { unreadCount, audioUnlocked, unlockAudio, playNotificationSound, stopActiveSound } = useNotifications();
   const [isNotifOpen, setIsNotifOpen] = React.useState(false);
 
   // Scroll to top on every route change
@@ -139,7 +141,28 @@ const ProviderLayout = () => {
             </Link>
 
             {/* Right side icons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Sound status & unlock button */}
+              <button
+                  onClick={() => {
+                      if (!audioUnlocked) {
+                          unlockAudio();
+                      }
+                      playNotificationSound("ringtone");
+                      setTimeout(() => {
+                          stopActiveSound();
+                      }, 2000);
+                  }}
+                  className={cn(
+                      "p-2 rounded-full transition-all active:scale-90 flex items-center justify-center",
+                      audioUnlocked 
+                          ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" 
+                          : "bg-amber-50 text-amber-600 hover:bg-amber-100 animate-pulse"
+                  )}
+                  title={audioUnlocked ? "Sound active (Click to test)" : "Sound blocked by browser (Click to enable & test)"}
+              >
+                  {audioUnlocked ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+              </button>
               <button
                 onClick={() => {
                   if (window.confirm("EMERGENCY: Do you want to trigger SOS alert?")) {

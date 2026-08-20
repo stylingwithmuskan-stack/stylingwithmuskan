@@ -128,7 +128,7 @@ router.post(
 
       // Check if feedback already exists
       let feedback = await Feedback.findOne({ bookingId: req.params.id });
-      
+
       if (feedback) {
         // Update existing feedback
         feedback.rating = req.body.rating;

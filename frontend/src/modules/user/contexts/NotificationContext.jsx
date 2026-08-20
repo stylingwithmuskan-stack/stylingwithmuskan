@@ -6,7 +6,7 @@ import { ProviderAuthContext } from "@/modules/serviceprovider/contexts/Provider
 import { VenderAuthContext } from "@/modules/vender/contexts/VenderAuthContext";
 import { AdminAuthContext } from "@/modules/admin/contexts/AdminAuthContext";
 import { AuthContext } from "@/modules/user/contexts/AuthContext";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { setupForegroundHandler, initPushNotifications } from "@/services/pushNotificationService";
 import { playFlutterSound, isFlutterWebView } from "@/utils/flutterBridge";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ export const NotificationProvider = ({ children, role }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
     const location = useLocation();
+    const navigate = useNavigate();
 
     const providerContext = useContext(ProviderAuthContext);
     const vendorContext = useContext(VenderAuthContext);
@@ -81,6 +82,7 @@ export const NotificationProvider = ({ children, role }) => {
     const [userInteracted, setUserInteracted] = useState(false);
     const lastSoundPlayedRef = useRef(0);
     const audioRef = useRef(null);
+    const audioObjectsRef = useRef({});
 
     const currentUserId = activeRole === "provider"
         ? (provider?._id || provider?.id)
@@ -91,40 +93,51 @@ export const NotificationProvider = ({ children, role }) => {
                 : (user?._id || user?.id);
 
     // Audio context "warm up" to bypass browser autoplay policies
-    useEffect(() => {
-        const unlockAudio = () => {
-            try {
-                // Play a tiny silent audio snippet to unlock browser audio engine
-                const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
-                silentAudio.volume = 0.01;
-                const promise = silentAudio.play();
+    const unlockAudio = useCallback(() => {
+        if (userInteracted) return;
+        try {
+            console.log("[NotificationContext] 🔊 User interacted. Warming up audio elements...");
+            // Warm up each sound by playing it at nearly silent volume and pausing immediately
+            Object.entries(SOUND_FILES).forEach(([key, path]) => {
+                const audio = new Audio(path);
+                audio.volume = 0.001; // nearly silent
+                const promise = audio.play();
                 if (promise !== undefined) {
                     promise.then(() => {
-                        console.log("[NotificationContext] 🎉 Audio engine unlocked!");
+                        audio.pause();
+                        audio.currentTime = 0;
+                        audio.volume = 1.0; // restore full volume
+                        audioObjectsRef.current[key] = audio;
+                        console.log(`[NotificationContext] Pre-unlocked audio: ${key}`);
                     }).catch(err => {
-                        console.log("[NotificationContext] Audio unlock failed:", err);
+                        console.log(`[NotificationContext] Audio pre-unlock blocked for ${key}:`, err);
                     });
                 }
-            } catch (e) {
-                console.log("[NotificationContext] Audio unlock error:", e);
-            }
-            
+            });
             setUserInteracted(true);
-            window.removeEventListener("click", unlockAudio);
-            window.removeEventListener("touchstart", unlockAudio);
-            window.removeEventListener("keydown", unlockAudio);
+        } catch (e) {
+            console.log("[NotificationContext] Audio unlock error:", e);
+        }
+    }, [userInteracted]);
+
+    useEffect(() => {
+        const handleInteraction = () => {
+            unlockAudio();
+            window.removeEventListener("click", handleInteraction);
+            window.removeEventListener("touchstart", handleInteraction);
+            window.removeEventListener("keydown", handleInteraction);
         };
 
-        window.addEventListener("click", unlockAudio);
-        window.addEventListener("touchstart", unlockAudio);
-        window.addEventListener("keydown", unlockAudio);
+        window.addEventListener("click", handleInteraction);
+        window.addEventListener("touchstart", handleInteraction);
+        window.addEventListener("keydown", handleInteraction);
 
         return () => {
-            window.removeEventListener("click", unlockAudio);
-            window.removeEventListener("touchstart", unlockAudio);
-            window.removeEventListener("keydown", unlockAudio);
+            window.removeEventListener("click", handleInteraction);
+            window.removeEventListener("touchstart", handleInteraction);
+            window.removeEventListener("keydown", handleInteraction);
         };
-    }, []);
+    }, [unlockAudio]);
 
     /** Stop any currently active looping sound (ringtone/emergency) */
     const stopActiveSound = useCallback(() => {
@@ -164,8 +177,15 @@ export const NotificationProvider = ({ children, role }) => {
 
             // Fallback to HTML Audio
             stopActiveSound();
-            const audioPath = SOUND_FILES[soundKey] || SOUND_FILES.notification;
-            const audio = new Audio(audioPath);
+            
+            let audio = audioObjectsRef.current[soundKey];
+            if (!audio) {
+                console.log(`[NotificationContext] Pre-unlocked audio for ${soundKey} not found. Creating new Audio instance.`);
+                const audioPath = SOUND_FILES[soundKey] || SOUND_FILES.notification;
+                audio = new Audio(audioPath);
+            } else {
+                audio.currentTime = 0;
+            }
 
             audioRef.current = audio;
             if (soundKey === "ringtone" || soundKey === "emergency") {
@@ -388,6 +408,9 @@ export const NotificationProvider = ({ children, role }) => {
             deleteAllNotifications,
             deleteMultipleNotifications,
             stopActiveSound,
+            playNotificationSound,
+            audioUnlocked: userInteracted,
+            unlockAudio,
         }}>
             {children}
         </NotificationContext.Provider>

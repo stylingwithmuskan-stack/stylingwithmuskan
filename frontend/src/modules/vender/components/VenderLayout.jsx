@@ -16,7 +16,9 @@ import {
     Store,
     MessageSquare,
     CreditCard,
-    MapPin
+    MapPin,
+    Volume2,
+    VolumeX
 } from "lucide-react";
 import { cn } from "@/modules/user/lib/utils";
 import { useVenderAuth } from "@/modules/vender/contexts/VenderAuthContext";
@@ -27,7 +29,7 @@ const VenderLayout = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { vendor, logout, deleteAccount, hydrated, isLoggedIn } = useVenderAuth();
-    const { unreadCount } = useNotifications();
+    const { unreadCount, audioUnlocked, unlockAudio, playNotificationSound, stopActiveSound } = useNotifications();
     const [sidebarOpen, setSidebarOpen] = React.useState(false);
     const [isNotifOpen, setIsNotifOpen] = React.useState(false);
 
@@ -268,6 +270,30 @@ const VenderLayout = () => {
                             </div>
                         </div>
                         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                            {/* Sound status & unlock button */}
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => {
+                                    if (!audioUnlocked) {
+                                        unlockAudio();
+                                    }
+                                    playNotificationSound("ringtone");
+                                    setTimeout(() => {
+                                        stopActiveSound();
+                                    }, 2000);
+                                }}
+                                className={cn(
+                                    "p-2 sm:p-2.5 rounded-xl transition-all active:scale-90 border flex items-center justify-center",
+                                    audioUnlocked 
+                                        ? "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100" 
+                                        : "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100 animate-pulse"
+                                )}
+                                title={audioUnlocked ? "Sound active (Click to test)" : "Sound blocked by browser (Click to enable & test)"}
+                            >
+                                {audioUnlocked ? <Volume2 className="h-4.5 w-4.5 sm:h-5 sm:w-5" /> : <VolumeX className="h-4.5 w-4.5 sm:h-5 sm:w-5" />}
+                            </motion.button>
+
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
