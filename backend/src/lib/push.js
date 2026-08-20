@@ -1,5 +1,6 @@
 import admin from "firebase-admin";
-import apn from "apn";
+import apnLib from "apn";
+const apn = apnLib.default || apnLib;
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
