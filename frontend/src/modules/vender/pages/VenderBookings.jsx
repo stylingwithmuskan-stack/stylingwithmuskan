@@ -1308,8 +1308,8 @@ export default function VenderBookings() {
                                                 key={p._id}
                                                 onClick={() => setEscalatedSelectedProvider(p._id)}
                                                 className={`w-full p-3 rounded-xl text-left border-2 transition-all ${escalatedSelectedProvider === p._id
-                                                        ? "border-emerald-600 bg-emerald-50"
-                                                        : "border-border bg-muted/20 hover:border-emerald-300"
+                                                    ? "border-emerald-600 bg-emerald-50"
+                                                    : "border-border bg-muted/20 hover:border-emerald-300"
                                                     }`}
                                             >
                                                 <div className="flex items-center justify-between">
@@ -1428,7 +1428,7 @@ export default function VenderBookings() {
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-xs font-bold text-muted-foreground">Booked On</span>
                                                     <span className="text-xs font-black">
-                                                        {new Date(detailModal.createdAt).toLocaleString('en-IN', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}
+                                                        {new Date(detailModal.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                 </div>
                                             )}

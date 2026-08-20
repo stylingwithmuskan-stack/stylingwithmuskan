@@ -1021,8 +1021,8 @@ export async function assignBooking(req, res) {
   }
 
   // Calculate and deduct commission from provider's wallet
-  const commissionSettings = await CommissionSettings.findOne().lean();
-  const rate = Number(commissionSettings?.rate || 20);
+  const { getProviderCommissionRate } = await import("../../../lib/subscriptions.js");
+  const rate = await getProviderCommissionRate(providerId);
   const totalAmount = Number(existing.totalAmount || 0);
   const discountAmount = Number(existing.discount || 0);
   const fundedBy = String(existing.discountFundedBy || "admin").toLowerCase();
@@ -1047,18 +1047,16 @@ export async function assignBooking(req, res) {
     await refundProviderCommissionIfNeeded(existing, previousProviderId, "vendor_reassignment");
   }
 
-  // Recalculate 'required' after refund because refundProviderCommissionIfNeeded might have cleared existing.commissionAmount
-  // Actually, we already calculated 'required' above (lines 984-994).
-  // If commission was refunded, existing.commissionChargedAt is now null, so the next block will charge the new provider.
-
   // Check if commission not already charged (or just refunded)
-  if (!existing.commissionChargedAt && required > 0) {
-    const hasBalance = Number(provider.credits || 0) >= required;
-    if (hasBalance) {
+  if (!existing.commissionChargedAt || previousProviderId !== providerId) {
+    if (required > 0) {
+      const hasBalance = Number(provider.credits || 0) >= required;
+      if (!hasBalance) {
+        return res.status(409).json({ error: "Insufficient wallet balance to assign this booking." });
+      }
       provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
       await provider.save();
-      existing.commissionAmount = required;
-      existing.commissionChargedAt = new Date();
+      
       await ProviderWalletTxn.create({
         providerId: provider._id.toString(),
         bookingId: existing._id.toString(),
@@ -1076,10 +1074,14 @@ export async function assignBooking(req, res) {
           respectProviderQuietHours: true,
         });
       } catch { }
-    } else {
-      return res.status(409).json({ error: "Insufficient wallet balance to assign this booking." });
     }
+    
+    // Always save commissionAmount
+    existing.commissionAmount = required;
+    if (required > 0) existing.commissionChargedAt = new Date();
+    else existing.commissionChargedAt = null;
   }
+
 
   existing.assignedProvider = providerId;
   existing.status = "accepted";
@@ -1412,8 +1414,8 @@ export async function assignTeamCustomEnquiry(req, res) {
   enq.assignedProvider = enq.maintainerProvider;
   enq.teamMembers = cleaned;
 
-  const commissionSettings = await CommissionSettings.findOne().lean();
-  const rate = Number(commissionSettings?.rate || 20);
+  const { getProviderCommissionRate } = await import("../../../lib/subscriptions.js");
+  const rate = await getProviderCommissionRate(provider._id.toString());
   
   const items = (enq.quote?.items?.length > 0 ? enq.quote.items : (enq.items?.length > 0 ? enq.items : []));
   const calcTotal = (enq.quote?.totalAmount || items.reduce((s, it) => s + (Number(it.price) * (it.quantity || 1)), 0));
@@ -1445,15 +1447,16 @@ export async function assignTeamCustomEnquiry(req, res) {
     }
   }
 
-  if (required > 0 && Number(provider.credits || 0) < required) {
-    return res.status(409).json({
-      error: "Selected service provider does not have sufficient wallet balance to cover the platform commission.",
-      code: "INSUFFICIENT_WALLET",
-      required,
-      available: Number(provider.credits || 0),
-    });
-  }
   if (required > 0) {
+    if (Number(provider.credits || 0) < required) {
+      return res.status(409).json({
+        error: "Selected service provider does not have sufficient wallet balance to cover the platform commission.",
+        code: "INSUFFICIENT_WALLET",
+        required,
+        available: Number(provider.credits || 0),
+      });
+    }
+    
     provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
     await provider.save();
     await ProviderWalletTxn.create({

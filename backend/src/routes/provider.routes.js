@@ -1753,30 +1753,31 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         available: Number(acc.credits || 0),
       });
     }
-    if (!b.commissionChargedAt && (required > 0 || (required === 0 && b.discount > 0))) {
+    if (!b.commissionChargedAt) {
       if (required > 0) {
         acc.credits = Math.max(Number(acc.credits || 0) - required, 0);
         await acc.save();
+        await ProviderWalletTxn.create({
+          providerId: pId,
+          bookingId: b._id.toString(),
+          type: "commission_hold",
+          amount: -required,
+          balanceAfter: acc.credits,
+          meta: { rate, totalAmount },
+        });
+        try {
+          await notify({
+            recipientId: pId,
+            recipientRole: "provider",
+            type: "commission_hold",
+            meta: { bookingId: b._id.toString(), amount: required },
+            respectProviderQuietHours: true,
+          });
+        } catch { }
       }
       b.commissionAmount = required;
-      b.commissionChargedAt = new Date();
-      await ProviderWalletTxn.create({
-        providerId: pId,
-        bookingId: b._id.toString(),
-        type: "commission_hold",
-        amount: -required,
-        balanceAfter: acc.credits,
-        meta: { rate, totalAmount },
-      });
-      try {
-        await notify({
-          recipientId: pId,
-          recipientRole: "provider",
-          type: "commission_hold",
-          meta: { bookingId: b._id.toString(), amount: required },
-          respectProviderQuietHours: true,
-        });
-      } catch { }
+      if (required > 0) b.commissionChargedAt = new Date();
+      else b.commissionChargedAt = null;
     }
     try {
       const settings = await BookingSettings.findOne().lean();

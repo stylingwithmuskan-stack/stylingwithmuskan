@@ -586,9 +586,9 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
 
     const previousProviderId = String(existing.assignedProvider || "").trim();
 
-    // 2. Commission handling logic (aligned with vendor.controller.js)
-    const commissionSettings = await CommissionSettings.findOne().lean();
-    const rate = Number(commissionSettings?.rate || 20);
+    // 2. Commission handling logic
+    const { getProviderCommissionRate } = await import("../lib/subscriptions.js");
+    const rate = await getProviderCommissionRate(providerId);
     const totalAmount = Number(existing.totalAmount || 0);
     const discountAmount = Number(existing.discount || 0);
     const fundedBy = String(existing.discountFundedBy || "admin").toLowerCase();
@@ -605,49 +605,50 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
     }
     required = Math.max(required, 0);
 
-    if (required > 0) {
-      // Refund previous provider if commission was already charged
-      if (previousProviderId && previousProviderId !== providerId) {
-        await refundProviderCommissionIfNeeded(existing, previousProviderId, "admin_reassignment");
-      }
+    // Refund previous provider if commission was already charged
+    if (previousProviderId && previousProviderId !== providerId) {
+      await refundProviderCommissionIfNeeded(existing, previousProviderId, "admin_reassignment");
+    }
 
+    if (required > 0) {
       // Check new provider balance
       const hasBalance = Number(provider.credits || 0) >= required;
 
-      if (hasBalance) {
-        // Deduct commission from new provider
-        provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
-        await provider.save();
-
-        // Update booking commission details
-        existing.commissionAmount = required;
-        existing.commissionChargedAt = new Date();
-        existing.commissionRefundedAt = null;
-
-        // Create transaction record
-        await ProviderWalletTxn.create({
-          providerId: provider._id.toString(),
-          bookingId: existing._id.toString(),
-          type: "commission_hold",
-          amount: -required,
-          balanceAfter: provider.credits,
-          meta: { rate, totalAmount, source: "admin_assignment" },
-        });
-
-        // Notify new provider about commission deduction
-        try {
-          await notify({
-            recipientId: providerId,
-            recipientRole: "provider",
-            type: "commission_hold",
-            meta: { bookingId: existing._id.toString(), amount: required },
-            respectProviderQuietHours: true,
-          });
-        } catch (notifyErr) { }
-      } else {
+      if (!hasBalance) {
         return res.status(409).json({ error: "Insufficient wallet balance to assign this booking." });
       }
+
+      // Deduct commission from new provider
+      provider.credits = Math.max(Number(provider.credits || 0) - required, 0);
+      await provider.save();
+
+      // Create transaction record
+      await ProviderWalletTxn.create({
+        providerId: provider._id.toString(),
+        bookingId: existing._id.toString(),
+        type: "commission_hold",
+        amount: -required,
+        balanceAfter: provider.credits,
+        meta: { rate, totalAmount, source: "admin_assignment" },
+      });
+
+      // Notify new provider about commission deduction
+      try {
+        await notify({
+          recipientId: providerId,
+          recipientRole: "provider",
+          type: "commission_hold",
+          meta: { bookingId: existing._id.toString(), amount: required },
+          respectProviderQuietHours: true,
+        });
+      } catch (notifyErr) { }
     }
+
+    // Update booking commission details
+    existing.commissionAmount = required;
+    if (required > 0) existing.commissionChargedAt = new Date();
+    else existing.commissionChargedAt = null;
+    existing.commissionRefundedAt = null;
 
     // 3. Update Booking Status and Assignee
     const previousStatus = existing.status;
@@ -1051,7 +1052,7 @@ router.put(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const s = await OfficeSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
     // Invalidate content cache so user app picks up new settings immediately
-    await bumpContentVersion().catch(() => {});
+    await bumpContentVersion().catch(() => { });
     res.json({ settings: s });
   }
 );

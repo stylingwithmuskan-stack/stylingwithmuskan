@@ -1635,7 +1635,12 @@ export async function callMask(req, res) {
     }
 
     // Determine who is making the call
-    const userId = req.user._id.toString();
+    const userId = req.user ? req.user._id.toString() : req.auth?.sub;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized caller" });
+    }
+
     const isCustomer = String(booking.customerId || "") === userId;
     
     // Check if the current user is any of the assigned providers (for both normal and custom bookings)
@@ -1647,7 +1652,7 @@ export async function callMask(req, res) {
     ].map(id => String(id || ""));
     const isProvider = providerIds.includes(userId);
     
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = req.user?.role === 'admin' || req.auth?.role === 'admin';
 
     // Security Check: Block unauthorized users
     if (!isCustomer && !isProvider && !isAdmin) {

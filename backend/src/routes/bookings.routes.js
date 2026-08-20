@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { body, query, validationResult } from "express-validator";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, flexibleAuth } from "../middleware/auth.js";
 import * as BookingsController from "../modules/bookings/controllers/bookings.controller.js";
 
 const router = Router();
@@ -169,7 +169,7 @@ router.post(
 
 router.post(
   "/:id/call-mask",
-  requireAuth,
+  flexibleAuth,
   BookingsController.callMask
 );
 
