@@ -1572,9 +1572,9 @@ export async function getChatHistory(req, res) {
     const booking = await Booking.findById(id).select("customerId assignedProvider status").lean();
     if (!booking) return res.status(404).json({ error: "Booking not found" });
 
-    const userId = req.user._id.toString();
-    const isCustomer = booking.customerId === userId;
-    const isProvider = booking.assignedProvider === userId;
+    const userId = req.user ? req.user._id.toString() : (req.auth?.sub || "");
+    const isCustomer = String(booking.customerId) === userId;
+    const isProvider = String(booking.assignedProvider) === userId;
 
     if (!isCustomer && !isProvider) {
       return res.status(403).json({ error: "Unauthorized access to chat history" });

@@ -92,7 +92,7 @@ router.get(
 
 router.get(
   "/:id/chat",
-  requireAuth,
+  flexibleAuth,
   BookingsController.getChatHistory
 );
 

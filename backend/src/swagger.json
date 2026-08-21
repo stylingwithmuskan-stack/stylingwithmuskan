@@ -5,7 +5,9 @@
     "version": "1.0.0"
   },
   "servers": [
-    { "url": "http://localhost:5000" }
+    {
+      "url": "http://localhost:5000"
+    }
   ],
   "components": {
     "securitySchemes": {
@@ -16,7 +18,11 @@
       }
     }
   },
-  "security": [{ "bearerAuth": [] }],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
   "paths": {
     "/auth/request-otp": {
       "post": {
@@ -25,13 +31,27 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "type": "object", "properties": { "phone": { "type": "string" } }, "required": ["phone"] }
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "phone"
+                ]
+              }
             }
           }
         },
         "responses": {
-          "200": { "description": "OTP sent" },
-          "400": { "description": "Validation errors" }
+          "200": {
+            "description": "OTP sent"
+          },
+          "400": {
+            "description": "Validation errors"
+          }
         }
       }
     },
@@ -42,33 +62,85 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "type": "object", "properties": { "phone": { "type": "string" }, "otp": { "type": "string" } }, "required": ["phone", "otp"] }
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  },
+                  "otp": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "phone",
+                  "otp"
+                ]
+              }
             }
           }
         },
         "responses": {
-          "200": { "description": "Authenticated" },
-          "400": { "description": "Invalid OTP or validation errors" }
+          "200": {
+            "description": "Authenticated"
+          },
+          "400": {
+            "description": "Invalid OTP or validation errors"
+          }
         }
       }
     },
     "/users/me": {
-      "get": { "summary": "Get current user", "responses": { "200": { "description": "User data" }, "401": { "description": "Unauthorized" } } },
+      "get": {
+        "summary": "Get current user",
+        "responses": {
+          "200": {
+            "description": "User data"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
       "patch": {
         "summary": "Update profile",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "type": "object", "properties": { "name": { "type": "string" }, "referralCode": { "type": "string" } } }
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "referralCode": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },
-        "responses": { "200": { "description": "Updated" }, "400": { "description": "Validation errors" } }
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Validation errors"
+          }
+        }
       }
     },
     "/users/me/addresses": {
-      "get": { "summary": "List addresses", "responses": { "200": { "description": "OK" } } },
+      "get": {
+        "summary": "List addresses",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
       "post": {
         "summary": "Add address",
         "requestBody": {
@@ -77,41 +149,136 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": { "houseNo": { "type": "string" }, "area": { "type": "string" }, "landmark": { "type": "string" }, "type": { "type": "string" }, "lat": { "type": "number" }, "lng": { "type": "number" } },
-                "required": ["houseNo", "area"]
+                "properties": {
+                  "houseNo": {
+                    "type": "string"
+                  },
+                  "area": {
+                    "type": "string"
+                  },
+                  "landmark": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "lat": {
+                    "type": "number"
+                  },
+                  "lng": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "houseNo",
+                  "area"
+                ]
               }
             }
           }
         },
-        "responses": { "201": { "description": "Created" }, "400": { "description": "Validation errors" } }
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Validation errors"
+          }
+        }
       }
     },
     "/users/me/addresses/{id}": {
       "delete": {
         "summary": "Delete address",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "Deleted" } }
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
       }
     },
     "/content/categories": {
       "get": {
         "summary": "List categories",
-        "parameters": [{ "name": "gender", "in": "query", "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "OK" } }
+        "parameters": [
+          {
+            "name": "gender",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/content/services": {
       "get": {
         "summary": "List services",
-        "parameters": [{ "name": "category", "in": "query", "schema": { "type": "string" } }, { "name": "gender", "in": "query", "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "OK" } }
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "gender",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/bookings": {
       "get": {
         "summary": "List my bookings",
-        "parameters": [{ "name": "page", "in": "query", "schema": { "type": "integer" } }, { "name": "limit", "in": "query", "schema": { "type": "integer" } }],
-        "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" } }
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
       },
       "post": {
         "summary": "Create booking",
@@ -122,18 +289,79 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "items": { "type": "array", "items": { "type": "object" } },
-                  "slot": { "type": "object", "properties": { "date": { "type": "string" }, "time": { "type": "string" } }, "required": ["date", "time"] },
-                  "address": { "type": "object", "properties": { "houseNo": { "type": "string" }, "area": { "type": "string" }, "landmark": { "type": "string" }, "lat": { "type": "number" }, "lng": { "type": "number" } }, "required": ["houseNo", "area"] },
-                  "bookingType": { "type": "string" },
-                  "couponCode": { "type": "string" }
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "slot": {
+                    "type": "object",
+                    "properties": {
+                      "date": {
+                        "type": "string"
+                      },
+                      "time": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "date",
+                      "time"
+                    ]
+                  },
+                  "address": {
+                    "type": "object",
+                    "properties": {
+                      "houseNo": {
+                        "type": "string"
+                      },
+                      "area": {
+                        "type": "string"
+                      },
+                      "landmark": {
+                        "type": "string"
+                      },
+                      "lat": {
+                        "type": "number"
+                      },
+                      "lng": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "houseNo",
+                      "area"
+                    ]
+                  },
+                  "bookingType": {
+                    "type": "string"
+                  },
+                  "couponCode": {
+                    "type": "string"
+                  }
                 },
-                "required": ["items", "slot", "address", "bookingType"]
+                "required": [
+                  "items",
+                  "slot",
+                  "address",
+                  "bookingType"
+                ]
               }
             }
           }
         },
-        "responses": { "201": { "description": "Created" }, "400": { "description": "Validation errors" }, "401": { "description": "Unauthorized" } }
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Validation errors"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
       }
     },
     "/bookings/quote": {
@@ -141,16 +369,62 @@
         "summary": "Quote totals",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array" }, "couponCode": { "type": "string" } }, "required": ["items"] } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array"
+                  },
+                  "couponCode": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "items"
+                ]
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "OK" }, "400": { "description": "Validation errors" }, "401": { "description": "Unauthorized" } }
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Validation errors"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
       }
     },
     "/bookings/{id}": {
       "get": {
         "summary": "Get booking",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" }, "401": { "description": "Unauthorized" } }
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
       }
     },
     "/payments/razorpay/order": {
@@ -158,9 +432,39 @@
         "summary": "Create Razorpay order",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "type": "object", "properties": { "amount": { "type": "integer" }, "currency": { "type": "string" }, "receipt": { "type": "string" } }, "required": ["amount"] } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": {
+                    "type": "integer"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "receipt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "amount"
+                ]
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "Order" }, "400": { "description": "Validation errors" }, "401": { "description": "Unauthorized" } }
+        "responses": {
+          "200": {
+            "description": "Order"
+          },
+          "400": {
+            "description": "Validation errors"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
       }
     },
     "/payments/razorpay/verify": {
@@ -168,46 +472,243 @@
         "summary": "Verify Razorpay signature",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "type": "object", "properties": { "order_id": { "type": "string" }, "payment_id": { "type": "string" }, "signature": { "type": "string" }, "bookingId": { "type": "string" }, "amount": { "type": "integer" } }, "required": ["order_id", "payment_id", "signature"] } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "order_id": {
+                    "type": "string"
+                  },
+                  "payment_id": {
+                    "type": "string"
+                  },
+                  "signature": {
+                    "type": "string"
+                  },
+                  "bookingId": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "order_id",
+                  "payment_id",
+                  "signature"
+                ]
+              }
+            }
+          }
         },
-        "responses": { "200": { "description": "OK" }, "400": { "description": "Invalid signature" }, "401": { "description": "Unauthorized" } }
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Invalid signature"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
       }
     },
     "/provider/request-otp": {
       "post": {
         "summary": "Provider request OTP",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "phone": { "type": "string" } }, "required": ["phone"] } } } },
-        "responses": { "200": { "description": "OK" }, "400": { "description": "Validation errors" } }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "phone"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Validation errors"
+          }
+        }
       }
     },
     "/provider/verify-otp": {
       "post": {
         "summary": "Provider verify OTP",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "phone": { "type": "string" }, "otp": { "type": "string" } }, "required": ["phone", "otp"] } } } },
-        "responses": { "200": { "description": "OK" }, "400": { "description": "Invalid OTP" } }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  },
+                  "otp": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "phone",
+                  "otp"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Invalid OTP"
+          }
+        }
       }
     },
     "/provider/bookings/{id}/status": {
       "patch": {
         "summary": "Update booking status",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" } }, "required": ["status"] } } } },
-        "responses": { "200": { "description": "OK" }, "403": { "description": "Forbidden" }, "401": { "description": "Unauthorized" } }
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
       }
     },
     "/provider/bookings/{id}/verify-otp": {
       "post": {
         "summary": "Verify booking OTP",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "otp": { "type": "string" } }, "required": ["otp"] } } } },
-        "responses": { "200": { "description": "OK" }, "403": { "description": "Invalid OTP" }, "401": { "description": "Unauthorized" } }
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "otp": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "otp"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Invalid OTP"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
       }
     },
     "/admin/settings": {
       "put": {
         "summary": "Update office settings",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "startTime": { "type": "string" }, "endTime": { "type": "string" }, "autoAssign": { "type": "boolean" } }, "required": ["startTime", "endTime", "autoAssign"] } } } },
-        "responses": { "200": { "description": "OK" }, "400": { "description": "Validation errors" }, "401": { "description": "Unauthorized" } }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "startTime": {
+                    "type": "string"
+                  },
+                  "endTime": {
+                    "type": "string"
+                  },
+                  "autoAssign": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "startTime",
+                  "endTime",
+                  "autoAssign"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Validation errors"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
       }
     }
   }
