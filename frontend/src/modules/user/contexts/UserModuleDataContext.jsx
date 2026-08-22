@@ -27,7 +27,6 @@ const UserModuleDataContext = createContext(null);
 
 export const UserModuleDataProvider = ({ children }) => {
     const { pathname } = useLocation();
-    const hasFetched = useRef(false);
 
     const [serviceTypes, setServiceTypes] = useState([]);
     const [bookingTypeConfig, setBookingTypeConfig] = useState([]);
@@ -46,9 +45,6 @@ export const UserModuleDataProvider = ({ children }) => {
     const [testimonials, setTestimonials] = useState([]);
 
     useEffect(() => {
-        if (hasFetched.current) return;
-
-        hasFetched.current = true;
         setIsLoading(true);
 
         let cancelled = false;
@@ -126,6 +122,7 @@ export const UserModuleDataProvider = ({ children }) => {
                     });
                     setIsLoading(false);
                 } catch {
+                     if (cancelled) return;
                      setServiceTypes(FALLBACK_SERVICE_TYPES);
                      setCategories(FALLBACK_CATEGORIES);
                      setIsLoading(false);
