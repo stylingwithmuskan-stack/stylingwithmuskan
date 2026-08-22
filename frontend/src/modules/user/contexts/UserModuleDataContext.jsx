@@ -48,7 +48,7 @@ export const UserModuleDataProvider = ({ children }) => {
         setIsLoading(true);
 
         let cancelled = false;
-        
+
         const loadHomePageData = async () => {
             try {
                 // Phase 1: Critical UI Data - Fetch specifically what's needed for the Home Page viewport
@@ -59,9 +59,9 @@ export const UserModuleDataProvider = ({ children }) => {
                     api.content.banners(),
                     api.content.officeSettings()
                 ]);
-                
+
                 if (cancelled) return;
-                
+
                 const normalize = (items) => (items || []).map(item => ({ ...item, id: item.id || item._id }));
 
                 // Apply critical data immediately
@@ -72,33 +72,33 @@ export const UserModuleDataProvider = ({ children }) => {
 
                 // 🔥 Trigger Phase 2: Background Loading for non-critical/below-fold content
                 (async () => {
-                   try {
-                       const initRes = await api.content.init();
-                       if (cancelled) return;
-                       const d = initRes.data || {};
-                       setBookingTypeConfig(d.bookingTypeConfig || []);
-                       setPopularServices(normalize(d.popularServices));
-                       setServices(prev => {
-                           const pop = normalize(d.popularServices);
-                           const existingIds = new Set(prev.map(s => s.id));
-                           const uniquePop = pop.filter(s => !existingIds.has(s.id));
-                           return [...prev, ...uniquePop];
-                       });
-                       setSpotlights((normalize(d.spotlights)).map(s => ({
-                           ...s,
-                           video: resolveMediaUrl(s.video),
-                           poster: resolveMediaUrl(s.poster),
-                       })));
-                       setGallery((normalize(d.gallery)).map(g => ({
-                           ...g,
-                           image: resolveMediaUrl(g.image),
-                       })));
-                       setTestimonials((normalize(d.testimonials)).map(t => ({
-                           ...t,
-                           image: resolveMediaUrl(t.image),
-                       })));
-                       setProviders(d.providers || []);
-                   } catch {}
+                    try {
+                        const initRes = await api.content.init();
+                        if (cancelled) return;
+                        const d = initRes.data || {};
+                        setBookingTypeConfig(d.bookingTypeConfig || []);
+                        setPopularServices(normalize(d.popularServices));
+                        setServices(prev => {
+                            const pop = normalize(d.popularServices);
+                            const existingIds = new Set(prev.map(s => s.id));
+                            const uniquePop = pop.filter(s => !existingIds.has(s.id));
+                            return [...prev, ...uniquePop];
+                        });
+                        setSpotlights((normalize(d.spotlights)).map(s => ({
+                            ...s,
+                            video: resolveMediaUrl(s.video),
+                            poster: resolveMediaUrl(s.poster),
+                        })));
+                        setGallery((normalize(d.gallery)).map(g => ({
+                            ...g,
+                            image: resolveMediaUrl(g.image),
+                        })));
+                        setTestimonials((normalize(d.testimonials)).map(t => ({
+                            ...t,
+                            image: resolveMediaUrl(t.image),
+                        })));
+                        setProviders(d.providers || []);
+                    } catch { }
                 })();
 
                 setIsLoading(false); // Enable Home Page rendering
@@ -122,17 +122,17 @@ export const UserModuleDataProvider = ({ children }) => {
                     });
                     setIsLoading(false);
                 } catch {
-                     if (cancelled) return;
-                     setServiceTypes(FALLBACK_SERVICE_TYPES);
-                     setCategories(FALLBACK_CATEGORIES);
-                     setIsLoading(false);
+                    if (cancelled) return;
+                    setServiceTypes(FALLBACK_SERVICE_TYPES);
+                    setCategories(FALLBACK_CATEGORIES);
+                    setIsLoading(false);
                 }
             }
         };
 
         loadHomePageData();
         return () => { cancelled = true; };
-    }, [pathname]);
+    }, []);
 
     // Track in-flight requests to avoid duplicates and handle concurrent calls
     const [pendingCategories, setPendingCategories] = useState(new Set());
@@ -152,7 +152,7 @@ export const UserModuleDataProvider = ({ children }) => {
                 const res = await api.content.services({ category: categoryId });
                 const rawServices = res.data || [];
                 const newServices = rawServices.map(s => ({ ...s, id: s.id || s._id }));
-                
+
                 setServices(prev => {
                     const existingIds = new Set(prev.map(s => s.id));
                     const uniqueNew = newServices.filter(s => !existingIds.has(s.id));

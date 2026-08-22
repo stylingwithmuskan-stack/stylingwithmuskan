@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin, Calendar, Clock, Tag, ChevronRight, CheckCircle2, ShoppingBag, Zap } from "lucide-react";
@@ -71,6 +71,7 @@ const BookingSummary = () => {
   const [quotePreview, setQuotePreview] = useState(null);
   const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
   const [hasPlans, setHasPlans] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   // Check if any subscription plans exist
   useEffect(() => {
@@ -242,10 +243,14 @@ const BookingSummary = () => {
   };
 
   const handlePay = async (allowAutoFallback = false) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     if (customAdvanceData?.enquiryId) {
       const amt = Number(customAdvanceData.amount || 0);
       if (!(amt > 0)) {
         toast.error("Advance amount not available.");
+        isSubmittingRef.current = false;
         return;
       }
       
@@ -316,11 +321,14 @@ const BookingSummary = () => {
       } catch (e) {
         setIsProcessing(false);
         toast.error(e.message || "Payment initiation failed");
+      } finally {
+        isSubmittingRef.current = false;
       }
       return;
     }
     if (!user?.addresses || user.addresses.length === 0) {
       setIsAddressModalOpen(true);
+      isSubmittingRef.current = false;
       return;
     }
     if (!selectedSlot?.date || !selectedSlot?.time) {
@@ -337,6 +345,7 @@ const BookingSummary = () => {
 
       if (hasUnavailableServices) {
         toast.error("Currently this service is not available in your zone.");
+        isSubmittingRef.current = false;
         return;
       }
     }
@@ -344,6 +353,7 @@ const BookingSummary = () => {
     // Advance payment alert logic
     if (advanceAmount > 0 && !isAdvanceAlertOpen) {
       setIsAdvanceAlertOpen(true);
+      isSubmittingRef.current = false;
       return;
     }
     
@@ -383,6 +393,7 @@ const BookingSummary = () => {
         setIsProcessing(false);
         setShowSuccess(true);
         clearCart();
+        isSubmittingRef.current = false;
         return;
       }
       
@@ -391,6 +402,7 @@ const BookingSummary = () => {
       if (!rzpKey) {
         toast.error("Razorpay key not configured.");
         setIsProcessing(false);
+        isSubmittingRef.current = false;
         return;
       }
 
@@ -511,16 +523,23 @@ const BookingSummary = () => {
       } else {
         toast.error(e.message || "Booking failed");
       }
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 
   const handlePayAfterService = async () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     if (!user?.addresses || user.addresses.length === 0) {
       setIsAddressModalOpen(true);
+      isSubmittingRef.current = false;
       return;
     }
     if (!selectedSlot?.date || !selectedSlot?.time) {
       toast.error("Please select a booking slot (date & time)");
+      isSubmittingRef.current = false;
       return;
     }
     
@@ -529,6 +548,7 @@ const BookingSummary = () => {
       const hasUnavailableServices = displayItems.some((item) => !checkAvailability(item, userAddress));
       if (hasUnavailableServices) {
         toast.error("Currently this service is not available in your zone.");
+        isSubmittingRef.current = false;
         return;
       }
     }
@@ -594,6 +614,8 @@ const BookingSummary = () => {
     } catch (e) {
       setIsProcessing(false);
       toast.error(e.message || "Booking failed");
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 
