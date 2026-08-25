@@ -326,8 +326,8 @@ export async function sendPushForNotification(notification) {
   for (const d of devices) {
     const isIos = (d.platform || "").toLowerCase() === "ios";
     if (isIos) {
-      if (d.voipToken) {
-        console.log(`[push] Sending VoIP Push to iOS device ${d._id} for recipient ${notification.recipientId}`);
+      if (d.voipToken && ["ringtone", "emergency", "doorbell"].includes(notification.sound)) {
+        console.log(`[push] Sending VoIP Push to iOS device ${d._id} for recipient ${notification.recipientId} (Sound: ${notification.sound})`);
         sendBroadcastVoipPush(
           d.voipToken,
           notification.meta?.bookingId || notification.meta?.broadcastId || notification._id,
@@ -337,7 +337,7 @@ export async function sendPushForNotification(notification) {
         ).catch((err) => console.error(`[push] Failed to send VoIP to ${d._id}`, err));
         voipSentCount++;
       } else if (d.fcmToken) {
-        // FCM only for iOS foreground (no voipToken = foreground device)
+        // Normal APNs push via FCM for non-urgent notifications
         iosTokens.push(d.fcmToken);
       }
     } else {

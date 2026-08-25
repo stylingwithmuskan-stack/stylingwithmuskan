@@ -13,6 +13,7 @@ import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, JWT_SECRET } from "../config.js";
 import { notify } from "../lib/notify.js";
 import { canAssignProviderToBooking, computeExpiresAt, pickNextProviderForBooking } from "../lib/assignment.js";
 import { invalidateProviderSlots } from "../lib/availability.js";
+import { getIO } from "../startup/socket.js";
 
 const router = Router();
 
@@ -30,33 +31,33 @@ async function requirePaymentAuth(req, res, next) {
         ? req.headers.authorization.split(" ")[1]
         : null;
     const cookies = req.cookies || {};
-    
+
     // We'll collect all valid roles associated with any tokens provided
     let user = null;
     let provider = null;
-    
+
     // Check tokens in order of priority: Header > cookieProvider > cookieUser
     const candidates = [headerToken, cookies.providerToken, cookies.token].filter(Boolean);
-    
+
     for (const t of candidates) {
       try {
         const payload = jwt.verify(t, JWT_SECRET);
-        
+
         // If it's a provider token
         if (payload.role === "provider") {
           const p = await ProviderAccount.findById(payload.sub);
           if (p && !provider) provider = p;
-        } 
+        }
         // If it's a normal user token (no role field or role is user)
         else if (!payload.role || payload.role === "user") {
           const u = await User.findById(payload.sub);
           if (u && !user) user = u;
         }
-      } catch {}
+      } catch { }
     }
-    
+
     if (!user && !provider) return res.status(401).json({ error: "Unauthorized" });
-    
+
     req.user = user;
     req.provider = provider;
     next();
@@ -182,7 +183,7 @@ router.post(
           meta: { amount, order_id, payment_id },
           respectProviderQuietHours: true,
         });
-      } catch {}
+      } catch { }
       return res.json({ success: true });
     }
 
@@ -203,7 +204,7 @@ router.post(
           type: "wallet_topup",
           meta: { amount, order_id, payment_id },
         });
-      } catch {}
+      } catch { }
       return res.json({ success: true });
     }
 
@@ -219,15 +220,18 @@ router.post(
           transactionId: order_id,
           paidAt: new Date()
         });
-        
+
         const isFirstPayment = b.status === "payment_pending";
         b.prepaidAmount = (b.prepaidAmount || 0) + amount;
         b.balanceAmount = Math.max((b.totalAmount || 0) - (b.prepaidAmount || 0), 0);
         b.paymentStatus = b.balanceAmount > 0 ? "Partially Paid" : "Fully Paid";
-        
+
         // If it was waiting for payment, move it to active statuses
         if (isFirstPayment) {
           b.status = "pending";
+        } else if (b.status === "payment") {
+          // If provider is collecting balance in COLLECTION PHASE, move to documentation
+          b.status = "documentation";
         } else {
           // Normal status update logic for existing bookings
           b.status = b.status === "payment_pending" ? "pending" : b.status;
@@ -255,14 +259,14 @@ router.post(
                 at: new Date()
               });
               await u.save();
-              
+
               if (!b.paymentSources) b.paymentSources = [];
               b.paymentSources.push({
                 source: "wallet",
                 amount: b.walletAmountUsed,
                 paidAt: new Date()
               });
-              
+
               b.prepaidAmount = (b.prepaidAmount || 0) + b.walletAmountUsed;
               b.balanceAmount = Math.max((b.totalAmount || 0) - (b.prepaidAmount || 0), 0);
               b.paymentStatus = b.balanceAmount > 0 ? "Partially Paid" : "Fully Paid";
@@ -272,6 +276,13 @@ router.post(
 
         await b.save();
         await BookingLog.create({ action: "booking:payment-update", userId: req.user._id.toString(), bookingId: b._id.toString(), meta: { amount, source: "razorpay", paymentId: payment_id } });
+
+        try {
+          const io = getIO();
+          io?.of("/bookings").to(b._id.toString()).emit("booking:update", { id: b._id.toString() });
+        } catch (e) {
+          console.error("[Payment] Socket emit error:", e);
+        }
 
         // If this was the initial payment, perform deferred assignment now, then notify.
         if (isFirstPayment) {
@@ -288,7 +299,7 @@ router.post(
                 await b.save();
                 try {
                   if (b?.slot?.date) await invalidateProviderSlots(b.assignedProvider, b.slot.date);
-                } catch {}
+                } catch { }
               }
             }
 
@@ -317,7 +328,7 @@ router.post(
                   meta: { bookingId: b._id.toString() },
                   respectProviderQuietHours: true,
                 });
-                
+
                 // NOTE: User notification for 'booking_assigned' is intentionally omitted here
                 // during the initial payment flow to avoid redundancy with 'booking_created'.
                 // User will be notified when an admin/vendor manually assigns or re-assigns.
@@ -335,7 +346,7 @@ router.post(
           type: "payment_success",
           meta: { bookingId, amount },
         });
-      } catch {}
+      } catch { }
       return res.json({ success: true });
     }
 

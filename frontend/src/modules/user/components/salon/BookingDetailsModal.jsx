@@ -489,17 +489,24 @@ const BookingDetailsModal = ({ isOpen, onClose, booking, onChat, onCall }) => {
                             )}
 
                             {/* Status Card */}
-                            <div className="flex items-center justify-between p-4 bg-accent/30 rounded-2xl border border-border/50">
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-xl ${localBooking.bookingType === 'instant' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                                        {localBooking.bookingType === 'instant' ? <Zap className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
+                            <div className="flex flex-col gap-4 p-4 bg-accent/30 rounded-2xl border border-border/50">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-xl ${localBooking.bookingType === 'instant' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                                            {localBooking.bookingType === 'instant' ? <Zap className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-60">Status</p>
+                                            <p className="text-sm font-black mt-0.5">{localBooking.status || "Booking Accepted"}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-60">Status</p>
-                                        <p className="text-sm font-black mt-0.5">{localBooking.status || "Booking Accepted"}</p>
-                                    </div>
+                                    <StatusBadge status={localBooking.status} />
                                 </div>
-                                <StatusBadge status={localBooking.status} />
+                                {localBooking.otp && ((localBooking.status || "").toLowerCase() === "arrived") && (
+                                    <div className="inline-flex items-center justify-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-sm font-black tracking-[0.2em] shadow-sm w-full">
+                                        OTP: {localBooking.otp}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Provider Profile Section */}

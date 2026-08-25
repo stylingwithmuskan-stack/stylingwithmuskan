@@ -50,10 +50,17 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry, onCall }) => {
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {/* Status Badge */}
                     <div className="flex items-center justify-between">
-                        <span className={`text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-full ${getPhaseColor(enquiry.displayPhase)}`}>
-                            {enquiry.statusLabel || enquiry.status || "Pending Review"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
+                        <div className="flex flex-col gap-2">
+                            <span className={`text-xs w-max font-black uppercase tracking-wider px-3 py-1.5 rounded-full ${getPhaseColor(enquiry.displayPhase)}`}>
+                                {enquiry.statusLabel || enquiry.status || "Pending Review"}
+                            </span>
+                            {enquiry.otp && ((enquiry.status || "").toLowerCase() === "arrived") && (
+                                <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 px-3 py-1 rounded-xl text-[12px] font-black tracking-[0.2em] shadow-sm w-max">
+                                    OTP: {enquiry.otp}
+                                </div>
+                            )}
+                        </div>
+                        <span className="text-xs text-muted-foreground self-start mt-1">
                             Sent on {new Date(enquiry.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                     </div>
@@ -139,11 +146,13 @@ const CustomEnquiryDetailsModal = ({ isOpen, onClose, enquiry, onCall }) => {
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm text-muted-foreground">Status</span>
-                                    <span className={`text-sm font-black uppercase px-3 py-1 rounded-full ${enquiry.paymentStatus === "paid" ? "bg-green-600 text-white" :
+                                    <span className={`text-sm font-black uppercase px-3 py-1 rounded-full ${(enquiry.paymentStatus === "paid" || (enquiry.paymentStatus || "").toLowerCase() === "fully paid") ? "bg-green-600 text-white" :
                                             enquiry.paymentStatus === "refunded" ? "bg-red-600 text-white" :
                                                 "bg-amber-600 text-white"
                                         }`}>
-                                        {enquiry.paymentStatus}
+                                        {enquiry.paymentStatus === "paid" 
+                                            ? ((enquiry.prebookAmountPaid > 0) ? "ADVANCE PAID" : "CONFIRMED") 
+                                            : enquiry.paymentStatus}
                                     </span>
                                 </div>
                                 {enquiry.prebookAmountPaid > 0 && (

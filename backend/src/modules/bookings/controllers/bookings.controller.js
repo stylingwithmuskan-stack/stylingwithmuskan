@@ -1341,6 +1341,8 @@ export async function adminFinalApprove(req, res) {
           serviceType: it.serviceType || ""
         })),
         totalAmount: total,
+        discount: Number(enq.quote?.discountPrice) || 0,
+        discountFundedBy: enq.quote?.discountFundedBy || "admin",
         prepaidAmount: Number(enq.quote?.prebookAmount) || 0,
         balanceAmount: total - (Number(enq.quote?.prebookAmount) || 0),
         address: {

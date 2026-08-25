@@ -1733,16 +1733,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
     const discountAmount = Number(b.discount || 0);
     const fundedBy = String(b.discountFundedBy || "admin").toLowerCase();
 
-    let required = 0;
-    if (fundedBy === "admin") {
-      const originalTotal = totalAmount + discountAmount;
-      const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
-      const effectiveRate = Math.max(0, rate - discountRate);
-      required = Math.round(totalAmount * (effectiveRate / 100));
-    } else {
-      // For "platform" funded or other sources, commission is on the net amount paid by customer
-      required = Math.round(totalAmount * (rate / 100));
-    }
+    let required = Math.round(totalAmount * (rate / 100));
     required = Math.max(required, 0);
 
     if (!b.commissionChargedAt && required > 0 && Number(acc.credits || 0) < required) {

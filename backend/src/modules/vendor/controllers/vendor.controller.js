@@ -1027,16 +1027,7 @@ export async function assignBooking(req, res) {
   const discountAmount = Number(existing.discount || 0);
   const fundedBy = String(existing.discountFundedBy || "admin").toLowerCase();
 
-  let required = 0;
-  if (fundedBy === "admin") {
-    const originalTotal = totalAmount + discountAmount;
-    const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
-    const effectiveRate = Math.max(0, rate - discountRate);
-    required = Math.round(totalAmount * (effectiveRate / 100));
-  } else {
-    // For "platform" funded or other sources, commission is on the net amount paid by customer
-    required = Math.round(totalAmount * (rate / 100));
-  }
+  let required = Math.round(totalAmount * (rate / 100));
   required = Math.max(required, 0);
 
   const previousProviderId = String(existing.assignedProvider || "").trim();
@@ -1169,16 +1160,7 @@ export async function reassignBooking(req, res) {
   const discountAmount = Number(existing.discount || 0);
   const fundedBy = String(existing.discountFundedBy || "admin").toLowerCase();
 
-  let required = 0;
-  if (fundedBy === "admin") {
-    const originalTotal = totalAmount + discountAmount;
-    const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
-    const effectiveRate = Math.max(0, rate - discountRate);
-    required = Math.round(totalAmount * (effectiveRate / 100));
-  } else {
-    // For "platform" funded or other sources, commission is on the net amount paid by customer
-    required = Math.round(totalAmount * (rate / 100));
-  }
+  let required = Math.round(totalAmount * (rate / 100));
   required = Math.max(required, 0);
 
   // Handle commission for reassignment
@@ -1424,16 +1406,7 @@ export async function assignTeamCustomEnquiry(req, res) {
   const discountAmount = Number(enq.quote?.discountPrice || 0);
   const fundedBy = String(enq.quote?.discountFundedBy || "admin").toLowerCase();
 
-  let required = 0;
-  if (fundedBy === "admin") {
-    const originalTotal = totalAmount + discountAmount;
-    const discountRate = originalTotal > 0 ? (discountAmount / originalTotal) * 100 : 0;
-    const effectiveRate = Math.max(0, rate - discountRate);
-    required = Math.round(totalAmount * (effectiveRate / 100));
-  } else {
-    // For "platform" funded or other sources, commission is on the net amount paid by customer
-    required = Math.round(totalAmount * (rate / 100));
-  }
+  let required = Math.round(totalAmount * (rate / 100));
   required = Math.max(required, 0);
   const previousProviderId = String(enq.maintainerProvider || "").trim();
   if (previousProviderId && previousProviderId !== provider._id.toString()) {
@@ -1482,6 +1455,8 @@ export async function assignTeamCustomEnquiry(req, res) {
       customerPhone: enq.phone || "",
       services: items.map(it => ({ name: it.name, price: it.price, duration: "", category: it.category, serviceType: it.serviceType })),
       totalAmount,
+      discount: discountAmount,
+      discountFundedBy: fundedBy,
       prepaidAmount: Number(enq.prebookAmountPaid || 0),
       balanceAmount: Math.max(totalAmount - Number(enq.prebookAmountPaid || 0), 0),
       paymentStatus: (Number(enq.prebookAmountPaid || 0) > 0) ? "Partially Paid" : "Pending",
