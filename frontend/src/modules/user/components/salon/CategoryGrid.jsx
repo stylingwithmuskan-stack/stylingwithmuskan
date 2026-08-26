@@ -64,8 +64,10 @@ const CategoryGrid = () => {
   }, [mainServiceTypes, loadCategoryServices]);
 
   const handleServiceSelect = (type) => {
-    setBookingType("instant");
-    navigate(`/explore/${type.entryCategory}?type=${type.id}&booking=instant`);
+    const entryCat = categories.find(c => c.id === type.entryCategory);
+    const bookingMode = entryCat?.bookingType || "instant";
+    setBookingType(bookingMode);
+    navigate(`/explore/${type.entryCategory}?type=${type.id}&booking=${bookingMode}`);
   };
 
   const handleCustomizeSelect = () => {
@@ -120,7 +122,7 @@ const CategoryGrid = () => {
               whileTap={isTouchDevice ? undefined : { scale: 0.98 }}
               {...getTouchProps(() => handleServiceSelect(type))}
               style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", cursor: "pointer" }}
-              className={`relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col bg-white ${isTouchDevice ? "" : "hover:shadow-md"}`}
+              className={`relative group overflow-hidden rounded-[28px] border border-border/40 shadow-sm transition-all duration-300 aspect-[1/1] flex flex-col bg-white ${isTouchDevice ? "" : "hover:shadow-md"}`}
             >
               <div className="absolute inset-0 z-0">
                 <img
@@ -147,7 +149,7 @@ const CategoryGrid = () => {
             whileTap={isTouchDevice ? undefined : { scale: 0.98 }}
             {...getTouchProps(handleCustomizeSelect)}
             style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent", cursor: "pointer" }}
-            className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] sm:aspect-auto sm:h-28 lg:h-36 flex flex-col items-center justify-center bg-primary/5 ${isTouchDevice ? "" : "hover:shadow-md"}`}
+            className={`relative group overflow-hidden rounded-[28px] border-2 border-dashed border-primary/20 shadow-sm transition-all duration-300 aspect-[1/1] flex flex-col items-center justify-center bg-primary/5 ${isTouchDevice ? "" : "hover:shadow-md"}`}
           >
             <div className="relative flex flex-col items-center gap-2">
               <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-2xl transition-transform ${isTouchDevice ? "" : "group-hover:scale-110"}`}>
