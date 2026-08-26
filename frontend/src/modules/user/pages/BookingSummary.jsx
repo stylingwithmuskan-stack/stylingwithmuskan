@@ -1020,7 +1020,7 @@ const BookingSummary = () => {
                 className={`${(advanceAmount === 0) ? 'flex-1' : 'w-full sm:flex-1'} h-11 sm:h-14 rounded-xl sm:rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] sm:text-base font-bold shadow-xl shadow-primary/20 gap-1 sm:gap-2 group border-none px-3`}
               >
                 <span className="truncate">
-                  {isProcessing ? "..." : (advanceAmount > 0 ? `PAY ₹${advanceAmount.toLocaleString()}` : "PAY NOW")}
+                  {isProcessing ? "..." : (advanceAmount > 0 ? `PAY ADVANCE ₹${advanceAmount.toLocaleString()}` : "PAY NOW")}
                 </span>
                 {!isProcessing && (
                   <div className="hidden xs:flex w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-white/20 items-center justify-center group-hover:translate-x-1 transition-transform shrink-0">
