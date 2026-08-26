@@ -50,7 +50,7 @@ async function computeAdvanceFromCategories(items = [], bookingType = "instant")
     if (!itCat) continue;
 
     const c = cats.find(cat =>
-      String(cat.id || "").toLowerCase() === itCat ||
+      String(cat._id || cat.id || "").toLowerCase() === itCat ||
       String(cat.name || "").toLowerCase() === itCat
     );
     if (!c) continue;
