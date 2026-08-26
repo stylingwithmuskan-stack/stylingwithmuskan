@@ -114,7 +114,7 @@ const CategoryGrid = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
           {mainServiceTypes.map((type) => (
             <motion.button
               key={type.id}
