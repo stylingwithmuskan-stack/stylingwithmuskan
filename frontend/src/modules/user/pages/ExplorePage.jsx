@@ -473,16 +473,17 @@ const ExplorePage = () => {
                             </div>
                         )}
 
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         {!isSearching && filteredServices.map((service, idx) => (
                             <motion.div
                                 key={service.id}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: idx * 0.005 }}
-                                className="glass-strong rounded-[28px] p-4 border border-border/40 shadow-soft hover:shadow-elevated transition-all flex gap-4"
+                                className="glass-strong rounded-2xl overflow-hidden border border-border/40 shadow-soft hover:shadow-elevated transition-all flex flex-col w-full cursor-pointer"
                                 onClick={() => navigate(`/service/${service.id}`)}
                             >
-                                <div className="w-24 h-24 rounded-2xl overflow-hidden bg-accent flex-shrink-0 relative border border-border/50">
+                                <div className="w-full aspect-[1/1] overflow-hidden bg-accent relative border-b border-border/20">
                                     <img 
                                         src={resolveImageUrl(service.image) || getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name)} 
                                         alt={service.name} 
@@ -522,7 +523,7 @@ const ExplorePage = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                                <div className="p-3 flex-1 min-w-0 flex flex-col justify-between">
                                     <div>
                                         <div className="flex items-center gap-1.5 mb-1">
                                             <div className="flex items-center gap-0.5 bg-green-500/10 text-green-600 px-1.5 py-0.5 rounded-lg text-[9px] font-bold border border-green-500/20">
@@ -593,6 +594,7 @@ const ExplorePage = () => {
                                 </div>
                             </motion.div>
                         ))}
+                        </div>
                     </div>
                 </main>
             </div>

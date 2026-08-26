@@ -71,14 +71,13 @@ const SpotlightStories = () => {
                     onTouchEnd={() => setIsHovered(false)}
                 >
                     <div
-                        ref={scrollRef}
-                        className="flex overflow-x-auto hide-scrollbar gap-5 pb-6 snap-x snap-mandatory scroll-smooth"
+                        className="grid grid-cols-2 lg:grid-cols-4 gap-3 pb-6"
                     >
                         {spotlights.map((story) => (
                             <motion.div
                                 key={story.id}
                                 whileHover={{ scale: 1.02 }}
-                                className="flex-shrink-0 w-[200px] md:w-[240px] h-[320px] md:h-[400px] relative rounded-[2.5rem] overflow-hidden snap-start shadow-xl border border-white/10 group cursor-pointer"
+                                className="w-full aspect-[1/1] relative rounded-[2.5rem] overflow-hidden shadow-xl border border-white/10 group cursor-pointer"
                             >
                                 <video
                                     key={story.video}

@@ -132,8 +132,9 @@ const ExpressCheckout = () => {
             if (activeCheckoutType && item.serviceType !== activeCheckoutType) return;
 
             const itCat = String(item.category || "").trim().toLowerCase();
-            const category = categories?.find(c =>
-                String(c.id || "").toLowerCase() === itCat ||
+            const category = categories?.find(c => 
+                String(c._id || "").toLowerCase() === itCat ||
+                String(c.id || "").toLowerCase() === itCat || 
                 String(c.name || "").toLowerCase() === itCat
             );
 
@@ -193,6 +194,7 @@ const ExpressCheckout = () => {
 
                     const itCat = String(item.category || "").trim().toLowerCase();
                     const category = categories?.find(c =>
+                        String(c._id || "").toLowerCase() === itCat ||
                         String(c.id || "").toLowerCase() === itCat ||
                         String(c.name || "").toLowerCase() === itCat
                     );
@@ -205,8 +207,11 @@ const ExpressCheckout = () => {
                 });
                 finalAdvanceAmount = typeAdvance;
                 finalRemainingAmount = finalTotalAmount - finalAdvanceAmount;
+                console.log(`[ExpressCheckout] Calculated typeAdvance=${typeAdvance} for finalType=${finalType}`);
             }
         }
+        
+        console.log(`[ExpressCheckout] Navigating with finalAdvanceAmount=${finalAdvanceAmount}`);
 
         const bookingData = {
             totalAmount: finalTotalAmount,

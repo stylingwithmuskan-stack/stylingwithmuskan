@@ -43,25 +43,28 @@ async function computeAdvanceFromCategories(items = [], bookingType = "instant")
 
   // Fetch all categories with advance > 0 to check locally
   const cats = await Category.find({ advancePercentage: { $gt: 0 } }).lean();
+  console.log(`[AdvanceDebug] Found ${cats.length} categories with advance > 0:`, cats.map(c => ({ id: c.id, _id: c._id, name: c.name })));
 
   let sum = 0;
   for (const it of items) {
     const itCat = String(it.category || "").trim().toLowerCase();
+    console.log(`[AdvanceDebug] Processing item: ${it.name}, category: ${itCat}`);
     if (!itCat) continue;
 
     const c = cats.find(cat =>
-      String(cat._id || cat.id || "").toLowerCase() === itCat ||
+      String(cat._id || "").toLowerCase() === itCat ||
+      String(cat.id || "").toLowerCase() === itCat ||
       String(cat.name || "").toLowerCase() === itCat
     );
+    console.log(`[AdvanceDebug] Match found for ${it.name}: ${!!c}`);
     if (!c) continue;
 
     const pct = Number(c.advancePercentage || 0);
-    const catType = String(c.bookingType || "").toLowerCase();
-    // Advance applies:
-    // 1. If the category itself requires advance (any bookingType category with advancePercentage set)
-    // 2. OR if booking is explicitly scheduled/prebook
-    if (pct > 0 && (catType === "scheduled" || catType === "prebooking" || catType === "pre-book" || catType === "customize" || catType === "instant" || bType === "scheduled" || bType === "pre-book")) {
-      sum += Math.ceil((Number(it.price) || 0) * (Number(it.quantity) || 1) * (pct / 100));
+    console.log(`[AdvanceDebug] Advance percentage for ${it.name}: ${pct}%`);
+    if (pct > 0) {
+      const added = Math.ceil((Number(it.price) || 0) * (Number(it.quantity) || 1) * (pct / 100));
+      sum += added;
+      console.log(`[AdvanceDebug] Added ${added} to sum. Current sum: ${sum}`);
     }
   }
   return Math.max(sum, 0);
@@ -252,7 +255,7 @@ export async function list(req, res) {
 export async function quote(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  const [couponDoc, advanceAmount, bookingSettings] = await Promise.all([
+  let [couponDoc, advanceAmount, bookingSettings] = await Promise.all([
     req.body.couponCode ? Coupon.findOne({ code: req.body.couponCode, isActive: true }).lean() : null,
     computeAdvanceFromCategories(req.body.items || [], req.body.bookingType),
     resolveBookingSettings()
@@ -413,7 +416,7 @@ export async function create(req, res) {
     }
   }
   const preferredProviderId = String(req.body.preferredProviderId || "").trim();
-  const [couponDoc, advanceAmount, settings] = await Promise.all([
+  let [couponDoc, advanceAmount, settings] = await Promise.all([
     couponCode ? Coupon.findOne({ code: couponCode, isActive: true }).lean() : null,
     computeAdvanceFromCategories(items, bookingType),
     loadBookingSettings()
