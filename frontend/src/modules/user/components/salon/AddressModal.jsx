@@ -26,6 +26,10 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
     });
     const [isLocating, setIsLocating] = useState(false);
     const [mapsReady, setMapsReady] = useState(false);
+    const [showMap, setShowMap] = useState(false);
+    const mapContainerRef = useRef(null);
+    const mapInstanceRef = useRef(null);
+    const markerInstanceRef = useRef(null);
     const [cities, setCities] = useState([]);
     const [zones, setZones] = useState([]);
     const [zonesLoading, setZonesLoading] = useState(false);
@@ -163,6 +167,73 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, mapsReady]);
+
+    useEffect(() => {
+        if (!showMap || !mapsReady || !mapContainerRef.current || !window.google?.maps) return;
+
+        if (!mapInstanceRef.current) {
+            const initialLat = address.lat || 22.7196; // Default to Indore or current lat
+            const initialLng = address.lng || 75.8577;
+
+            mapInstanceRef.current = new window.google.maps.Map(mapContainerRef.current, {
+                center: { lat: initialLat, lng: initialLng },
+                zoom: 15,
+                disableDefaultUI: true,
+                zoomControl: true,
+            });
+
+            markerInstanceRef.current = new window.google.maps.Marker({
+                position: { lat: initialLat, lng: initialLng },
+                map: mapInstanceRef.current,
+                draggable: true,
+                animation: window.google.maps.Animation.DROP,
+            });
+
+            const handleLocationChange = (latLng) => {
+                const lat = latLng.lat();
+                const lng = latLng.lng();
+                
+                const geocoder = new window.google.maps.Geocoder();
+                geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+                    if (status === "OK" && results && results[0]) {
+                        const res = results[0];
+                        const comp = res.address_components || [];
+                        const getComp = (types) => comp.find(c => types.some(t => c.types.includes(t)))?.long_name || "";
+
+                        const houseNo = getComp(["street_number", "premise", "subpremise"]);
+                        const landmark = getComp(["neighborhood", "sublocality_level_2", "sublocality_level_3"]);
+                        const area = res.formatted_address;
+                        const city = getComp(["locality", "administrative_area_level_2"]);
+
+                        setAddress(prev => ({
+                            ...prev,
+                            houseNo: houseNo || prev.houseNo,
+                            landmark: landmark || prev.landmark,
+                            area: area,
+                            city: city || prev.city,
+                            lat,
+                            lng
+                        }));
+                    }
+                });
+            };
+
+            window.google.maps.event.addListener(markerInstanceRef.current, 'dragend', () => {
+                handleLocationChange(markerInstanceRef.current.getPosition());
+            });
+
+            window.google.maps.event.addListener(mapInstanceRef.current, 'click', (event) => {
+                markerInstanceRef.current.setPosition(event.latLng);
+                handleLocationChange(event.latLng);
+            });
+        } else {
+            if (address.lat && address.lng) {
+                const newPos = { lat: address.lat, lng: address.lng };
+                mapInstanceRef.current.setCenter(newPos);
+                if (markerInstanceRef.current) markerInstanceRef.current.setPosition(newPos);
+            }
+        }
+    }, [showMap, mapsReady]);
 
     const handleGetCurrentLocation = () => {
         if (!navigator.geolocation) {
@@ -388,11 +459,17 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Area / Locality*</label>
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1 flex justify-between items-center">
+                                        <span>Area / Locality*</span>
+                                        <button type="button" onClick={() => setShowMap(!showMap)} className="text-primary hover:underline flex items-center gap-1 text-[10px]">
+                                            <MapPin className="w-3 h-3" />
+                                            {showMap ? "Hide Map" : "Choose on Map"}
+                                        </button>
+                                    </label>
                                     <div className="relative group">
                                         <Navigation className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${isLocating ? 'text-primary animate-pulse' : 'text-primary'}`} />
-                                    <input
-                                        ref={areaInputRef}
+                                        <input
+                                            ref={areaInputRef}
                                             type="text"
                                             required
                                             value={address.area}
@@ -409,6 +486,28 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                             {isLocating ? "LOCATING..." : "USE CURRENT"}
                                         </button>
                                     </div>
+                                    <AnimatePresence>
+                                        {showMap && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: "auto", opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="mt-2 relative w-full h-48 rounded-xl overflow-hidden border border-border">
+                                                    <div ref={mapContainerRef} className="w-full h-full" />
+                                                    {!mapsReady && (
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-accent/50 backdrop-blur-sm">
+                                                            <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                                        </div>
+                                                    )}
+                                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/70 text-white text-[10px] px-3 py-1.5 rounded-full backdrop-blur-md whitespace-nowrap pointer-events-none">
+                                                        Drag the marker to your exact location
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
 
                                 <div className="space-y-1.5">
