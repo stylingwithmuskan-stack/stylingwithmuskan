@@ -121,10 +121,7 @@ const ExpressCheckout = () => {
 
     // Calculate dynamic advance payment based on category settings
     const calculateAdvancePayment = () => {
-        // Instant bookings do not require advance payment
-        if (bookingType === 'instant') {
-            return { totalAdvance: 0, itemsWithAdvance: [], hasAdvance: false };
-        }
+        // We removed the hardcoded skip for 'instant' bookings because advance is determined by category settings.
 
         let totalAdvance = 0;
         let itemsWithAdvance = [];
@@ -135,8 +132,8 @@ const ExpressCheckout = () => {
             if (activeCheckoutType && item.serviceType !== activeCheckoutType) return;
 
             const itCat = String(item.category || "").trim().toLowerCase();
-            const category = categories?.find(c => 
-                String(c.id || "").toLowerCase() === itCat || 
+            const category = categories?.find(c =>
+                String(c.id || "").toLowerCase() === itCat ||
                 String(c.name || "").toLowerCase() === itCat
             );
 
@@ -178,7 +175,7 @@ const ExpressCheckout = () => {
         }
 
         const finalType = typeId || activeCheckoutType;
-        
+
         let finalTotalAmount = displayedTotalPrice;
         let finalAdvanceAmount = advanceAmount;
         let finalRemainingAmount = remainingAmount;
@@ -187,27 +184,25 @@ const ExpressCheckout = () => {
             const finalGroup = groupedItems[finalType];
             if (finalGroup) {
                 finalTotalAmount = finalGroup.subtotal;
-                
+
                 // Calculate advance payment for finalType only
                 let typeAdvance = 0;
-                if (bookingType !== 'instant') {
-                    cartItems.forEach(item => {
-                        if (!item) return;
-                        if (item.serviceType !== finalType) return;
+                cartItems.forEach(item => {
+                    if (!item) return;
+                    if (item.serviceType !== finalType) return;
 
-                        const itCat = String(item.category || "").trim().toLowerCase();
-                        const category = categories?.find(c => 
-                            String(c.id || "").toLowerCase() === itCat || 
-                            String(c.name || "").toLowerCase() === itCat
-                        );
-                        const advancePercent = category?.advancePercentage || 0;
+                    const itCat = String(item.category || "").trim().toLowerCase();
+                    const category = categories?.find(c =>
+                        String(c.id || "").toLowerCase() === itCat ||
+                        String(c.name || "").toLowerCase() === itCat
+                    );
+                    const advancePercent = category?.advancePercentage || 0;
 
-                        if (advancePercent > 0) {
-                            const itemAdvance = Math.round((item.price * item.quantity * advancePercent) / 100);
-                            typeAdvance += itemAdvance;
-                        }
-                    });
-                }
+                    if (advancePercent > 0) {
+                        const itemAdvance = Math.round((item.price * item.quantity * advancePercent) / 100);
+                        typeAdvance += itemAdvance;
+                    }
+                });
                 finalAdvanceAmount = typeAdvance;
                 finalRemainingAmount = finalTotalAmount - finalAdvanceAmount;
             }
