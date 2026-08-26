@@ -353,7 +353,7 @@ router.post(
     if (purpose === "custom_advance" && enquiryId && amount > 0) {
       const enq = await CustomEnquiry.findOne({ _id: enquiryId, userId: req.user._id.toString() });
       if (enq) {
-        enq.paymentStatus = "paid";
+        enq.paymentStatus = "Partially Paid";
         enq.prebookPaidAt = new Date();
         enq.prebookAmountPaid = (enq.prebookAmountPaid || 0) + amount;
         enq.status = "advance_paid";

@@ -58,14 +58,15 @@ const OurGallery = () => {
                     onMouseLeave={() => setIsHovered(false)}
                 >
                     <div
-                        className="grid grid-cols-2 lg:grid-cols-4 gap-3 pb-6"
+                        ref={scrollRef}
+                        className="flex overflow-x-auto hide-scrollbar gap-5 pb-6 snap-x"
                     >
                         {gallery.map((item) => (
                             <motion.div
                                 key={item.id}
                                 whileHover={{ scale: 1.02 }}
                                 onClick={() => setSelectedImage(item)}
-                                className="w-full aspect-[1/1] relative rounded-[2.5rem] overflow-hidden shadow-2xl group cursor-pointer"
+                                className="flex-shrink-0 w-[240px] md:w-[350px] aspect-[4/3] relative rounded-[2.5rem] overflow-hidden snap-center shadow-2xl group cursor-pointer"
                             >
                                 <img
                                     src={resolveImageUrl(item.image)}

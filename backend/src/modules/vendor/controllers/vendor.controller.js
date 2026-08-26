@@ -1406,7 +1406,8 @@ export async function assignTeamCustomEnquiry(req, res) {
   const discountAmount = Number(enq.quote?.discountPrice || 0);
   const fundedBy = String(enq.quote?.discountFundedBy || "admin").toLowerCase();
 
-  let required = Math.round(totalAmount * (rate / 100));
+  const actualBookingAmount = Number(enq.quote?.finalTotal || calcTotal);
+  let required = Math.round(actualBookingAmount * (rate / 100));
   required = Math.max(required, 0);
   const previousProviderId = String(enq.maintainerProvider || "").trim();
   if (previousProviderId && previousProviderId !== provider._id.toString()) {
@@ -1470,7 +1471,7 @@ export async function assignTeamCustomEnquiry(req, res) {
       },
       slot: { date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10), time: enq.scheduledAt?.timeSlot || "10:00" },
       bookingType: "customized",
-      status: "vendor_assigned",
+      status: "accepted",
       otp: enq.otp || (Math.floor(100000 + Math.random() * 900000)).toString(),
       lastAssignedAt: new Date(),
       expiresAt: null, // Manual vendor assignment should not expire automatically
@@ -1485,7 +1486,7 @@ export async function assignTeamCustomEnquiry(req, res) {
   } else {
     booking.assignedProvider = enq.maintainerProvider;
     booking.maintainProvider = enq.maintainerProvider;
-    booking.status = "pending";
+    booking.status = "accepted";
     booking.lastAssignedAt = new Date();
     booking.expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     booking.notificationStatus = (await withinNotificationWindow()) ? "immediate" : "queued";
@@ -1515,7 +1516,7 @@ export async function assignTeamCustomEnquiry(req, res) {
       recipientId: enq.userId,
       recipientRole: "user",
       type: "custom_approved",
-      meta: { bookingId: enq.bookingId || "", enquiryId: enq._id?.toString?.() },
+      meta: { bookingId: enq.bookingId || "", enquiryId: enq._id?.toString?.(), otp: booking.otp },
     });
   } catch { }
   res.json({ enquiry: enq, booking });

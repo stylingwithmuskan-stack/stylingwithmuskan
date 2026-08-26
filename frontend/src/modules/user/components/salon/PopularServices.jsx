@@ -43,7 +43,7 @@ const PopularServices = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 px-4 pb-2">
+      <div className="flex gap-3 overflow-x-auto hide-scrollbar px-4 pb-2">
         {filtered.map((service, i) => (
           <motion.div
             key={service.id}
@@ -51,9 +51,9 @@ const PopularServices = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.08 }}
             whileHover={{ y: -4 }}
-            className="w-full glass-strong rounded-lg overflow-hidden shadow-soft hover:shadow-elevated transition-all duration-300 cursor-default"
+            className="flex-shrink-0 w-48 md:w-56 glass-strong rounded-lg overflow-hidden shadow-soft hover:shadow-elevated transition-all duration-300 cursor-default"
           >
-            <div className="relative h-32 md:h-40 overflow-hidden cursor-pointer">
+            <div className="relative h-32 overflow-hidden cursor-pointer">
               <img
                 src={resolveImageUrl(service.image) || getServicePlaceholder(service.name, categories.find(c => String(c.id) === String(service.category))?.name)}
                 alt={service.name}

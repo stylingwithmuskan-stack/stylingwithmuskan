@@ -1120,7 +1120,7 @@ export async function userAcceptCustomEnquiry(req, res) {
   }
   const isZeroAdvance = Number(enq.quote?.prebookAmount || 0) === 0;
   if (isZeroAdvance) {
-    enq.paymentStatus = "paid";
+    enq.paymentStatus = "Pending";
     enq.prebookAmountPaid = 0;
     enq.prebookPaidAt = new Date();
     enq.status = "advance_paid";

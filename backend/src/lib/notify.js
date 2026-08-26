@@ -360,7 +360,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
     case "custom_approved":
       return {
         title: "Booking Approved",
-        message: `Your custom booking for ${servicePlain} has been approved and is now active.`,
+        message: `Your custom booking for ${servicePlain} has been approved and is now active.${safeMeta.otp ? ` Your service OTP is ${safeMeta.otp}.` : ""}`,
         sound: "success",
       };
     case "custom_advance_paid":
@@ -534,7 +534,10 @@ export async function notify({
   // Backgrounding push notifications to ensure the main request finishes instantly
   (async () => {
     try {
-      if (recipientRole === "provider" && respectProviderQuietHours) {
+      // Bypass quiet hours for urgent notifications like ringtone or emergency
+      const isUrgent = payload.sound === "ringtone" || payload.sound === "emergency";
+
+      if (recipientRole === "provider" && respectProviderQuietHours && !isUrgent) {
         const ok = await isWithinProviderWindow();
         if (!ok) {
           await queuePushForNotification(notification, "Provider quiet hours");
