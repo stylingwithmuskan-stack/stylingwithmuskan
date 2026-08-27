@@ -196,7 +196,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         return {
           title: "Professional Assigned",
           message: `A professional has been assigned for ${yourBooking}.`,
-          sound: "ringtone",
+          sound: "notification",
         };
       }
       return {

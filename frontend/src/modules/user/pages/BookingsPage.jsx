@@ -332,8 +332,8 @@ const BookingsPage = () => {
                                     // Strictly exclude customized bookings from normal tab
                                     if (isCustom) return false;
 
-                                    if (activeTab === "Upcoming") return !["completed", "cancelled", "payment_pending"].includes(s);
-                                    if (activeTab === "Past") return ["completed", "cancelled", "payment_pending"].includes(s);
+                                    if (activeTab === "Upcoming") return !["completed", "cancelled"].includes(s);
+                                    if (activeTab === "Past") return ["completed", "cancelled"].includes(s);
                                     return false;
                                 })
                                 .map((booking, i) => (

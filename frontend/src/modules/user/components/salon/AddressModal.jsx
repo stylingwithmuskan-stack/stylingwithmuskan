@@ -162,11 +162,12 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                     lng
                 }));
 
+                setShowMap(true); // Open the map so user can see it!
+                
                 if (mapInstanceRef.current) {
                     const newPos = { lat, lng };
                     mapInstanceRef.current.panTo(newPos);
                     if (markerInstanceRef.current) markerInstanceRef.current.setPosition(newPos);
-                    setShowMap(true); // Open the map so user can see it!
                 }
             });
         } catch {
@@ -321,6 +322,14 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                 }));
                                 resolveZone(city || "");
                                 setIsLocating(false);
+                                
+                                setShowMap(true); // Always show map so they can adjust
+                                
+                                if (mapInstanceRef.current) {
+                                    const newPos = { lat: latitude, lng: longitude };
+                                    mapInstanceRef.current.panTo(newPos);
+                                    if (markerInstanceRef.current) markerInstanceRef.current.setPosition(newPos);
+                                }
                             } else {
                                 if (status === "REQUEST_DENIED") {
                                     toast.error("Google Maps API error", {

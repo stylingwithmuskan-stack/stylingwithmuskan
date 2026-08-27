@@ -142,27 +142,7 @@ const ProviderLayout = () => {
 
             {/* Right side icons */}
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Sound status & unlock button */}
-              <button
-                  onClick={() => {
-                      if (!audioUnlocked) {
-                          unlockAudio();
-                      }
-                      playNotificationSound("ringtone");
-                      setTimeout(() => {
-                          stopActiveSound();
-                      }, 2000);
-                  }}
-                  className={cn(
-                      "p-2 rounded-full transition-all active:scale-90 flex items-center justify-center",
-                      audioUnlocked 
-                          ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" 
-                          : "bg-amber-50 text-amber-600 hover:bg-amber-100 animate-pulse"
-                  )}
-                  title={audioUnlocked ? "Sound active (Click to test)" : "Sound blocked by browser (Click to enable & test)"}
-              >
-                  {audioUnlocked ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-              </button>
+
               <button
                 onClick={() => {
                   if (window.confirm("EMERGENCY: Do you want to trigger SOS alert?")) {

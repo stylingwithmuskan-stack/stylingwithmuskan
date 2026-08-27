@@ -336,8 +336,10 @@ export async function sendPushForNotification(notification) {
           d.recipientRole || notification.recipientRole
         ).catch((err) => console.error(`[push] Failed to send VoIP to ${d._id}`, err));
         voipSentCount++;
-      } else if (d.fcmToken) {
-        // Normal APNs push via FCM for non-urgent notifications
+      }
+      
+      if (d.fcmToken) {
+        // Send normal APNs push via FCM so they get the notification banner too
         iosTokens.push(d.fcmToken);
       }
     } else {

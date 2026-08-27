@@ -121,13 +121,7 @@ const BookingSummary = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // Auto apply coupon if redirected from CouponsPage
-  useEffect(() => {
-    const urlCoupon = searchParams.get('coupon');
-    if (urlCoupon) {
-      setCoupon(urlCoupon);
-    }
-  }, [location.search]);
+
 
   const handleApplyCoupon = async () => {
     try {
