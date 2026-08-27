@@ -71,6 +71,14 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
         api.content.cities().then(res => setCities(res.cities || [])).catch(() => { });
     }, []);
 
+    useEffect(() => {
+        if (!isOpen) {
+            setShowMap(false);
+            mapInstanceRef.current = null;
+            markerInstanceRef.current = null;
+        }
+    }, [isOpen]);
+
 
     React.useEffect(() => {
         if (initialAddress) {
@@ -489,9 +497,9 @@ const AddressModal = ({ isOpen, onClose, onSave, initialAddress }) => {
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1 flex justify-between items-center">
                                             <span>Area / Locality*</span>
-                                            <button type="button" onClick={() => setShowMap(!showMap)} className="text-primary hover:underline flex items-center gap-1 text-[10px]">
+                                            <button type="button" onClick={() => setShowMap(true)} className="text-primary hover:underline flex items-center gap-1 text-[10px]">
                                                 <MapPin className="w-3 h-3" />
-                                                {showMap ? "Hide Map" : "Choose on Map"}
+                                                {showMap ? "Adjust Pin on Map" : "Choose on Map"}
                                             </button>
                                         </label>
                                         <div className="relative group">
