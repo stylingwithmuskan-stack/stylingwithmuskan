@@ -124,14 +124,7 @@ const BookingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// DEBUG: Log all deletions to find the culprit
-BookingSchema.pre(['remove', 'deleteOne', 'deleteMany', 'findOneAndDelete', 'findByIdAndDelete'], { document: true, query: true }, function(next) {
-  const query = this.getQuery ? this.getQuery() : 'document';
-  const msg = `[${new Date().toISOString()}] DELETE DETECTED! Method: ${this.op || 'remove'}, Query: ${JSON.stringify(query)}\n`;
-  console.log(`[BookingDebug] ${msg}`);
-  fs.appendFileSync('delete_debug.log', msg);
-  next();
-});
+
 
 // Analytics-friendly indexes (city/zone + time window queries)
 BookingSchema.index({ createdAt: 1 });
