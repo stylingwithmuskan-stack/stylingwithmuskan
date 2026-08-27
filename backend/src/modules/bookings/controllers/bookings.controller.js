@@ -211,22 +211,9 @@ export async function list(req, res) {
       console.log(`[BookingList] Fallback to phone search found ${phoneItems.length} bookings for ${req.user.phone}`);
       items = phoneItems;
       total = await Booking.countDocuments(phoneQ);
+      // Auto-migrate these bookings to the new customerId so the user can cancel/interact with them
+      await Booking.updateMany(phoneQ, { $set: { customerId: req.user._id.toString() } });
     }
-  }
-
-  // DEBUG LOG TO FILE
-  try {
-    const allUserBookings = await Booking.find({ customerPhone: req.user.phone }).select('_id customerId status').lean();
-    const logPath = path.join(process.cwd(), "booking_debug.log");
-    const logMsg = `[${new Date().toISOString()}] DEBUG LIST:
-      ReqUser: ${req.user._id} (${typeof req.user._id})
-      SearchQuery: ${JSON.stringify(q)}
-      ResultCount: ${items.length}
-      PhoneMatchCount: ${allUserBookings.length}
-      PhoneMatchDetails: ${JSON.stringify(allUserBookings)}\n`;
-    fs.appendFileSync(logPath, logMsg);
-  } catch (err) {
-    console.error("[BookingDebugError]", err);
   }
 
   let bookings = (items || []).map((b) => ({

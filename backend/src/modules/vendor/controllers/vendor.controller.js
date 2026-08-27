@@ -1122,6 +1122,26 @@ export async function assignBooking(req, res) {
         meta: { bookingId: b._id.toString(), reason: "vendor_assigned" },
         respectProviderQuietHours: true,
       });
+
+      // Trigger VoIP Push to iOS providers for background ringing
+      try {
+        const { sendVoipPush } = await import("../../../lib/push.js");
+        const PushDeviceModule = await import("../../../models/PushDevice.js");
+        const PushDevice = PushDeviceModule.default;
+
+        const devices = await PushDevice.find({
+          recipientId: b.assignedProvider,
+          platform: { $regex: /^ios$/i },
+          voipToken: { $exists: true, $ne: "" },
+          isActive: true
+        }).lean();
+
+        for (const device of devices) {
+          await sendVoipPush(device.voipToken, b._id.toString(), b.customerName || "Customer", "provider");
+        }
+      } catch (err) {
+        console.error("[VendorAssign] VoIP Push error:", err);
+      }
     }
     if (b?.customerId) {
       await notify({
@@ -1255,6 +1275,26 @@ export async function reassignBooking(req, res) {
         meta: { bookingId: b._id.toString(), reason: "vendor_reassigned" },
         respectProviderQuietHours: true,
       });
+
+      // Trigger VoIP Push to iOS providers for background ringing
+      try {
+        const { sendVoipPush } = await import("../../../lib/push.js");
+        const PushDeviceModule = await import("../../../models/PushDevice.js");
+        const PushDevice = PushDeviceModule.default;
+
+        const devices = await PushDevice.find({
+          recipientId: b.assignedProvider,
+          platform: { $regex: /^ios$/i },
+          voipToken: { $exists: true, $ne: "" },
+          isActive: true
+        }).lean();
+
+        for (const device of devices) {
+          await sendVoipPush(device.voipToken, b._id.toString(), b.customerName || "Customer", "provider");
+        }
+      } catch (err) {
+        console.error("[VendorReassign] VoIP Push error:", err);
+      }
     }
     if (b?.customerId) {
       await notify({
