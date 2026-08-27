@@ -720,20 +720,6 @@ export async function create(req, res) {
     status: booking.status || "",
   });
 
-  // EXTREME PERSISTENCE LOG
-  try {
-    const check = await Booking.findById(booking._id);
-    const fs = await import("fs");
-    const path = await import("path");
-    const logPath = path.join(process.cwd(), "booking_creation.log");
-    const logMsg = `[${new Date().toISOString()}] CREATED:
-      ID: ${booking._id}
-      User: ${booking.customerId}
-      Phone: ${booking.customerPhone}
-      Status: ${booking.status}
-      InDB: ${!!check}\n`;
-    fs.appendFileSync(logPath, logMsg);
-  } catch (err) { }
   let order = null;
   // Use the remainingAdvance already calculated above
   if (remainingAdvance > 0 && RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
