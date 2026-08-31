@@ -333,6 +333,24 @@ export const NotificationProvider = ({ children, role }) => {
     }, [currentUserId, activeRole, activeToken, playNotificationSound, fetchNotifications]);
 
     useEffect(() => {
+        // Listen for PLAY_SOUND messages from Service Worker (background notifications)
+        const handleSWMessage = (event) => {
+            if (event.data?.type === "PLAY_SOUND") {
+                console.log("[NotificationContext] 🔔 SW Background Sound Request:", event.data);
+                playNotificationSound(event.data.soundType || "notification");
+            }
+        };
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.addEventListener("message", handleSWMessage);
+        }
+        return () => {
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.removeEventListener("message", handleSWMessage);
+            }
+        };
+    }, [playNotificationSound]);
+
+    useEffect(() => {
         if (activeRole && currentUserId && activeToken) {
             fetchNotifications();
             const interval = setInterval(() => {

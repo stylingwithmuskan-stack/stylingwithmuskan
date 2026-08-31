@@ -17,26 +17,51 @@ firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
+// Sound file mapping
+const SOUND_FILES = {
+  ringtone: "/sounds/ringtone.mp3",
+  emergency: "/sounds/sos_tone.mp3",
+  alert: "/sounds/alert.mp3",
+  notification: "/sounds/massege_ting.mp3",
+  success: "/sounds/massege_ting.mp3",
+};
+
 messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title || payload.data?.title || "New Notification";
   const body = payload.notification?.body || payload.data?.body || "";
-  const soundType = payload.data?.sound || "default";
+  const soundType = payload.data?.sound || "notification";
   const isUrgent = ["ringtone", "emergency"].includes(soundType);
+
+  const soundFile = SOUND_FILES[soundType] || SOUND_FILES.notification;
 
   const options = {
     body,
     icon: payload.notification?.icon || "/logo.png",
     badge: "/logo.png",
     vibrate: isUrgent
-      ? [300, 100, 300, 100, 300, 100, 300]   // Long urgent vibration pattern
-      : [200, 100, 200],                        // Standard vibration
-    data: payload.data || {},
-    tag: payload.data?.notificationId || "general",
+      ? [300, 100, 300, 100, 300, 100, 300, 100, 300]  // Long urgent vibration
+      : [200, 100, 200],                                 // Standard vibration
+    data: { ...(payload.data || {}), soundType, soundFile },
+    tag: isUrgent ? "urgent-ringtone" : (payload.data?.notificationId || "general"),
     renotify: true,
-    requireInteraction: isUrgent,  // Critical notifications stay until user interacts
-    silent: false,                 // Ensure OS default sound plays
+    requireInteraction: isUrgent,
+    silent: false,
+    sound: soundFile,  // Some browsers respect this
   };
+
   self.registration.showNotification(title, options);
+
+  // Notify all open app windows to play the sound
+  self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    clients.forEach((client) => {
+      client.postMessage({
+        type: "PLAY_SOUND",
+        soundType: soundType,
+        soundFile: soundFile,
+        isUrgent: isUrgent,
+      });
+    });
+  });
 });
 
 self.addEventListener("notificationclick", (event) => {

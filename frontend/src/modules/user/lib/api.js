@@ -85,6 +85,7 @@ async function requestWithToken(path, options = {}, token, role) {
       ...(options.headers || {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    cache: "no-store",
     credentials: "include",
     body: isFormData ? options.body : (options.body ? JSON.stringify(options.body) : undefined),
   });

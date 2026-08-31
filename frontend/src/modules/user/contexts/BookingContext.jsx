@@ -28,7 +28,11 @@ export const BookingProvider = ({ children }) => {
       const { bookings } = await api.bookings.list(1, 50);
       const normalized = (bookings || [])
         .map((b) => ({ ...b, id: b.id || b._id }))
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        .sort((a, b) => {
+          const dateB = new Date(b.createdAt || 0).getTime();
+          const dateA = new Date(a.createdAt || 0).getTime();
+          return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
+        });
       setBookings(normalized);
     } catch {
       setBookings([]);
