@@ -278,11 +278,14 @@ export const NotificationProvider = ({ children, role }) => {
 
             const isRoleMatch = targetRole === activeRole;
             const isIdMatch = targetId === myId || targetId === "ADMIN001" || targetId.startsWith("GLOBAL_");
-            const isNewOrderEscalation = type === "NEW_ORDER" && activeRole === "vendor";
+            const isNewOrderEscalation = (type === "NEW_ORDER" || type === "booking_escalated") && activeRole === "vendor";
+            // For vendor: also play sound if role matches even without strict ID match (vendor gets broadcast notifications)
+            const isVendorBroadcast = activeRole === "vendor" && isRoleMatch;
 
-            console.log(`[NotificationContext] Evaluation: RoleMatch=${isRoleMatch}, IdMatch=${isIdMatch}, Escalation=${isNewOrderEscalation}`);
+            console.log(`[NotificationContext] Evaluation: RoleMatch=${isRoleMatch}, IdMatch=${isIdMatch}, Escalation=${isNewOrderEscalation}, VendorBroadcast=${isVendorBroadcast}`);
 
-            if (isNewOrderEscalation || (isRoleMatch && isIdMatch)) {
+            if (isNewOrderEscalation || isVendorBroadcast || (isRoleMatch && isIdMatch)) {
+
                 console.log(`[NotificationContext] ✅ SUCCESS: Role Match=${isRoleMatch}, ID Match=${isIdMatch}, Escalation=${isNewOrderEscalation}`);
                 setNotifications((prev) => insertUniqueNotification(prev, payload.notification || payload));
                 setUnreadCount((prev) => prev + (payload.notification?.isRead ? 0 : 1));

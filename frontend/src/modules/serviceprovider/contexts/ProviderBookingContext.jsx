@@ -158,7 +158,7 @@ export const ProviderBookingProvider = ({ children }) => {
 
     // ─── Real-time Socket Sync ───
     useEffect(() => {
-        const token = localStorage.getItem("swm_provider_token");
+        const token = sessionStorage.getItem("swm_provider_token") || localStorage.getItem("swm_provider_token");
         if (!providerId || !token) return;
 
         // 1. Bookings status sync
