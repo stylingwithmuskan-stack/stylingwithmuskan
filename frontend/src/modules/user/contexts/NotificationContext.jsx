@@ -160,8 +160,10 @@ export const NotificationProvider = ({ children, role }) => {
         if (!soundKey) return;
 
         // Debounce: skip if a sound was played within the last 500ms
+        // Bypass debounce for high-priority sounds so they always play
+        const isHighPriority = ["alert", "ringtone", "emergency"].includes(soundKey);
         const now = Date.now();
-        if (now - lastSoundPlayedRef.current < 500) {
+        if (!isHighPriority && now - lastSoundPlayedRef.current < 500) {
             console.log(`[NotificationContext] Sound debounced (too soon): ${soundKey}`);
             return;
         }
