@@ -25,7 +25,7 @@ const PaymentPage = () => {
     const { loadBookings } = useBookings();
     const { categories } = useUserModuleData();
 
-    const [selectedMethod, setSelectedMethod] = useState("upi");
+    const [selectedMethod, setSelectedMethod] = useState("cod");
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState("");
@@ -49,10 +49,10 @@ const PaymentPage = () => {
     const isCODDisabled = user?.codDisabled || false;
 
     const paymentMethods = [
-        { id: "upi", name: "UPI (GPay, PhonePe, Paytm)", icon: Smartphone, color: "text-purple-600", bg: "bg-purple-100", disabled: false },
-        { id: "card", name: "Credit / Debit Card", icon: CreditCard, color: "text-blue-600", bg: "bg-blue-100", disabled: false },
-        { id: "wallet", name: "Wallets", icon: Wallet, color: "text-orange-600", bg: "bg-orange-100", disabled: false },
-        { id: "netbanking", name: "Net Banking", icon: Landmark, color: "text-green-600", bg: "bg-green-100", disabled: false },
+        // { id: "upi", name: "UPI (GPay, PhonePe, Paytm)", icon: Smartphone, color: "text-purple-600", bg: "bg-purple-100", disabled: false },
+        // { id: "card", name: "Credit / Debit Card", icon: CreditCard, color: "text-blue-600", bg: "bg-blue-100", disabled: false },
+        // { id: "wallet", name: "Wallets", icon: Wallet, color: "text-orange-600", bg: "bg-orange-100", disabled: false },
+        // { id: "netbanking", name: "Net Banking", icon: Landmark, color: "text-green-600", bg: "bg-green-100", disabled: false },
         { id: "cod", name: "Pay After Service", icon: ShieldCheck, color: "text-primary", bg: "bg-primary/10", disabled: isCODDisabled }
     ];
 
