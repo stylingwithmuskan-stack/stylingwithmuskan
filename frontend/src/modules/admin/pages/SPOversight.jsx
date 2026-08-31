@@ -140,6 +140,7 @@ export default function SPOversight() {
     const [availableServices, setAvailableServices] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isContentLoading, setIsContentLoading] = useState(false);
+    const [genderFilter, setGenderFilter] = useState("all");
     
     // Profile Photo Upload State
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -1027,9 +1028,32 @@ export default function SPOversight() {
                                                     <p className="text-[10px] font-black text-muted-foreground animate-pulse uppercase tracking-widest">Fetching Categories & Services...</p>
                                                 </div>
                                             ) : isEditingCategories ? (
-                                                <div className="space-y-4">
-                                                    <div>
-                                                        <p className="text-[10px] font-black text-muted-foreground mb-2 uppercase tracking-tight">Step 1: Select Service Types (Parents)</p>
+                                                    <div className="space-y-4">
+                                                        <div className="flex gap-2 mb-4">
+                                                            <Badge 
+                                                                variant={genderFilter === "all" ? "default" : "outline"} 
+                                                                className={`cursor-pointer ${genderFilter === "all" ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20' : 'hover:border-primary/50 text-muted-foreground'}`}
+                                                                onClick={() => setGenderFilter("all")}
+                                                            >
+                                                                All Services
+                                                            </Badge>
+                                                            <Badge 
+                                                                variant={genderFilter === "men" ? "default" : "outline"} 
+                                                                className={`cursor-pointer ${genderFilter === "men" ? 'bg-blue-600 border-blue-600 text-white shadow-sm ring-2 ring-blue-100' : 'hover:border-blue-600/50 text-muted-foreground'}`}
+                                                                onClick={() => setGenderFilter("men")}
+                                                            >
+                                                                Men Only
+                                                            </Badge>
+                                                            <Badge 
+                                                                variant={genderFilter === "women" ? "default" : "outline"} 
+                                                                className={`cursor-pointer ${genderFilter === "women" ? 'bg-pink-600 border-pink-600 text-white shadow-sm ring-2 ring-pink-100' : 'hover:border-pink-600/50 text-muted-foreground'}`}
+                                                                onClick={() => setGenderFilter("women")}
+                                                            >
+                                                                Women Only
+                                                            </Badge>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-muted-foreground mb-2 uppercase tracking-tight">Step 1: Select Service Types (Parents)</p>
                                                         <div className="flex flex-wrap gap-1.5 p-3 bg-muted/20 rounded-xl border border-border/50">
                                                             {availableParents.map(parent => {
                                                                 const isSelected = tempCategories.includes(parent.label);
@@ -1090,11 +1114,12 @@ export default function SPOversight() {
                                                                     .map(parent => {
                                                                         const pid = parent.id || parent._id;
                                                                         const pLabel = parent.label.toLowerCase().split(' ')[0];
-                                                                        const children = availableCategories.filter(c => 
-                                                                            c.serviceType === pid || 
+                                                                        const children = availableCategories.filter(c => {
+                                                                            if (genderFilter !== "all" && c.gender && String(c.gender).toLowerCase() !== genderFilter) return false;
+                                                                            return c.serviceType === pid || 
                                                                             c.serviceType === String(parent._id) || 
-                                                                            (c.serviceType && String(c.serviceType).toLowerCase() === pLabel)
-                                                                        );
+                                                                            (c.serviceType && String(c.serviceType).toLowerCase() === pLabel);
+                                                                        });
                                                                         if (children.length === 0) return null;
 
                                                                         return (
@@ -1151,11 +1176,12 @@ export default function SPOversight() {
                                                                     .map(cat => {
                                                                         const cid = cat.id || cat._id;
                                                                         const cName = cat.name.toLowerCase();
-                                                                        const services = availableServices.filter(s => 
-                                                                            s.category === cid || 
+                                                                        const services = availableServices.filter(s => {
+                                                                            if (genderFilter !== "all" && s.gender && String(s.gender).toLowerCase() !== genderFilter) return false;
+                                                                            return s.category === cid || 
                                                                             s.category === String(cat._id) || 
-                                                                            (s.category && String(s.category).toLowerCase() === cName)
-                                                                        );
+                                                                            (s.category && String(s.category).toLowerCase() === cName);
+                                                                        });
                                                                         if (services.length === 0) return null;
 
                                                                         return (

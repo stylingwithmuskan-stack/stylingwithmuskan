@@ -58,7 +58,7 @@ const BookingCard = forwardRef(({ booking, type, onAccept, onReject, onNavigate 
 
     const { provider } = useProviderAuth();
     const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
-    const isCallRestricted = timeStatus.status === "block" && ["accepted", "vendor_assigned", "vendor_reassigned", "payment_pending"].includes(booking?.status);
+    const isCallRestricted = timeStatus.status === "block" && ["pending", "accepted", "vendor_assigned", "vendor_reassigned", "payment_pending"].includes(booking?.status);
 
     const handleCall = async (e) => {
         e.stopPropagation();

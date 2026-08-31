@@ -283,29 +283,21 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
         }
     }, [isOpen, tempDate, selectedProvider, totalDurationMinutes, serviceTypes, serviceCategories, address?.city, address?.zone, address?.area]);
 
-    const dates = useMemo(() => {
-        let maxDays = 7; // Default
-
-        // Config block defaults
-        const schedConfig = bookingTypeConfig?.find(b => b.id === "scheduled");
-        const instConfig = bookingTypeConfig?.find(b => b.id === "instant");
-
-        // Find if cart has scheduled or instant items
-        const hasScheduled = cartItems.some(item => {
-            const catId = item.category || item.categoryId;
-            const cat = categories?.find(c => c.id === catId || c._id === catId);
-            return (cat?.bookingType) === "scheduled";
+    const hasAdvancePayment = useMemo(() => {
+        if (!Array.isArray(cartItems)) return false;
+        return cartItems.some(item => {
+            const catId = item.category || item.categoryId || item._id || item.id;
+            const cat = categories?.find(c => String(c.id) === String(catId) || String(c._id) === String(catId));
+            return (cat?.advancePercentage || 0) > 0;
         });
+    }, [cartItems, categories]);
 
-        if (hasScheduled) {
-            // Advance booking (scheduled) ke liye 1000 din (approx 2.7 years) ka limit
-            maxDays = 1000;
-        } else {
-            // Instant/regular booking ke liye purana limit wapas set kar diya (mostly 7 din)
-            let allowedArray = instConfig?.allowedAdvanceDays || [2, 5, 7];
-            if (!Array.isArray(allowedArray)) allowedArray = [allowedArray];
-            maxDays = Math.max(...allowedArray, 7);
-        }
+    const dates = useMemo(() => {
+        let maxDays = 7; // Default for non-advance bookings
+        const instConfig = bookingTypeConfig?.find(b => b.id === "instant");
+        let allowedArray = instConfig?.allowedAdvanceDays || [2, 5, 7];
+        if (!Array.isArray(allowedArray)) allowedArray = [allowedArray];
+        maxDays = Math.max(...allowedArray, 7);
 
         return Array.from({ length: maxDays }, (_, i) => {
             const d = new Date();
@@ -499,26 +491,39 @@ const SlotSelectionModal = ({ isOpen, onClose, onSave, address }) => {
                             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
                                 <Calendar className="w-3.5 h-3.5 text-primary" /> Select Date
                             </h3>
-                            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-                                {dates.map((d) => (
-                                    <button
-                                        key={d.key}
-                                        onClick={() => setTempDate(d.key)}
-                                        className={`flex-shrink-0 px-4 py-3 rounded-xl text-center text-xs transition-all duration-200 min-w-[70px] border-2 ${tempDate === d.key
-                                            ? "bg-primary text-white border-primary shadow-lg scale-105"
-                                            : "glass border-border hover:border-primary/30"
-                                            }`}
-                                    >
-                                        <div className="font-bold">{d.label}</div>
-                                        <div className="mt-1 text-[10px] opacity-80">{d.date}</div>
-                                        {d.isToday && (
-                                            <div className={`text-[8px] font-black mt-1 uppercase ${tempDate === d.key ? "text-white/90" : "text-primary"}`}>
-                                                Today
-                                            </div>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
+                            {hasAdvancePayment ? (
+                                <div className="mb-4">
+                                    <input 
+                                        type="date"
+                                        min={getLocalDateKey(new Date())}
+                                        max={getLocalDateKey(new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000))}
+                                        value={tempDate}
+                                        onChange={(e) => setTempDate(e.target.value)}
+                                        className="w-full p-4 rounded-xl border-2 border-primary/20 bg-background text-sm font-bold focus:outline-none focus:border-primary transition-colors cursor-pointer"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                                    {dates.map((d) => (
+                                        <button
+                                            key={d.key}
+                                            onClick={() => setTempDate(d.key)}
+                                            className={`flex-shrink-0 px-4 py-3 rounded-xl text-center text-xs transition-all duration-200 min-w-[70px] border-2 ${tempDate === d.key
+                                                ? "bg-primary text-white border-primary shadow-lg scale-105"
+                                                : "glass border-border hover:border-primary/30"
+                                                }`}
+                                        >
+                                            <div className="font-bold">{d.label}</div>
+                                            <div className="mt-1 text-[10px] opacity-80">{d.date}</div>
+                                            {d.isToday && (
+                                                <div className={`text-[8px] font-black mt-1 uppercase ${tempDate === d.key ? "text-white/90" : "text-primary"}`}>
+                                                    Today
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Time Slots */}

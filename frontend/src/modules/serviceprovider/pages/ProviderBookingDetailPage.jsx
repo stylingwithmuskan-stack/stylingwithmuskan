@@ -178,7 +178,7 @@ const ProviderBookingDetailPage = () => {
     const trackingActive = ["travelling", "arrived", "in_progress"].includes(String(booking?.status || "").toLowerCase());
 
     const timeStatus = getBookingTimeStatus(booking?.slot?.date, booking?.slot?.time);
-    const isCallRestricted = timeStatus.status === "block" && ["accepted", "vendor_assigned", "vendor_reassigned"].includes(booking?.status);
+    const isCallRestricted = timeStatus.status === "block" && ["pending", "accepted", "vendor_assigned", "vendor_reassigned"].includes(booking?.status);
 
     const handleCallProvider = async () => {
         if (isCallRestricted) {
