@@ -320,6 +320,9 @@ export const NotificationProvider = ({ children, role }) => {
                 }
 
                 let soundToPlay = payload.notification?.sound || payload.sound || "notification";
+                if (isProviderAssigned || isNewOrderEscalation) {
+                    soundToPlay = "alert";
+                }
                 playNotificationSound(soundToPlay);
             } else {
                 console.warn("[NotificationContext] ❌ Ignored: Role or ID Mismatch", { targetRole, activeRole, targetId, myId, type });
