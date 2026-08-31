@@ -281,10 +281,11 @@ export const NotificationProvider = ({ children, role }) => {
             const isNewOrderEscalation = (type === "NEW_ORDER" || type === "booking_escalated") && activeRole === "vendor";
             // For vendor: also play sound if role matches even without strict ID match (vendor gets broadcast notifications)
             const isVendorBroadcast = activeRole === "vendor" && isRoleMatch;
+            const isProviderAssigned = type === "booking_assigned" && activeRole === "provider" && isRoleMatch && isIdMatch;
 
-            console.log(`[NotificationContext] Evaluation: RoleMatch=${isRoleMatch}, IdMatch=${isIdMatch}, Escalation=${isNewOrderEscalation}, VendorBroadcast=${isVendorBroadcast}`);
+            console.log(`[NotificationContext] Evaluation: RoleMatch=${isRoleMatch}, IdMatch=${isIdMatch}, Escalation=${isNewOrderEscalation}, VendorBroadcast=${isVendorBroadcast}, ProviderAssigned=${isProviderAssigned}`);
 
-            if (isNewOrderEscalation || isVendorBroadcast || (isRoleMatch && isIdMatch)) {
+            if (isNewOrderEscalation || isVendorBroadcast || isProviderAssigned || (isRoleMatch && isIdMatch)) {
 
                 console.log(`[NotificationContext] ✅ SUCCESS: Role Match=${isRoleMatch}, ID Match=${isIdMatch}, Escalation=${isNewOrderEscalation}`);
                 setNotifications((prev) => insertUniqueNotification(prev, payload.notification || payload));
@@ -318,7 +319,10 @@ export const NotificationProvider = ({ children, role }) => {
                     }
                 }
 
-                const soundToPlay = payload.notification?.sound || payload.sound || "notification";
+                let soundToPlay = payload.notification?.sound || payload.sound || "notification";
+                if (isProviderAssigned) {
+                    soundToPlay = "ringtone";
+                }
                 playNotificationSound(soundToPlay);
             } else {
                 console.warn("[NotificationContext] ❌ Ignored: Role or ID Mismatch", { targetRole, activeRole, targetId, myId, type });
