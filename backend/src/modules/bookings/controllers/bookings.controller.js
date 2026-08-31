@@ -1296,16 +1296,20 @@ export async function adminFinalApprove(req, res) {
   const createBookingNow = req.body?.createBooking !== false;
   let booking = null;
   if (createBookingNow) {
-    const items = (enq.quote?.items?.length > 0 ? enq.quote.items : (enq.items?.length > 0 ? enq.items : []));
-    const total = (enq.quote?.totalAmount || items.reduce((s, it) => s + (Number(it.price) * (it.quantity || 1)), 0));
+    if (enq.bookingId) {
+      console.log(`[ForceCreate] Booking already exists for Enquiry: ${enq._id}. Skipping duplicate creation.`);
+      booking = await Booking.findById(enq.bookingId);
+    } else {
+      const items = (enq.quote?.items?.length > 0 ? enq.quote.items : (enq.items?.length > 0 ? enq.items : []));
+      const total = (enq.quote?.totalAmount || items.reduce((s, it) => s + (Number(it.price) * (it.quantity || 1)), 0));
 
-    console.log(`[ForceCreate] Processing Enquiry: ${enq._id}. Items count: ${items.length}, Total: ${total}`);
+      console.log(`[ForceCreate] Processing Enquiry: ${enq._id}. Items count: ${items.length}, Total: ${total}`);
 
-    const bookingUser = await User.findById(enq.userId);
-    const primaryAddress = (bookingUser?.addresses && bookingUser.addresses[0]) || {};
+      const bookingUser = await User.findById(enq.userId);
+      const primaryAddress = (bookingUser?.addresses && bookingUser.addresses[0]) || {};
 
-    try {
-      booking = await Booking.create({
+      try {
+        booking = await Booking.create({
         customerId: enq.userId,
         customerName: enq.name || bookingUser?.name || "Customer",
         customerPhone: enq.phone || bookingUser?.phone || "",
@@ -1374,7 +1378,8 @@ export async function adminFinalApprove(req, res) {
       }
     }
   }
-  enq.status = "final_approved";
+}
+enq.status = "final_approved";
   enq.timeline.push({ action: "final_approved", meta: { bookingId: booking?._id?.toString?.() || "" } });
   await enq.save();
   try {
