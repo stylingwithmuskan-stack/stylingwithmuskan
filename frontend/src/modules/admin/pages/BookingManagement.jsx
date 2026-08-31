@@ -642,7 +642,7 @@ export default function BookingManagement() {
                                                         </Button>
                                                     ) : (
                                                         /* Enable Assign toggle for any unassigned or pending booking in Admin panel */
-                                                        ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected"].includes(b.status) && (
+                                                        ["incoming", "pending", "Pending", "unassigned", "Unassigned", "rejected", "provider_cancelled", "cancelled"].includes(b.status) && (
                                                             <Button size="sm" className="h-8 text-[10px] font-bold bg-primary rounded-lg gap-1" onClick={(e) => { e.stopPropagation(); handleOpenAssignModal(b); }}>
                                                                 <Users className="h-3 w-3" />{b.assignedProvider ? "Re-assign" : "Assign"}
                                                             </Button>
@@ -1418,7 +1418,7 @@ export default function BookingManagement() {
                                                 </div>
                                             )}
                                             
-                                            {["incoming", "pending", "unassigned", "rejected"].includes(detailModal.status?.toLowerCase()) && (
+                                            {["incoming", "pending", "unassigned", "rejected", "provider_cancelled", "cancelled"].includes(detailModal.status?.toLowerCase()) && (
                                                 <Button className="w-full h-10 rounded-xl font-bold bg-primary" onClick={() => { setAssignModal(detailModal); setDetailModal(null); }}>
                                                     {detailModal.assignedProvider ? "Change Provider" : "Assign Now"}
                                                 </Button>

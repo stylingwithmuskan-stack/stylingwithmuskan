@@ -1426,7 +1426,10 @@ export async function cancel(req, res) {
 
   // Process refund if prepaid amount exists
   let refundResult = null;
+  // USER REQUEST: Do NOT auto-initiate Razorpay refund on cancellation.
   if (refundAmount > 0 && booking.prepaidAmount > 0) {
+    console.log(`[Cancel] Auto-refund disabled by admin config. Manual refund required for amount ₹${refundAmount}`);
+    /*
     try {
       const user = await User.findById(req.user._id);
       refundResult = await processSmartRefund({
@@ -1447,6 +1450,7 @@ export async function cancel(req, res) {
         error: error.message
       }];
     }
+    */
   }
 
   // Credit provider compensation logic removed as per request

@@ -70,22 +70,22 @@ async function filterProviderActiveZones(acc) {
   try {
     const { Zone, City } = await import("../models/CityZone.js");
     let activeZones = [];
-    
+
     // Check if provider has specific manually assigned zones
     const manualZoneIds = (acc.serviceZoneIds || acc.zoneIds || []).filter(id => /^[0-9a-fA-F]{24}$/.test(id));
-    
+
     if (manualZoneIds.length > 0) {
       // If manual zones exist, only show those that are still 'active'
-      activeZones = await Zone.find({ 
-        _id: { $in: manualZoneIds }, 
-        status: "active" 
+      activeZones = await Zone.find({
+        _id: { $in: manualZoneIds },
+        status: "active"
       }).select("name").lean();
     } else {
       // Fallback to city-wide active zones if no specific zones assigned
       if (acc.cityId && /^[0-9a-fA-F]{24}$/.test(acc.cityId)) {
         activeZones = await Zone.find({ city: acc.cityId, status: "active" }).select("name").lean();
       }
-      
+
       if (activeZones.length === 0) {
         const cityName = acc.city || (acc.cityId && !/^[0-9a-fA-F]{24}$/.test(acc.cityId) ? acc.cityId : "");
         if (cityName) {
@@ -96,7 +96,7 @@ async function filterProviderActiveZones(acc) {
         }
       }
     }
-    
+
     if (activeZones.length > 0) {
       acc.zones = activeZones.map((z) => z.name);
       acc.zoneIds = activeZones.map((z) => z._id.toString());
@@ -229,7 +229,7 @@ router.post("/verify-otp", body("phone").matches(/^\d{10}$/), body("otp").isLeng
     });
   } catch { }
   res.cookie("providerToken", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 3600 * 1000 });
-  
+
   const providerData = await filterProviderActiveZones({
     ...acc.toObject(),
     subscription,
@@ -390,9 +390,9 @@ router.get("/feedback", requireRole("provider"), async (req, res) => {
   try {
     const providerId = req.auth.sub;
     const Feedback = (await import("../models/Feedback.js")).default;
-    const items = await Feedback.find({ 
+    const items = await Feedback.find({
       providerId: providerId,
-      status: "active" 
+      status: "active"
     }).sort({ createdAt: -1 }).lean();
     res.json({ feedback: items });
   } catch (error) {
@@ -404,19 +404,19 @@ router.post("/check-update", requireRole("provider"), async (req, res) => {
   try {
     const providerId = req.auth.sub;
     const { currentVersion } = req.body;
-    
+
     const office = await OfficeSettings.findOne().lean();
     const latestVersion = office?.appVersion || "v2.1.0";
-    
+
     const isUpdateAvailable = latestVersion !== currentVersion;
-    
+
     // Trigger real-time Firebase Push Notification
     await notify({
       recipientId: providerId,
       recipientRole: "provider",
       type: "marketing_campaign",
       title: isUpdateAvailable ? "🚀 Update Available!" : "✅ App Up to Date",
-      message: isUpdateAvailable 
+      message: isUpdateAvailable
         ? `A new version (${latestVersion}) is ready. Click to refresh and update your app.`
         : `You are already using the latest version (${currentVersion}) of Styling With Muskan.`,
       link: "/provider/profile",
@@ -424,9 +424,9 @@ router.post("/check-update", requireRole("provider"), async (req, res) => {
       respectProviderQuietHours: false
     });
 
-    res.json({ 
-      success: true, 
-      isUpdateAvailable, 
+    res.json({
+      success: true,
+      isUpdateAvailable,
       latestVersion,
       message: isUpdateAvailable ? "Update notification sent!" : "App is up to date!"
     });
@@ -904,9 +904,9 @@ router.get("/summary/:phone", param("phone").matches(/^\d{10}$/), async (req, re
         const completedD = dayCompleted[dow] || 0;
         const score = totalD > 0 ? Math.round((completedD / totalD) * 100) : 0;
         const avgRating = dayRatedCount[dow] > 0 ? Math.round((dayRatings[dow] / dayRatedCount[dow]) * 20) : 0; // Scale 5 to 100
-        return { 
-          day: weekdayIdxToName[dow], 
-          value: score, 
+        return {
+          day: weekdayIdxToName[dow],
+          value: score,
           score: score,
           quality: avgRating,
           jobs: completedD
@@ -985,17 +985,17 @@ router.get("/rankings/:city", requireAnyRole(["admin", "provider"]), async (req,
     if (!city || city === "undefined" || city === "null") {
       return res.json({ rankings: [] });
     }
-    
+
     // Use case-insensitive regex for city
     const query = { city: { $regex: new RegExp(`^${city}$`, "i") } };
-    
+
     // If zone is provided, match it case-insensitively within the zones array
     if (zone) {
       query.zones = { $regex: new RegExp(`^${zone}$`, "i") };
     }
 
     const providers = await ProviderAccount.find(query).lean();
-    
+
     // Use map with internal try-catch to ensure one failure doesn't break the whole list
     const rankedProviders = (await Promise.all(providers.map(async (p) => {
       try {
@@ -1003,14 +1003,14 @@ router.get("/rankings/:city", requireAnyRole(["admin", "provider"]), async (req,
           .sort({ createdAt: -1 })
           .limit(50)
           .lean();
-        
+
         const ratedBookings = recentBookings.filter(b => b.status === 'completed' && b.rating);
         const totalRating = ratedBookings.reduce((acc, b) => acc + b.rating, 0);
         const rating = ratedBookings.length > 0 ? (totalRating / ratedBookings.length) : 0;
-        
+
         const completed = recentBookings.filter(b => (b.status || "").toLowerCase() === "completed").length;
         const responseRate = recentBookings.length > 0 ? Math.round((completed / recentBookings.length) * 100) : 0;
-        
+
         return { ...p, rating, responseRate, completedJobs: completed };
       } catch (err) {
         console.error(`[Rankings] Failed to process provider ${p._id}:`, err.message);
@@ -1414,15 +1414,15 @@ router.get("/bookings/:providerId", requireRole("provider"), param("providerId")
   // req.auth.sub may differ if browser has stale cookie from another provider
   const urlProviderId = req.params.providerId;
   const tokenProviderId = req.auth?.sub;
-  
+
   // Security: only allow if URL matches token OR token is a valid provider (for token-priority mode)
   // We use URL param for lookup but log the mismatch for debugging
   if (urlProviderId !== tokenProviderId) {
     console.warn(`[BookingsGET] Security Warning: URL ID (${urlProviderId}) !== Token ID (${tokenProviderId}). Forcing Token ID for security.`);
   }
   // Always use token sub for security to prevent ID-harvesting/unauthorized access
-  const providerId = tokenProviderId; 
-  
+  const providerId = tokenProviderId;
+
   const page = Math.max(parseInt(req.query.page) || 1, 1);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const acc = await ProviderAccount.findById(providerId).lean();
@@ -1834,6 +1834,8 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
         try {
           const refundAmount = Math.round((b.prepaidAmount || 0) * (refundPolicy.refundPercentage / 100));
           if (refundAmount > 0) {
+            console.log(`[ProviderCancel] Auto-refund disabled by admin config. Manual refund required for amount ₹${refundAmount}`);
+            /*
             const customer = await User.findById(b.customerId);
             if (customer) {
               const refundResult = await processSmartRefund({
@@ -1844,6 +1846,7 @@ router.patch("/bookings/:id/status", requireRole("provider"), param("id").isStri
               });
               console.log(`[ProviderCancel] Customer refund processed: status=${refundResult.status}, amount=₹${refundResult.totalRefunded}`);
             }
+            */
           }
         } catch (refundErr) {
           console.error(`[ProviderCancel] Customer refund failed:`, refundErr.message);
@@ -2112,16 +2115,16 @@ router.post("/bookings/:id/verify-otp", requireRole("provider"), param("id").isS
   if (!b) {
     b = await CustomEnquiry.findById(req.params.id);
   }
-  
+
   if (!b || b.otp !== req.body.otp) return res.status(403).json({ error: "Invalid OTP" });
   if (String(b.assignedProvider || "") !== String(req.auth?.sub || "")) return res.status(403).json({ error: "Forbidden" });
-  
+
   if (b.status === "service_confirmed" || b.status === "arrived") {
     b.status = "in_progress";
   } else {
     b.status = "in_progress";
   }
-  
+
   await b.save();
   await BookingLog.create({ action: "booking:verify-otp", userId: req.auth?.sub || "", bookingId: req.params.id, meta: {} });
   try {

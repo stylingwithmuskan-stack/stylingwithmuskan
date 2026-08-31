@@ -177,7 +177,7 @@ export const NotificationProvider = ({ children, role }) => {
 
             // Fallback to HTML Audio
             stopActiveSound();
-            
+
             let audio = audioObjectsRef.current[soundKey];
             if (!audio) {
                 console.log(`[NotificationContext] Pre-unlocked audio for ${soundKey} not found. Creating new Audio instance.`);
@@ -238,7 +238,7 @@ export const NotificationProvider = ({ children, role }) => {
             initPushNotifications(activeToken, activeRole).catch(err => {
                 console.error("[NotificationContext] Push init failed on mount:", err);
                 // Retry after 5s — service worker may need time
-                setTimeout(() => initPushNotifications(activeToken, activeRole).catch(e => 
+                setTimeout(() => initPushNotifications(activeToken, activeRole).catch(e =>
                     console.error("[NotificationContext] Push retry also failed:", e?.message)
                 ), 5000);
             });
@@ -305,7 +305,7 @@ export const NotificationProvider = ({ children, role }) => {
                         tag: "new-order-escalation", // Deduplicate
                         silent: false
                     };
-                    
+
                     try {
                         const notif = new Notification(nativeTitle, nativeOptions);
                         notif.onclick = () => {
