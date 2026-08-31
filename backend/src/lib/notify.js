@@ -189,7 +189,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         return {
           title: "New Booking Assigned",
           message: `You've received ${aBooking}. Please accept or reject.`,
-          sound: "ringtone",
+          sound: "alert",
         };
       }
       if (recipientRole === "user") {
