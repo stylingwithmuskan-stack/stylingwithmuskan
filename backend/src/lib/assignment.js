@@ -196,7 +196,7 @@ export async function findNextCandidate(bookingId) {
         recipientRole: "provider",
         type: "booking_assigned",
         meta: { bookingId: booking._id.toString() },
-        respectProviderQuietHours: true,
+        respectProviderQuietHours: false,
       });
     } catch (err) { }
 

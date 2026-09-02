@@ -1120,7 +1120,7 @@ export async function assignBooking(req, res) {
         recipientRole: "provider",
         type: "booking_assigned",
         meta: { bookingId: b._id.toString(), reason: "vendor_assigned" },
-        respectProviderQuietHours: true,
+        respectProviderQuietHours: false,
       });
 
       // Trigger VoIP Push to iOS providers for background ringing
@@ -1273,7 +1273,7 @@ export async function reassignBooking(req, res) {
         recipientRole: "provider",
         type: "booking_reassigned",
         meta: { bookingId: b._id.toString(), reason: "vendor_reassigned" },
-        respectProviderQuietHours: true,
+        respectProviderQuietHours: false,
       });
 
       // Trigger VoIP Push to iOS providers for background ringing

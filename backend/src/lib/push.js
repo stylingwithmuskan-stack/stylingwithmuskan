@@ -286,13 +286,7 @@ export async function sendPushForNotification(notification) {
     return { sent: 0, failed: 0 };
   }
 
-  if (notification.recipientRole === "provider") {
-    const inWindow = await isWithinProviderPushWindow();
-    if (!inWindow) {
-      await queuePushForNotification(notification, "Provider quiet hours");
-      return { sent: 0, failed: 0 };
-    }
-  }
+
 
   const devices = await PushDevice.find({
     recipientId: notification.recipientId,

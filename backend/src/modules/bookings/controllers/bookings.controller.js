@@ -922,7 +922,7 @@ export async function confirmCOD(req, res) {
         recipientRole: "provider",
         type: "booking_assigned",
         meta: { bookingId },
-        respectProviderQuietHours: true,
+        respectProviderQuietHours: false,
       });
 
       // NOTE: User notification for 'booking_assigned' is intentionally omitted here 
