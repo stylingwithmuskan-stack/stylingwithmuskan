@@ -692,7 +692,7 @@ router.patch("/bookings/:id/assign", requireRole("admin"), param("id").isString(
           recipientRole: "provider",
           type: "booking_assigned",
           meta: { bookingId: b._id.toString(), reason: "admin_assigned" },
-          respectProviderQuietHours: true,
+          respectProviderQuietHours: false,
         });
       }
       if (b?.customerId) {
