@@ -286,7 +286,7 @@ export async function sendPushForNotification(notification) {
     return { sent: 0, failed: 0 };
   }
 
-
+  
 
   const devices = await PushDevice.find({
     recipientId: notification.recipientId,
