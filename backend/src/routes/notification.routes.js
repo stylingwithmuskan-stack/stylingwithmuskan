@@ -158,7 +158,7 @@ router.post("/push/register", flexibleAuth, async (req, res) => {
     res.json({
       success: true,
       device: {
-        deviceKey: device.deviceKey,
+        deviceKey: body.deviceKey || "",
         isActive: device.isActive,
         permission: device.permission,
         enabled: device.preferences?.enabled !== false,
