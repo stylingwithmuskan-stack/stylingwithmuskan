@@ -318,20 +318,21 @@ export async function sendPushForNotification(notification) {
   let voipSentCount = 0;
 
   for (const d of devices) {
-    const isIos = (d.platform || "").toLowerCase() === "ios";
+    const isIos = (d.platform || "").toLowerCase() === "ios" || !!d.voipToken; // Treat as iOS if it has a VoIP token
+    
+    if (d.voipToken && ["ringtone", "emergency", "doorbell"].includes(notification.sound)) {
+      console.log(`[push] Sending VoIP Push to device ${d._id} for recipient ${notification.recipientId} (Sound: ${notification.sound})`);
+      sendBroadcastVoipPush(
+        d.voipToken,
+        notification.meta?.bookingId || notification.meta?.broadcastId || notification._id,
+        notification.title,
+        notification.message,
+        d.recipientRole || notification.recipientRole
+      ).catch((err) => console.error(`[push] Failed to send VoIP to ${d._id}`, err));
+      voipSentCount++;
+    }
+
     if (isIos) {
-      if (d.voipToken && ["ringtone", "emergency", "doorbell"].includes(notification.sound)) {
-        console.log(`[push] Sending VoIP Push to iOS device ${d._id} for recipient ${notification.recipientId} (Sound: ${notification.sound})`);
-        sendBroadcastVoipPush(
-          d.voipToken,
-          notification.meta?.bookingId || notification.meta?.broadcastId || notification._id,
-          notification.title,
-          notification.message,
-          d.recipientRole || notification.recipientRole
-        ).catch((err) => console.error(`[push] Failed to send VoIP to ${d._id}`, err));
-        voipSentCount++;
-      }
-      
       if (d.fcmToken) {
         // Send normal APNs push via FCM so they get the notification banner too
         iosTokens.push(d.fcmToken);
