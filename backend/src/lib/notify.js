@@ -245,6 +245,7 @@ function formatNotification({ recipientRole, type, meta = {} }) {
         sound: "alert",
       };
     case "booking_escalated":
+    case "new_order":
       return {
         title: "New Order",
         message: `${aBooking}${cityText} needs attention${reasonHuman ? `: ${reasonHuman}` : "."}`,
