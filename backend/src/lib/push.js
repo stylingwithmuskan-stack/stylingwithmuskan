@@ -94,6 +94,8 @@ export let voipApnProvider = null;
 
     try {
       const certPath = path.resolve(__dirname, "../config/Certificates.p12");
+      console.log(`[push] DEBUG: Checking VoIP certificate at: ${certPath}`);
+      console.log(`[push] DEBUG: VoIP Passphrase provided: ${process.env.VOIP_CERT_PASSWORD ? "YES" : "NO"}`);
       if (fs.existsSync(certPath)) {
         voipApnProvider = new apn.Provider({
           pfx: certPath,
@@ -105,7 +107,7 @@ export let voipApnProvider = null;
         console.warn(`[push] ⚠️ VoIP certificate not found at ${certPath}`);
       }
     } catch (e) {
-      console.error("[push] ❌ VoIP APN init error:", e);
+      console.error("[push] ❌ VoIP APN init error (Please check if certificate or passphrase is correct):", e);
     }
   }).catch(() => { });
 })();
@@ -521,19 +523,21 @@ export async function sendVoipPush(voipToken, bookingId, customerName, role = "p
   notification.priority = 10;
   notification.expiry = Math.floor(Date.now() / 1000) + 3600;
 
+  const callUuid = crypto.randomUUID();
+
   notification.contentAvailable = true;
   notification.payload = {
-    "content_available": true,
-    data: {
-      id: String(bookingId),
-      nameCaller: "New Booking Alert!",
-      handle: `${customerName || "Customer"} requested a service`,
-      type: 0,
-      room_id: `room_${bookingId}`,
-      extra: {
-        bookingId: String(bookingId),
-        customerName: customerName || ""
-      }
+    uuid: callUuid,
+    id: callUuid, // Using callUuid as ID instead of bookingId for CallKit uniqueness
+    nameCaller: "New Booking Alert!",
+    handle: `${customerName || "Customer"} requested a service`,
+    type: 0,
+    hasVideo: false,
+    ringtonePath: 'ringtone2.wav',
+    room_id: `room_${bookingId}`,
+    extra: {
+      bookingId: String(bookingId),
+      customerName: customerName || ""
     }
   };
 
