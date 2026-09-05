@@ -213,12 +213,10 @@ export function buildFCMPayload(notification, platform = "all") {
       priority: "high",
       notification: {
         sound: sound === "default" ? "default" : sound,
-        channelId: "high_priority_notifications",
         icon: "notification_icon",
         color: "#9333ea",
         priority: "max",
         visibility: "public",
-        notification_priority: "PRIORITY_HIGH",
         clickAction: "FLUTTER_NOTIFICATION_CLICK",
         ...(imageUrl ? { imageUrl } : {})
       },
