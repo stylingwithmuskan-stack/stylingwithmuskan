@@ -219,6 +219,7 @@ export function buildFCMPayload(notification, platform = "all") {
         priority: "max",
         visibility: "public",
         notification_priority: "PRIORITY_HIGH",
+        clickAction: "FLUTTER_NOTIFICATION_CLICK",
         ...(imageUrl ? { imageUrl } : {})
       },
     },
