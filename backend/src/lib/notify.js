@@ -532,26 +532,24 @@ export async function notify({
   }
 
   // 2. FCM Push Notification (Respect quiet hours for intrusive alerts)
-  // Backgrounding push notifications to ensure the main request finishes instantly
-  (async () => {
-    try {
-      // Bypass quiet hours for urgent notifications like ringtone or emergency
-      const isUrgent = payload.sound === "ringtone" || payload.sound === "emergency";
+  // Await push notifications immediately to ensure delivery before request ends
+  try {
+    // Bypass quiet hours for urgent notifications like ringtone or emergency
+    const isUrgent = payload.sound === "ringtone" || payload.sound === "emergency";
 
-      if (recipientRole === "provider" && respectProviderQuietHours && !isUrgent) {
-        const ok = await isWithinProviderWindow();
-        if (!ok) {
-          await queuePushForNotification(notification, "Provider quiet hours");
-        } else {
-          await sendPushForNotification(notification);
-        }
+    if (recipientRole === "provider" && respectProviderQuietHours && !isUrgent) {
+      const ok = await isWithinProviderWindow();
+      if (!ok) {
+        await queuePushForNotification(notification, "Provider quiet hours");
       } else {
         await sendPushForNotification(notification);
       }
-    } catch (error) {
-      console.error("[Notify] Push notification error:", error.message);
+    } else {
+      await sendPushForNotification(notification);
     }
-  })();
+  } catch (error) {
+    console.error("[Notify] Push notification error:", error.message);
+  }
   return notification;
 }
 
