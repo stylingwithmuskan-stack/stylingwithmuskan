@@ -226,7 +226,6 @@ export function buildFCMPayload(notification, platform = "all") {
         aps: {
           sound: "ringtone2.wav",
           badge: 1,
-          critical: isUrgent,
           "mutable-content": imageUrl ? 1 : 0,
           "content-available": 1,
         },
