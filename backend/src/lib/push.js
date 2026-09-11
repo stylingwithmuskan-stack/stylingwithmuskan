@@ -286,7 +286,7 @@ export async function sendPushForNotification(notification) {
     return { sent: 0, failed: 0 };
   }
 
-  
+
 
   const devices = await PushDevice.find({
     recipientId: notification.recipientId,
@@ -331,7 +331,7 @@ export async function sendPushForNotification(notification) {
         ).catch((err) => console.error(`[push] Failed to send VoIP to ${d._id}`, err));
         voipSentCount++;
       }
-      
+
       if (d.fcmToken) {
         // Send normal APNs push via FCM so they get the notification banner too
         iosTokens.push(d.fcmToken);

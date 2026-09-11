@@ -619,14 +619,7 @@ const ProviderBookingDetailPage = () => {
                             <p className="text-4xl font-black">₹{(booking.balanceAmount || 0).toLocaleString()}</p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 pt-2">
-                            <button
-                                onClick={() => handleFinalizePayment('online')}
-                                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl p-4 transition-all text-left group"
-                            >
-                                <Smartphone className="w-5 h-5 mb-2 opacity-80 group-hover:scale-110 transition-transform" />
-                                <p className="text-xs font-bold leading-tight">ONLINE<br /><span className="opacity-60 font-medium">UPI/Card</span></p>
-                            </button>
+                        <div className="grid grid-cols-1 gap-3 pt-2">
                             <button
                                 onClick={() => handleFinalizePayment('cash')}
                                 className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl p-4 transition-all text-left group"

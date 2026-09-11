@@ -1310,76 +1310,76 @@ export async function adminFinalApprove(req, res) {
 
       try {
         booking = await Booking.create({
-        customerId: enq.userId,
-        customerName: enq.name || bookingUser?.name || "Customer",
-        customerPhone: enq.phone || bookingUser?.phone || "",
-        services: items.map(it => ({
-          name: it.name,
-          price: Number(it.price) || 0,
-          duration: "60",
-          category: it.category || it.categoryName || "",
-          serviceType: it.serviceType || ""
-        })),
-        totalAmount: total,
-        discount: Number(enq.quote?.discountPrice) || 0,
-        discountFundedBy: enq.quote?.discountFundedBy || "admin",
-        prepaidAmount: Number(enq.quote?.prebookAmount) || 0,
-        balanceAmount: total - (Number(enq.quote?.prebookAmount) || 0),
-        address: {
-          houseNo: enq.address?.houseNo || primaryAddress.houseNo || "",
-          area: enq.address?.area || primaryAddress.area || "",
-          landmark: enq.address?.landmark || primaryAddress.landmark || "",
-          city: enq.address?.city || primaryAddress.city || "",
+          customerId: enq.userId,
+          customerName: enq.name || bookingUser?.name || "Customer",
+          customerPhone: enq.phone || bookingUser?.phone || "",
+          services: items.map(it => ({
+            name: it.name,
+            price: Number(it.price) || 0,
+            duration: "60",
+            category: it.category || it.categoryName || "",
+            serviceType: it.serviceType || ""
+          })),
+          totalAmount: total,
+          discount: Number(enq.quote?.discountPrice) || 0,
+          discountFundedBy: enq.quote?.discountFundedBy || "admin",
+          prepaidAmount: Number(enq.quote?.prebookAmount) || 0,
+          balanceAmount: total - (Number(enq.quote?.prebookAmount) || 0),
+          address: {
+            houseNo: enq.address?.houseNo || primaryAddress.houseNo || "",
+            area: enq.address?.area || primaryAddress.area || "",
+            landmark: enq.address?.landmark || primaryAddress.landmark || "",
+            city: enq.address?.city || primaryAddress.city || "",
+            cityId: enq.address?.cityId || primaryAddress.cityId || "",
+            zone: enq.address?.zone || primaryAddress.zone || "",
+            zoneId: enq.address?.zoneId || primaryAddress.zoneId || "",
+            lat: (enq.address?.lat !== undefined && enq.address?.lat !== null) ? enq.address.lat : null,
+            lng: (enq.address?.lng !== undefined && enq.address?.lng !== null) ? enq.address.lng : null,
+          },
           cityId: enq.address?.cityId || primaryAddress.cityId || "",
-          zone: enq.address?.zone || primaryAddress.zone || "",
           zoneId: enq.address?.zoneId || primaryAddress.zoneId || "",
-          lat: (enq.address?.lat !== undefined && enq.address?.lat !== null) ? enq.address.lat : null,
-          lng: (enq.address?.lng !== undefined && enq.address?.lng !== null) ? enq.address.lng : null,
-        },
-        cityId: enq.address?.cityId || primaryAddress.cityId || "",
-        zoneId: enq.address?.zoneId || primaryAddress.zoneId || "",
-        slot: {
-          date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10),
-          time: enq.scheduledAt?.timeSlot || "10:00"
-        },
-        bookingType: "customized",
-        status: "pending",
-        otp: enq.otp || (Math.floor(100000 + Math.random() * 900000)).toString(),
-        assignedProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
-        maintainProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
-        teamMembers: Array.isArray(req.body?.teamMembers) ? req.body.teamMembers : (Array.isArray(enq.teamMembers) ? enq.teamMembers : []),
-      });
-
-      console.log(`[ForceCreate] ✅ Booking Created Successfully: ${booking._id}`);
-      enq.bookingId = booking._id.toString();
-    } catch (createErr) {
-      console.error(`[ForceCreate] ❌ Booking Creation FAILED for Enquiry ${enq._id}:`, createErr.message);
-      return res.status(500).json({ error: "Failed to create booking record: " + createErr.message });
-    }
-
-    // Create notification for the assigned provider
-    if (booking.assignedProvider) {
-      try {
-        await notify({
-          recipientId: booking.assignedProvider,
-          recipientRole: "provider",
-          type: "booking_assigned",
-          meta: { bookingId: booking._id.toString() },
-          respectProviderQuietHours: true,
+          slot: {
+            date: enq.scheduledAt?.date || new Date().toISOString().slice(0, 10),
+            time: enq.scheduledAt?.timeSlot || "10:00"
+          },
+          bookingType: "customized",
+          status: "pending",
+          otp: enq.otp || (Math.floor(100000 + Math.random() * 900000)).toString(),
+          assignedProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
+          maintainProvider: req.body?.maintainerProvider || enq.maintainerProvider || "",
+          teamMembers: Array.isArray(req.body?.teamMembers) ? req.body.teamMembers : (Array.isArray(enq.teamMembers) ? enq.teamMembers : []),
         });
-      } catch { }
-    } else {
-      // If no provider is manually assigned, trigger the automated assignment flow immediately
-      try {
-        const { findNextCandidate } = await import("../../../lib/assignment.js");
-        await findNextCandidate(booking._id.toString());
-      } catch (err) {
-        console.error("[ForceCreate] Failed to trigger auto-assignment:", err);
+
+        console.log(`[ForceCreate] ✅ Booking Created Successfully: ${booking._id}`);
+        enq.bookingId = booking._id.toString();
+      } catch (createErr) {
+        console.error(`[ForceCreate] ❌ Booking Creation FAILED for Enquiry ${enq._id}:`, createErr.message);
+        return res.status(500).json({ error: "Failed to create booking record: " + createErr.message });
+      }
+
+      // Create notification for the assigned provider
+      if (booking.assignedProvider) {
+        try {
+          await notify({
+            recipientId: booking.assignedProvider,
+            recipientRole: "provider",
+            type: "booking_assigned",
+            meta: { bookingId: booking._id.toString() },
+            respectProviderQuietHours: true,
+          });
+        } catch { }
+      } else {
+        // If no provider is manually assigned, trigger the automated assignment flow immediately
+        try {
+          const { findNextCandidate } = await import("../../../lib/assignment.js");
+          await findNextCandidate(booking._id.toString());
+        } catch (err) {
+          console.error("[ForceCreate] Failed to trigger auto-assignment:", err);
+        }
       }
     }
   }
-}
-enq.status = "final_approved";
+  enq.status = "final_approved";
   enq.timeline.push({ action: "final_approved", meta: { bookingId: booking?._id?.toString?.() || "" } });
   await enq.save();
   try {
@@ -1623,13 +1623,13 @@ export async function callMask(req, res) {
 
     // Determine who is making the call
     const userId = req.user ? req.user._id.toString() : req.auth?.sub;
-    
+
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized caller" });
     }
 
     const isCustomer = String(booking.customerId || "") === userId;
-    
+
     // Check if the current user is any of the assigned providers (for both normal and custom bookings)
     const providerIds = [
       booking.assignedProvider,
@@ -1638,7 +1638,7 @@ export async function callMask(req, res) {
       ...(booking.teamMembers?.map(m => m.id) || [])
     ].map(id => String(id || ""));
     const isProvider = providerIds.includes(userId);
-    
+
     const isAdmin = req.user?.role === 'admin' || req.auth?.role === 'admin';
 
     // Security Check: Block unauthorized users

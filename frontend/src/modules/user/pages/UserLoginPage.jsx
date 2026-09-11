@@ -207,7 +207,7 @@ const UserLoginPage = () => {
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">Download Our App</p>
                 <div className="flex items-center gap-3">
                     <a 
-                        href="https://play.google.com/store/apps/details?id=com.company.stylewithmuskan" 
+                        href="https://play.google.com/store/search?q=stylingwithmuskan&c=apps" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 bg-black text-white px-4 py-2.5 rounded-xl hover:scale-105 transition-transform shadow-lg shadow-black/10 border border-white/10"

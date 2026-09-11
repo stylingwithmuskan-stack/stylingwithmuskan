@@ -14,7 +14,7 @@ export default function ProviderReferralPage() {
     
     // For now, since providers don't have a specific referral code in the schema,
     // we use a generic share link or their phone-based identifier if needed.
-    const shareLink = "https://play.google.com/store/apps/details?id=com.company.stylewithmuskan";
+    const shareLink = "https://play.google.com/store/search?q=stylingwithmuskan&c=apps";
     
     useEffect(() => {
         window.scrollTo(0, 0);
