@@ -135,7 +135,7 @@ const BannerSlider = () => {
             <p className="text-sm md:text-base text-muted-foreground">No banners available</p>
           </div>
         </div>
-      ) : (
+      ) : null}
       <div
         className="relative overflow-hidden h-48 md:h-64 lg:h-[300px] xl:h-[360px] w-full group cursor-pointer select-none"
         onMouseEnter={() => setIsPaused(true)}
@@ -272,7 +272,6 @@ const BannerSlider = () => {
           ))}
         </div>
       </div>
-      )}
     </div>
   );
 };
